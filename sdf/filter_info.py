@@ -224,8 +224,9 @@ filters['GALFUV'] = {'svo_name': 'PhotCalID=GALEX/GALEX.FUV/AB',
 filters['GALNUV'] = {'svo_name': 'PhotCalID=GALEX/GALEX.NUV/AB',
                      'response_type': 'photon'}
 
-# zero point offsets from Bessel & Murphy 2012, consider Johnson V
-# magnitude of Vega to be immutable at 0.027
+# zero point offsets from Bessel & Murphy 2012 are 0.04, 0.022, 0.027.
+# from MvB are 0.054, 0.06, 0.065 (so 0.017, 0.023, 0.027)
+# consider Johnson V magnitude of Vega to be immutable at 0.027
 filters['UJ'] = {'svo_name': 'GCPD/Johnson.U',
                  'zero_point_offset': 0.04,
                  'response_type': 'energy'}
