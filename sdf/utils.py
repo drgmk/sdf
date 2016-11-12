@@ -1,0 +1,202 @@
+from contextlib import contextmanager
+import os
+
+from scipy import sparse
+import numpy as np
+from scipy.integrate import simps
+import astropy.units as u
+
+from . import photometry
+from . import spectrum
+from . import config as cfg
+
+c_micron = 1*u.micron.to(u.Hz,equivalencies=u.spectral())
+
+
+@contextmanager
+def pushd(new_dir):
+    """A context manager that implements the `pushd` command,
+    letting you run a block of commands while in a different
+    directory
+        
+    From https://gist.github.com/theY4Kman/3583442
+    """
+    old_dir = os.getcwd()
+    os.chdir(new_dir)
+    try:
+        yield old_dir
+    finally:
+        os.chdir(old_dir)
+
+
+def bnu_wav_micron(wav_um,temp):
+    """Return a Planck function, avoiding overflows
+    """
+    k1 = 3.9728949e19
+    k2 = 14387.69
+    fact1 = k1/(wav_um**3)
+    fact2 = k2/(wav_um*temp)
+    if isinstance(wav_um,np.ndarray):
+        ofl = fact2 < 709
+        bnu = np.zeros(len(wav_um)) + cfg.tiny
+        if np.any(ofl) == False:
+            return bnu
+        else:
+            bnu[ofl] = fact1[ofl]/(np.exp(fact2[ofl])-1.0)
+            return bnu
+    else:
+        if fact2 > 709:
+            return cfg.tiny
+        else:
+            return fact1/(np.exp(fact2)-1.0)
+
+        
+def bnu_nu_hz(nu_hz,temp):
+    wav_um = c_micron / nu_hz
+    return bnu_wav_micron(wav_um,temp)
+
+def sdf_int(y,x):
+    """Decide how we do integration in sdf"""
+    return np.trapz(y,x)
+#    return simps(y,x)
+
+def validate_1d(value,expected_len,dtype=float):
+    
+    if type(value) in [list, tuple]:
+        value = np.array(value,dtype=dtype)
+        
+    if value is None:
+        value = value
+    elif isinstance(value, np.ndarray) and value.ndim == 1:
+        if expected_len is not None:
+            if len(value) != expected_len:
+                raise SdfError("incorrect length (expected {0} but found {1})".format(expected_len, len(value)))
+        if value.dtype != dtype:
+                value = np.array(value,dtype=dtype)
+    else:
+        raise TypeError("should be a 1-d sequence")
+    
+    return value
+
+def validate_nd(value,expected_dim,dtype=float):
+    
+    if value is None:
+        value = value
+    elif isinstance(value, np.ndarray):
+        if expected_dim is not None:
+            if value.ndim != expected_dim:
+                raise SdfError("incorrect dimension (expected {0} but found {1})".format(expected_dim, value.ndim))
+        if value.dtype != dtype:
+            value = np.array(value,dtype=dtype)
+    else:
+        raise TypeError("should be an n-d ndarray")
+    
+    return value
+
+def validate_string(value):
+    if value is None:
+        return value
+    elif isinstance(value, str):
+        return value
+    else:
+        raise TypeError("should be a string")
+
+def validate_dict(value):
+    if value is None:
+        return value
+    elif isinstance(value, dict):
+        return value
+    else:
+        raise TypeError("should be a dict")
+
+def validate_float(value):
+    if value is None:
+        return value
+    elif isinstance(value, float):
+        return value
+    else:
+        raise TypeError("{} should be a float".format(value))
+
+def validate_function(value):
+    if value is None:
+        return value
+    elif callable(value):
+        return value
+    else:
+        raise TypeError("should be a function")
+
+def validate_quantity(value):
+    if value is None:
+        return value
+    elif isinstance(value, u.Quantity):
+        return value
+    else:
+        raise TypeError("should be an astropy units Quantity")
+
+class SdfError(Exception):
+    """Use this for non-standard errors
+    """
+    pass
+
+
+def resample_matrix(wave_in,new_wave,new_R,old_R=np.inf,
+                    kern_width=5):
+    """Return a resampling/convolution kernel
+        
+    Copied from Casey's sick, modified to ensure the range of indices
+    included near each resampled wavelength are appropriate (rather
+    than a single value for the whole spectrum).
+    """
+
+    # this will be the shape of the convolution matrix
+    N, M = (new_wave.size, wave_in.size)
+
+    # width of the kernel (dlambda=lambda/R) at each point
+    fwhms = new_wave / float(new_R)
+    if np.isfinite(old_R):
+        assert old_R > new_R
+        fwhms -= new_wave / float(old_R)
+
+    # 2.355 ~= 2 * sqrt(2*log(2))
+    sigmas = fwhms/2.3548200450309493
+
+    # approx center indices for new wavs in old
+    ioff = wave_in.searchsorted(new_wave)
+    ioff = np.clip(ioff,0,M-1)
+
+    # index ranges covered by convolution at a given point
+    dlambda = np.diff(wave_in)
+    dlambda = np.append(dlambda,dlambda[-1])
+    dlambda = dlambda[ioff]
+    nkern = np.ceil(kern_width * sigmas / dlambda).astype(int)
+
+    # For +/- N_kernel_pixels at each point, calculate the kernel
+    # and retain the indices.
+    x_indices = np.array([],dtype=int)
+    pdf = np.array([],dtype=int)
+    for i in range(N):
+        xtmp = np.arange(ioff[i] - nkern[i],ioff[i] + nkern[i],1)
+        xtmp = np.clip(xtmp,0,M-1)
+        x_indices = np.append(x_indices,xtmp)
+        pdftmp = np.exp(-(wave_in[xtmp] - new_wave[i])**2/(2.*sigmas[i]**2))
+        pdftmp /= pdftmp.sum()
+        pdf = np.append(pdf,pdftmp)
+
+    y_indices = np.repeat(np.arange(N), 2 * nkern)
+
+    return sparse.coo_matrix((pdf, (x_indices, y_indices)), shape=(M, N))
+
+
+def get_observations(file):
+    """Get observations from a sdb file."""
+
+    # first photometry
+    p = photometry.Photometry.read_sdb_file(file) # Photometry object
+    # then a tuple of ObsSpectrum objects
+    s = spectrum.ObsSpectrum.read_sdb_file(file,module_split=True)
+    if s is None:
+        obs = (p,)
+    else:
+        obs = (p,) + s
+
+    return obs
