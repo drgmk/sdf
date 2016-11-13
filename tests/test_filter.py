@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-import astropy.units as u
+#import astropy.units as u
 
 from .context import sdf
 
@@ -27,10 +27,10 @@ def test_filter_get_filter():
             assert( isinstance(filt,sdf.filter.Filter) )
 
 def test_filter_zero_point():
-    f = sdf.filter.Filter(zero_point=1234.*u.Jy,zero_point_offset=0.0)
-    assert(f.mag2flux(0.)==1234.*u.Jy)
-    assert(f.mag2flux(2.5)==1234.*u.Jy/10.0)
-    assert(f.mag2flux(-2.5)==1234.*u.Jy*10.0)
+    f = sdf.filter.Filter(zero_point=1234.0,zero_point_offset=0.0)
+    assert(f.mag2flux(0.)==1234.0)
+    assert(f.mag2flux(2.5)==1234.0/10.0)
+    assert(f.mag2flux(-2.5)==1234.0*10.0)
 
 def test_filter_sort():
     f = sdf.filter.Filter(nu_hz=[3,2,1],response=[1,2,3])
@@ -122,9 +122,9 @@ def test_filter_mean_wavelength():
     assert(f.mean_wavelength==12.0/4.0)
 
 def test_iscolour():
-    fs = ['UJ','BS_YS','MIPS24','STROMM1']
+    fs = ('UJ','BS_YS','MIPS24','STROMM1')
     result = sdf.filter.iscolour(fs)
-    assert(result==[False,True,False,True])
+    assert(np.all(np.equal(result,[False,True,False,True])))
 
 def test_colour_get():
     fs = sdf.filter.Filter.all

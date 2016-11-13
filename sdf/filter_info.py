@@ -326,7 +326,7 @@ filters['IRAC8'] = {'svo_name': 'Spitzer/IRAC.I4',
 
 filters['IRSPUB'] = {
     'magnitude_system':    'Vega',
-    'zero_point':           0.00000 * u.jansky,
+    'zero_point':           0.00000,
     'zero_point_ref':      'bla',
     'ref_wavelength':       15.8,
     'ref_spectrum':         lambda nu: 1.0/nu,
@@ -370,7 +370,7 @@ filters['IRSPUB'] = {
 
 filters['IRSPUR'] = {
     'magnitude_system':    'Vega',
-    'zero_point':           0.00000 * u.jansky,
+    'zero_point':           0.00000,
     'zero_point_ref':      'bla',
     'ref_wavelength':       22.3,
     'ref_spectrum':         lambda nu: 1.0/nu,
@@ -522,7 +522,7 @@ filters['SPIRE500'] = {'svo_name': 'Herschel/SPIRE.PLW',
 # LBTI NOMIC N, assume QE based
 filters['NOMICN'] = {
     'magnitude_system':    'Vega',
-    'zero_point':           31.3207 * u.jansky,
+    'zero_point':           31.3207,
     'zero_point_ref':      'bla',
     'ref_wavelength':       None,
     'ref_spectrum':         None,
