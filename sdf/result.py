@@ -113,9 +113,13 @@ class Result(object):
         # photometry etc., this is largely copied from fitting.residual
         
         # concatenated fluxes
-        tmp = fitting.concat_obs(self.obs,tuple(self.parameters))
+        tmp = fitting.concat_obs(self.obs)
         self.obs_fnujy,self.obs_e_fnujy,self.obs_upperlim,self.filters_ignore,\
-            obs_nel,self.wavelengths,self.filters,self.obs_bibcode = tmp
+            obs_ispec,obs_nel,self.wavelengths,self.filters,self.obs_bibcode = tmp
+
+        spec_norm = np.take(self.parameters+[1.0],obs_ispec)
+        self.obs_fnujy = self.obs_fnujy * spec_norm
+        self.obs_e_fnujy = self.obs_fnujy * spec_norm
 
         # get model fluxes, including filling of colours/indices
         self.model_fnujy,self.model_comp_fnujy                      \

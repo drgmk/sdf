@@ -18,20 +18,17 @@ global_mod = ()
 global_p_rng = ()
 
 
-#@lru_cache(maxsize=2)
-def concat_obs(o,paramin,phot_only=False):
+@lru_cache(maxsize=2)
+def concat_obs(o):
     """Concatenate observations
 
     Concatenate the observations (filters and spectra), including
     shifting the normalisation of the spectra and noting how
     many observations there are in each component (as the models
     will probably contain more due to colours/indices).
-    
-    TODO: aside from the spectral normalisation this function could
-    be the same for every call. Consider how to memoize.
+
     """
     
-    param = np.array(paramin) # was a tuple, hashable for memoization
     obs_wav = np.array([],dtype=float)
     obs_filt = np.array([],dtype=object)
     obs_fnu = np.array([],dtype=float)
@@ -40,31 +37,32 @@ def concat_obs(o,paramin,phot_only=False):
     obs_ignore = np.array([],dtype=bool)
     obs_bibcode = np.array([],dtype=str)
     obs_nel = np.array([],dtype=int)
-    ispec = -1
+    ispec = -2 # start one extra from end, we will put -1 there for phot
+    obs_ispec = np.array([],dtype=int)
     for obs in o:
         if isinstance(obs,photometry.Photometry):
             obs_wav = np.append(obs_wav,obs.mean_wavelength())
             obs_filt = np.append(obs_fnu,obs.filters)
             obs_fnu = np.append(obs_fnu,obs.fnujy)
             obs_e_fnu = np.append(obs_e_fnu,obs.e_fnujy)
+            obs_ispec = np.append(obs_ispec,np.repeat(-1,len(obs.filters)))
             obs_uplim = np.append(obs_uplim,obs.upperlim)
             obs_ignore = np.append(obs_ignore,obs.ignore)
             obs_bibcode = np.append(obs_bibcode,obs.bibcode)
         elif isinstance(obs,spectrum.ObsSpectrum):
-            if phot_only:
-                continue
             n = len(obs.wavelength)
             obs_wav = np.append(obs_wav,obs.wavelength)
             obs_filt = np.append(obs_filt,np.repeat(None,n))
-            obs_fnu = np.append(obs_fnu,obs.fnujy*param[ispec])
-            obs_e_fnu = np.append(obs_e_fnu,obs.e_fnujy*param[ispec])
+            obs_fnu = np.append(obs_fnu,obs.fnujy)
+            obs_e_fnu = np.append(obs_e_fnu,obs.e_fnujy)
+            obs_ispec = np.append(obs_ispec,np.repeat(ispec,n))
             ispec -= 1
             obs_uplim = np.append(obs_uplim,np.zeros(n,dtype=bool))
             obs_ignore = np.append(obs_ignore,np.zeros(n,dtype=bool))
             obs_bibcode = np.append(obs_bibcode,np.repeat(obs.bibcode,n))
         obs_nel = np.append(obs_nel,len(obs.fnujy))
 
-    return (obs_fnu,obs_e_fnu,obs_uplim,obs_ignore,
+    return (obs_fnu,obs_e_fnu,obs_uplim,obs_ignore,obs_ispec,
            obs_nel,obs_wav,obs_filt,obs_bibcode)
 
 
@@ -94,14 +92,21 @@ def residual(param,*args):
     to be added first, and then derived, PhotModels have extra
     elements with the colour/index base filters, which are used
     to derive the colours/indices as we go.
+    
     """
 
     o,m = args # observations and models
     
-    # concatenate observations, make params to be tuple (hashable)
-    obs = concat_obs(o,tuple(param))
-    obs_fnu,obs_e_fnu,obs_uplim,obs_ignore,obs_nel,obs_wav,obs_filt,_ = obs
+    # concatenate observations
+    obs_fnu,obs_e_fnu,obs_uplim,obs_ignore,obs_ispec,\
+            obs_nel,obs_wav,obs_filt,_ = concat_obs(o)
     
+    # multiply spectra by appropriate normalisation, ispec starts at
+    # -2 so we can add 1.0 for photometry at the end of the params
+    spec_norm = np.take(np.append(param,1.0),obs_ispec)
+    obs_fnu = obs_fnu * spec_norm
+    obs_e_fnu = obs_e_fnu * spec_norm
+
     # get model fluxes, including filling of colours/indices
     mod_fnu,_ = model.model_fluxes(m,param,obs_nel)
 
@@ -109,7 +114,6 @@ def residual(param,*args):
     # is to be ignored, and for upper limits (but amended below)
     resid = np.zeros(len(obs_fnu))
     ok = np.invert( np.any([obs_uplim,obs_ignore],axis=0) )
-#    print(obs,obs_uplim,obs_ignore,ok)
     resid[ok] = (obs_fnu[ok] - mod_fnu[ok]) / obs_e_fnu[ok]
 
     # set residual if any upper limits exceeded, otherwise zero

@@ -230,3 +230,11 @@ def uvby_convert(by,m1,c1):
         c1_out = (c1 - m1_2[0])/c1_2[1]
 
     return by_out,m1_out,c1_out
+
+
+def linterp(newx,x,y):
+    """Linear interpolation."""
+
+    hi = x.searchsorted(newx)
+    lo = hi - 1
+    return y[lo] + (y[hi]-y[lo])*(newx-x[lo])/(x[hi]-x[lo])

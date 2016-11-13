@@ -93,6 +93,13 @@ class Model(object):
             fnuunit = header1['BUNIT']
             self.fnujy_sr = self.fnujy_sr * u.Unit(fnuunit).to('Jy / sr')
 
+        # integer indices of filters/wavelengths
+        if type == 'PhotModel':
+            self.i = np.arange(len(self.filters))
+        elif type == 'SpecModel':
+            self.i = np.arange(len(self.wavelength))
+        self.n_i = len(self.i)
+
         return self
 
 
@@ -152,6 +159,18 @@ class Model(object):
         """Return a regular grid interpolator.
             
         Memoizing doesn't appear to save any time.
+        
+        This was the chunk of code in fnujy below:
+        
+        # scipy.RegularGridInterpolator, save a bit of time since the
+        # interpolator object is the same for each model. first we
+        # create grid points we want, each row is just the different
+        # filter numbers assigned above with the parameters appended
+#        pargrid = np.tile(par,len(wave_arr)).reshape((len(wave_arr),len(par)))
+#        pargrid = np.insert(pargrid,0,wave_arr,axis=1)
+#        f = self.rginterpolator()
+#        fluxes = f(pargrid)
+
         """
     
         if isinstance(self,PhotModel):
@@ -183,46 +202,33 @@ class Model(object):
         than RegularGridInterpolator, but is hindered somewhat by the
         need to do interpolation first to find the grid points needed by
         map_coordinates. np.interp seems to be faster than scipy
-        UnivariateSpline for this step. """
+        UnivariateSpline for this step.
+            
+        """
 
         # prepend this to the interpolation to return the results at all
         # filters/wavelengths
-        if isinstance(self,PhotModel):
-            wave_arr = np.arange(len(self.filters))
-        elif isinstance(self,SpecModel):
-            wave_arr = np.arange(len(self.wavelength))
-        
+        wave_arr = self.i
+        nwav = self.n_i
+
         # make sure par is a numpy array
         par_len = len(param)-1
 
         area_sr = ssr * 10**( param[-1] )
         par = param[:par_len]
 
-        if len(par) != len(self.parameters):
-            raise SdfError("got different no. of parameters than exist, got {}\
-                           but {} ({}) exist".format(len(par),
-                                                     len(self.parameters),
-                                                     self.parameters))
-
-        # scipy.RegularGridInterpolator, save a bit of time since the
-        # interpolator object is the same for each model. first we
-        # create grid points we want, each row is just the different
-        # filter numbers assigned above with the parameters appended
-#        pargrid = np.tile(par,len(wave_arr)).reshape((len(wave_arr),len(par)))
-#        pargrid = np.insert(pargrid,0,wave_arr,axis=1)
-#        f = self.rginterpolator()
-#        fluxes = f(pargrid)
-
         # scipy.ndimage.map_coordinates, only real difference compared
         # to RegularGridInerpolator is that the coordinates are given
         # in pixels, so must be interpolated from the parameters first
+        # using a homegrown 1pt interpolation linterp was no faster than
+        # no.interp
         coords = []
         for i,p in enumerate(self.parameters):
             coords.append( np.interp( par[i],self.param_values[p],
-                                      range(len(self.param_values[p])) ) )
+                                      np.arange(len(self.param_values[p])) ) )
 
-        pargrid = np.tile(np.array(coords),len(wave_arr)).\
-                          reshape( (len(wave_arr),par_len) )
+        pargrid = np.tile(np.array(coords),nwav).\
+                          reshape( (nwav,par_len) )
         pargrid = np.insert(pargrid,0,wave_arr,axis=1)
 
         fluxes = map_coordinates(self.fnujy_sr,pargrid.T,
@@ -543,7 +549,7 @@ class PhotModel(Model):
 
 
     def keep_filters(self,filternames,colour_bases=False):
-        """Keep only desired filters from a model
+        """Keep only desired filters from a model.
         
         Optionally keep the base filters that are used to compute
         colours/indices. Avoid duplicates.
@@ -585,6 +591,9 @@ class PhotModel(Model):
             self.fill_colour_bases()
         else:
             self.colour_bases = []
+
+        self.i = np.arange(len(self.filters))
+        self.n_i = len(self.i)
 
 
 class SpecModel(Model):
@@ -743,7 +752,7 @@ class SpecModel(Model):
 
 
     def interp_to_wavelengths(self,wavelength,log=True):
-        """Interpolate the model to the given wavelengths
+        """Interpolate the model to the given wavelengths.
 
         TODO: this only needs to be run at the beginning of a fit but is
         pretty slow, can we speed it up with UnivariateSpline?
@@ -776,6 +785,9 @@ class SpecModel(Model):
             self.fnujy_sr = np.power(10,cube_interp)
         else:
             self.fnujy_sr = cube_interp
+
+        self.i = np.arange(len(self.wavelength))
+        self.n_i = len(self.i)
 
 
 def model_fluxes(m,param,obs_nel,phot_only=False):
