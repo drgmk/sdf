@@ -106,9 +106,13 @@ Johnson
   Cousins RI), Koen (UBV).
 
 Stromgren
-  Filters and zero points are from MvB. Vega has non-zero magnitudes in
-  this system (e.g. Gray 1998), and measurements in this system are
-  only in colours/indices so the absolute calibration is not important.
+  Filters are from MvB, zero points from various sources are very
+  similar, and all seem to have similar problems. Using the corrections
+  of Bessell 2011 doesn't seem to help.
+  
+  Vega has non-zero magnitudes in this system (e.g. Gray 1998), and 
+  measurements in this system are only in colours/indices so the 
+  absolute calibration is not important.
   
 Hipparcos/Tycho
   Filters are from MvB, zero points re-derived with "Vega". Photometry
@@ -246,29 +250,70 @@ filters['IC'] = {'svo_name': 'GCPD/Cousins.I',
                  'response_type': 'energy',
                  'zero_point': 2510.0}             # wrong on SVO
 
-# Stromgren computed from Maiz-Appelaniz 2006 is 1.435, 0.021, 0.182,
+# Stromgren (uvby) from Maiz-Appelaniz 2006 is 1.435, 0.182, 0.021,
 # 0.014. Comparing Mann & von Braun and CALSPEC zero points gives 1.426,
-# 0.047, 0.198, 0.053. Gray 1998 gives 1.445, 0.034, 0.195, 0.03 and
+# 0.198, 0.047, 0.053. Gray 1998 gives 1.445, 0.034, 0.195, 0.03 and
 # GCPD is almost exactly the same. Bessel gives coefficients to convert
 # between observed and synthetic photometry, having assumed the GCPD
 # zero points, which are a function of b-y, so needs to be implemented
 # elsewhere (i.e. file read time)
 filters['US'] = {'svo_name': 'GCPD/Stromgren.u',
+                 'magnitude_system': 'Vega',
                  'zero_point_offset': 1.445,
-                 'response_type': 'energy'}
-filters['BS'] = {'svo_name': 'GCPD/Stromgren.b',
-                 'zero_point_offset': 0.034,
-                 'response_type': 'energy'}
+                 'response_type': 'energy'
+                 # Bessell 2011 responses, photon counting
+#                 'wav_micron': [0.3150, 0.3175, 0.3200, 0.3225, 0.3250,
+#0.3275, 0.3300, 0.3325, 0.3350, 0.3375, 0.3400, 0.3425, 0.3450, 0.3475,
+#0.3500, 0.3525, 0.3550, 0.3575, 0.3600, 0.3625, 0.3650, 0.3675, 0.3700,
+#0.3725, 0.3750, 0.3775, 0.3800, 0.3825, 0.3850],
+#                 'response': [0.000, 0.004, 0.050, 0.122, 0.219, 0.341,
+#0.479, 0.604, 0.710, 0.809, 0.886, 0.939, 0.976, 1.000, 0.995, 0.981,
+#0.943, 0.880, 0.782, 0.659, 0.525, 0.370, 0.246, 0.151, 0.071, 0.030,
+#0.014, 0.000, 0.000]
+                 }
 filters['VS'] = {'svo_name': 'GCPD/Stromgren.v',
+                 'magnitude_system': 'Vega',
                  'zero_point_offset': 0.195,
-                 'response_type': 'energy'}
+                 'response_type': 'energy'
+#                 'wav_micron': [0.3750, 0.3775, 0.3800, 0.3825,
+#0.3850, 0.3875, 0.3900, 0.3925, 0.3950, 0.3975, 0.4000, 0.4025, 0.4050,
+#0.4075, 0.4100, 0.4125, 0.4150, 0.4175, 0.4200, 0.4225, 0.4250, 0.4275,
+#0.4300, 0.4325, 0.4350, 0.4375, 0.4400, 0.4425, 0.4450],
+#                 'response': [0.000, 0.003, 0.006, 0.016, 0.029, 0.044,
+#0.060, 0.096, 0.157, 0.262, 0.404, 0.605, 0.810, 0.958, 1.000, 0.973,
+#0.882, 0.755, 0.571, 0.366, 0.224, 0.134, 0.079, 0.053, 0.039, 0.027,
+#0.014, 0.006, 0.000]
+                 }
+filters['BS'] = {'svo_name': 'GCPD/Stromgren.b',
+                 'magnitude_system': 'Vega',
+                 'zero_point_offset': 0.034,
+                 'response_type': 'energy'
+#                 'wav_micron': [0.4350, 0.4375, 0.4400, 0.4425, 0.4450,
+#0.4475, 0.4500, 0.4525, 0.4550, 0.4575, 0.4600, 0.4625, 0.4650, 0.4675,
+#0.4700, 0.4725, 0.4750, 0.4775, 0.4800, 0.4825, 0.4850, 0.4875, 0.4900,
+#0.4925, 0.4950, 0.4975, 0.5000, 0.5025, 0.5050],
+#                 'response': [0.000, 0.010, 0.023, 0.039, 0.056, 0.086,
+#0.118, 0.188, 0.287, 0.457, 0.681,  0.896, 0.998, 1.000, 0.942, 0.783,
+#0.558, 0.342, 0.211, 0.130, 0.072, 0.045,  0.027, 0.021, 0.015, 0.011,
+#0.007, 0.003, 0.000]
+                 }
 filters['YS'] = {'svo_name': 'GCPD/Stromgren.y',
+                 'magnitude_system': 'Vega',
                  'zero_point_offset': 0.03,
-                'response_type': 'energy'}
+                 'response_type': 'energy'
+#                 'wav_micron': [0.5150, 0.5175, 0.5200, 0.5225, 0.5250,
+#0.5275, 0.5300, 0.5325, 0.5350, 0.5375, 0.5400, 0.5425, 0.5450, 0.5475,
+#0.5500, 0.5525, 0.5550, 0.5575, 0.5600, 0.5625, 0.5650, 0.5675, 0.5700,
+#0.5725, 0.5750, 0.5775, 0.5800, 0.5825, 0.5850],
+#                 'response': [0.000, 0.022, 0.053, 0.082, 0.116, 0.194,
+#0.274, 0.393, 0.579, 0.782, 0.928, 0.985, 0.999, 1.000, 0.997, 0.938,
+#0.789, 0.574, 0.388, 0.232, 0.143, 0.090, 0.054, 0.031, 0.016, 0.010,
+#0.009, 0.004, 0.000]
+                 }
 
 # zero point offsets from Bessel & Murphy 2012
 filters['BT'] = {'svo_name': 'TYCHO/TYCHO.B_MvB',
-                 'zero_point_offset': 0.04,
+                 'zero_point_offset': 0.03,
                  'response_type': 'energy'}
 filters['VT'] = {'svo_name': 'TYCHO/TYCHO.V_MvB',
                  'zero_point_offset': 0.023,
@@ -286,14 +331,13 @@ filters['D51'] = {'svo_name': 'KPNO/Mosaic.D51',
                   'response_type': 'photon'}
 
 # 2MASS, assume no difference between R1/R2 until evidence otherwise,
-# zero point offsets from Cohen+2003 (who assume Vega=0)
-# use Rieke Vega Ks=-0.036 to anchor them by subtracting 0.019
-# after doing this, J wants to be about 1% lower, and H/Ks 1% higher
+# zero point offsets from Cohen+2003 (who assume Vega=0), adjust J/H by
+# 2%.
 filters['2MJ'] = {'svo_name': '2MASS/2MASS.J',
-                 'zero_point_offset': -0.001,
+                 'zero_point_offset': -0.001-0.02,
                   'response_type': 'energy'}
 filters['2MH'] = {'svo_name': '2MASS/2MASS.H',
-                 'zero_point_offset': 0.019,
+                 'zero_point_offset': 0.019+0.02,
                   'response_type': 'energy'}
 filters['2MKS'] = {'svo_name': '2MASS/2MASS.Ks',
                    'zero_point_offset': -0.017,

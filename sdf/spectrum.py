@@ -70,7 +70,8 @@ class Spectrum(object):
                     ccs = np.append( ccs, cc)
                         
             else:
-                raise SdfError("synthphot requires either filter class or string, not {} or type {}".format(f,type(f)))
+                raise SdfError("synthphot requires either filter class or\
+                               string, not {} or type {}".format(f,type(f)))
                     
         return fnus,ccs
 
@@ -146,7 +147,8 @@ class Spectrum(object):
         return copy.copy(self)
 
 
-    def extend_power_law(self,max_wav_micron=cfg.models['max_wav_micron'],index=-2.):
+    def extend_power_law(self,max_wav_micron=cfg.models['max_wav_micron'],
+                         index=-2.):
         """Extrapolate a spectrum to a longer maximum wavelength.
             
         Extrapolate from the last few points using a power law, default
@@ -154,7 +156,8 @@ class Spectrum(object):
         """
     
         if max_wav_micron <= np.max(self.wavelength):
-            raise ValueError("max_wav_micron {} should be longer than current max of {}".format(max_wav_micron,self.wavelength))
+            raise ValueError("max_wav_micron {} should be longer than current\
+                             max of {}".format(max_wav_micron,self.wavelength))
     
         self.sort('wave')
         self.wavelength = np.append(self.wavelength,max_wav_micron)
@@ -304,7 +307,8 @@ class ObsSpectrum(Spectrum):
                 ok = (t['module'] == mod) & (np.isfinite(t['error (RMS+SYS)']))
                 s[i].wavelength = t['wavelength'].data[ok]
                 s[i].nu_hz = c_micron / t['wavelength'].data[ok]
-                s[i].fnujy = t['flux'].data[ok] * u.Unit(fh[0].header['BUNIT']).to('Jy')
+                s[i].fnujy = t['flux'].data[ok] \
+                             * u.Unit(fh[0].header['BUNIT']).to('Jy')
                 s[i].e_fnujy = t['error (RMS+SYS)'].data[ok]
                 s[i].bibcode = '2011ApJS..196....8L'
                 s[i].sort('wave')
@@ -547,16 +551,18 @@ class ModelSpectrum(Spectrum):
     def read_phoenix(cls,file):
         """Return the spectrum from a PHOENIX model
         
-        TODO: A factor of pi is needed to get the PHOENIX models into
-        Jy/sr (and get stellar radii correct). The docs 
-        https://phoenix.ens-lyon.fr/Grids/FORMAT suggest that 
-        (Rstar/d)^2 is the normalisation, so divide spectra by pi here.
-        
-        TODO: Can this go faster? BT-Settl files are epic
-
         Format is wavelength (A), flam (erg/s/cm^2/cm), bnu 
         (erg/s/cm^2/cm), and a bunch of other stuff we don't care 
         about. The flam column is log10(flam).
+
+        A factor of pi is needed to get the PHOENIX models into Jy/sr
+        (and get stellar radii correct). The docs
+        https://phoenix.ens-lyon.fr/Grids/FORMAT suggest that
+        (Rstar/d)^2 is the normalisation, so divide spectra by pi here.
+        Comparing the results with Kurucz models shows this is correct.
+        
+        TODO: Can this go faster? BT-Settl files are epic
+
         """
         self = cls()
 
@@ -587,8 +593,7 @@ class ModelSpectrum(Spectrum):
         return self
 
 
-    @classmethod
-    def read_kurucz(cls,file):
+    def read_kurucz(file):
         """Read a grid of Castelli & Kurucz models from a specific file.
         Returns a tuple with (teff,logg,[M/H],models), where the first
         three are arrays with the parameters of each model, and models
@@ -633,7 +638,8 @@ class ModelSpectrum(Spectrum):
                 metalAlpha = re.search('\[([\s+-]?\d+\.\d+)([aAbB]?)\]?',l)
                 mh = np.append(mh,float(metalAlpha.groups()[0]))
                 if metalAlpha.groups()[1] != '':
-                    raise SdfError("Alpha non-nothing ({}), wtf?".format(metalAlpha.groups()))
+                    raise SdfError("Alpha non-nothing ({}), wtf?".\
+                                   format(metalAlpha.groups()))
             else:
                 for c in cols:
                     if c[0] < len(l):
@@ -641,7 +647,7 @@ class ModelSpectrum(Spectrum):
                 
             # add complete model to list
             if len(model) > 0 and ('TEFF' in l or i == len(lines)-1):
-                self = cls()
+                self = ModelSpectrum()
                 self.name = 'kurucz'
                 self.parameters = ['Teff','logg','[M/H]']
                 # if next model has been started we want

@@ -65,10 +65,8 @@ class Filter(object):
     dictionary that comes from compiliing that file, otherwise they will
     not be computed in the models.
     
-    A zero point offset of 0.026 is set by default, which assumes that
-    Vega-based systems where detailed zero point offsets have not been
-    derived use a set of A0 stars as standards, or are linked to Cohen
-    calibrators, or similar.    
+    A zero point offset of zero is set by default.
+    
     """
 
     # this needs to return all desired filters, colours, and indices
@@ -235,7 +233,8 @@ class Filter(object):
         """
 
         if self.zero_point is None or self.zero_point_offset is None:
-            raise SdfError("no zero point or offset for filter {})".format(self.name))
+            raise SdfError("no zero point or offset for filter {})".
+                           format(self.name))
         return self.zero_point * 10**(-0.4*(mag-self.zero_point_offset))
     
     
@@ -248,7 +247,8 @@ class Filter(object):
         """
         
         if self.zero_point is None or self.zero_point_offset is None:
-            raise SdfError("no zero point or offset for filter {})".format(self.name))
+            raise SdfError("no zero point or offset for filter {})".\
+                           format(self.name))
         return self.zero_point_offset                               \
                - 2.5 * np.log10( flux / self.zero_point )
 
@@ -331,6 +331,7 @@ class Filter(object):
         
         For colours and indices the call needs to be done using the
         synthphot method for Spectrum objects.
+        
         """
 
         if hasattr(spectrum,'fnujy'):

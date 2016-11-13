@@ -14,7 +14,7 @@ def setup_all():
     """Rederive all models."""
     setup_spec()
     setup_phot()
-    phoenix_phot_spec_models(overwrite=True)
+    # phoenix_phot_spec_models(overwrite=True)
 
 
 def setup_spec():
@@ -78,7 +78,8 @@ def kurucz_spectra():
         
     The models are called 'kurucz'.
     """
-    m=model.SpecModel.read_kurucz(cfg.file['kurucz_models']+'fp00k2odfnew.pck')
+    m=model.SpecModel.read_kurucz(cfg.file['kurucz_models']\
+                                  +'fp00k2odfnew.pck')
     m.write_model('kurucz',overwrite=True)
 
 
@@ -90,10 +91,12 @@ def convolve_kurucz(file='fp00k2odfnew.pck',overwrite=False):
     """
 
     # get the models and ensure they are sorted in order
-    m,te,lg,mh = spectrum.ModelSpectrum.read_kurucz(cfg.file['kurucz_models']+file)
+    m,te,lg,mh = spectrum.ModelSpectrum.\
+                    read_kurucz(cfg.file['kurucz_models']+file)
     trange = [3500,26000]
     lrange = [3,5]
-    ok = (te >= trange[0]) & (te <= trange[1]) & (lg >= lrange[0]) & (lg <= lrange[1])
+    ok = (te >= trange[0]) & (te <= trange[1]) & \
+         (lg >= lrange[0]) & (lg <= lrange[1])
     par = np.zeros( np.sum(ok), dtype=[('Teff',float),('logg',float)] )
     par['Teff'] = te[ok]
     par['logg'] = lg[ok]
@@ -116,10 +119,10 @@ def convolve_kurucz(file='fp00k2odfnew.pck',overwrite=False):
             print("Skipping {}, file exists".format(fname))
         else:
             print("Convolving filter {}".format(fname))
-            cm = convolve.ConvolvedModel(name='kurucz',
-                                         filter=fname,parameters=['Teff','logg'],
-                                         param_values={'Teff':teff,'logg':logg},
-                                         fnujy_sr=fnujy_sr)
+            cm =convolve.ConvolvedModel(name='kurucz',filter=fname,
+                                        parameters=['Teff','logg'],
+                                        param_values={'Teff':teff,'logg':logg},
+                                        fnujy_sr=fnujy_sr)
             for i in range(len(teff)):
                 for j in range(len(logg)):
                     conv,cc = grid[i,j].synthphot(fname)
@@ -214,7 +217,8 @@ def phoenix_phot_spec_models(overwrite=False):
 
     for i,sp in enumerate(spec):
         if not np.all( np.equal(s.wavelength,sp.wavelength) ):
-            raise SdfError("wavelength grids not the same in files {} and {}".format(fs[0],fs[i]))
+            raise SdfError("wavelength grids not the same \
+                            in files {} and {}".format(fs[0],fs[i]))
         j = np.where(teff[i] == teffarr)[0][0]
         k = np.where(logg[i] == loggarr)[0][0]
         s.fnujy_sr[:,j,k] = sp.fnujy_sr

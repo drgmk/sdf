@@ -314,7 +314,12 @@ def calibration(file):
     filters = cursor.fetchall()
     filters = [f for (f,) in filters]
     wav = filter.mean_wavelength(filters)
-    srt = np.argsort(wav)
+
+    # use fields to allow sorting by wave and then filter name
+    f_w = np.array([i for i in zip(filters,wav)],
+                   dtype=[('filter','S20'),('wav',float)])
+    srt = np.argsort(f_w,order=('wav','filter'))
+
     filters = np.array(filters)[srt]
     wav = np.array(wav)[srt]
 
@@ -326,7 +331,6 @@ def calibration(file):
 
         if wav[i] > 30:
             continue
-        print("  ",f)
 
         # grab the data for this filter
         data = {'id':[],'chi':[],'R':[],'Teff':[]}
@@ -345,6 +349,8 @@ def calibration(file):
             data['Teff'].append(pars[0])
             col = np.append(col, cdof )
         
+        print("  ",f,":",len(col))
+
         # set colour range, clipped at chisq/dof=10
         col = np.clip(255 * col / 10.,0,255)
         data['col'] = np.array(palettes.Viridis256)[col.astype(int)]

@@ -202,7 +202,7 @@ class Model(object):
         than RegularGridInterpolator, but is hindered somewhat by the
         need to do interpolation first to find the grid points needed by
         map_coordinates. np.interp seems to be faster than scipy
-        UnivariateSpline for this step.
+        UnivariateSpline or simple 1pt interpolation for this step.
             
         """
 
@@ -757,10 +757,10 @@ class SpecModel(Model):
         TODO: this only needs to be run at the beginning of a fit but is
         pretty slow, can we speed it up with UnivariateSpline?
 
-        TODO: this will be straight linear/log interpolation for a
-        start, but should probably smooth the spectra first since the
-        given wavelength grid will almost certainly be near the spectral
-        resolution of whatever instrument it came from.
+        TODO: this is straight linear/log interpolation, but could
+        smooth the spectra first since the given wavelength grid will
+        almost certainly be near the spectral resolution of whatever
+        instrument it came from.
 
         """
         
@@ -886,7 +886,7 @@ def fill_colours(comp,mod_fnu,obs_nel):
 
 
 def get_models(obs,names):
-    """Get tuples of models for given observations
+    """Get tuples of models for given observations.
         
     Returns two tuples of models, the first is for fitting and contains
     extra filters beyond the set in the observations if there are
@@ -930,8 +930,10 @@ def get_models(obs,names):
 
 
 def models_info(m):
-    """Return some info for a tuple of model(s), and
-    do some basic sanity checking.
+    """Return some info for a tuple of model(s).
+        
+    Also do some basic sanity checking.
+    
     """
     info = {}
     info['name'] = ''
