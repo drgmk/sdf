@@ -1,5 +1,5 @@
 import glob
-from os.path import exists
+from os.path import exists,basename
 import numpy as np
 from . import convolve
 from . import model
@@ -67,6 +67,7 @@ def kurucz_phot():
     """Generate a PhotModel grid of Castelli & Kurucz models.
         
     The models are called 'kurucz'.
+    
     """
     convolve_kurucz(overwrite=True)
     m = model.PhotModel.read_convolved_models('kurucz')
@@ -77,10 +78,29 @@ def kurucz_spectra():
     """Generate a SpecModel grid of Castelli & Kurucz models.
         
     The models are called 'kurucz'.
+    
     """
-    m=model.SpecModel.read_kurucz(cfg.file['kurucz_models']\
-                                  +'fp00k2odfnew.pck')
+    # Solar metallicity
+    f00 = cfg.file['kurucz_models']+'fp00k2odfnew.pck'
+    m = model.SpecModel.read_kurucz(f00)
     m.write_model('kurucz',overwrite=True)
+
+    # range of metallicities
+    m.append_parameter('MH',0.0)
+    fs = glob.glob(cfg.file['kurucz_models']+'f*k2odfnew.pck')
+    for f in fs:
+        if f == f00:
+            continue
+
+        mx = model.SpecModel.read_kurucz(f)
+        fn = basename(f)
+        mhx = float( str(fn[2]) + '.' + str(fn[3]) )
+        if fn[1] == 'm':
+            mhx *= -1
+        mx.append_parameter('MH',mhx)
+        m.concat(mx)
+
+    m.write_model('kurucz_m',overwrite=True)
 
 
 def convolve_kurucz(file='fp00k2odfnew.pck',overwrite=False):
@@ -88,6 +108,7 @@ def convolve_kurucz(file='fp00k2odfnew.pck',overwrite=False):
         
     These are at Solar metallicity (by default). Files are written for
     each filter.
+    
     """
 
     # get the models and ensure they are sorted in order

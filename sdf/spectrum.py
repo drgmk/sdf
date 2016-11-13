@@ -144,7 +144,7 @@ class Spectrum(object):
     def copy(self):
         """Return a copy"""
         
-        return copy.copy(self)
+        return copy.deepcopy(self)
 
 
     def extend_power_law(self,max_wav_micron=cfg.models['max_wav_micron'],
@@ -567,13 +567,13 @@ class ModelSpectrum(Spectrum):
         self = cls()
 
         self.name = 'phoenix'
-        self.parameters = ['Teff','logg','[M/H]']
+        self.parameters = ['Teff','logg','MH']
         if 'BT-Settl' in file:
             par = re.search('lte([0-9]+)-([0-9.]+)([+-][0-9.]+)[a]([+-][0-9.]+).BT-Settl.7.bz2',file)
             teff = float(par.groups()[0])*100.0
             logg = float(par.groups()[1])
             mh = float(par.groups()[2])
-        self.param_values = {'Teff':teff,'logg':logg,'[M/H]':mh}
+        self.param_values = {'Teff':teff,'logg':logg,'MH':mh}
         
         c = lambda s: s.decode().replace("D", "E") # deal with fortran 1.0D+01
         w,f = np.loadtxt(file,dtype=float,usecols=(0,1),
@@ -649,17 +649,17 @@ class ModelSpectrum(Spectrum):
             if len(model) > 0 and ('TEFF' in l or i == len(lines)-1):
                 self = ModelSpectrum()
                 self.name = 'kurucz'
-                self.parameters = ['Teff','logg','[M/H]']
+                self.parameters = ['Teff','logg','MH']
                 # if next model has been started we want
                 # params from last model
                 if 'TEFF' in l:
                     self.param_values = {'Teff':teff[-2],
                                          'logg':logg[-2],
-                                         '[M/H]':mh[-2]}
+                                         'MH':mh[-2]}
                 else:
                     self.param_values = {'Teff':teff[-1],
                                          'logg':logg[-1],
-                                         '[M/H]':mh[-1]}
+                                         'MH':mh[-1]}
                 
                 self.wavelength = (wave * u.nm).to('micron').value
                 self.nu_hz = c_micron / self.wavelength

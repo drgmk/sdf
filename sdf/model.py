@@ -246,10 +246,90 @@ class Model(object):
         return norm * fluxes
 
 
+    def append_parameter(self,name,value):
+        """Append a single parameter to a model.
+            
+        Purpose is to prepare a model for addition models via concat.
+        
+        """
+        self.parameters = np.append(self.parameters,name)
+        self.param_values[name] = np.array([value])
+        self.fnujy_sr = np.reshape(self.fnujy_sr,self.fnujy_sr.shape+(1,))
+
+
+    def concat(self,m):
+        """Add a model to the one we have.
+            
+        So far can only add models when both have the same sets of
+        parameters, so for example joining two models with different
+        metallicities.
+            
+        """
+    
+        # check types, parameters, wavelengths, filters are the same
+        for i,par in enumerate(self.parameters):
+            if par != m.parameters[i]:
+                raise SdfError("parameters {} and {} different".
+                               format(self.parameters,m.parameters))
+        
+        if type(self) != type(m):
+            raise SdfError("can't join models of type {} and {}".
+                           format(type(self),type(m)))
+        
+        if isinstance(self,PhotModel):
+            for i,filt in enumerate(self.filters):
+                if filt != m.filters[i]:
+                    raise SdfError("filters {} and {} different".
+                                   format(self.filters,m.filters))
+        
+        if isinstance(self,SpecModel):
+            if not np.all( np.equal(self.wavelength,m.wavelength) ):
+                raise SdfError("wavelengths {} and {} different".
+                               format(self.wavelength,m.wavelength))
+
+        # parameters to add and their locations in self
+        padd = []
+        pax = []
+        ploc = []
+        for i,p in enumerate(self.parameters):
+            if not np.all(np.equal(self.param_values[p],m.param_values[p])):
+                pax.append(i+1) # +1 since first dim is wav/filters
+                padd.append(p)
+                arrs = np.split(m.fnujy_sr,len(m.param_values[p]),axis=i)
+                for val in m.param_values[p]:
+                    ploc.append( np.searchsorted(self.param_values[p],val) )
+
+        if len(padd) != 1:
+            raise SdfError("model parameters can't be joined (padd={})".
+                           format(padd))
+        else:
+            padd = padd[0]
+
+        print("Adding parameter {} at location(s) {} along axis {}".
+              format(padd,ploc,pax))
+
+        for i,loc in enumerate(ploc):
+            
+            if m.param_values[padd][i] in self.param_values[padd]:
+                raise SdfError("model already has {}={}".
+                               format(padd,m.param_values[padd][i]))
+
+            print("  adding {}={} (dims {} to {}) at {}".
+                  format(padd,m.param_values[padd][i],
+                         arrs[i].squeeze().shape,self.fnujy_sr.shape,loc))
+
+            self.param_values[padd] = np.insert(self.param_values[padd],
+                                                loc,m.param_values[padd][i])
+            self.fnujy_sr = np.insert(self.fnujy_sr,loc,
+                                      arrs[i].squeeze(),axis=pax[i])
+                
+        print("  new {} array is {}".format(padd,self.param_values[padd]))
+            
+
     def copy(self):
         """Return a copy"""
         
-        return copy.copy(self)
+        return copy.deepcopy(self)
     
     
     def param_shape(self):
