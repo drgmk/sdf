@@ -248,18 +248,22 @@ filters['IC'] = {'svo_name': 'GCPD/Cousins.I',
 
 # Stromgren computed from Maiz-Appelaniz 2006 is 1.435, 0.021, 0.182,
 # 0.014. Comparing Mann & von Braun and CALSPEC zero points gives 1.426,
-# 0.047, 0.198, 0.053
+# 0.047, 0.198, 0.053. Gray 1998 gives 1.445, 0.034, 0.195, 0.03 and
+# GCPD is almost exactly the same. Bessel gives coefficients to convert
+# between observed and synthetic photometry, having assumed the GCPD
+# zero points, which are a function of b-y, so needs to be implemented
+# elsewhere (i.e. file read time)
 filters['US'] = {'svo_name': 'GCPD/Stromgren.u',
-                 'zero_point_offset': 1.426,
+                 'zero_point_offset': 1.445,
                  'response_type': 'energy'}
 filters['BS'] = {'svo_name': 'GCPD/Stromgren.b',
-                 'zero_point_offset': 0.047,
+                 'zero_point_offset': 0.034,
                  'response_type': 'energy'}
 filters['VS'] = {'svo_name': 'GCPD/Stromgren.v',
-                 'zero_point_offset': 0.198,
+                 'zero_point_offset': 0.195,
                  'response_type': 'energy'}
 filters['YS'] = {'svo_name': 'GCPD/Stromgren.y',
-                 'zero_point_offset': 0.053,
+                 'zero_point_offset': 0.03,
                 'response_type': 'energy'}
 
 # zero point offsets from Bessel & Murphy 2012

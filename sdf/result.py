@@ -114,8 +114,8 @@ class Result(object):
         
         # concatenated fluxes
         tmp = fitting.concat_obs(self.obs,tuple(self.parameters))
-        self.obs_fnujy,self.obs_e_fnujy,self.obs_upperlim,obs_nel,  \
-            self.wavelengths,self.filters,self.obs_bibcode = tmp
+        self.obs_fnujy,self.obs_e_fnujy,self.obs_upperlim,self.filters_ignore,\
+            obs_nel,self.wavelengths,self.filters,self.obs_bibcode = tmp
 
         # get model fluxes, including filling of colours/indices
         self.model_fnujy,self.model_comp_fnujy                      \

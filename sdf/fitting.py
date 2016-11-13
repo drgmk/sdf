@@ -37,6 +37,7 @@ def concat_obs(o,paramin,phot_only=False):
     obs_fnu = np.array([],dtype=float)
     obs_e_fnu = np.array([],dtype=float)
     obs_uplim = np.array([],dtype=bool)
+    obs_ignore = np.array([],dtype=bool)
     obs_bibcode = np.array([],dtype=str)
     obs_nel = np.array([],dtype=int)
     ispec = -1
@@ -47,6 +48,7 @@ def concat_obs(o,paramin,phot_only=False):
             obs_fnu = np.append(obs_fnu,obs.fnujy)
             obs_e_fnu = np.append(obs_e_fnu,obs.e_fnujy)
             obs_uplim = np.append(obs_uplim,obs.upperlim)
+            obs_ignore = np.append(obs_ignore,obs.ignore)
             obs_bibcode = np.append(obs_bibcode,obs.bibcode)
         elif isinstance(obs,spectrum.ObsSpectrum):
             if phot_only:
@@ -58,10 +60,12 @@ def concat_obs(o,paramin,phot_only=False):
             obs_e_fnu = np.append(obs_e_fnu,obs.e_fnujy*param[ispec])
             ispec -= 1
             obs_uplim = np.append(obs_uplim,np.zeros(n,dtype=bool))
+            obs_ignore = np.append(obs_ignore,np.zeros(n,dtype=bool))
             obs_bibcode = np.append(obs_bibcode,np.repeat(obs.bibcode,n))
         obs_nel = np.append(obs_nel,len(obs.fnujy))
 
-    return obs_fnu,obs_e_fnu,obs_uplim,obs_nel,obs_wav,obs_filt,obs_bibcode
+    return (obs_fnu,obs_e_fnu,obs_uplim,obs_ignore,
+           obs_nel,obs_wav,obs_filt,obs_bibcode)
 
 
 def residual(param,*args):
@@ -96,14 +100,16 @@ def residual(param,*args):
     
     # concatenate observations, make params to be tuple (hashable)
     obs = concat_obs(o,tuple(param))
-    obs_fnu,obs_e_fnu,obs_uplim,obs_nel,obs_wav,obs_filt,_ = obs
+    obs_fnu,obs_e_fnu,obs_uplim,obs_ignore,obs_nel,obs_wav,obs_filt,_ = obs
     
     # get model fluxes, including filling of colours/indices
     mod_fnu,_ = model.model_fluxes(m,param,obs_nel)
 
-    # residuals in significance units
+    # residuals in significance units, setting zero where (photometry)
+    # is to be ignored, and for upper limits (but amended below)
     resid = np.zeros(len(obs_fnu))
-    ok = np.invert(obs_uplim)
+    ok = np.invert( np.any([obs_uplim,obs_ignore],axis=0) )
+#    print(obs,obs_uplim,obs_ignore,ok)
     resid[ok] = (obs_fnu[ok] - mod_fnu[ok]) / obs_e_fnu[ok]
 
     # set residual if any upper limits exceeded, otherwise zero

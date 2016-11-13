@@ -15,9 +15,10 @@ c_micron = 1*u.micron.to(u.Hz,equivalencies=u.spectral())
 
 @contextmanager
 def pushd(new_dir):
-    """A context manager that implements the `pushd` command,
-    letting you run a block of commands while in a different
-    directory
+    """A context manager that implements the `pushd` command.
+        
+    This lets you run a block of commands while in a different 
+    directory.
         
     From https://gist.github.com/theY4Kman/3583442
     """
@@ -200,3 +201,32 @@ def get_observations(file):
         obs = (p,) + s
 
     return obs
+
+
+def uvby_convert(by,m1,c1):
+    """Convert Stromgren photometry according to Bessell 2011.
+        
+    The coefficients are to convert synthetic photometry to observed,
+    I_std = a_0 + a_1 * I_syn, so need to be inverted as we want to
+    convert observed photometry to agree with synthetic.
+    
+    """
+    
+    # coeffecients from Table 2
+    by_1 = [-0.007,0.997]
+    by_2 = [ 0.004,0.979]
+    m1_1 = [ 0.005,0.963]
+    m1_2 = [ 0.011,0.951]
+    c1_1 = [-0.016,0.994]
+    c1_2 = [-0.003,1.018]
+
+    if by < 0.5:
+        by_out = (by - by_1[0])/by_1[1]
+        m1_out = (m1 - m1_1[0])/m1_1[1]
+        c1_out = (c1 - m1_1[0])/c1_1[1]
+    else:
+        by_out = (by - by_2[0])/by_2[1]
+        m1_out = (m1 - m1_2[0])/m1_2[1]
+        c1_out = (c1 - m1_2[0])/c1_2[1]
+
+    return by_out,m1_out,c1_out

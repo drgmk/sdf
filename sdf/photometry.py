@@ -81,9 +81,9 @@ class Photometry(object):
             p.bibcode = np.array([row['bibcode']])
             p.upperlim = np.array([ row['Lim']==1 ])
             p.ignore = np.array([False])
-            p.fill_fnujy()
             self.addto(p)
 
+        self.fill_fnujy()
         self.sort()
         return self
     
@@ -106,9 +106,11 @@ class Photometry(object):
             
         Where no uncertainties are given 10% (or 0.1mag) is assumed.
         Colours/indices are left as is.
+        
         """
         fnu = np.zeros(self.nphot)
         efnu = np.zeros(self.nphot)
+        strom = [-1,-1,-1] # indices of b-y, m1, c1
         for i in range(self.nphot):
 
             # attempt to combine uncertainties
@@ -145,6 +147,19 @@ class Photometry(object):
                         efnu[i] = etot
                     else:
                         efnu[i] = 0.1 # assume 10%
+                    
+                    # note stromgren
+                    if self.filters[i] == 'BS_YS' and strom[0] == -1:
+                         strom[0] = i
+                    if self.filters[i] == 'STROMM1' and strom[1] == -1:
+                         strom[1] = i
+                    if self.filters[i] == 'STROMC1' and strom[2] == -1:
+                         strom[2] = i
+
+        # convert uvby as a group (lowest possible sum of indices = 0+1+2)
+        if np.sum(strom) > 2:
+            fnu[strom[0]],fnu[strom[1]],fnu[strom[2]] = \
+                    utils.uvby_convert(fnu[strom[0]],fnu[strom[1]],fnu[strom[2]])
 
         self.fnujy = fnu
         self.e_fnujy = efnu
