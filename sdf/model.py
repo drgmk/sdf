@@ -244,87 +244,7 @@ class Model(object):
             norm = area_sr
 
         return norm * fluxes
-
-
-    def append_parameter(self,name,value):
-        """Append a single parameter to a model.
-            
-        Purpose is to prepare a model for addition models via concat.
-        
-        """
-        self.parameters = np.append(self.parameters,name)
-        self.param_values[name] = np.array([value])
-        self.fnujy_sr = np.reshape(self.fnujy_sr,self.fnujy_sr.shape+(1,))
-
-
-    def concat(self,m):
-        """Add a model to the one we have.
-            
-        So far can only add models when both have the same sets of
-        parameters, so for example joining two models with different
-        metallicities.
-            
-        """
     
-        # check types, parameters, wavelengths, filters are the same
-        for i,par in enumerate(self.parameters):
-            if par != m.parameters[i]:
-                raise SdfError("parameters {} and {} different".
-                               format(self.parameters,m.parameters))
-        
-        if type(self) != type(m):
-            raise SdfError("can't join models of type {} and {}".
-                           format(type(self),type(m)))
-        
-        if isinstance(self,PhotModel):
-            for i,filt in enumerate(self.filters):
-                if filt != m.filters[i]:
-                    raise SdfError("filters {} and {} different".
-                                   format(self.filters,m.filters))
-        
-        if isinstance(self,SpecModel):
-            if not np.all( np.equal(self.wavelength,m.wavelength) ):
-                raise SdfError("wavelengths {} and {} different".
-                               format(self.wavelength,m.wavelength))
-
-        # parameters to add and their locations in self
-        padd = []
-        pax = []
-        ploc = []
-        for i,p in enumerate(self.parameters):
-            if not np.all(np.equal(self.param_values[p],m.param_values[p])):
-                pax.append(i+1) # +1 since first dim is wav/filters
-                padd.append(p)
-                arrs = np.split(m.fnujy_sr,len(m.param_values[p]),axis=i)
-                for val in m.param_values[p]:
-                    ploc.append( np.searchsorted(self.param_values[p],val) )
-
-        if len(padd) != 1:
-            raise SdfError("model parameters can't be joined (padd={})".
-                           format(padd))
-        else:
-            padd = padd[0]
-
-        print("Adding parameter {} at location(s) {} along axis {}".
-              format(padd,ploc,pax))
-
-        for i,loc in enumerate(ploc):
-            
-            if m.param_values[padd][i] in self.param_values[padd]:
-                raise SdfError("model already has {}={}".
-                               format(padd,m.param_values[padd][i]))
-
-            print("  adding {}={} (dims {} to {}) at {}".
-                  format(padd,m.param_values[padd][i],
-                         arrs[i].squeeze().shape,self.fnujy_sr.shape,loc))
-
-            self.param_values[padd] = np.insert(self.param_values[padd],
-                                                loc,m.param_values[padd][i])
-            self.fnujy_sr = np.insert(self.fnujy_sr,loc,
-                                      arrs[i].squeeze(),axis=pax[i])
-                
-        print("  new {} array is {}".format(padd,self.param_values[padd]))
-            
 
     def copy(self):
         """Return a copy"""
@@ -400,7 +320,7 @@ class Model(object):
                     raise SdfError("expected dimension {} to have size {}\
                                     but got {}".format(i,
                                                 len(self.param_values[key]),
-                                                value.shape[i]))
+                                                value.shape[i+1]))
         self._fnujy_sr = value
 
 
@@ -704,15 +624,19 @@ class SpecModel(Model):
         
     @lru_cache(maxsize=32)
     def read_model(name):
-        """Read a named model, location given in config"""
+        """Read a named model, location given in config."""
         
         return Model.read_file(cfg.model_loc[name]+name+'_SpecModel.fits')
     
     
     @classmethod
     def read_kurucz(cls,file):
-        """Read a Kurucz model grid file and return a SpecModel"""
-    
+        """Read a Kurucz model grid file and return a SpecModel.
+            
+        The model grid will almost certainly not be filled out
+        completely, so require some cropping before it can be used.
+        
+        """
         self = cls()
         
         # get the spectra, all have the same wavelength grid
@@ -734,6 +658,11 @@ class SpecModel(Model):
             j = np.where(teff[i] == teffarr)[0][0]
             k = np.where(logg[i] == loggarr)[0][0]
             self.fnujy_sr[:,j,k] = mod.fnujy_sr
+        
+        # see if the grid was filled (spectrum.read_kurucz sets any
+        # zero values in the spectra to cfg.tiny)
+        if np.min(self.fnujy_sr) < cfg.tiny:
+            print("WARNING: model grid not filled, spectra with zeros exist")
 
         return self
     
@@ -741,7 +670,7 @@ class SpecModel(Model):
     @classmethod
     def generate_bb_model(cls,temperatures=None,wavelengths=None,
                           write=False,overwrite=False):
-        """Generate a set of blackbody spectra"""
+        """Generate a set of blackbody spectra."""
         
         name = 'bb'
         
@@ -918,6 +847,119 @@ def model_fluxes(m,param,obs_nel,phot_only=False):
     comp_fnu = comp_fnu[:,:len(mod_fnu)]
 
     return mod_fnu,comp_fnu
+
+
+def crop(self,param,range):
+    """Crop a model to ranges specificed by supplied dict."""
+
+    out = self.copy()
+    
+    if param not in out.parameters:
+        raise SdfError("parameter {} not in model (has {})".
+                       foramt(param,out.parameters))
+
+    # get axis to cut, and locations
+    ax = np.where(out.parameters == param)[0][0] + 1
+    locs = np.searchsorted(out.param_values[param],range)
+
+    print("cutting parameters along axis {} to indices {}".
+          format(ax,locs))
+
+    out.param_values[param] = out.param_values[param][locs[0]:locs[1]]
+    arrin = out.fnujy_sr
+    arr = np.rollaxis(out.fnujy_sr,ax)
+    arr = arr[locs[0]:locs[1]]
+    out.fnujy_sr = np.rollaxis(arr,0,ax+1)
+    print("cropped model from {} to {}".
+          format(arrin.shape,out.fnujy_sr.shape))
+
+    return out
+
+
+def append_parameter(self,name,value):
+    """Append a single parameter to a model.
+        
+    Purpose is to prepare a model for addition models via concat.
+    
+    """
+    out = self.copy()
+    out.parameters = np.append(out.parameters,name)
+    out.param_values[name] = np.array([value])
+    out.fnujy_sr = np.reshape(out.fnujy_sr,out.fnujy_sr.shape+(1,))
+    return out
+
+
+def concat(self,m):
+    """Add a model to the one we have.
+        
+    So far can only add models when both have the same sets of
+    parameters, so for example joining two models with different
+    metallicities.
+        
+    """
+
+    out = self.copy()
+
+    # check types, parameters, wavelengths, filters are the same
+    for i,par in enumerate(out.parameters):
+        if par != m.parameters[i]:
+            raise SdfError("parameters {} and {} different".
+                           format(out.parameters,m.parameters))
+    
+    if type(out) != type(m):
+        raise SdfError("can't join models of type {} and {}".
+                       format(type(out),type(m)))
+    
+    if isinstance(out,PhotModel):
+        for i,filt in enumerate(out.filters):
+            if filt != m.filters[i]:
+                raise SdfError("filters {} and {} different".
+                               format(out.filters,m.filters))
+    
+    if isinstance(out,SpecModel):
+        if not np.all( np.equal(out.wavelength,m.wavelength) ):
+            raise SdfError("wavelengths {} and {} different".
+                           format(out.wavelength,m.wavelength))
+
+    # parameters to add and their locations in out
+    padd = []
+    pax = []
+    ploc = []
+    for i,p in enumerate(out.parameters):
+        if not np.all(np.equal(out.param_values[p],m.param_values[p])):
+            pax.append(i+1) # +1 since first dim is wav/filters
+            padd.append(p)
+            arrs = np.split(m.fnujy_sr,len(m.param_values[p]),axis=i)
+            for val in m.param_values[p]:
+                ploc.append( np.searchsorted(out.param_values[p],val) )
+
+    if len(padd) != 1:
+        raise SdfError("model parameters can't be joined (padd={})".
+                       format(padd))
+    else:
+        padd = padd[0]
+
+    print("Adding parameter {} at location(s) {} along axis {}".
+          format(padd,ploc,pax))
+
+    for i,loc in enumerate(ploc):
+        
+        if m.param_values[padd][i] in out.param_values[padd]:
+            raise SdfError("model already has {}={}".
+                           format(padd,m.param_values[padd][i]))
+
+        print("  adding {}={} (dims {} to {}) at {}".
+              format(padd,m.param_values[padd][i],
+                     arrs[i].squeeze().shape,out.fnujy_sr.shape,loc))
+
+        out.param_values[padd] = np.insert(out.param_values[padd],
+                                            loc,m.param_values[padd][i])
+        out.fnujy_sr = np.insert(out.fnujy_sr,loc,
+                                  arrs[i].squeeze(),axis=pax[i])
+            
+    print("  new {} array is {}".format(padd,out.param_values[padd]))
+
+    return out
 
 
 def fill_colours(comp,mod_fnu,obs_nel):

@@ -265,6 +265,12 @@ class ObsSpectrum(Spectrum):
         self.e_absolute = e_absolute
         self.bibcode = bibcode
         self.irradiance = irradiance
+    
+        # fill wavelength/frequency if possible
+        if self.wavelength is None and self.nu_hz is not None:
+            self.fill_hz2wave()
+        if self.nu_hz is None and self.wavelength is not None:
+            self.fill_wave2hz()
 
 
     @classmethod
@@ -486,6 +492,12 @@ class ModelSpectrum(Spectrum):
         self.nu_hz = nu_hz
         self.fnujy_sr = fnujy_sr
 
+        # fill wavelength/frequency if possible
+        if self.wavelength is None and self.nu_hz is not None:
+            self.fill_hz2wave()
+        if self.nu_hz is None and self.wavelength is not None:
+            self.fill_wave2hz()
+
 
     def resample(self,resolution=100,kernel=None):
         """Resample a model spectrum to a different resolution.
@@ -666,7 +678,7 @@ class ModelSpectrum(Spectrum):
                 model = model[0:len(wave)]
                 self.fnujy_sr = np.array(model,dtype=float) * 4e23
                 # turn zeros into small numbers to avoid divide errors
-                small = (self.fnujy_sr == 0)
+                small = (self.fnujy_sr <= 0.0)
                 self.fnujy_sr[small] = cfg.tiny
                 # extend to long wavelengths, fill out, and sort again
                 self.extend_power_law()
