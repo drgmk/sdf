@@ -34,7 +34,7 @@ def sed(results,tab_order=None,file='sed.html'):
     # remove file to avoid errors
     if path.exists(file):
         remove(file)
-    output_file(file,mode='cdn')
+    output_file(file,mode='inline')
 
     # figure plot limits
     xlim,ylim = sed_limits(results)
@@ -306,7 +306,7 @@ def calibration(file):
                                                  cfg.mysql['host']) )
         return
 
-    output_file(file,mode='cdn')
+    output_file(file,mode='inline')
 
     # get a wavelength-sorted list of filters. TODO, use 'order' to
     # also sort by filter name

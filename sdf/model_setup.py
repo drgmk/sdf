@@ -69,15 +69,59 @@ def modbb_spectra():
     model.SpecModel.generate_modbb_model(write=True,overwrite=True)
 
 
-def kurucz_phot(mname='kurucz'):
-    """Generate a PhotModel grid of Castelli & Kurucz models.
-        
-    The models are called 'kurucz'.
+def specmodel2phot(mname='kurucz'):
+    """Generate a PhotModel grid from SpecModel models."""
     
-    """
-    convolve_kurucz(mname=mname,overwrite=True)
+    convolve_specmodel(mname=mname,overwrite=True)
     m = model.PhotModel.read_convolved_models(mname)
     m.write_model(m.name,overwrite=True)
+
+
+def convolve_specmodel(mname='kurucz',overwrite=False):
+    """Convolve a set of SpecModel models.
+    
+    Write files containing convolved fluxes for each filter. The source
+    spectra are in the kurucz SpecModels as these are saved with the
+    original wavelength resolution.
+
+    These are at Solar metallicity (by default). Range of parameters is
+    the same as the spectra.
+    
+    """
+
+    m = model.SpecModel.read_model(mname)
+
+    # loop through them and create the ConvolvedModels and the files
+    filters = filter.Filter.all
+    fnujy_sr = np.zeros(m.param_shape())
+    for fname in filters:
+        outfile = cfg.model_loc[mname]+fname+'.fits'
+        if exists(outfile) and overwrite == False:
+            print("Skipping {}, file exists".format(fname))
+        else:
+            print("Convolving filter {}".format(fname))
+            cm = convolve.ConvolvedModel(name=mname,filter=fname,
+                                         parameters=m.parameters,
+                                         param_values=m.param_values,
+                                         fnujy_sr=fnujy_sr)
+
+            # TODO: do this more generally...
+            for i in range(len(m.param_values['Teff'])):
+                for j in range(len(m.param_values['logg'])):
+                    if len(m.parameters) == 2:
+                        s = spectrum.ModelSpectrum(nu_hz=c_micron/m.wavelength,
+                                                   fnujy_sr=m.fnujy_sr[:,i,j])
+                        conv,cc = s.synthphot(fname)
+                        fnujy_sr[i,j] = conv
+                    else:
+                        for k in range(len(m.param_values['MH'])):
+                            s = spectrum.ModelSpectrum(nu_hz=c_micron/m.wavelength,
+                                                       fnujy_sr=m.fnujy_sr[:,i,j,k])
+                            conv,cc = s.synthphot(fname)
+                            fnujy_sr[i,j,k] = conv
+        
+            cm.fnujy_sr = fnujy_sr
+            cm.write_file(outfile,overwrite=overwrite)
 
 
 def kurucz_spectra():
@@ -116,53 +160,6 @@ def kurucz_spectra():
         m = model.concat(m,mx)
 
     m.write_model('kurucz_m',overwrite=True)
-
-
-def convolve_kurucz(mname='kurucz',overwrite=False):
-    """Convolve a set of Castelli & Kurucz models.
-    
-    Write files containing convolved fluxes for each filter. The source
-    spectra are in the kurucz SpecModels as these are saved with the
-    original wavelength resolution.
-
-    These are at Solar metallicity (by default). Range of parameters is
-    set by the spectra in kurucz_spectra.
-    
-    """
-
-    m = model.SpecModel.read_model(mname)
-
-    # loop through them and create the ConvolvedModels and the files
-    filters = filter.Filter.all
-    fnujy_sr = np.zeros(m.param_shape())
-    for fname in filters:
-        outfile = cfg.model_loc[mname]+fname+'.fits'
-        if exists(outfile) and overwrite == False:
-            print("Skipping {}, file exists".format(fname))
-        else:
-            print("Convolving filter {}".format(fname))
-            cm = convolve.ConvolvedModel(name=mname,filter=fname,
-                                         parameters=m.parameters,
-                                         param_values=m.param_values,
-                                         fnujy_sr=fnujy_sr)
-
-            # TODO: do this more generally...
-            for i in range(len(m.param_values['Teff'])):
-                for j in range(len(m.param_values['logg'])):
-                    if len(m.parameters) == 2:
-                        s = spectrum.ModelSpectrum(nu_hz=c_micron/m.wavelength,
-                                                   fnujy_sr=m.fnujy_sr[:,i,j])
-                        conv,cc = s.synthphot(fname)
-                        fnujy_sr[i,j] = conv
-                    else:
-                        for k in range(len(m.param_values['MH'])):
-                            s = spectrum.ModelSpectrum(nu_hz=c_micron/m.wavelength,
-                                                       fnujy_sr=m.fnujy_sr[:,i,j,k])
-                            conv,cc = s.synthphot(fname)
-                            fnujy_sr[i,j,k] = conv
-        
-            cm.fnujy_sr = fnujy_sr
-            cm.write_file(outfile,overwrite=overwrite)
 
 
 def phoenix_phot_spec_models(overwrite=False):
@@ -207,6 +204,7 @@ def phoenix_phot_spec_models(overwrite=False):
         conv_fnujy_sr[:,i] = conv
         
         # checking for same wavelength grids (i.e. can we reuse kernel)
+        # don't think this ever happens so remove
         if i > 0:
             if len(s.wavelength) != len(lastwav):
                 kern = None
@@ -219,7 +217,7 @@ def phoenix_phot_spec_models(overwrite=False):
         lastwav = s.wavelength
 
         # and spectrum (at much lower resolution)
-        kern = s.resample(resolution=100,kernel=kern)
+        kern = s.resample(resolution=200,kernel=kern)
         spec.append(s)
 
     teffarr = np.unique(teff)
