@@ -19,22 +19,22 @@ def setup_all():
     """Rederive all models."""
     setup_spec()
     setup_phot()
-    # phoenix_phot_spec_models(overwrite=True)
-
 
 def setup_spec():
     """Rederive spectrum models."""
     bb_spectra()
     modbb_spectra()
     kurucz_spectra()
-
+    phoenix_spectra()
 
 def setup_phot():
     """Rederive convolved models."""
     bb_phot()
     modbb_phot()
-    kurucz_phot(mname='kurucz')
-    kurucz_phot(mname='kurucz_m')
+    specmodel2phot(mname='kurucz')
+    specmodel2phot(mname='kurucz_m')
+    specmodel2phot(mname='phoenix')
+#    specmodel2phot(mname='phoenix_m')
 
 
 def bb_phot():
@@ -162,22 +162,15 @@ def kurucz_spectra():
     m.write_model('kurucz_m',overwrite=True)
 
 
-def phoenix_phot_spec_models(overwrite=False):
-    """Generate models from phoenix spectra.
+def phoenix_spectra():
+    """Generate SpecModel from phoenix spectra.
 
-    BT-Settl model files are large, so do both PhotModel and SpecModel
-    processing at once, reading and downsampling files one at a time to
-    avoid having them all in memory at once.
+    BT-Settl model files are large, so read and downsample files one at
+    a time to avoid having them all in memory at once.
     """
 
     name = 'phoenix'
     
-    # don't do the calculation if there will be a write error
-    if overwrite == False:
-        if ( exists(cfg.model_loc[name]+name+'_PhotModel.fits') or
-            exists(cfg.model_loc[name]+name+'_SpecModel.fits') ):
-            raise SdfError("model file(s) exist, will not overwrite")
-
     # models from 2600-29000K, logg 2-4.5, at [M/H]=0.0,
     # sorted by temperature and then gravity
     fs = glob.glob(cfg.file['phoenix_models']
@@ -199,42 +192,14 @@ def phoenix_phot_spec_models(overwrite=False):
                                                         s.param_values['logg'],
                                                         i+1,len(fs)))
         
-        # get convolved fluxes
-        conv,_ = s.synthphot(filters)
-        conv_fnujy_sr[:,i] = conv
-        
-        # checking for same wavelength grids (i.e. can we reuse kernel)
-        # don't think this ever happens so remove
-        if i > 0:
-            if len(s.wavelength) != len(lastwav):
-                kern = None
-            elif not np.all( np.equal(s.wavelength,lastwav)):
-                kern = None
-            else:
-                print("wave grids in {} and {} the same".format(fs[i-1],fs[i]))
-        else:
-            kern = None
-        lastwav = s.wavelength
-
-        # and spectrum (at much lower resolution)
+        # convolve spectrum to much lower resolution
         kern = s.resample(resolution=200,kernel=kern)
         spec.append(s)
 
+    # sort spectra
     teffarr = np.unique(teff)
     loggarr = np.unique(logg)
 
-    # sort photometry
-    conv = conv_fnujy_sr.reshape( (len(filters),
-                                   len(np.unique(teff)),
-                                   len(np.unique(logg))) )
-    cm = model.PhotModel(name=name,filters=filters,
-                         parameters=['Teff','logg'],
-                         param_values={'Teff': teffarr,
-                                       'logg': loggarr},
-                         fnujy_sr=conv)
-    cm.write_model(name,overwrite=overwrite)
-
-    # sort spectra
     s = model.SpecModel()
     s.name = spec[0].name
     s.wavelength = spec[0].wavelength
@@ -254,4 +219,4 @@ def phoenix_phot_spec_models(overwrite=False):
         k = np.where(logg[i] == loggarr)[0][0]
         s.fnujy_sr[:,j,k] = sp.fnujy_sr
 
-    s.write_model(name,overwrite=overwrite)
+    s.write_model(name,overwrite=True)
