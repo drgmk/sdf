@@ -1,7 +1,7 @@
 import astropy.units as u
 from .utils import bnu_nu_hz
 
-c_micron = 1*u.micron.to(u.Hz,equivalencies=u.spectral())
+c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
 
 """Filter bandpassses, zero points, and offsets.
 

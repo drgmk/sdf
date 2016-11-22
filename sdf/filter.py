@@ -12,7 +12,7 @@ from .utils import SdfError
 # ignore warnings about SVO filter votables
 warnings.simplefilter('ignore', exceptions.W42)
 
-c_micron = 1*u.micron.to(u.Hz,equivalencies=u.spectral())
+c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
 
 def common_x(x1,y1,x2,y2):
     """Interpolate two y arrays to a single common x array"""

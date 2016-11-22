@@ -10,7 +10,7 @@ from . import utils
 from .utils import SdfError
 from . import config as cfg
 
-c_micron = 1*u.micron.to(u.Hz,equivalencies=u.spectral())
+c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
 
 class Spectrum(object):
     """Basic spectral class (ha!).

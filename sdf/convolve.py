@@ -6,7 +6,7 @@ from . import utils as utils
 from .utils import SdfError
 from . import config as cfg
 
-c_micron = 1*u.micron.to(u.Hz,equivalencies=u.spectral())
+c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
 
 class ConvolvedModel(object):
     """Class holding fluxes in one filter for a set of models

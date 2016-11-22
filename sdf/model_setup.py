@@ -11,7 +11,7 @@ from . import filter
 from .utils import SdfError
 from . import config as cfg
 
-c_micron = 1*u.micron.to(u.Hz,equivalencies=u.spectral())
+c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
 
 """Helper functions to set up models"""
 
@@ -31,11 +31,10 @@ def setup_phot():
     """Rederive convolved models."""
     bb_phot()
     modbb_phot()
-    specmodel2phot(mname='kurucz')
+    specmodel2phot(mname='kurucz-0.0')
     specmodel2phot(mname='kurucz_m')
-    specmodel2phot(mname='phoenix')
-#    specmodel2phot(mname='phoenix_m')
-
+    specmodel2phot(mname='phoenix-0.0')
+    specmodel2phot(mname='phoenix_m')
 
 def bb_phot():
     """Generate a PhotModel grid of blackbody models.
@@ -163,21 +162,52 @@ def kurucz_spectra():
 
 
 def phoenix_spectra():
+    """Convolve PHOENIX spectra to lower resolution and combine [M/H].
+        
+    TODO: allow for separate convolution and combination.
+    """
+
+    s00 = model.SpecModel.read_model('phoenix-0.0')
+    s00 = model.append_parameter(s00,'MH',0.0)
+
+    for m in ['+0.5',-0.5,-1.0,-1.5,-2.0,-2.5,-3.0,-3.5,-4.0]:
+
+        s = model.SpecModel.read_model('phoenix'+str(m))
+        s = model.append_parameter(s,'MH',float(m))
+        s00 = model.concat(s00,s)
+
+    s00.write_model('phoenix_m',overwrite=True)
+
+
+def phoenix_mh_spectra(resolution=500,mh=0.0,overwrite=False):
     """Generate SpecModel from phoenix spectra.
+
+    Teff and logg range is hardcoded to 2600-29,000K and 2-4.5. This is
+    a range where the grid is rectangular over all metallicities and
+    covers a wide range.
 
     BT-Settl model files are large, so read and downsample files one at
     a time to avoid having them all in memory at once.
+    
+    TODO: this takes hours, parallelize...
     """
 
-    name = 'phoenix'
-    
     # models from 2600-29000K, logg 2-4.5, at [M/H]=0.0,
     # sorted by temperature and then gravity
+    mhstr = str(float(mh))
+    if mh > 0.0:
+        mhstr = '+' + mhstr
+    elif mh == 0.0:
+        mhstr = '-' + mhstr
+
+    name = 'phoenix'+mhstr
+    
     fs = glob.glob(cfg.file['phoenix_models']
-                   +'lte[0-2][0-9][0-9]-[2-4]*BT-Settl.7.bz2')
+                   +'lte[0-2][0-9][0-9]-[2-4].?'+mhstr
+                   +'a?[0-9].[0-9].BT-Settl.7.bz2')
     fs.sort()
 
-    # read in, convolve, resample, one at a time
+    # read in and resample, one at a time
     filters = list(filter.Filter.all)
     conv_fnujy_sr = np.zeros((len(filters),len(fs)))
     spec = []
@@ -188,12 +218,14 @@ def phoenix_spectra():
         s = spectrum.ModelSpectrum.read_phoenix(f)
         teff.append(s.param_values['Teff'])
         logg.append(s.param_values['logg'])
-        print("Read teff:{}, logg:{} ({} of {})".format(s.param_values['Teff'],
-                                                        s.param_values['logg'],
-                                                        i+1,len(fs)))
+        print("Read teff:{}, logg:{}, [M/H]:{} ({} of {})".
+              format(s.param_values['Teff'],
+                     s.param_values['logg'],
+                     mhstr,
+                     i+1,len(fs)) )
         
         # convolve spectrum to much lower resolution
-        kern = s.resample(resolution=200,kernel=kern)
+        kern = s.resample(resolution=resolution)
         spec.append(s)
 
     # sort spectra
@@ -219,4 +251,6 @@ def phoenix_spectra():
         k = np.where(logg[i] == loggarr)[0][0]
         s.fnujy_sr[:,j,k] = sp.fnujy_sr
 
-    s.write_model(name,overwrite=True)
+    s.write_model(name,overwrite=overwrite)
+
+    return s

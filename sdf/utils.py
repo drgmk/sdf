@@ -10,7 +10,7 @@ from . import photometry
 from . import spectrum
 from . import config as cfg
 
-c_micron = 1*u.micron.to(u.Hz,equivalencies=u.spectral())
+c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
 
 
 @contextmanager
@@ -142,7 +142,7 @@ class SdfError(Exception):
 
 def resample_matrix(wave_in,new_wave,new_R,old_R=np.inf,
                     kern_width=5):
-    """Return a resampling/convolution kernel
+    """Return a resampling/convolution kernel.
         
     Copied from Casey's sick, modified to ensure the range of indices
     included near each resampled wavelength are appropriate (rather
