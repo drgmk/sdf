@@ -194,11 +194,10 @@ def phoenix_mh_spectra(resolution=500,mh=0.0,overwrite=False):
 
     # models from 2600-29000K, logg 2-4.5, at [M/H]=0.0,
     # sorted by temperature and then gravity
-    mhstr = str(float(mh))
-    if mh > 0.0:
-        mhstr = '+' + mhstr
-    elif mh == 0.0:
-        mhstr = '-' + mhstr
+    if mh == 0.0:
+        mhstr = '{:+}'.format(-np.abs(mh))
+    else:
+        mhstr = '{:+}'.format(mh)
 
     name = 'phoenix'+mhstr
     

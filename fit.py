@@ -43,7 +43,7 @@ def fit_results(file,update=False,sort=True,nospec=False):
         # if evidence didn't go up with second model component, stop
         if len(f) > 1:
             evs = [r.evidence for r in results]
-            if np.max(evs) == evs[-1]:
+            if np.max(evs) != evs[-1]:
                 break
 
     if sort:

@@ -99,7 +99,8 @@ def write_model(cursor,r):
             "(id,model_comps,parameters,evidence,chisq,dof,model_mtime) "
             "VALUES (%s,%s,%s,%s,%s,%s,%s)")
 
-    values = (str(r.id),str(r.model_comps),str(r.parameters),
+    values = (str(r.id),str(r.model_comps),
+              '['+' '.join(str(round(p,3)) for p in r.parameters)+']',
               str(r.evidence),str(r.chisq),
               str(r.dof),str(r.mtime))
 

@@ -92,6 +92,8 @@ magnitudes.
 
 These are roughly in order of wavelength.
 
+TODO: all to be updated when ZPOs are sorted
+
 GALEX
   Filters are from SVO, and are effective area so can be considered
   photon counting. Catalogue supplies fluxes and magnitudes, so for now
@@ -311,7 +313,7 @@ filters['YS'] = {'svo_name': 'GCPD/Stromgren.y',
 #0.009, 0.004, 0.000]
                  }
 
-# zero point offsets from Bessel & Murphy 2012
+# zero point offsets from Bessel & Murphy 2012 (0.03,0.023,0.038)
 filters['BT'] = {'svo_name': 'TYCHO/TYCHO.B_MvB',
                  'zero_point_offset': 0.03,
                  'response_type': 'energy'}
@@ -331,13 +333,12 @@ filters['D51'] = {'svo_name': 'KPNO/Mosaic.D51',
                   'response_type': 'photon'}
 
 # 2MASS, assume no difference between R1/R2 until evidence otherwise,
-# zero point offsets from Cohen+2003 (who assume Vega=0), adjust J/H by
-# 2%.
+# zero point offsets from Cohen+2003 (who assume Vega=0)
 filters['2MJ'] = {'svo_name': '2MASS/2MASS.J',
-                 'zero_point_offset': -0.001-0.02,
+                 'zero_point_offset': -0.001,
                   'response_type': 'energy'}
 filters['2MH'] = {'svo_name': '2MASS/2MASS.H',
-                 'zero_point_offset': 0.019+0.02,
+                 'zero_point_offset': 0.019,
                   'response_type': 'energy'}
 filters['2MKS'] = {'svo_name': '2MASS/2MASS.Ks',
                    'zero_point_offset': -0.017,
@@ -348,6 +349,38 @@ filters['2MR1KS'] = filters['2MKS']
 filters['2MR2J'] = filters['2MJ']
 filters['2MR2H'] = filters['2MH']
 filters['2MR2KS'] = filters['2MKS']
+
+# WISE, RSRs already converted to energy, ref spectrum
+# is F_nu oc 1/nu^2. residuals from seds suggest small changes
+# in zero point offsets, perhaps because "Vega" is fainter than Vega
+filters['WISE3P4'] = {'svo_name': 'WISE/WISE.W1',
+                      'response_type': 'energy',
+                      'zero_point_offset': 0.0,
+                      'ref_wavelength': 3.3526,
+                      'ref_spectrum': lambda nu: 1.0/nu/nu}
+filters['WISE4P6'] = {'svo_name': 'WISE/WISE.W2',
+                      'response_type': 'energy',
+                      'zero_point_offset': 0.0,
+                      'ref_wavelength': 4.6028,
+                      'ref_spectrum': lambda nu: 1.0/nu/nu}
+filters['WISE12'] = {'svo_name': 'WISE/WISE.W3',
+                     'response_type': 'energy',
+                     'ref_wavelength': 11.5608,
+                     'ref_spectrum': lambda nu: 1.0/nu/nu}
+filters['WISE22'] = {'svo_name': 'WISE/WISE.W4',
+                     'response_type': 'energy',
+                     'ref_wavelength': 22.0883,
+                     'ref_spectrum': lambda nu: 1.0/nu/nu}
+
+# AKARI, already converted to energy
+filters['AKARI9'] = {'svo_name': 'AKARI/IRC.S9W',
+                     'response_type': 'energy',
+                     'ref_wavelength': 9.0,
+                     'ref_spectrum': lambda nu: 1.0/nu}
+filters['AKARI18'] = {'svo_name': 'AKARI/IRC.L18W',
+                      'response_type': 'energy',
+                      'ref_wavelength': 18.0,
+                      'ref_spectrum': lambda nu: 1.0/nu}
 
 # Spitzer, IRAC/IRS PUI is photon counting, MIPS energy
 # IRAC/IRS ref spectrum F_nu oc 1/nu, MIPS 10k BB
@@ -468,38 +501,6 @@ filters['MIPS160'] = {'svo_name': 'Spitzer/MIPS.160mu',
                       'response_type': 'energy',
                       'ref_wavelength': 155.9,
                       'ref_spectrum': lambda nu: bnu_nu_hz(nu,10000.0)}
-
-# WISE, RSRs already converted to energy, ref spectrum
-# is F_nu oc 1/nu^2. residuals from seds suggest small changes
-# in zero point offsets, perhaps because "Vega" is fainter than Vega
-filters['WISE3P4'] = {'svo_name': 'WISE/WISE.W1',
-                      'response_type': 'energy',
-                      'zero_point_offset': 0.0,
-                      'ref_wavelength': 3.3526,
-                      'ref_spectrum': lambda nu: 1.0/nu/nu}
-filters['WISE4P6'] = {'svo_name': 'WISE/WISE.W2',
-                      'response_type': 'energy',
-                      'zero_point_offset': 0.0,
-                      'ref_wavelength': 4.6028,
-                      'ref_spectrum': lambda nu: 1.0/nu/nu}
-filters['WISE12'] = {'svo_name': 'WISE/WISE.W3',
-                     'response_type': 'energy',
-                     'ref_wavelength': 11.5608,
-                     'ref_spectrum': lambda nu: 1.0/nu/nu}
-filters['WISE22'] = {'svo_name': 'WISE/WISE.W4',
-                     'response_type': 'energy',
-                     'ref_wavelength': 22.0883,
-                     'ref_spectrum': lambda nu: 1.0/nu/nu}
-
-# AKARI, already converted to energy
-filters['AKARI9'] = {'svo_name': 'AKARI/IRC.S9W',
-                     'response_type': 'energy',
-                     'ref_wavelength': 9.0,
-                     'ref_spectrum': lambda nu: 1.0/nu}
-filters['AKARI18'] = {'svo_name': 'AKARI/IRC.L18W',
-                      'response_type': 'energy',
-                      'ref_wavelength': 18.0,
-                      'ref_spectrum': lambda nu: 1.0/nu}
 
 # IRAS, RSRs,
 filters['IRAS12'] = {'svo_name': 'IRAS/IRAS.12mu',

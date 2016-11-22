@@ -306,7 +306,7 @@ def calibration(file):
                                                  cfg.mysql['host']) )
         return
 
-    output_file(file,mode='inline')
+    output_file(file,mode='cdn')
 
     # get a wavelength-sorted list of filters. TODO, use 'order' to
     # also sort by filter name
