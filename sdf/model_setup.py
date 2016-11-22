@@ -68,7 +68,7 @@ def modbb_spectra():
     model.SpecModel.generate_modbb_model(write=True,overwrite=True)
 
 
-def specmodel2phot(mname='kurucz'):
+def specmodel2phot(mname='kurucz-0.0'):
     """Generate a PhotModel grid from SpecModel models."""
     
     convolve_specmodel(mname=mname,overwrite=True)
@@ -76,7 +76,7 @@ def specmodel2phot(mname='kurucz'):
     m.write_model(m.name,overwrite=True)
 
 
-def convolve_specmodel(mname='kurucz',overwrite=False):
+def convolve_specmodel(mname='kurucz-0.0',overwrite=False):
     """Convolve a set of SpecModel models.
     
     Write files containing convolved fluxes for each filter. The source
@@ -139,7 +139,7 @@ def kurucz_spectra():
     m = model.SpecModel.read_kurucz(f00)
     m = model.crop(m,'Teff',trange)
     m = model.crop(m,'logg',lrange)
-    m.write_model('kurucz',overwrite=True)
+    m.write_model('kurucz-0.0',overwrite=True)
 
     # range of metallicities
     m = model.append_parameter(m,'MH',0.0)

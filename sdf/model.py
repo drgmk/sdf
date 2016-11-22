@@ -221,7 +221,7 @@ class Model(object):
         # to RegularGridInerpolator is that the coordinates are given
         # in pixels, so must be interpolated from the parameters first
         # using a homegrown 1pt interpolation linterp was no faster than
-        # no.interp
+        # np.interp
         coords = []
         for i,p in enumerate(self.parameters):
             coords.append( np.interp( par[i],self.param_values[p],
@@ -231,8 +231,10 @@ class Model(object):
                           reshape( (nwav,par_len) )
         pargrid = np.insert(pargrid,0,wave_arr,axis=1)
 
-        fluxes = map_coordinates(self.fnujy_sr,pargrid.T,
-                                 order=0,prefilter=False)
+        # interpolation, sped up by doing spline_filter first and
+        # memoizing the result, order must be the same in both calls
+        ff = utils.spline_filter_mem(utils.hashable(self.fnujy_sr),order=3)
+        fluxes = map_coordinates(ff,pargrid.T,order=3,prefilter=False)
 
         # per-filter normalisation for photometry (leave colours)
         if isinstance(self,PhotModel):

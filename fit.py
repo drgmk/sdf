@@ -40,10 +40,10 @@ def fit_results(file,update=False,sort=True,nospec=False):
             print("  no photometry = no results")
             return None
 
-        # if evidence didn't go up with third model, stop
-        if len(results) == 3:
-            if results[1].evidence > results[2].evidence or \
-               results[0].evidence > results[2].evidence:
+        # if evidence didn't go up with second model component, stop
+        if len(f) > 1:
+            evs = [r.evidence for r in results]
+            if np.max(evs) == evs[-1]:
                 break
 
     if sort:

@@ -660,7 +660,6 @@ class ModelSpectrum(Spectrum):
             # add complete model to list
             if len(model) > 0 and ('TEFF' in l or i == len(lines)-1):
                 self = ModelSpectrum()
-                self.name = 'kurucz'
                 self.parameters = ['Teff','logg','MH']
                 # if next model has been started we want
                 # params from last model
@@ -672,6 +671,14 @@ class ModelSpectrum(Spectrum):
                     self.param_values = {'Teff':teff[-1],
                                          'logg':logg[-1],
                                          'MH':mh[-1]}
+            
+                # metalliticity
+                mhstr = str( self.param_values['MH'] )
+                if file[1] == 'p':
+                    mhstr = '+' + mhstr
+                elif self.param_values['MH'] == 0.0:
+                    mhstr = '-' + mhstr
+                self.name = 'kurucz' + mhstr
                 
                 self.wavelength = (wave * u.nm).to('micron').value
                 self.nu_hz = c_micron / self.wavelength
