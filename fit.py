@@ -88,9 +88,11 @@ if __name__ == '__main__':
                         help='Fit SED to file or files')
     parser.add_argument('--dir','-d',nargs='+',action='append',
                         help='Fit SED to *-rawphot.txt files in path(s)')
+    parser.add_argument('--sample','-s',nargs='+',
+                        help='Restrict to target sample')
 
-    parser1.add_argument('--subset','-s',nargs='+',default='*',
-                         help='Restrict to subset of targets')
+    parser1.add_argument('--subset',nargs='+',default='*',
+                         help='Restrict to subset of targets (e.g. public)')
 
     parser1.add_argument('--plot','-p',action='store_true',
                          help='Plot SEDs')
@@ -113,14 +115,22 @@ if __name__ == '__main__':
     # collect the files
     if args.file is not None:
         files = args.file[0]
+
     elif args.dir is not None:
         for d in args.dir[0]:
             d.rstrip('/')
             files = glob.glob(os.path.abspath(d)+'/**/'\
                               +args.subset[0]+'/*-rawphot.txt',
                               recursive=True)
+
     elif args.sample is not None:
-        pass
+        ids = []
+        for s in args.sample:
+            ids += db.sample_targets(s)
+        files = []
+        for id in ids:
+            files += glob.glob( cfg.file['sdb_root']+'masters/'\
+                               +id+'/**/*-rawphot.txt' )
 
     for f in files:
         
