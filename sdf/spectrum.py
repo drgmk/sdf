@@ -277,12 +277,12 @@ class ObsSpectrum(Spectrum):
     def read_cassis(cls,file,module_split=False):
         """Read a file from the CASSIS database of IRS spectra.
         
-        Check for nan values in uncertainty arrays.
-        
-        Optionally return a list of ObsSpectrum objects, split by
+        Returns a tuple of ObsSpectrum objects, optionally split by
         IRS module (SL1, SL2, LL1, LL2), since these might need to
         be normalised individually.
-            
+
+        Check for nan values in uncertainty arrays.
+
         As the spectrum will be normalised as part of the fitting
         precedure, it's not clear which ucertainties to include.
         None are wavelength independent (and thus ignorable), so
@@ -318,7 +318,7 @@ class ObsSpectrum(Spectrum):
                 s[i].e_fnujy = t['error (RMS+SYS)'].data[ok]
                 s[i].bibcode = '2011ApJS..196....8L'
                 s[i].sort('wave')
-            return s
+            return tuple(s)
 
         else:
             self = cls()
@@ -329,12 +329,15 @@ class ObsSpectrum(Spectrum):
             self.e_fnujy = t['error (RMS+SYS)'].data[ok]
             self.bibcode = '2011ApJS..196....8L'
             self.sort('wave')
-            return self
+            return (self,)
 
 
     @classmethod
     def read_file_of_type(cls,file,type,module_split=False):
-        """Read a spectrum file, sorting out how to do it."""
+        """Read a spectrum file, sorting out how to do it.
+            
+        The calls should all return tuples of ObsSpectrum objects.
+        """
         
         if type == 'irsstare':
             return ObsSpectrum.read_cassis(file,module_split=module_split)
@@ -358,19 +361,15 @@ class ObsSpectrum(Spectrum):
         
         # get spectra that match these names
         spnames = ['irsstare']
-        s = []
+        s = ()
         for sp in spnames:
             for key in kw.keys():
                 if sp in key:
-                    s.append( ObsSpectrum.read_file_of_type(kw[key]['value'],type=sp,
-                                                            module_split=module_split) )
+                    s += ObsSpectrum.read_file_of_type(kw[key]['value'],type=sp,
+                                                       module_split=module_split)
     
-        # flatten the list in case we were appending lists to s
-        if isinstance(s,ObsSpectrum):
-            return (s,)
-        elif len(s) > 0:
-            sp = [item for sublist in s for item in sublist]
-            return tuple(sp)
+        if len(s) > 0:
+            return s
         else:
             return None
                 
