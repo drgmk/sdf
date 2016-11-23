@@ -100,8 +100,32 @@ def write_model(cursor,r):
             "VALUES (%s,%s,%s,%s,%s,%s,%s)")
 
     values = (str(r.id),str(r.model_comps),
-              '['+' '.join(str(round(p,3)) for p in r.parameters)+']',
+              '['+','.join(str(round(p,3)) for p in r.parameters)+']',
               str(r.evidence),str(r.chisq),
               str(r.dof),str(r.mtime))
 
     cursor.execute(stmt,values)
+
+
+def sample_targets(sample,db='sdb_samples'):
+    """Return list of sdbids of targets in some sample."""
+
+    # set up connection
+    try:
+        cnx = mysql.connector.connect(user=cfg.mysql['user'],
+                                      password=cfg.mysql['passwd'],
+                                      host=cfg.mysql['host'],
+                                      database=db)
+        cursor = cnx.cursor(buffered=True)
+
+    except mysql.connector.InterfaceError:
+        print("Can't connect to {} at {}".format(cfg.mysql[db],
+                                                 cfg.mysql['host']) )
+        return
+
+    cursor.execute("SELECT sdbid FROM "+sample)
+    ids = []
+    for (id,) in cursor:
+        ids.append(id)
+
+    return ids
