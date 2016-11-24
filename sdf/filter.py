@@ -299,6 +299,20 @@ class Filter(object):
                                / utils.sdf_int(self.response/wave,wave)
 
 
+    def pivot_wavelength(self):
+        """Return the pivot wavelength.
+            
+        See Bessell & Murphy (2012) for definition. This wavelength is a
+        property of the filter only, and results in exact conversion
+        between mean F_lambda and mean F_nu.
+        """
+    
+        wave = c_micron / self.nu_hz
+        fp = utils.sdf_int( self.response, wave )                           \
+             / utils.sdf_int( self.response / wave / wave, wave )
+        return np.sqrt(fp)
+
+
     def fill_cc_denom(self):
         """Compute the denominator of the colour correction
         
