@@ -48,9 +48,9 @@ for their zero point, but include an offset, which is the magnitude of
 Vega in each filter, and is 0.027 in Johnson V.
 
 The zero points are derived from the CALSPEC Vega spectrum, and offsets
-have been derived by various authors. Here most zero point offsets are
-from Bessell & Murphy, but some are from Maiz-Appelaniz 2006. Small
-deviations from these are set by hand (see below).
+have been derived by various authors e.g. Maiz-Appelaniz (2006), Bessell
+& Murphy (2012), Mann & von Braun (2015).
+
 
 Infrared
 ~~~~~~~~
@@ -231,37 +231,38 @@ filters['GALNUV'] = {'svo_name': 'PhotCalID=GALEX/GALEX.NUV/AB',
                      'response_type': 'photon'}
 
 # zero point offsets from Bessel & Murphy 2012 are 0.04, 0.022, 0.027.
-# from MvB are 0.054, 0.06, 0.065 (so 0.017, 0.023, 0.027)
+# from MvB are 0.0188, 0.0185, 0.027 (latter fixed to 0.027)
 # consider Johnson V magnitude of Vega to be immutable at 0.027
 filters['UJ'] = {'svo_name': 'GCPD/Johnson.U',
-                 'zero_point_offset': 0.04,
+                 'zero_point_offset': 0.0188,
                  'response_type': 'energy'}
 filters['BJ'] = {'svo_name': 'GCPD/Johnson.B',
-                 'zero_point_offset': 0.022,
+                 'zero_point_offset': 0.0185,
                  'response_type': 'energy'}
 filters['VJ'] = {'svo_name': 'GCPD/Johnson.V',
                  'zero_point_offset': 0.027,
                  'response_type': 'energy'}
 
-# zero point offsets from Bessel & Murphy 2012
+# zero point offsets from Bessel & Murphy 2012 are 0.027,0.028
+# from MvB are 0.0212, 0.0091
 filters['RC'] = {'svo_name': 'GCPD/Cousins.R',
-                 'zero_point_offset': 0.027,
+                 'zero_point_offset': 0.0212,
                  'response_type': 'energy'}
 filters['IC'] = {'svo_name': 'GCPD/Cousins.I',
-                 'zero_point_offset': 0.028,
+                 'zero_point_offset': 0.0091,
                  'response_type': 'energy',
                  'zero_point': 2510.0}             # wrong on SVO
 
 # Stromgren (uvby) from Maiz-Appelaniz 2006 is 1.435, 0.182, 0.021,
-# 0.014. Comparing Mann & von Braun and CALSPEC zero points gives 1.426,
-# 0.198, 0.047, 0.053. Gray 1998 gives 1.445, 0.034, 0.195, 0.03 and
+# 0.014. Comparing Mann & von Braun and CALSPEC zero points gives 1.401,
+# 0.175, 0.0256, 0.031. Gray 1998 gives 1.445, 0.034, 0.195, 0.03 and
 # GCPD is almost exactly the same. Bessel gives coefficients to convert
 # between observed and synthetic photometry, having assumed the GCPD
 # zero points, which are a function of b-y, so needs to be implemented
 # elsewhere (i.e. file read time)
 filters['US'] = {'svo_name': 'GCPD/Stromgren.u',
                  'magnitude_system': 'Vega',
-                 'zero_point_offset': 1.445,
+                 'zero_point_offset': 1.401,
                  'response_type': 'energy'
                  # Bessell 2011 responses, photon counting
 #                 'wav_micron': [0.3150, 0.3175, 0.3200, 0.3225, 0.3250,
@@ -275,7 +276,7 @@ filters['US'] = {'svo_name': 'GCPD/Stromgren.u',
                  }
 filters['VS'] = {'svo_name': 'GCPD/Stromgren.v',
                  'magnitude_system': 'Vega',
-                 'zero_point_offset': 0.195,
+                 'zero_point_offset': 0.175,
                  'response_type': 'energy'
 #                 'wav_micron': [0.3750, 0.3775, 0.3800, 0.3825,
 #0.3850, 0.3875, 0.3900, 0.3925, 0.3950, 0.3975, 0.4000, 0.4025, 0.4050,
@@ -288,7 +289,7 @@ filters['VS'] = {'svo_name': 'GCPD/Stromgren.v',
                  }
 filters['BS'] = {'svo_name': 'GCPD/Stromgren.b',
                  'magnitude_system': 'Vega',
-                 'zero_point_offset': 0.034,
+                 'zero_point_offset': 0.0256,
                  'response_type': 'energy'
 #                 'wav_micron': [0.4350, 0.4375, 0.4400, 0.4425, 0.4450,
 #0.4475, 0.4500, 0.4525, 0.4550, 0.4575, 0.4600, 0.4625, 0.4650, 0.4675,
@@ -301,7 +302,7 @@ filters['BS'] = {'svo_name': 'GCPD/Stromgren.b',
                  }
 filters['YS'] = {'svo_name': 'GCPD/Stromgren.y',
                  'magnitude_system': 'Vega',
-                 'zero_point_offset': 0.03,
+                 'zero_point_offset': 0.031,
                  'response_type': 'energy'
 #                 'wav_micron': [0.5150, 0.5175, 0.5200, 0.5225, 0.5250,
 #0.5275, 0.5300, 0.5325, 0.5350, 0.5375, 0.5400, 0.5425, 0.5450, 0.5475,
@@ -314,17 +315,18 @@ filters['YS'] = {'svo_name': 'GCPD/Stromgren.y',
                  }
 
 # zero point offsets from Bessel & Murphy 2012 (0.03,0.023,0.038)
+# from MvB 0.0232, 0.0118, 0.0196
 filters['BT'] = {'svo_name': 'TYCHO/TYCHO.B_MvB',
-                 'zero_point_offset': 0.03,
+                 'zero_point_offset': 0.0232,
                  'response_type': 'energy'}
 filters['VT'] = {'svo_name': 'TYCHO/TYCHO.V_MvB',
-                 'zero_point_offset': 0.023,
+                 'zero_point_offset': 0.0118,
                  'response_type': 'energy'}
 filters['HP'] = {'svo_name': 'Hipparcos/Hipparcos.Hp_MvB',
-                 'zero_point_offset': 0.038,
+                 'zero_point_offset': 0.0196,
                  'response_type': 'energy'}
 
-# Kepler, assume photon and same zero point offset as V
+# Kepler, assume photon and same zero point offset as V (0.027)
 filters['KP'] = {'svo_name': 'Kepler/Kepler.K',
                  'zero_point_offset': 0.027,
                  'response_type': 'photon'}
@@ -334,14 +336,15 @@ filters['D51'] = {'svo_name': 'KPNO/Mosaic.D51',
 
 # 2MASS, assume no difference between R1/R2 until evidence otherwise,
 # zero point offsets from Cohen+2003 (who assume Vega=0)
+# MvB Vega ZPO is 0.048, forced to 0.027 so shift here by same amount 
 filters['2MJ'] = {'svo_name': '2MASS/2MASS.J',
-                 'zero_point_offset': -0.001,
+                 'zero_point_offset': -0.001 - 0.021,
                   'response_type': 'energy'}
 filters['2MH'] = {'svo_name': '2MASS/2MASS.H',
-                 'zero_point_offset': 0.019,
+                 'zero_point_offset': 0.019 - 0.021,
                   'response_type': 'energy'}
 filters['2MKS'] = {'svo_name': '2MASS/2MASS.Ks',
-                   'zero_point_offset': -0.017,
+                   'zero_point_offset': -0.017 - 0.021,
                    'response_type': 'energy'}
 filters['2MR1J'] = filters['2MJ']
 filters['2MR1H'] = filters['2MH']
