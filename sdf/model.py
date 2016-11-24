@@ -1080,6 +1080,8 @@ def models_info(m):
         for par in comp[0].parameters:
             info['p_rng'].append( (comp[0].param_values[par][0],
                                    comp[0].param_values[par][-1]) )
+        # this is the range of allowed solid angles, in log units, and
+        # zero is a Solar disk at 1pc
         info['p_rng'].append( (-10,10) )
         for mod in comp:
             if isinstance(mod,SpecModel):
