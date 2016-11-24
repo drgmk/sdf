@@ -34,8 +34,7 @@ def pushd(new_dir):
 
 
 def bnu_wav_micron(wav_um,temp):
-    """Return a Planck function, avoiding overflows
-    """
+    """Return a Planck function, avoiding overflows."""
     k1 = 3.9728949e19
     k2 = 14387.69
     fact1 = k1/(wav_um**3)
@@ -60,7 +59,7 @@ def bnu_nu_hz(nu_hz,temp):
     return bnu_wav_micron(wav_um,temp)
 
 def sdf_int(y,x):
-    """Decide how we do integration in sdf"""
+    """Decide how we do integration in sdf."""
     return np.trapz(y,x)
 #    return simps(y,x)
 
