@@ -1,8 +1,10 @@
 import numpy as np
 import astropy.units as u
 from astropy.table import Table
+
 from . import filter
-from. import utils
+from . import utils
+from . import config as cfg
 
 class Photometry(object):
     """Photometry class
@@ -80,7 +82,10 @@ class Photometry(object):
             p.unit = np.array([u.Unit(row['Unit'])])
             p.bibcode = np.array([row['bibcode']])
             p.upperlim = np.array([ row['Lim']==1 ])
-            p.ignore = np.array([False])
+            if row['Band'] in cfg.fitting['exclude_filters']:
+                p.ignore = np.array([True])
+            else:
+                p.ignore = np.array([False])
             self.addto(p)
 
         self.fill_fnujy()
