@@ -2,10 +2,12 @@ import os
 import glob
 import pickle
 import argparse
+from multiprocessing import Pool
 
 import numpy as np
 import corner
 import pymultinest as pmn
+import filelock
 
 from sdf import result
 from sdf import plotting
@@ -77,6 +79,25 @@ def plot_seds(results,update=False):
     plotting.sed(results,file=results[0].sed_plot)
 
 
+def everything(f,up_res,nospec,up_plot,up_db):
+    """Wrapper to do everything for parallelism."""
+
+    print(f)
+
+    # evidence-sorted list of results
+    results = fit_results( os.path.abspath(f),update=up_res,
+                           nospec=nospec)
+    if results is None:
+        return
+
+    if args.plot:
+        plot_seds(results,update=up_plot)
+
+    # write best model to db
+    if args.dbwrite:
+        db.write_all(results[0],update=up_db)
+
+
 # command line
 if __name__ == '__main__':
 
@@ -132,19 +153,38 @@ if __name__ == '__main__':
             files += glob.glob( cfg.file['sdb_root']+'masters/'\
                                +id+'/**/*-rawphot.txt' )
 
+    # one at a time, locking before we start
     for f in files:
         
-        print(f)
+        lock = filelock.FileLock(os.path.dirname(f)
+                                 +'/.sdf_lock-'
+                                 +os.path.basename(f))
+        try:
+            with lock.acquire(timeout = 0):
+                
+                print(f)
 
-        # evidence-sorted list of results
-        results = fit_results( os.path.abspath(f),update=args.update_all,
-                               nospec=args.no_spectra)
-        if results is None:
-            continue
+                # evidence-sorted list of results
+                results = fit_results(os.path.abspath(f),
+                                      update=args.update_all,
+                                      nospec=args.no_spectra)
+                if results is None:
+                    continue
 
-        if args.plot:
-            plot_seds(results,update=args.update_plot)
+                if args.plot:
+                    plot_seds(results,update=args.update_plot)
 
-        # write best model to db
-        if args.dbwrite:
-            db.write_all(results[0],update=args.update_db)
+                # write best model to db
+                if args.dbwrite:
+                    db.write_all(results[0],update=args.update_db)
+
+        except filelock.Timeout:
+            pass
+
+# parallel, this looks like a big fail due to something forking
+#    args = [(f,args.update_all,args.no_spectra,
+#             args.update_plot,args.update_db) for f in files]
+#    print(args)
+#    with Pool(2) as p:
+#        p.starmap(everything,args)
+
