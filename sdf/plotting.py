@@ -337,8 +337,8 @@ def calibration(file):
         col = np.array([])
         stmt = ("SELECT id,chi,R,parameters, "
                 "chisq/IF(dof<1,1,dof) as cdof FROM "
-                +cfg.mysql['phot_table']+" ""LEFT JOIN "
-                +cfg.mysql['model_table']+" USING (id) "
+                +cfg.mysql['model_table']+" ""LEFT JOIN "
+                +cfg.mysql['phot_table']+" USING (id) "
                 "WHERE filter='"+f+"' AND obs_upperlim=0")
         cursor.execute(stmt)
         for (id,chi,R,par,cdof) in cursor.fetchall():
