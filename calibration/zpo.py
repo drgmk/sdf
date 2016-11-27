@@ -2,10 +2,11 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
 
-#from scipy.optimize import minimize
+from scipy.optimize import minimize
 import numpy as np
-#import matplotlib.pyplot as plt
-#from astropy.table import Table,operations
+import matplotlib.pyplot as plt
+import astropy.units as u
+from astropy.table import Table,operations
 
 from sdf import photometry
 from sdf import model
@@ -39,7 +40,7 @@ def mvb_zpo(fname,flam=None):
             to('Jy',equivalencies=u.spectral_density(f_vega.pivot_wavelength()*u.micron))
     
     zpo_flux = fnu / f_vega.zero_point
-    zpo = 2.5 * np.log10( zpo_flux ) + 0.027 - 0.04777335
+    zpo = 2.5 * np.log10( zpo_flux ) #+ 0.027 - 0.04777335
 
 
     print('MvB: ',fnu)
@@ -48,47 +49,46 @@ def mvb_zpo(fname,flam=None):
 
 
 """This was supposed to be a way to set zero point offsets using some
-    set of reference start, in particular Gaia benchmarks, but it didn't
+    set of reference stars, in particular Gaia benchmarks, but it didn't
     look like it was going to work very well so has been shelved
+    """
     
-def chisq_norm(norm,*args):
-    par0,obs,mod = args
-    return fitting.chisq( par0+[norm],(obs,), (mod,) )
+def chisq_one(obs,mod,par,mult,mfilt):
+    fac = np.array([])
+    for f in obs.filters:
+        fac = np.append(fac,mult[f==mfilt])
+
+    res = minimize( fitting.chisq,par,args=( (obs,), (mod,) ) )
+    return res['x'],res['fun']
 
 # get the info for the targets
-t1 = Table.read('gaia_benchmark/gb.csv')
-t2 = Table.read('gaia_benchmark/ids.csv')
+t1 = Table.read('calibration/gaia_benchmark/gb.csv')
+t2 = Table.read('calibration/gaia_benchmark/ids.csv')
 t = operations.join(t1,t2)
+t = t[0:3]
 
 # grab the photometry and the models
 obs = []
-mod_fnujy = []
-mod_norm = np.array([])
-mod_filt = []
-all_filt = np.array([])
-allmod = model.PhotModel.read_model('phoenix_m')
+mod = []
+par = []
+allfilt = []
 for i,id in enumerate(t['sdbid']):
 
-    obs.append( photometry.Photometry.read_sdb_file('gaia_benchmark/'+id+'-rawphot.txt') )
+    obs.append( photometry.Photometry.read_sdb_file('calibration/gaia_benchmark/'+id+'-rawphot.txt') )
+    _,tmp = model.get_models((obs[-1],),('phoenix_m',))
+    mod.append(tmp)
+
+    fnujy = tmp[0][0].fnujy( par0+[-0.5] )
+    par.append( np.array( [t[i]['Teff'],t[i]['logg'],t[i]['[Fe/H]'],
+                           np.log10( np.median(obs[-1].fnujy/fnujy) )] ) )
+    allfilt += obs[-1].filters.tolist()
     
-    tmp = allmod.copy()
-    tmp.keep_filters( obs[-1].filters )
-    par0 = [t[i]['Teff'],t[i]['logg'],t[i]['[Fe/H]']]
-    fnujy = tmp.fnujy( par0+[-0.5] )
-    mod_filt.append( filter.mean_wavelength(tmp.filters) )
-    all_filt = np.append( all_filt, tmp.filters )
+# set up filter multipliers
+zp_filt = np.unique(allfilt)
+zp_fac = np.ones(len(zp_filt))
+               
+par_tmp,chisq = chisq_one(obs[-1],mod[-1],par[-1],zp_fac,zp_filt)
+               
+plt.semilogx(obs[-1].fnujy/mod[-1],fnujy(par) + 2*i,'.')
 
-    res = minimize(chisq_norm, np.log10( np.median(obs[-1].fnujy/fnujy) ),
-                   args=(par0,obs[-1],tmp))
-    mod_norm = np.append(mod_norm,res['x'][0])
-    mod_fnujy.append( tmp.fnujy( par0+[res['x'][0]] ) )
-
-#    plt.loglog(mod_filt[-1],obs[-1].fnujy)
-#    plt.loglog(mod_filt[-1],mod_fnujy[-1])
-#    plt.show()
-
-    plt.semilogx(mod_filt[-1],(obs[-1].fnujy/mod_fnujy[-1]) + 2*i,'.')
-
-all_filt = np.unique(all_filt)
 plt.show()
-"""
