@@ -225,11 +225,11 @@ def uvby_convert(by,m1,c1):
     if by < 0.5:
         by_out = (by - by_1[0])/by_1[1]
         m1_out = (m1 - m1_1[0])/m1_1[1]
-        c1_out = (c1 - m1_1[0])/c1_1[1]
+        c1_out = (c1 - c1_1[0])/c1_1[1]
     else:
         by_out = (by - by_2[0])/by_2[1]
         m1_out = (m1 - m1_2[0])/m1_2[1]
-        c1_out = (c1 - m1_2[0])/c1_2[1]
+        c1_out = (c1 - c1_2[0])/c1_2[1]
 
     return by_out,m1_out,c1_out
 
