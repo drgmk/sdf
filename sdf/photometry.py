@@ -7,7 +7,7 @@ from . import utils
 from . import config as cfg
 
 class Photometry(object):
-    """Photometry class
+    """Photometry class.
 
     This class is used for observations and synthetic photometry. It contains
     some meta info and lists of photometry.
@@ -27,8 +27,7 @@ class Photometry(object):
         self.e_fnujy = e_fnujy
 
     def addto(self,p):
-        """Add Photometry object to another
-        """
+        """Add Photometry object to another."""
 
         if self.nphot is None:
             self.filters = p.filters
@@ -58,10 +57,10 @@ class Photometry(object):
                     
     @classmethod
     def read_sdb_file(cls,file):
-        """ Load photometry from a file and return a Photometry object
+        """ Load photometry from a file and return a Photometry object.
 
         The file format is set by sdb_getphot.py, and is ascii.ipac. To
-        get any spectra use spectrum.ObsSpectrum.get_sdb_file
+        get any spectra use spectrum.ObsSpectrum.get_sdb_file.
         """
 
         self = cls()
@@ -107,7 +106,7 @@ class Photometry(object):
 
 
     def fill_fnujy(self):
-        """Convert measurements to Jy and fill fnujy/e_fnujy arrays
+        """Convert measurements to Jy and fill fnujy/e_fnujy arrays.
             
         Where no uncertainties are given 10% (or 0.1mag) is assumed.
         Colours/indices are left as is.
