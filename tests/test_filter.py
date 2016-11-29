@@ -32,6 +32,10 @@ def test_filter_zero_point():
     assert(f.mag2flux(2.5)==1234.0/10.0)
     assert(f.mag2flux(-2.5)==1234.0*10.0)
 
+def test_filter_flux_conversion():
+    f = sdf.filter.Filter.get('VJ')
+    assert(np.abs(f.flux2mag(f.mag2flux(0.0)))<1e-16)
+
 def test_filter_sort():
     f = sdf.filter.Filter(nu_hz=[3,2,1],response=[1,2,3])
     f.sort()
