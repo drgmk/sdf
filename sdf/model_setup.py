@@ -28,13 +28,16 @@ def setup_spec():
     phoenix_spectra()
 
 def setup_phot():
-    """Rederive convolved models."""
-    bb_phot()
-    modbb_phot()
+    """Rederive convolved models.
+        
+    This needs to be run to propagate ZPOs into colours/indices.
+    """
     specmodel2phot(mname='kurucz-0.0')
     specmodel2phot(mname='kurucz_m')
     specmodel2phot(mname='phoenix-0.0')
     specmodel2phot(mname='phoenix_m')
+    bb_phot()
+    modbb_phot()
 
 def bb_phot():
     """Generate a PhotModel grid of blackbody models.
@@ -98,7 +101,7 @@ def convolve_specmodel(mname='kurucz-0.0',overwrite=False):
         if exists(outfile) and overwrite == False:
             print("Skipping {}, file exists".format(fname))
         else:
-            print("Convolving filter {}".format(fname))
+#            print("Convolving filter {}".format(fname))
             cm = convolve.ConvolvedModel(name=mname,filter=fname,
                                          parameters=m.parameters,
                                          param_values=m.param_values,
