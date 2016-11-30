@@ -329,13 +329,13 @@ def calibration(file):
     chist = []
     for i,f in enumerate(filters):
 
-        if wav[i] > 30:
+        if wav[i] > 30 or wav[i] < 0.017:
             continue
 
         # grab the data for this filter
         data = {'id':[],'chi':[],'R':[],'Teff':[]}
         col = np.array([])
-        stmt = ("SELECT id,chi,R,parameters, "
+        stmt = ("SELECT id,chi,IF(R BETWEEN -100 and 100,R,100),parameters, "
                 "chisq/IF(dof<1,1,dof) as cdof FROM "
                 +cfg.mysql['model_table']+" ""LEFT JOIN "
                 +cfg.mysql['phot_table']+" USING (id) "
@@ -369,30 +369,33 @@ def calibration(file):
                             width=800,height=200) )
 
         center = (1 if std[0] > 0.5 else 0)
-        flux[i].line(x=[ np.min(data['Teff']) , np.max(data['Teff']) ],
+        flux[-1].line(x=[ np.min(data['Teff']) , np.max(data['Teff']) ],
                     y=[center,center],**cfg.pl['guide_dash'])
-        flux[i].circle('Teff','R',source=pldata,name='pl',
+        flux[-1].circle('Teff','R',source=pldata,name='pl',
                        fill_color='col')
 
         # ratio histograms (charts.Histogram uselessly slow)
         hhist,hedges = np.histogram(data['R'],bins='auto')
         hcen = (hedges[0:-1]+hedges[1:])/2.
-        rhist.append( figure(x_axis_label='R',x_range=flux[i].y_range,
+        rhist.append( figure(x_axis_label='R',x_range=flux[-1].y_range,
                              tools=tools,
                              active_scroll='wheel_zoom',width=200,height=200) )
 
-        rhist[i].vbar(x=hcen,top=hhist,width=hedges[1]-hedges[0],bottom=0,
+        rhist[-1].vbar(x=hcen,top=hhist,width=hedges[1]-hedges[0],bottom=0,
                      line_color='#333333')
 
         # chi histogram
-        hhist,hedges = np.histogram(data['chi'],bins='auto')
-        hcen = (hedges[0:-1]+hedges[1:])/2.
-        chist.append( figure(x_axis_label='chi',x_range=[-5,5],
-                             tools=tools,
-                             active_scroll='wheel_zoom',width=200,height=200) )
+        if np.max(np.array(data['chi'])>0):
+            hhist,hedges = np.histogram(data['chi'],bins='auto')
+            hcen = (hedges[0:-1]+hedges[1:])/2.
+            chist.append( figure(x_axis_label='chi',x_range=[-5,5],
+                                 tools=tools,
+                                 active_scroll='wheel_zoom',width=200,height=200) )
 
-        chist[i].vbar(x=hcen,top=hhist,width=hedges[1]-hedges[0],bottom=0,
-                     line_color='#333333')
+            chist[-1].vbar(x=hcen,top=hhist,width=hedges[1]-hedges[0],bottom=0,
+                         line_color='#333333')
+        else:
+            chist.append( figure(width=200,height=200) )
 
     # link all the x ranges
     for i in range(len(flux)-1):
