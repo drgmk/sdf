@@ -56,7 +56,7 @@ class Photometry(object):
 
                     
     @classmethod
-    def read_sdb_file(cls,file):
+    def read_sdb_file(cls,file,keep_filters=None):
         """ Load photometry from a file and return a Photometry object.
 
         The file format is set by sdb_getphot.py, and is ascii.ipac. To
@@ -70,8 +70,14 @@ class Photometry(object):
         if len(phot) == 0:
             return None
 
-        # loop over the rows and fill the object
+        # loop over the rows and fill the object if we're
+        # keeping this filter
         for i in range(len(phot)):
+            
+            if keep_filters is not None:
+                if phot[i]['Band'] not in keep_filters:
+                    continue
+            
             p = Photometry()
             row = phot[i]
             p.filters = np.array([row['Band']])
@@ -91,7 +97,7 @@ class Photometry(object):
         self.sort()
         return self
     
-    
+
     @property
     def nphot(self):
         if self.filters is not None:
