@@ -249,7 +249,8 @@ filters['VJ'] = {'svo_name': 'GCPD/Johnson.V',
                  'response_type': 'energy'}
 
 # zero point offsets from Bessel & Murphy 2012 are 0.027,0.028
-# from MvB are 0.0212, 0.0091
+# from MvB are 0.0212, 0.0091. Note that their R bandpasses look a bit
+# different, so perhaps expect different ZPOs
 filters['RC'] = {'svo_name': 'GCPD/Cousins.R',
                  'zero_point_offset': 0.027,
                  'response_type': 'energy'}
