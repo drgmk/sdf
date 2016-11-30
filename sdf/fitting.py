@@ -22,8 +22,8 @@ global_p_rng = ()
 def concat_obs(o):
     """Concatenate observations
 
-    Concatenate the observations (filters and spectra), including
-    shifting the normalisation of the spectra and noting how
+    Concatenate the observations (filters and spectra), not
+    shifting the normalisation of the spectra, but noting how
     many observations there are in each component (as the models
     will probably contain more due to colours/indices).
 
