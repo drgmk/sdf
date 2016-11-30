@@ -126,7 +126,7 @@ class Filter(object):
         wmean = votable.get_field_by_id('WavelengthMean')
         self.ref_wavelength = wmean.value * wmean.unit
         
-        # zero point in Jy
+        # zero point in Jy, and offset in mag
         zp = votable.get_field_by_id('ZeroPoint')
         self.zero_point = (zp.value * zp.unit).to('Jy').value
         self.zero_point_offset = 0.0
@@ -145,7 +145,7 @@ class Filter(object):
 
 
     @lru_cache(maxsize=128)
-    def get(name):
+    def get_memo(name):
         """Get response and details for a filter (via filter_info.py)
             
         This function is memoized for speed, the maxsize just needs
@@ -223,7 +223,23 @@ class Filter(object):
 
         return self
 
+
+    def get_with_zpo(name,zpo_file='/Users/grant/astro/projects/sdf/sdf/calibration/zpos.txt'):
+        """Get filter, using ZPO from file."""
         
+        f = Filter.get_memo(name)
+        t = np.genfromtxt(zpo_file,dtype=None)
+        fs = np.array([filt.decode() for filt in t[0]])
+        if name in fs:
+            f.zero_point_offset = float( t[1][ fs == name ][0] )
+
+        return f
+    
+    
+    # decide what get() points to
+    get = get_memo
+    
+
     def mag2flux(self,mag):
         """Convert magnitudes to flux density.
 

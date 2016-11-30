@@ -52,43 +52,80 @@ def mvb_zpo(fname,flam=None):
     set of reference stars, in particular Gaia benchmarks, but it didn't
     look like it was going to work very well so has been shelved
     """
-    
-def chisq_one(obs,mod,par,mult,mfilt):
-    fac = np.array([])
-    for f in obs.filters:
-        fac = np.append(fac,mult[f==mfilt])
 
-    res = minimize( fitting.chisq,par,args=( (obs,), (mod,) ) )
-    return res['x'],res['fun']
+def chisq_norm(norm,*args):
+
+
+    par0,obs,mod = args
+    res = minimize(fitting.chisq,
+                   np.append(par0,par),
+                   args=( (obs,), (mod,) ),
+                   method='Nelder-Mead')
+    print(res['x'])
+    return res['fun']
+
+
+def chisq_one(obs,mod,pars):
+    """Get the chisq for obs given a model and best normalisation."""
+    
+    filt = np.invert( filter.iscolour(tuple(obs.filters)) )
+    norm = 0.0
+    par = np.append(pars,norm)
+    mod_fnujy = mod.fnujy(par)[:len(obs.fnujy)]
+    norm = np.log10( np.median(obs.fnujy[filt]/mod_fnujy[filt]) )
+    chisq = fitting.chisq(np.append(pars,norm),(obs,),(mod,))
+    return chisq,np.append(pars,norm)
+
 
 # get the info for the targets
 t1 = Table.read('calibration/gaia_benchmark/gb.csv')
 t2 = Table.read('calibration/gaia_benchmark/ids.csv')
 t = operations.join(t1,t2)
-t = t[0:3]
+tok = [1,4,7,8,13,15,17,19,20,21,24,28,29,31,32,35,36,37]
+keep = np.zeros(len(t),dtype=bool)
+for i in tok:
+    keep[i] = True
+t = t[keep]
+
+# set up filter multipliers, exclude 2MASS K and Johnson V
+zp_filt = np.array(['UJ','BJ','RC','IC','US',
+                    'VS','BS','2MJ','2MH',
+                    'BT','VT','HP'])
+filt_keep = np.append(zp_filt,['STROMM1','STROMC1','BS_YS','UJ_BJ','BJ_VJ',
+                      'VJ_IC','VJ_RC'])
+zp_fac = np.zeros(len(zp_filt))+0.03
+
+#f = open('/Users/grant/astro/projects/sdf/sdf/calibration/zpos.txt','w')
+#f.write( ' '.join(zp_filt) )
+#f.write('\n')
+#f.write( ' '.join([str(s)+' ' for s in zp_fac]) )
+#f.close()
 
 # grab the photometry and the models
 obs = []
 mod = []
-par = []
+par0s = []
 allfilt = []
+chisq = 0.0
+
 for i,id in enumerate(t['sdbid']):
 
-    obs.append( photometry.Photometry.read_sdb_file('calibration/gaia_benchmark/'+id+'-rawphot.txt') )
-    _,tmp = model.get_models((obs[-1],),('phoenix_m',))
-    mod.append(tmp)
+    obs.append( photometry.Photometry.read_sdb_file('calibration/gaia_benchmark/'+id+'-rawphot.txt',keep_filters=filt_keep) )
+    mod1,mod2 = model.get_models((obs[-1],),('kurucz_m',))
+    mod.append(mod1[0][0])
 
-    fnujy = tmp[0][0].fnujy( par0+[-0.5] )
-    par.append( np.array( [t[i]['Teff'],t[i]['logg'],t[i]['[Fe/H]'],
-                           np.log10( np.median(obs[-1].fnujy/fnujy) )] ) )
-    allfilt += obs[-1].filters.tolist()
-    
-# set up filter multipliers
-zp_filt = np.unique(allfilt)
-zp_fac = np.ones(len(zp_filt))
-               
-par_tmp,chisq = chisq_one(obs[-1],mod[-1],par[-1],zp_fac,zp_filt)
-               
-plt.semilogx(obs[-1].fnujy/mod[-1],fnujy(par) + 2*i,'.')
+    par0s.append( np.array( [t[i]['Teff'],t[i]['logg'],t[i]['[Fe/H]']] ) )
+
+    chi,par = chisq_one(obs[i],mod[i],par0s[i])
+    chisq += chi
+    resid,_,_ = fitting.residual( par,(obs[i],),(mod[i],) )
+
+    plt.plot(filter.mean_wavelength(obs[i].filters),resid+i*5)
+#    plt.plot(filter.mean_wavelength(obs[i].filters),
+#             obs[i].fnujy/mod[i].fnujy(par)[:len(obs[i].fnujy)]+i)
+    plt.plot(filter.mean_wavelength(obs[i].filters),np.zeros(len(obs[i].filters))+i*5,'--')
+
+for f in filt_keep:
+    plt.text(filter.mean_wavelength([f]),-.5,f,rotation=90)
 
 plt.show()
