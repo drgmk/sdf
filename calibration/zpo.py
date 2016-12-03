@@ -1,7 +1,10 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
+import subprocess
+import time
 
+import mysql.connector
 from scipy.optimize import minimize
 import numpy as np
 import matplotlib.pyplot as plt
@@ -48,21 +51,83 @@ def mvb_zpo(fname,flam=None):
     print('ZPO: ',zpo)
 
 
+
+def chisq_all(zpos):
+    """Run SED fitting for everything and return photometry chisq."""
+
+    # update the ZPOs
+    zp_filt = np.array(['UJ','BJ','RC','IC',
+                        'US','VS','BS',
+                        '2MJ','2MH',
+                        'BT','VT','HP',
+                        'WISE3P4'])
+
+    f = open('/Users/grant/astro/projects/sdf/sdf/calibration/zpos.txt','w')
+    f.write( ' '.join(zp_filt) )
+    f.write('\n')
+    f.write( ' '.join([str(s)+' ' for s in zpos]) )
+    f.close()
+
+    # clear everything
+    subprocess.run(['python3','cleanup.py'])
+
+    # run all the fitting, Popen doesn't wait for end, run does
+    cmd = ['python3','fit.py','-w','-u','--no-spectra','--subset','public',
+           '-d','/Users/grant/a-extra/sdb/masters']
+    subprocess.Popen(cmd,stdin=None,stdout=None,stderr=None)
+    time.sleep(2)
+    subprocess.Popen(cmd,stdin=None,stdout=None,stderr=None)
+    time.sleep(2)
+    subprocess.Popen(cmd,stdin=None,stdout=None,stderr=None)
+    time.sleep(2)
+    subprocess.Popen(cmd,stdin=None,stdout=None,stderr=None)
+    time.sleep(2)
+    subprocess.Popen(cmd,stdin=None,stdout=None,stderr=None)
+    time.sleep(2)
+    subprocess.Popen(cmd,stdin=None,stdout=None,stderr=None)
+    time.sleep(2)
+    subprocess.Popen(cmd,stdin=None,stdout=None,stderr=None)
+    time.sleep(2)
+    subprocess.run(cmd)
+    
+    # wait for everything to finish
+    time.sleep(120)
+
+    # get the db output
+    cnx = mysql.connector.connect(user=cfg.mysql['user'],
+                                  password=cfg.mysql['passwd'],
+                                  host=cfg.mysql['host'],
+                                  database=cfg.mysql['db_results'])
+    cursor = cnx.cursor(buffered=True)
+    cursor.execute("select sum(abs(chi)*abs(chi)) from phot "
+                   "where filter "
+                   "regexp('UJ|BJ|RC|IC|US|VS|BS|2MJ|2MH|BT|VT|HP|WISE3P4') "
+                   "and obs_upperlim=0")
+    return float( cursor.fetchall()[0][0] )
+
+zpo0 = [0.04,  0.022, 0.047, 0.01,
+        1.445, 0.195, 0.034,
+        -0.001, 0.019,
+        0.03,  0.023, 0.038,
+        0.0]
+res = minimize(chisq_all,zpo0,method='Nelder-Mead')
+
+
 """This was supposed to be a way to set zero point offsets using some
     set of reference stars, in particular Gaia benchmarks, but it didn't
     look like it was going to work very well so has been shelved
     """
 
 def chisq_norm(norm,*args):
-
-
+    
+    
     par0,obs,mod = args
     res = minimize(fitting.chisq,
                    np.append(par0,par),
                    args=( (obs,), (mod,) ),
                    method='Nelder-Mead')
-    print(res['x'])
-    return res['fun']
+                   print(res['x'])
+                   return res['fun']
 
 
 def chisq_one(obs,mod,pars):
@@ -75,7 +140,6 @@ def chisq_one(obs,mod,pars):
     norm = np.log10( np.median(obs.fnujy[filt]/mod_fnujy[filt]) )
     chisq = fitting.chisq(np.append(pars,norm),(obs,),(mod,))
     return chisq,np.append(pars,norm)
-
 
 # get the info for the targets
 t1 = Table.read('calibration/gaia_benchmark/gb.csv')
@@ -95,11 +159,6 @@ filt_keep = np.append(zp_filt,['STROMM1','STROMC1','BS_YS','UJ_BJ','BJ_VJ',
                       'VJ_IC','VJ_RC'])
 zp_fac = np.zeros(len(zp_filt))+0.03
 
-#f = open('/Users/grant/astro/projects/sdf/sdf/calibration/zpos.txt','w')
-#f.write( ' '.join(zp_filt) )
-#f.write('\n')
-#f.write( ' '.join([str(s)+' ' for s in zp_fac]) )
-#f.close()
 
 # grab the photometry and the models
 obs = []
