@@ -233,8 +233,9 @@ class Model(object):
 
         # interpolation, sped up by doing spline_filter first and
         # memoizing the result, order must be the same in both calls
-        ff = utils.spline_filter_mem(utils.hashable(self.fnujy_sr),order=3)
-        fluxes = map_coordinates(ff,pargrid.T,order=3,prefilter=False)
+        # TODO: this method causes ringing in the interpolated spectra
+        ff = utils.spline_filter_mem(utils.hashable(self.fnujy_sr),order=2)
+        fluxes = map_coordinates(ff,pargrid.T,order=2,prefilter=False)
 
         # per-filter normalisation for photometry (leave colours)
         if isinstance(self,PhotModel):
