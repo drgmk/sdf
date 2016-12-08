@@ -45,7 +45,9 @@ def sed(results,tab_order=None,file='sed.html'):
     tabs = []
     for i,r in enumerate(results):
 
-        title = "Evidence:"+str(r.evidence)
+        title = "Evidence: {:.2f} | ".format(r.evidence)
+        for j,par in enumerate(r.parameters):
+            title += "{}:{:.1f}, ".format(par,r.best_params[j])
 
         # sed plot
         hover = HoverTool(names=['phot'],tooltips=[('band',"@filter"),
@@ -149,9 +151,9 @@ def add_obs_spec(fig,r):
             continue
         data = {}
         data['wave'] = s.wavelength
-        data['flux'] = s.fnujy * r.parameters[ispec]
-        data['loerr'] = (s.fnujy - s.e_fnujy) * r.parameters[ispec]
-        data['hierr'] = (s.fnujy + s.e_fnujy) * r.parameters[ispec]
+        data['flux'] = s.fnujy * r.best_params[ispec]
+        data['loerr'] = (s.fnujy - s.e_fnujy) * r.best_params[ispec]
+        data['hierr'] = (s.fnujy + s.e_fnujy) * r.best_params[ispec]
         ispec -= 1
         pldata = ColumnDataSource(data=data)
 
@@ -218,7 +220,7 @@ def add_model_spec(fig,r):
             data['wave'] = wav_pl
             m_pl = m.copy()
             m_pl.interp_to_wavelengths(wav_pl)
-            data['flux'] = m_pl.fnujy(r.parameters[i0:i0+nparam])
+            data['flux'] = m_pl.fnujy(r.best_params[i0:i0+nparam])
             try:
                 totflux += data['flux']
             except NameError:
