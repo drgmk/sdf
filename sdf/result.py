@@ -107,7 +107,8 @@ class Result(object):
             plt.close(fig) # not doing this causes an epic memory leak
 
         self.evidence = self.analyzer.get_stats()['global evidence']
-        self.parameters = self.analyzer.get_best_fit()['parameters']
+        self.parameters = self.model_info['parameters']
+        self.best_params = self.analyzer.get_best_fit()['parameters']
         self.n_parameters = len(self.parameters)
         
         # photometry etc., this is largely copied from fitting.residual
@@ -117,16 +118,16 @@ class Result(object):
         self.obs_fnujy,self.obs_e_fnujy,self.obs_upperlim,self.filters_ignore,\
             obs_ispec,obs_nel,self.wavelengths,self.filters,self.obs_bibcode = tmp
 
-        spec_norm = np.take(self.parameters+[1.0],obs_ispec)
+        spec_norm = np.take(self.best_params+[1.0],obs_ispec)
         self.obs_fnujy = self.obs_fnujy * spec_norm
         self.obs_e_fnujy = self.obs_fnujy * spec_norm
 
         # get model fluxes, including filling of colours/indices
         self.model_fnujy,self.model_comp_fnujy                      \
-            = model.model_fluxes(self.models,self.parameters,obs_nel)
+            = model.model_fluxes(self.models,self.best_params,obs_nel)
         
         # residuals, a bit neater to use fitting.residual
-        self.residuals,_,_ = fitting.residual(self.parameters,
+        self.residuals,_,_ = fitting.residual(self.best_params,
                                               self.obs,self.models)
         self.chisq = np.sum( np.square( self.residuals ) )
         self.dof = len(self.wavelengths)-len(self.parameters)-1
