@@ -72,18 +72,21 @@ def write_phot(cursor,r):
         
         stmt = ("INSERT INTO "+cfg.mysql['phot_table']+" "
                 "(id,filter,obs_jy,e_obs_jy,obs_upperlim,bibcode,"
-                "model_jy,chi,R) "
-                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)")
+                "model_jy,comps_jy,chi,R) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)")
                 
         # compute R properly, / for flux and - for colurs
         ratio = r.obs_fnujy[i] / r.model_fnujy[i]
         if filter.iscolour(r.filters[i]):
             ratio = r.obs_fnujy[i] - r.model_fnujy[i]
         
+        comp_str = '['+','.join("{:e}".format(p) \
+                                for p in r.model_comp_fnujy[:,i])+']'
+        
         values = (str(r.id),str(r.filters[i]),str(r.obs_fnujy[i]),
                   str(r.obs_e_fnujy[i]),str(r.obs_upperlim[i].astype(int)),
                   str(r.obs_bibcode[i]),str(r.model_fnujy[i]),
-                  str(r.residuals[i]),str(ratio))
+                  comp_str,str(r.residuals[i]),str(ratio))
         
         cursor.execute(stmt,values)
 
@@ -100,7 +103,7 @@ def write_model(cursor,r):
             "VALUES (%s,%s,%s,%s,%s,%s,%s)")
 
     values = (str(r.id),str(r.model_comps),
-              '['+','.join(str(round(p,3)) for p in r.parameters)+']',
+              '['+','.join("{:e}".format(p) for p in r.best_params)+']',
               str(r.evidence),str(r.chisq),
               str(r.dof),str(r.mtime))
 
