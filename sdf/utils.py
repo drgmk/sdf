@@ -59,10 +59,12 @@ def bnu_nu_hz(nu_hz,temp):
     wav_um = c_micron / nu_hz
     return bnu_wav_micron(wav_um,temp)
 
+
 def sdf_int(y,x):
     """Decide how we do integration in sdf."""
     return np.trapz(y,x)
 #    return simps(y,x)
+
 
 def validate_1d(value,expected_len,dtype=float):
     
@@ -197,8 +199,11 @@ def get_sdb_keywords(file):
     t = Table.read(file,format='ascii.ipac')
     kw = {}
     for key in t.meta['keywords'].keys():
-        kw[key] = t.meta['keywords'][key]['value']
-    
+        if t.meta['keywords'][key]['value'] == 'None':
+            kw[key] = None
+        else:
+            kw[key] = t.meta['keywords'][key]['value']
+
     return kw
 
 
