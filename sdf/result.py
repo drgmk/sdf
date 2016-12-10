@@ -44,13 +44,15 @@ class Result(object):
                         + '+'.join(self.model_comps)        \
                         + cfg.fitting['pmn_model_suffix']
 
-        # observations, tuples of photometry and spectra. if there is
-        # nothing in the photometry file then don't fill everything else
+        # observations; keywords, tuples of photometry and spectra. if
+        # there is nothing in the photometry file then don't fill
+        # anything else
         p = photometry.Photometry.read_sdb_file(self.rawphot)
         if p is None:
             return
 
         self.obs = (p,)
+        self.obs_keywords = utils.get_sdb_keywords(self.rawphot)
         if not nospec:
             s = spectrum.ObsSpectrum.read_sdb_file(self.rawphot,
                                                    module_split=True)
