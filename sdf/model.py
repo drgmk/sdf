@@ -1056,6 +1056,8 @@ def models_info(m):
         
     Also do some basic sanity checking.
     
+    Here is where the ranges for model and spectra normalisation is set.
+    
     """
     info = {}
     info['name'] = ''
