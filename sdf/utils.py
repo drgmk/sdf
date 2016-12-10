@@ -7,6 +7,7 @@ from scipy import sparse
 import numpy as np
 from scipy.integrate import simps
 from scipy.ndimage import spline_filter
+from astropy.table import Table
 import astropy.units as u
 
 from . import photometry
@@ -194,7 +195,11 @@ def get_sdb_keywords(file):
     """Get keywords from a sdb file."""
 
     t = Table.read(file,format='ascii.ipac')
-    return t.meta['keywords']
+    kw = {}
+    for key in t.meta['keywords'].keys():
+        kw[key] = t.meta['keywords'][key]['value']
+    
+    return kw
 
 
 def uvby_convert(by,m1,c1):
