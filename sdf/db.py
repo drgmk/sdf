@@ -1,7 +1,10 @@
 import numpy as np
+
 import mysql.connector
+import astropy.units as u
 
 from . import filter
+from . import utils
 from . import config as cfg
 
 
@@ -33,6 +36,10 @@ def write_all(r,update=False):
         cursor.execute(stmt,{'a':str(r.id)})
         write_model(cursor,r)
 
+        stmt = ("DELETE FROM "+cfg.mysql['star_table']+" WHERE id = %(a)s;")
+        cursor.execute(stmt,{'a':str(r.id)})
+        write_star(cursor,r)
+
     # commit and close
     cnx.commit()
     cursor.close()
@@ -59,8 +66,7 @@ def update_needed(cursor,table,r):
 def write_phot(cursor,r):
     """Write photometry from a fit to db.
         
-    Assumes rows have been removed already by update_needed (if
-    necessary).
+    Assumes rows have been removed already (if necessary).
     """
 
     # write to table
@@ -94,8 +100,7 @@ def write_phot(cursor,r):
 def write_model(cursor,r):
     """Write model results to db.
     
-    Assumes rows have been removed already by update_needed (if
-    necessary).
+    Assumes rows have been removed already (if necessary).
     """
 
     stmt = ("INSERT INTO "+cfg.mysql['model_table']+" "
@@ -108,6 +113,56 @@ def write_model(cursor,r):
               str(r.dof),str(r.mtime))
 
     cursor.execute(stmt,values)
+
+
+def write_star(cursor,r):
+    """Write stellar properties to db.
+
+    Assumes rows have been removed already (if necessary).
+    
+    TODO: allow for multiple stellar components.
+    """
+
+    # loop over plotting models, only one SpecModel per component
+    for i,comp in enumerate(r.pl_models):
+        if 'kurucz' in r.model_comps[i] or 'phoenix' in r.model_comps[i]:
+
+            cursor.execute("INSERT INTO "+cfg.mysql['star_table']+" "
+                           "(id) VALUES (%s)",(str(r.id),))
+
+            # parameters directly from model
+            for j,par in enumerate(r.parameters):
+                if par == 'norm' or par == 'spec_norm':
+                    continue
+                cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
+                               "SET {} = {:e} WHERE id = '{}'".format(
+                               par,r.best_params[j],r.id) )
+
+            # derived parameters
+            lstar_1pc = r.comp_spectra[i].irradiance \
+                        * 4 * np.pi * (u.pc.to(u.m))**2 / u.L_sun.to(u.W)
+
+            cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
+                           "SET lstar_1pc = {:e} WHERE id = '{}'".format(
+                           lstar_1pc,r.id) )
+
+            # distance-dependent params
+            if r.obs_keywords['plx_value'] is not None:
+                plx_arcsec = r.obs_keywords['plx_value'] / 1e3
+                cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
+                               "SET lstar = {:e} WHERE id = '{}'".format(
+                               lstar_1pc / plx_arcsec**2,r.id) )
+                               
+                cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
+                               "SET plx_arcsec = {} WHERE id = '{}'".format(
+                               plx_arcsec,r.id) )
+
+                rstar = np.sqrt(cfg.ssr * 10**r.comp_best_params[i][-1]/np.pi) \
+                        * u.pc.to(u.m) / plx_arcsec / u.R_sun.to(u.m)
+
+                cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
+                               "SET rstar = {:e} WHERE id = '{}'".format(
+                               rstar,r.id) )
 
 
 def sample_targets(sample,db='sdb_samples'):
