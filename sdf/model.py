@@ -21,9 +21,6 @@ from . import utils
 from .utils import SdfError
 from . import config as cfg
 
-# Solar radius at 1pc as base unit for emitting area in sr
-ssr = ( np.pi*u.solRad**2 / (u.pc)**2 ).si.value
-
 class Model(object):
     """Basic model class
         
@@ -194,7 +191,7 @@ class Model(object):
         log10 of the area in steradian in units of Solar radii at 1pc,
         appended.
         
-        This is linear interpolation. This doesn't matter too much since
+        This is spline interpolation. This doesn't matter too much since
         any high dynamic range parameters are already log spaced.
 
         TODO: this is the core of the sdf code in terms of execution
@@ -214,7 +211,7 @@ class Model(object):
         # make sure par is a numpy array
         par_len = len(param)-1
 
-        area_sr = ssr * 10**( param[-1] )
+        area_sr = cfg.ssr * 10**( param[-1] )
         par = param[:par_len]
 
         # scipy.ndimage.map_coordinates, only real difference compared
