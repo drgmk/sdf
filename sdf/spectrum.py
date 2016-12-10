@@ -348,7 +348,8 @@ class ObsSpectrum(Spectrum):
         """Read a sdb rawphot file and return a tuple of spectra.
         
         The file format is set by sdb_getphot.py, and is ascii.ipac.
-        To get any photometry use photometry.get_sdb_file.
+        To get any photometry use photometry.get_sdb_file, and for
+        keywords use utils.get_sdb_keywords.
         
         There could be multiple spectra of a given type, so the
         keywords can have extra text in them to allow the keywords

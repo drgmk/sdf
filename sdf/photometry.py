@@ -60,7 +60,9 @@ class Photometry(object):
         """ Load photometry from a file and return a Photometry object.
 
         The file format is set by sdb_getphot.py, and is ascii.ipac. To
-        get any spectra use spectrum.ObsSpectrum.get_sdb_file.
+        get any spectra use spectrum.ObsSpectrum.get_sdb_file, and for
+        keywords use utils.get_sdb_keywords.
+
         """
 
         self = cls()
