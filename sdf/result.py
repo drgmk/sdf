@@ -108,10 +108,19 @@ class Result(object):
             fig.savefig(self.chain_plot)
             plt.close(fig) # not doing this causes an epic memory leak
 
+        # parameter names and best fit
         self.evidence = self.analyzer.get_stats()['global evidence']
         self.parameters = self.model_info['parameters']
         self.best_params = self.analyzer.get_best_fit()['parameters']
         self.n_parameters = len(self.parameters)
+        self.comp_best_params = ()
+        self.comp_parameters = ()
+        i0 = 0
+        for comp in self.models:
+            nparam = len(comp[0].parameters)+1
+            self.comp_parameters += (comp[0].parameters,)
+            self.comp_best_params += (self.best_params[i0:nparam],)
+            i0 += nparam
         
         # photometry etc., this is largely copied from fitting.residual
         
@@ -133,6 +142,17 @@ class Result(object):
                                               self.obs,self.models)
         self.chisq = np.sum( np.square( self.residuals ) )
         self.dof = len(self.wavelengths)-len(self.parameters)-1
+
+        # ObsSpectrum for each component
+        self.comp_spectra = ()
+        for i,comp in enumerate(self.pl_models):
+            for m in comp:
+                if not isinstance(m,model.SpecModel):
+                    continue
+                s = spectrum.ObsSpectrum(wavelength=m.wavelength,
+                                         fnujy=m.fnujy(self.comp_best_params[i]))
+                s.fill_irradiance()
+                self.comp_spectra += (s,)
 
         # path to SED plot (which probably doesn't exist yet)
         self.sed_plot = self.path + '/' + self.id + cfg.pl['sed_suffix']
