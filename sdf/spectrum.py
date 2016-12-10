@@ -16,7 +16,7 @@ class Spectrum(object):
     """Basic spectral class (ha!).
 
     This class is used as the basis for ObsSpectrum and
-    ModelSpectrum
+    ModelSpectrum.
     """
     
     def synthphot(self,filters):
@@ -129,6 +129,19 @@ class Spectrum(object):
             self.fnujy_sr = self.fnujy_sr[srt]
 
 
+    def fill_irradiance(self):
+        """Compute the irradiance.
+            
+        Units are W/m2 for an ObsSpectrum, W/m2/sr for a ModelSpectrum.
+        """
+        
+        self.sort('nu')
+        if isinstance(self,ObsSpectrum):
+            self.irradiance = 1e-26 * utils.sdf_int(self.fnujy,self.nu_hz)
+        elif isinstance(self,ModelSpectrum):
+            self.irradiance_sr = 1e-26 * utils.sdf_int(self.fnujy_sr,self.nu_hz)
+
+        
     def fill_wave2hz(self):
         """Fill nu_hz array from wavelength
         """
@@ -433,12 +446,6 @@ class ObsSpectrum(Spectrum):
         return self
 
     
-    def fill_irradiance(self):
-        """Compute the irradiance in W/m2."""
-        
-        self.irradiance = utils.sdf_int(self.fnujy,self.nu_hz) * 1e26 * u.W/u.m**2
-
-        
     @property
     def e_fnujy(self):
         return self._e_fnujy
@@ -484,13 +491,15 @@ class ModelSpectrum(Spectrum):
     """
     
     def __init__(self,name=None,parameters=None,param_values=None,
-                 wavelength=None,nu_hz=None,fnujy_sr=None):
+                 wavelength=None,nu_hz=None,fnujy_sr=None,
+                 irradiance_sr=None):
         self.name = name
         self.parameters = parameters
         self.param_values = param_values
         self.wavelength = wavelength
         self.nu_hz = nu_hz
         self.fnujy_sr = fnujy_sr
+        self.irradiance_sr = irradiance_sr
 
         # fill wavelength/frequency if possible
         if self.wavelength is None and self.nu_hz is not None:
