@@ -190,19 +190,11 @@ def resample_matrix(wave_in,new_wave,new_R,old_R=np.inf,
     return sparse.coo_matrix((pdf, (x_indices, y_indices)), shape=(M, N))
 
 
-def get_observations(file):
-    """Get observations from a sdb file."""
+def get_sdb_keywords(file):
+    """Get keywords from a sdb file."""
 
-    # first photometry
-    p = photometry.Photometry.read_sdb_file(file) # Photometry object
-    # then a tuple of ObsSpectrum objects
-    s = spectrum.ObsSpectrum.read_sdb_file(file,module_split=True)
-    if s is None:
-        obs = (p,)
-    else:
-        obs = (p,) + s
-
-    return obs
+    t = Table.read(file,format='ascii.ipac')
+    return t.meta['keywords']
 
 
 def uvby_convert(by,m1,c1):
