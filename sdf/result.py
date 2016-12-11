@@ -111,18 +111,28 @@ class Result(object):
         # parameter names and best fit
         self.evidence = self.analyzer.get_stats()['global evidence']
         self.parameters = self.model_info['parameters']
-        self.best_params = self.analyzer.get_best_fit()['parameters']
+
+        self.best_params = []
+        self.best_params_1sig = []
+        for i in range(len(self.parameters)):
+            self.best_params.append(self.analyzer.get_stats()\
+                                    ['marginals'][i]['median'])
+            self.best_params_1sig.append(self.analyzer.get_stats()\
+                                         ['marginals'][i]['sigma'])
+        
         self.n_parameters = len(self.parameters)
         self.comp_best_params = ()
+        self.comp_best_params_1sig = ()
         self.comp_parameters = ()
         i0 = 0
         for comp in self.models:
             nparam = len(comp[0].parameters)+1
             self.comp_parameters += (comp[0].parameters,)
-            self.comp_best_params += (self.best_params[i0:nparam],)
+            self.comp_best_params += (self.best_params[i0:i0+nparam],)
+            self.comp_best_params_1sig += (self.best_params_1sig[i0:i0+nparam],)
             i0 += nparam
         
-        # photometry etc., this is largely copied from fitting.residual
+        # fluxes etc., this is largely copied from fitting.residual
         
         # concatenated fluxes
         tmp = fitting.concat_obs(self.obs)
