@@ -331,7 +331,7 @@ def calibration(file):
     chist = []
     for i,f in enumerate(filters):
 
-        if wav[i] > 30 or wav[i] < 0.017:
+        if wav[i] > 4 or wav[i] < 0.017:
             continue
 
         # grab the data for this filter
