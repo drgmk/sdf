@@ -36,9 +36,13 @@ def write_all(r,update=False):
         cursor.execute(stmt,{'a':str(r.id)})
         write_model(cursor,r)
 
-        stmt = ("DELETE FROM "+cfg.mysql['star_table']+" WHERE id = %(a)s;")
-        cursor.execute(stmt,{'a':str(r.id)})
+        cursor.execute("DELETE FROM "+cfg.mysql['star_table']+" "
+                       "WHERE id = '{}'".format(r.id))
         write_star(cursor,r)
+
+        cursor.execute("DELETE FROM "+cfg.mysql['disk_r_table']+" "
+                       "WHERE id = '{}'".format(r.id))
+        write_disk_r(cursor,r)
 
     # commit and close
     cnx.commit()
@@ -120,49 +124,139 @@ def write_star(cursor,r):
 
     Assumes rows have been removed already (if necessary).
     
-    TODO: allow for multiple stellar components.
+    For uncertainty propagation see examples at:
+        https://en.wikipedia.org/wiki/Propagation_of_uncertainty
     """
 
     # loop over plotting models, only one SpecModel per component
-    for i,comp in enumerate(r.pl_models):
-        if 'kurucz' in r.model_comps[i] or 'phoenix' in r.model_comps[i]:
+    for i,comp in enumerate(r.model_comps):
+        if 'kurucz' in comp or 'phoenix' in comp:
 
+            # find the temperature for this component
+            for j,par in enumerate(r.parameters):
+                if par == 'Teff':
+                    teff = r.best_params[j]
+                    e_teff = r.best_params_1sig[j]
+        
             cursor.execute("INSERT INTO "+cfg.mysql['star_table']+" "
-                           "(id) VALUES (%s)",(str(r.id),))
+                           "(id,teff,e_teff) VALUES "
+                           "('{}',{:e},{:e})".format(r.id,teff,e_teff))
 
             # parameters directly from model
-            for j,par in enumerate(r.parameters):
-                if par == 'norm' or par == 'spec_norm':
+            for j,par in enumerate(r.comp_parameters[i]):
+                if par == 'Teff' or par == 'norm' or par == 'spec_norm':
                     continue
                 cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
-                               "SET {} = {:e} WHERE id = '{}'".format(
-                               par,r.best_params[j],r.id) )
+                               "SET {} = {:e}, e_{} = {:e} WHERE "
+                               "id = '{}'".format(par,r.comp_best_params[i][j],
+                                                  par,r.comp_best_params_1sig[i][j],
+                                                  r.id) )
 
-            # derived parameters
+            # stellar luminosity, uncertainty is normalisation
+            frac_norm = np.log(10) * r.comp_best_params_1sig[i][-1]
             lstar_1pc = r.comp_spectra[i].irradiance \
                         * 4 * np.pi * (u.pc.to(u.m))**2 / u.L_sun.to(u.W)
+            e_lstar_1pc = lstar_1pc * frac_norm
 
             cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
-                           "SET lstar_1pc = {:e} WHERE id = '{}'".format(
-                           lstar_1pc,r.id) )
+                           "SET lstar_1pc = {:e},e_lstar_1pc = {:e} "
+                           "WHERE id = '{}'".format(lstar_1pc,
+                                                    e_lstar_1pc,r.id) )
 
             # distance-dependent params
             if r.obs_keywords['plx_value'] is not None:
                 plx_arcsec = r.obs_keywords['plx_value'] / 1e3
+                e_plx_arcsec = r.obs_keywords['plx_err'] / 1e3
+                
+                lstar = lstar_1pc / plx_arcsec**2
+                e_lstar = lstar * np.sqrt( frac_norm**2
+                                          + (2*e_plx_arcsec/plx_arcsec)**2 )
+                                  
                 cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
-                               "SET lstar = {:e} WHERE id = '{}'".format(
-                               lstar_1pc / plx_arcsec**2,r.id) )
+                               "SET lstar = {:e},e_lstar = {:e} WHERE "
+                               "id = '{}'".format(lstar,e_lstar,r.id) )
                                
                 cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
-                               "SET plx_arcsec = {} WHERE id = '{}'".format(
-                               plx_arcsec,r.id) )
+                               "SET plx_arcsec = {:e},e_plx_arcsec = {:e} WHERE "
+                               "id = '{}'".format(plx_arcsec,e_plx_arcsec,r.id) )
 
                 rstar = np.sqrt(cfg.ssr * 10**r.comp_best_params[i][-1]/np.pi) \
                         * u.pc.to(u.m) / plx_arcsec / u.R_sun.to(u.m)
+                e_rstar = rstar * ( np.sqrt( frac_norm**2
+                                            + (2*e_plx_arcsec/plx_arcsec)**2) )
 
                 cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
-                               "SET rstar = {:e} WHERE id = '{}'".format(
-                               rstar,r.id) )
+                               "SET rstar = {:e},e_rstar = {:e} WHERE "
+                               "id = '{}'".format(rstar,e_rstar,r.id) )
+
+
+def write_disk_r(cursor,r):
+    """Write narrow disk properties to db.
+
+    Assumes rows have been removed already (if necessary).
+
+    For uncertainty propagation see examples at:
+        https://en.wikipedia.org/wiki/Propagation_of_uncertainty
+    """
+
+    # loop over plotting models, only one SpecModel per component
+    for i,comp in enumerate(r.model_comps):
+        if 'bb' in comp:
+            
+            # find the temperature for this component
+            for j,par in enumerate(r.parameters):
+                if par == 'Temp':
+                    tdisk = 10**r.best_params[j]
+                    e_tdisk = 10**r.best_params_1sig[j]
+
+            cursor.execute("INSERT INTO "+cfg.mysql['disk_r_table']+" "
+                           "(id,tdisk,e_tdisk) VALUES "
+                           "('{}',{:e},{:e})".format(r.id,tdisk,e_tdisk) )
+
+            # parameters directly from model
+            for j,par in enumerate(r.comp_parameters[i]):
+                if par == 'Temp' or par == 'norm' or par == 'spec_norm':
+                    continue
+                cursor.execute("UPDATE "+cfg.mysql['disk_r_table']+" "
+                               "SET {} = {:e}, e_{} = {:e} WHERE "
+                               "id = '{}'".format(par,r.comp_best_params[i][j],
+                                                  par,r.comp_best_params_1sig[i][j],
+                                                  r.id) )
+
+            # disk and fractional luminosity
+            frac_norm = np.log(10) * r.comp_best_params_1sig[i][-1]
+            ldisk_1pc = r.comp_spectra[i].irradiance \
+                        * 4 * np.pi * (u.pc.to(u.m))**2 / u.L_sun.to(u.W)
+            e_ldisk_1pc = ldisk_1pc * frac_norm
+
+            cursor.execute("SELECT SUM(lstar_1pc) FROM "+cfg.mysql['star_table']+" "
+                           "WHERE id = '{}'".format(r.id) )
+            lstar_1pc = cursor.fetchall()[0][0]
+            
+            cursor.execute("SELECT SUM(e_lstar_1pc) FROM "
+                           +cfg.mysql['star_table']+" "
+                           "WHERE id = '{}'".format(r.id) )
+            e_lstar_1pc = cursor.fetchall()[0][0]
+            frac_lstar_1pc = e_lstar_1pc / lstar_1pc
+
+            ldls = ldisk_1pc/lstar_1pc
+            e_ldls = ldls * np.sqrt(frac_norm**2 + frac_lstar_1pc**2)
+
+            cursor.execute("UPDATE "+cfg.mysql['disk_r_table']+" "
+                           "SET ldisk_1pc = {:e},e_ldisk_1pc = {:e}, "
+                           "ldisk_lstar = {:e},e_ldisk_lstar = {:e} WHERE "
+                           "id = '{}'".format(ldisk_1pc,e_ldisk_1pc,
+                                              ldls,e_ldls,r.id) )
+
+            # distance-dependent params
+            if r.obs_keywords['plx_value'] is not None:
+                plx_arcsec = r.obs_keywords['plx_value'] / 1e3
+                rdisk = (lstar_1pc/plx_arcsec**2)**0.5 * (278.3/tdisk)**2
+                e_rdisk = rdisk * np.sqrt( (0.5*frac_lstar_1pc)**2
+                                          + (2*(e_tdisk/tdisk))**2 )
+                cursor.execute("UPDATE "+cfg.mysql['disk_r_table']+" "
+                               "SET rdisk = {:e},e_rdisk = {:e} WHERE "
+                               "id = '{}'".format(rdisk,e_rdisk,r.id) )
 
 
 def sample_targets(sample,db='sdb_samples'):
