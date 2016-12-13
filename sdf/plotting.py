@@ -165,7 +165,7 @@ def add_obs_spec(fig,r):
 def add_model_phot(fig,r):
     """Add model photometry to an SED plot."""
     
-    # where filter and colours are (spectra have None for filter)
+    # filters and colours (spectra have None for filter)
     filt = np.array([isinstance(f,(str,np.str_)) for f in r.filters])
     
     # individual model components, ignoring colours (if more than one)
@@ -205,7 +205,7 @@ def add_model_spec(fig,r):
     """
     
     # create wavelengths to plot with
-    wav_pl = np.power(10,np.arange(-1,4,0.01))
+    wav_pl = cfg.models['default_wave']
 
     i0 = 0
     i = 0
@@ -310,8 +310,7 @@ def calibration(file):
 
     output_file(file,mode='cdn')
 
-    # get a wavelength-sorted list of filters. TODO, use 'order' to
-    # also sort by filter name
+    # get a wavelength-sorted list of filters.
     cursor.execute("SELECT DISTINCT filter FROM "+cfg.mysql['phot_table'])
     filters = cursor.fetchall()
     filters = [f for (f,) in filters]
