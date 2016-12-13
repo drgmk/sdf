@@ -130,7 +130,7 @@ def write_star(cursor,r):
 
     # loop over plotting models, only one SpecModel per component
     for i,comp in enumerate(r.model_comps):
-        if 'kurucz' in comp or 'phoenix' in comp:
+        if comp in cfg.models['star']:
 
             # find the temperature for this component
             for j,par in enumerate(r.parameters):
@@ -201,7 +201,7 @@ def write_disk_r(cursor,r):
 
     # loop over plotting models, only one SpecModel per component
     for i,comp in enumerate(r.model_comps):
-        if 'bb' in comp:
+        if comp in cfg.models['disk']:
             
             # find the temperature for this component
             for j,par in enumerate(r.parameters):
