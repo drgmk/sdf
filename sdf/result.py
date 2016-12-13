@@ -181,7 +181,6 @@ class Result(object):
         
         p_all = photometry.Photometry(filters=filter.Filter.all)
         if len(star_comps) > 0:
-            print(star_comps,star_params)
             star_mod,_ = model.get_models((p_all,),star_comps)
             self.star_phot,_ = model.model_fluxes(star_mod,star_params,[p_all.nphot])
         else:
@@ -193,7 +192,19 @@ class Result(object):
         else:
             self.disk_phot = None
         
-        self.star_disk_filters = p_all.filters
+        self.all_filters = p_all.filters
+        
+        # total photometry
+        if self.star_phot is not None:
+            self.all_phot = self.star_phot
+            if self.disk_phot is not None:
+                self.all_phot += self.disk_phot
+        
+        else:
+            if self.disk_phot is not None:
+                self.all_phot = self.disk_phot
+            else:
+                self.all_phot = None
 
         # ObsSpectrum for each component
         wave = cfg.models['default_wave']
