@@ -683,7 +683,7 @@ class SpecModel(Model):
         self = cls()
 
         if wavelengths is None:
-            wavelengths = np.power(10,np.arange(-1,4,0.01))
+            wavelengths = cfg.models['default_wave']
 
         if temperatures is None:
             temperatures = np.power(10,np.arange(0,5,0.1))
@@ -725,7 +725,7 @@ class SpecModel(Model):
         self = cls()
 
         if wavelengths is None:
-            wavelengths = np.power(10,np.arange(-1,4,0.01))
+            wavelengths = cfg.models['default_wave']
 
         if temperatures is None:
             temperatures = np.power(10,np.arange(0,5,0.1))
@@ -804,11 +804,6 @@ def model_fluxes(m,param,obs_nel,phot_only=False):
     
     all_fnu is everything added up, with colours/indices added properly,
     comp_fnu[i] contains fluxes from the i-th model component.
-    
-    The returned result may be longer than the concatenated observations
-    as the model includes extra columns with the filter bases for
-    colours and indices.
-
     """
     
     comp_fnu = []
