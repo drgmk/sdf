@@ -11,8 +11,10 @@ import corner
 from . import photometry
 from . import spectrum
 from . import model
+from . import filter
 from . import fitting
 from . import utils
+from .utils import SdfError
 from . import config as cfg
 
 
@@ -25,6 +27,18 @@ class Result(object):
         
         self.rawphot = rawphot
         self.model_comps = model_comps
+        self.star_or_disk = ()
+        for comp in model_comps:
+            if comp in cfg.models['star']:
+                self.star_or_disk += ('star',)
+            elif comp in cfg.models['disk']:
+                self.star_or_disk += ('disk',)
+            else:
+                raise SdfError("couldn't assigm comp {} to star or disk "
+                               "given lists in {} and {}".
+                               format(comp,cfg.models['star'],
+                                      cfg.models['disk']))
+    
         self.n_comps = len(model_comps)
         
         # id
@@ -134,26 +148,57 @@ class Result(object):
         
         # fluxes etc., this is largely copied from fitting.residual
         
-        # concatenated fluxes
+        # observed fluxes
         tmp = fitting.concat_obs(self.obs)
         self.obs_fnujy,self.obs_e_fnujy,self.obs_upperlim,self.filters_ignore,\
             obs_ispec,obs_nel,self.wavelengths,self.filters,self.obs_bibcode = tmp
-
         spec_norm = np.take(self.best_params+[1.0],obs_ispec)
         self.obs_fnujy = self.obs_fnujy * spec_norm
         self.obs_e_fnujy = self.obs_fnujy * spec_norm
 
-        # get model fluxes, including filling of colours/indices
+        # model photometry and residuals, including filling of
+        # colours/indices
         self.model_fnujy,self.model_comp_fnujy                      \
             = model.model_fluxes(self.models,self.best_params,obs_nel)
-        
-        # residuals, a bit neater to use fitting.residual
         self.residuals,_,_ = fitting.residual(self.best_params,
                                               self.obs,self.models)
         self.chisq = np.sum( np.square( self.residuals ) )
         self.dof = len(self.wavelengths)-len(self.parameters)-1
 
+        # star/disk photometry for all filters, obs_nel is just no of
+        # filters (p_all.nphot)
+        star_comps = ()
+        star_params = []
+        disk_comps = ()
+        disk_params = []
+        for i,comp in enumerate(self.model_comps):
+            if self.star_or_disk[i] == 'star':
+                star_comps += (comp,)
+                star_params += self.comp_best_params[i]
+            elif self.star_or_disk[i] == 'disk':
+                disk_comps += (comp,)
+                disk_params += self.comp_best_params[i]
+        
+        p_all = photometry.Photometry(filters=filter.Filter.all)
+        if len(star_comps) > 0:
+            print(star_comps,star_params)
+            star_mod,_ = model.get_models((p_all,),star_comps)
+            self.star_phot,_ = model.model_fluxes(star_mod,star_params,[p_all.nphot])
+        else:
+            self.star_phot = None
+        
+        if len(disk_comps) > 0:
+            disk_mod,_ = model.get_models((p_all,),disk_comps)
+            self.disk_phot,_ = model.model_fluxes(disk_mod,disk_params,[p_all.nphot])
+        else:
+            self.disk_phot = None
+        
+        self.star_disk_filters = p_all.filters
+
         # ObsSpectrum for each component
+        wave = cfg.models['default_wave']
+        star_spec = np.zeros(len(wave))
+        disk_spec = np.zeros(len(wave))
         self.comp_spectra = ()
         for i,comp in enumerate(self.pl_models):
             for m in comp:
@@ -163,7 +208,26 @@ class Result(object):
                                          fnujy=m.fnujy(self.comp_best_params[i]))
                 s.fill_irradiance()
                 self.comp_spectra += (s,)
+    
+                mtmp = m.copy()
+                mtmp.interp_to_wavelengths(wave)
+                if self.star_or_disk[i] == 'star':
+                    star_spec += mtmp.fnujy(self.comp_best_params[i])
+                elif self.star_or_disk[i] == 'disk':
+                    disk_spec += mtmp.fnujy(self.comp_best_params[i])
 
+        # and star/disk spectra
+        # TODO: add realistic uncertainties
+        if np.max(star_spec) > 0:
+            self.star_spec = spectrum.ObsSpectrum(wavelength=wave,fnujy=star_spec)
+        else:
+            self.star_spec = None
+
+        if np.max(disk_spec) > 0:
+            self.disk_spec = spectrum.ObsSpectrum(wavelength=wave,fnujy=disk_spec)
+        else:
+            self.disk_spec = None
+        
         # path to SED plot (which probably doesn't exist yet)
         self.sed_plot = self.path + '/' + self.id + cfg.pl['sed_suffix']
 
