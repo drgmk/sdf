@@ -74,31 +74,52 @@ def write_phot(cursor,r):
     """
 
     # write to table
-    for i in range(len(r.filters)):
+    for i,filt in enumerate(r.all_filters):
 
-        # skip spectra, for which filters[i] is None
-        if r.filters[i] is None:
-            continue
-        
-        stmt = ("INSERT INTO "+cfg.mysql['phot_table']+" "
-                "(id,filter,obs_jy,e_obs_jy,obs_upperlim,bibcode,"
-                "model_jy,comps_jy,chi,R) "
-                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)")
-                
-        # compute R properly, / for flux and - for colurs
-        ratio = r.obs_fnujy[i] / r.model_fnujy[i]
-        if filter.iscolour(r.filters[i]):
-            ratio = r.obs_fnujy[i] - r.model_fnujy[i]
-        
-        comp_str = '['+','.join("{:e}".format(p) \
-                                for p in r.model_comp_fnujy[:,i])+']'
-        
-        values = (str(r.id),str(r.filters[i]),str(r.obs_fnujy[i]),
-                  str(r.obs_e_fnujy[i]),str(r.obs_upperlim[i].astype(int)),
-                  str(r.obs_bibcode[i]),str(r.model_fnujy[i]),
-                  comp_str,str(r.residuals[i]),str(ratio))
-        
-        cursor.execute(stmt,values)
+        # filters with observations
+        if filt in r.filters:
+            
+            j = np.where(filt == r.filters)[0][0]
+
+            stmt = ("INSERT INTO "+cfg.mysql['phot_table']+" "
+                    "(id,filter,obs_jy,e_obs_jy,obs_upperlim,bibcode,"
+                    "model_jy,chi,R) "
+                    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)")
+                    
+            # compute R properly, / for flux and - for colurs
+            ratio = r.obs_fnujy[j] / r.model_fnujy[j]
+            if filter.iscolour(r.filters[j]):
+                ratio = r.obs_fnujy[j] - r.model_fnujy[j]
+            
+            values = (str(r.id),str(r.filters[j]),str(r.obs_fnujy[j]),
+                      str(r.obs_e_fnujy[j]),str(r.obs_upperlim[j].astype(int)),
+                      str(r.obs_bibcode[j]),str(r.model_fnujy[j]),
+                      str(r.residuals[j]),str(ratio))
+            
+            cursor.execute(stmt,values)
+
+        # the other filters
+        else:
+
+            stmt = ("INSERT INTO "+cfg.mysql['phot_table']+" "
+                    "(id,filter,model_jy) "
+                    "VALUES (%s,%s,%s)")
+            values = (str(r.id),str(filt),
+                      str(r.all_phot[i]) )
+            cursor.execute(stmt,values)
+
+        # add these on to both
+        if r.star_phot is not None:
+            cursor.execute("UPDATE "+cfg.mysql['phot_table']+" "
+                           "SET star_jy = {:e} WHERE id = '{}' "
+                           "AND filter = '{}'".format(r.star_phot[i],
+                                                    r.id,filt) )
+
+        if r.disk_phot is not None:
+            cursor.execute("UPDATE "+cfg.mysql['phot_table']+" "
+                           "SET disk_jy = {:e} WHERE id = '{}' "
+                           "AND filter = '{}'".format(r.disk_phot[i],
+                                                    r.id,filt) )
 
 
 def write_model(cursor,r):
