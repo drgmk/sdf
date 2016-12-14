@@ -293,7 +293,7 @@ def sed_limits(results):
     return xlims,ylims
 
 
-def calibration(file):
+def calibration(file=cfg.www['root']+'calibration/cal.html'):
     """Diagnostic plot showing quality of photometric calibration."""
 
     try:
@@ -312,7 +312,8 @@ def calibration(file):
     output_file(file,mode='cdn')
 
     # get a wavelength-sorted list of filters.
-    cursor.execute("SELECT DISTINCT filter FROM "+cfg.mysql['phot_table'])
+    cursor.execute("SELECT DISTINCT filter FROM "+cfg.mysql['phot_table']+" "
+                   "WHERE obs_jy IS NOT NULL")
     filters = cursor.fetchall()
     filters = [f for (f,) in filters]
     wav = filter.mean_wavelength(filters)
