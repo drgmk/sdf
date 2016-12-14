@@ -116,11 +116,12 @@ def residual(param,*args):
     ok = np.invert( np.any([obs_uplim,obs_ignore],axis=0) )
     resid[ok] = (obs_fnu[ok] - mod_fnu[ok]) / obs_e_fnu[ok]
 
-    # set residual if any upper limits exceeded, otherwise zero
+    # set residual if any 3sigma upper limits exceeded at the 1sigma
+    # level, otherwise zero as set above
     for i,lim in enumerate(obs_uplim):
         if lim:
-            if mod_fnu[i] > obs_fnu[i]:
-                resid[i] = (obs_fnu[i]-mod_fnu[i])/(obs_fnu[i]/3.)
+            if mod_fnu[i] > obs_fnu[i]/3.:
+                resid[i] = mod_fnu[i] / (obs_fnu[i]/3.)
 
     return resid,obs_wav,obs_filt
 
