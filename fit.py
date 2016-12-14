@@ -100,6 +100,7 @@ def everything(f,up_res,nospec,up_plot,up_db):
 
 # command line
 if __name__ == '__main__':
+    """Run it, with options."""
 
     # inputs
     parser1 = argparse.ArgumentParser(description='Fit SED models to sdb    \
