@@ -19,6 +19,7 @@ import mysql.connector
 
 from bokeh.plotting import figure,output_file,save,ColumnDataSource
 import bokeh.palettes
+from bokeh.models.widgets import Panel,Tabs
 from bokeh.models import HoverTool,OpenURL,TapTool
 from bokeh.layouts import gridplot,layout
 
@@ -80,7 +81,7 @@ def sample_tables():
     # get a list of samples and generate their pages
     samples = get_samples()
     for sample in samples:
-        print("    sample:",sample)
+        print("  sample:",sample)
         sample_table(cursor,sample)
 
     cursor.close()
@@ -193,7 +194,7 @@ def sample_plots():
     # get a list of samples and generate their pages
     samples = get_samples()
     for sample in samples:
-        print("    sample:",sample)
+        print("  sample:",sample)
         sample_plot(cursor,sample)
             
     cursor.close()
@@ -312,33 +313,102 @@ def sample_plot(cursor,sample):
     save(p)
 
 
-def sdb_www_flux_size_plot(cursor,sample):
+def flux_size_plots():
+
+    # set up connection
+    cnx = mysql.connector.connect(user=cfg.mysql['user'],
+                                  password=cfg.mysql['passwd'],
+                                  host=cfg.mysql['host'],
+                                  database=cfg.mysql['db_sdb'])
+    cursor = cnx.cursor(buffered=True)
+
+    # get a list of samples and generate their pages
+    samples = get_samples()
+    for sample in samples:
+        print("  sample:",sample)
+        flux_size_plot(cursor,sample)
+            
+    cursor.close()
+    cnx.close()
+
+
+def flux_size_plot(cursor,sample):
     """Show disk fluxes at various bands vs. their size."""
 
-    # wavelengths to show disk fluxes at
-    wav = 10**np.arange(0,2.01,0.4)
+    # bands to show disk fluxes at
+    filters = ['2MKS','WISE3P4','AKARI9','WISE12','WISE22','PACS70']
 
-    # get the results
-    stmt = ("SELECT id,model_comps,parameters,chisq "
-            "FROM "+cfg.mysql['db_samples']+"."+sample+" "
-            "LEFT JOIN "+cfg.mysql['db_results']+".model ON sdbid=id "
-            "WHERE id IS NOT NULL LIMIT 10")
-    # limit table sizes
-    if sample != 'everything':
-        stmt += " LIMIT "+str(cfg.www['tablemax'])+";"
+    wwwroot = cfg.www['root']+'samples/'
+    plfile = wwwroot+sample+"/fnuvsr.html"
+    if isfile(plfile):
+        remove(plfile)
+    output_file(plfile,mode='cdn')
 
-    cursor.execute(stmt)
+    tabs = []
+    for f in filters:
 
-    t = {id:[],comps:(),par:[],chisq:[]}
-    # grab results (if there's a disk component)
-    for row in cursor:
-        id,comps,par,chisq = row
-        
-        
-        t['id'].append = id
-        t['comps'] += (comps,)
-        t['par'] += (ast.literal(par),)
-        t['chisq'].append(chisq)
+        # get the results
+        stmt = "SELECT coalesce(main_id,id),sdbid,chisq,1e3*disk_jy,rdisk*plx_arcsec "
+        if sample == 'everything' or sample == 'public':
+            stmt += "FROM sdb_pm "
+        else:
+            stmt += "FROM "+cfg.mysql['db_samples']+"."+sample+" "
+         
+        stmt += ("LEFT JOIN "+cfg.mysql['db_results']+".model ON sdbid=id "
+                 "LEFT JOIN "+cfg.mysql['db_results']+".phot USING (id) "
+                 "LEFT JOIN "+cfg.mysql['db_results']+".star USING (id) "
+                 "LEFT JOIN "+cfg.mysql['db_results']+".disk_r USING (id) "
+                 "LEFT JOIN "+cfg.mysql['db_sdb']+".simbad USING (sdbid) "
+                 "WHERE filter = %s AND id IS NOT NULL")
+        # limit table sizes
+        if sample != 'everything':
+            stmt += " LIMIT "+str(cfg.www['tablemax'])+";"
+
+        cursor.execute(stmt,(str(f),))
+
+        # fill a table with fluxes
+        t = {'id':[],'sdbid':[],'chisq':[],'flux':[],'rdisk':[]}
+        ntot = 0
+        for (id,sdbid,chisq,flux,rdisk) in cursor:
+            ntot += 1
+            if flux is not None:
+                t['id'].append(id)
+                t['sdbid'].append(sdbid)
+                t['chisq'].append(chisq)
+                t['flux'].append(flux)
+                t['rdisk'].append(rdisk)
+
+        ngot = len(t['id'])
+        if ntot == 0 or ngot == 0:
+            print("    flux vs r: nothing to plot")
+            return
+        else:
+            print("    got ",ngot," rows for filter ",f)
+
+        print(t)
+        data = ColumnDataSource(data=t)
+
+        hover = HoverTool(tooltips=[("name","@id")])
+        tools = ['wheel_zoom,box_zoom,box_select,tap,save,reset',hover]
+
+        pl = figure(title="disk flux vs radius for "+sample+" ("+str(ngot)+" of "+str(ntot)+")",
+                    tools=tools,active_scroll='wheel_zoom',
+                    x_axis_label='Disk black body radius / arcsec',
+                    y_axis_label='Disk flux / mJy',
+                    y_axis_type="log",y_range=(0.5*min(t['flux']),max(t['flux'])*2),
+                    x_axis_type="log",x_range=(0.5*min(t['rdisk']),max(t['rdisk'])*2),
+                    width=800,height=500)
+        pl.circle('rdisk','flux',source=data,size=10,fill_color='#969696',
+                  fill_alpha=0.6,line_color=None)
+
+        url = cfg.www['root']+"/seds/masters/@sdbid/public/@sdbid"+"-sed.html"
+        taptool = pl.select(type=TapTool)
+        taptool.callback = OpenURL(url=url)
+
+        tabs.append( Panel(child=pl, title=f) )
+    
+    tab = Tabs(tabs=tabs)
+    save(tab)
 
 
 # run from the command line
@@ -356,5 +426,8 @@ if __name__ == "__main__":
 
     if args.plots:
         print("Updating sample plots")
-        sample_plots()
+        flux_size_plots()
+#        sample_plots()
+
+
 

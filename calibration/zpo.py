@@ -19,14 +19,84 @@ from sdf import fitting
 from sdf import filter
 from sdf import config as cfg
 
+import subprocess
+import time
+import mysql.connector
+from scipy.optimize import minimize
+from sdf import config as cfg
+import numpy as np
+def chisq_all(zpos):
+    """Run SED fitting for everything and return photometry chisq."""
+
+    # update the ZPOs
+    zp_filt = np.array(['UJ','BJ',
+                        'US','VS','BS',
+                        'HP',
+                        'RC','IC',
+#                        'BT','VT',
+#                        '2MJ','2MH',
+#                        'WISE3P4'
+                        ])
+
+    f = open('/Users/grant/astro/projects/sdf/sdf/calibration/zpos.txt','w')
+    f.write( ' '.join(zp_filt) )
+    f.write('\n')
+    f.write( ' '.join([str(s)+' ' for s in zpos]) )
+    f.close()
+
+    # clear everything
+    subprocess.run(['python3','cleanup.py','--sample','zpo_cal_'])
+
+    # run all the fitting, Popen doesn't wait for end, run does
+    cmd = ['python3','fit.py','-w','-p',
+           '--no-spectra',
+           '--sample','zpo_cal_','--subset','public']
+    subprocess.Popen(cmd,stdin=None,stdout=None,stderr=None)
+    time.sleep(2)
+    subprocess.Popen(cmd,stdin=None,stdout=None,stderr=None)
+    time.sleep(2)
+    subprocess.Popen(cmd,stdin=None,stdout=None,stderr=None)
+    time.sleep(2)
+    subprocess.Popen(cmd,stdin=None,stdout=None,stderr=None)
+    time.sleep(2)
+    subprocess.Popen(cmd,stdin=None,stdout=None,stderr=None)
+    time.sleep(2)
+    subprocess.Popen(cmd,stdin=None,stdout=None,stderr=None)
+    time.sleep(2)
+#    subprocess.Popen(cmd,stdin=None,stdout=None,stderr=None)
+#    time.sleep(2)
+    subprocess.run(cmd)
+    
+    # wait for everything to finish
+    time.sleep(20)
+
+    # get the db output
+    cnx = mysql.connector.connect(user=cfg.mysql['user'],
+                                  password=cfg.mysql['passwd'],
+                                  host=cfg.mysql['host'],
+                                  database=cfg.mysql['db_results'])
+    cursor = cnx.cursor(buffered=True)
+    cursor.execute("SELECT SUM(chi*chi) FROM sdb_samples.zpo_cal_ "
+                   "LEFT JOIN sdb_results.model on sdbid=id "
+                   "LEFT JOIN phot USING (id) WHERE filter "
+                   "REGEXP('UJ_BJ|BJ_VJ|STROMC1|STROMM1|BS_YS|VJ|2MKS') "
+                   "AND obs_upperlim=0")
+    return float( cursor.fetchall()[0][0] )
+
+
+zpo0 = [0.04050373,  0.0217984 ,  1.29187515,  0.23172751,  0.03709482,
+        0.03903796,  0.04579623,  0.01117473 ]
+res = minimize(chisq_all,zpo0,method='Nelder-Mead',options={'maxiter':10})
+
+
 def mvb_zpo(fname,flam=None):
     """Get the Mann & von Braun ZPO for the CALSPEC Vega spectrum.
         
-    Values are scaled so that the ZPO at Johnson V is 0.027.
-    """
-
+        Values are scaled so that the ZPO at Johnson V is 0.027.
+        """
+    
     f_vega = filter.Filter.get(fname)
-
+    
     # this assumes the SVO has the correct zero points
     svn = filter.filter_info.filters[fname]['svo_name']
     f_svo = filter.Filter.svo_get(svn)
@@ -40,77 +110,15 @@ def mvb_zpo(fname,flam=None):
     
     # this uses the pivot wavelength to convert F_lam
     fnu = flam * u.Unit('erg/(cm**2*s*AA)').\
-            to('Jy',equivalencies=u.spectral_density(f_vega.pivot_wavelength()*u.micron))
+        to('Jy',equivalencies=u.spectral_density(f_vega.pivot_wavelength()*u.micron))
     
     zpo_flux = fnu / f_vega.zero_point
     zpo = 2.5 * np.log10( zpo_flux ) #+ 0.027 - 0.04777335
-
-
+    
+    
     print('MvB: ',fnu)
     print('Vega:',f_vega.zero_point)
     print('ZPO: ',zpo)
-
-
-
-def chisq_all(zpos):
-    """Run SED fitting for everything and return photometry chisq."""
-
-    # update the ZPOs
-    zp_filt = np.array(['UJ','BJ','RC','IC',
-                        'US','VS','BS',
-                        '2MJ','2MH',
-                        'BT','VT','HP',
-                        'WISE3P4'])
-
-    f = open('/Users/grant/astro/projects/sdf/sdf/calibration/zpos.txt','w')
-    f.write( ' '.join(zp_filt) )
-    f.write('\n')
-    f.write( ' '.join([str(s)+' ' for s in zpos]) )
-    f.close()
-
-    # clear everything
-    subprocess.run(['python3','cleanup.py'])
-
-    # run all the fitting, Popen doesn't wait for end, run does
-    cmd = ['python3','fit.py','-w','-u','--no-spectra','--subset','public',
-           '-d','/Users/grant/a-extra/sdb/masters']
-    subprocess.Popen(cmd,stdin=None,stdout=None,stderr=None)
-    time.sleep(2)
-    subprocess.Popen(cmd,stdin=None,stdout=None,stderr=None)
-    time.sleep(2)
-    subprocess.Popen(cmd,stdin=None,stdout=None,stderr=None)
-    time.sleep(2)
-    subprocess.Popen(cmd,stdin=None,stdout=None,stderr=None)
-    time.sleep(2)
-    subprocess.Popen(cmd,stdin=None,stdout=None,stderr=None)
-    time.sleep(2)
-    subprocess.Popen(cmd,stdin=None,stdout=None,stderr=None)
-    time.sleep(2)
-    subprocess.Popen(cmd,stdin=None,stdout=None,stderr=None)
-    time.sleep(2)
-    subprocess.run(cmd)
-    
-    # wait for everything to finish
-    time.sleep(120)
-
-    # get the db output
-    cnx = mysql.connector.connect(user=cfg.mysql['user'],
-                                  password=cfg.mysql['passwd'],
-                                  host=cfg.mysql['host'],
-                                  database=cfg.mysql['db_results'])
-    cursor = cnx.cursor(buffered=True)
-    cursor.execute("select sum(abs(chi)*abs(chi)) from phot "
-                   "where filter "
-                   "regexp('UJ|BJ|RC|IC|US|VS|BS|2MJ|2MH|BT|VT|HP|WISE3P4') "
-                   "and obs_upperlim=0")
-    return float( cursor.fetchall()[0][0] )
-
-zpo0 = [0.04,  0.022, 0.047, 0.01,
-        1.445, 0.195, 0.034,
-        -0.001, 0.019,
-        0.03,  0.023, 0.038,
-        0.0]
-res = minimize(chisq_all,zpo0,method='Nelder-Mead')
 
 
 """This was supposed to be a way to set zero point offsets using some
