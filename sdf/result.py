@@ -69,7 +69,8 @@ class Result(object):
         self.obs_keywords = utils.get_sdb_keywords(self.rawphot)
         if not nospec:
             s = spectrum.ObsSpectrum.read_sdb_file(self.rawphot,
-                                                   module_split=True)
+                                                   module_split=True,
+                                                   nspec=1)
             if s is not None:
                 self.obs = (p,) + s
 
