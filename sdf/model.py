@@ -233,6 +233,9 @@ class Model(object):
         # TODO: this method causes ringing in the interpolated spectra
         ff = utils.spline_filter_mem(utils.hashable(self.fnujy_sr),order=2)
         fluxes = map_coordinates(ff,pargrid.T,order=2,prefilter=False)
+        
+        # hack to avoid negative fluxes from ringing
+        fluxes[fluxes<cfg.tiny] = cfg.tiny
 
         # per-filter normalisation for photometry (leave colours)
         if isinstance(self,PhotModel):
@@ -428,103 +431,6 @@ class PhotModel(Model):
         return self
 
 
-    @classmethod
-    def generate_bb_model(cls,temperatures=None,filters='all',
-                          write=False,overwrite=False):
-        """Generate a set of convolved blackbody models"""
-        
-        name = 'bb'
-        
-        # don't do the calculation if there will be a write error
-        if write and overwrite == False:
-            if exists(cfg.model_loc[name]+name+'.fits'):
-                raise SdfError("{} exists, will not overwrite".
-                               format(cfg.model_loc[name]+name+'.fits'))
-    
-        if 'all' in filters:
-            filters = filter.Filter.all
-
-        if temperatures is None:
-            temperatures = np.power(10,np.arange(0,5,0.1))
-    
-        cm = [ConvolvedModel.bb(f,temperatures) for f in filters]
-        
-        self = PhotModel.cmlist2model(cm)
-        
-        if write:
-            self.write_model(name,overwrite=overwrite)
-
-        return self
-
-
-    @classmethod
-    def generate_modbb_model(cls,temperatures=None,lam0=None,beta=None,
-                             filters='all',write=False,overwrite=False):
-        """Generate a set of convolved modified blackbody models"""
-        
-        name = 'modbb'
-        
-        # don't do the calculation if there will be a write error
-        if write and overwrite == False:
-            if exists(cfg.model_loc[name]+name+'.fits'):
-                raise SdfError("{} exists, will not overwrite".
-                               format(cfg.model_loc[name]+name+'.fits'))
-    
-        if 'all' in filters:
-            filters = filter.Filter.all
-
-        if temperatures is None:
-            temperatures = np.power(10,np.arange(0,5,0.1))
-
-        if lam0 is None:
-            lam0 = np.power(10,np.arange(0,3,0.1))
-
-        if beta is None:
-            beta = np.arange(0,3,0.1)
-
-        cm = [ConvolvedModel.modbb(f,temperatures,lam0,beta) for f in filters]
-        
-        self = PhotModel.cmlist2model(cm)
-        
-        if write:
-            self.write_model(name,overwrite=overwrite)
-
-        return self
-            
-            
-    def best(self,p):
-        """Return the parameters of the model that has the lowest
-        chi^2 for the given photometry. The photometry object must
-        have the same number and order of filters as the model.
-        """
-
-        # list of parameters at each point in the grid, adding a
-        # dummy of 0 for area_sr at the end
-        parlist = ()
-        for par in self.parameters:
-            parlist += (self.param_values[par],)
-        parlist += ([0],)
-        pargrid = [i for i in product(*parlist)]
-        
-        # reshape model to a long list
-        mlist = self.fnujy_sr.reshape( (len(self.filters),len(pargrid)) )
-
-        # find the best chi^2 for each model
-        chi2 = cfg.huge
-        bestpar = []
-        for i,flux in enumerate(mlist[0]):
-            _,resid_norm,norm = fitting.residual_norm(pargrid[i], p,
-                                                      self, calc_norm=True)
-            chitmp = np.sum( np.square(resid_norm) )
-#            print(pargrid[i],norm,chitmp)
-            if chitmp < chi2:
-                chi2 = chitmp
-                bestpar = np.array(pargrid[i])
-                bestpar[-1] = norm
-
-        return bestpar
-
-
     def fill_colour_bases(self):
         """Fill in colour_bases info.
 
@@ -668,11 +574,10 @@ class SpecModel(Model):
     
     
     @classmethod
-    def generate_bb_model(cls,temperatures=None,wavelengths=None,
+    def generate_bb_model(cls,name='bb_disk',temperatures=None,
+                          wavelengths=None,
                           write=False,overwrite=False):
         """Generate a set of blackbody spectra."""
-        
-        name = 'bb'
         
         # don't do the calculation if there will be a write error
         if write and overwrite == False:
@@ -686,7 +591,7 @@ class SpecModel(Model):
             wavelengths = cfg.models['default_wave']
 
         if temperatures is None:
-            temperatures = np.power(10,np.arange(0,5,0.1))
+            temperatures = cfg.models['bb_disk_temps']
     
         m = [spectrum.ModelSpectrum.bnu_wave_micron(wavelengths,t)\
              for t in temperatures]
@@ -709,12 +614,10 @@ class SpecModel(Model):
 
 
     @classmethod
-    def generate_modbb_model(cls,temperatures=None,wavelengths=None,
-                             lam0=None,beta=None,
+    def generate_modbb_model(cls,name='modbb_disk',temperatures=None,
+                             wavelengths=None,lam0=None,beta=None,
                              write=False,overwrite=False):
         """Generate a set of modified blackbody spectra"""
-        
-        name = 'modbb'
         
         # don't do the calculation if there will be a write error
         if write and overwrite == False:
@@ -728,7 +631,7 @@ class SpecModel(Model):
             wavelengths = cfg.models['default_wave']
 
         if temperatures is None:
-            temperatures = np.power(10,np.arange(0,5,0.1))
+            temperatures = cfg.models['bb_disk_temps']
 
         if lam0 is None:
             lam0 = np.power(10,np.arange(1,3,0.1))
@@ -761,18 +664,16 @@ class SpecModel(Model):
 
 
     def interp_to_wavelengths(self,wavelength,log=True):
-        """Interpolate the model to the given wavelengths.
+        """Interpolate the model to the given wavelengths."""
 
-        TODO: this only needs to be run at the beginning of a fit but is
-        pretty slow, can we speed it up with UnivariateSpline?
+        # TODO: this only needs to be run at the beginning of a fit but
+        # is very slow, especially when there are spectra, speed it up!
 
-        TODO: this is straight linear/log interpolation, but could
-        smooth the spectra first since the given wavelength grid will
-        almost certainly be near the spectral resolution of whatever
-        instrument it came from.
+        # TODO: this is straight linear/log interpolation, but could
+        # smooth the spectra first since the given wavelength grid will
+        # almost certainly be near the spectral resolution of whatever
+        # instrument it came from. Probably use resample.
 
-        """
-        
         if log:
             neg = self.fnujy_sr <= 0.0
             self.fnujy_sr[neg] = cfg.tiny

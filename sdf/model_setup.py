@@ -1,5 +1,6 @@
 import glob
 from os.path import exists,basename
+from itertools import product
 
 import numpy as np
 import astropy.units as u
@@ -36,39 +37,28 @@ def setup_phot():
     specmodel2phot(mname='kurucz_m')
     specmodel2phot(mname='phoenix-0.0')
     specmodel2phot(mname='phoenix_m')
-    bb_phot()
-    modbb_phot()
-
-def bb_phot():
-    """Generate a PhotModel grid of blackbody models.
-        
-    This is logT spaced and the model called 'bb'.
-    """
-    model.PhotModel.generate_bb_model(write=True,overwrite=True)
-
-
-def modbb_phot():
-    """Generate a PhotModel grid of modified blackbody models.
-        
-    This is logT spaced and the model called 'modbb'.
-    """
-    model.PhotModel.generate_modbb_model(write=True,overwrite=True)
+    specmodel2phot(mname='bb_disk')
+    specmodel2phot(mname='bb_star')
+    specmodel2phot(mname='modbb_disk')
 
 
 def bb_spectra():
-    """Generate SpecModel grid of blackbody models.
+    """Generate SpecModel grid of blackbody models."""
     
-    This is logT spaced and the model called 'bb'.
-    """
-    model.SpecModel.generate_bb_model(write=True,overwrite=True)
+    model.SpecModel.generate_bb_model(name='bb_disk',
+                                      temperatures=cfg.models['bb_disk_temps'],
+                                      write=True,overwrite=True)
+    model.SpecModel.generate_bb_model(name='bb_star',
+                                      temperatures=cfg.models['bb_star_temps'],
+                                      write=True,overwrite=True)
 
 
 def modbb_spectra():
-    """Generate SpecModel grid of modified blackbody models.
+    """Generate SpecModel grid of modified blackbody models."""
     
-    This is logT spaced and the model called 'modbb'.
-    """
-    model.SpecModel.generate_modbb_model(write=True,overwrite=True)
+    model.SpecModel.generate_modbb_model(name='modbb_disk',
+                                         temperatures=cfg.models['bb_disk_temps'],
+                                         write=True,overwrite=True)
 
 
 def specmodel2phot(mname='kurucz-0.0'):
@@ -93,36 +83,43 @@ def convolve_specmodel(mname='kurucz-0.0',overwrite=False):
 
     m = model.SpecModel.read_model(mname)
 
+    # flat list of all indices (cartesian product)
+    i_list = ()
+    for i in range(len(m.parameters)):
+        i_list += (list(range(m.param_shape()[i])),)
+    i_list = [i for i in product(*i_list)]
+
+    # grid with spectral dimension last
+    fnujy_sr_roll = np.rollaxis(m.fnujy_sr,axis=0,start=len(m.fnujy_sr.shape))
+
     # loop through them and create the ConvolvedModels and the files
     filters = filter.Filter.all
-    fnujy_sr = np.zeros(m.param_shape())
+    fnujy_sr = np.zeros(len(i_list))
     for fname in filters:
+        
         outfile = cfg.model_loc[mname]+fname+'.fits'
+        
         if exists(outfile) and overwrite == False:
             print("Skipping {}, file exists".format(fname))
+        
         else:
 #            print("Convolving filter {}".format(fname))
+            for i,ind in enumerate(i_list):
+                s = spectrum.ModelSpectrum(nu_hz=c_micron/m.wavelength,
+                                           fnujy_sr=fnujy_sr_roll[ind])
+                conv,cc = s.synthphot(fname)
+                fnujy_sr[i] = conv
+        
+            if len(m.parameters) > 1:
+                fnujy_sr_reshaped = np.reshape(fnujy_sr,m.param_shape())
+            else:
+                fnujy_sr_reshaped = fnujy_sr
+
             cm = convolve.ConvolvedModel(name=mname,filter=fname,
                                          parameters=m.parameters,
                                          param_values=m.param_values,
-                                         fnujy_sr=fnujy_sr)
+                                         fnujy_sr=fnujy_sr_reshaped)
 
-            # TODO: do this more generally...
-            for i in range(len(m.param_values['Teff'])):
-                for j in range(len(m.param_values['logg'])):
-                    if len(m.parameters) == 2:
-                        s = spectrum.ModelSpectrum(nu_hz=c_micron/m.wavelength,
-                                                   fnujy_sr=m.fnujy_sr[:,i,j])
-                        conv,cc = s.synthphot(fname)
-                        fnujy_sr[i,j] = conv
-                    else:
-                        for k in range(len(m.param_values['MH'])):
-                            s = spectrum.ModelSpectrum(nu_hz=c_micron/m.wavelength,
-                                                       fnujy_sr=m.fnujy_sr[:,i,j,k])
-                            conv,cc = s.synthphot(fname)
-                            fnujy_sr[i,j,k] = conv
-        
-            cm.fnujy_sr = fnujy_sr
             cm.write_file(outfile,overwrite=overwrite)
 
 
