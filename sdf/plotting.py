@@ -34,7 +34,7 @@ def sed(results,tab_order=None,file='sed.html'):
     # remove file to avoid errors
     if path.exists(file):
         remove(file)
-    output_file(file,mode='inline')
+    output_file(file,mode='cdn')
 
     # figure plot limits
     xlim,ylim = sed_limits(results)
@@ -47,7 +47,8 @@ def sed(results,tab_order=None,file='sed.html'):
 
         title = "Evidence: {:.2f} | ".format(r.evidence)
         for j,par in enumerate(r.parameters):
-            title += "{}:{:.1f}, ".format(par,r.best_params[j])
+            if 'norm' not in par:
+                title += "{}:{:.1f}, ".format(par,r.best_params[j])
 
         # sed plot
         hover = HoverTool(names=['phot'],tooltips=[('band',"@filter"),
