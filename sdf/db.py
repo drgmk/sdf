@@ -296,7 +296,7 @@ def sample_targets(sample,db='sdb_samples'):
                                                  cfg.mysql['host']) )
         return
 
-    cursor.execute("SELECT sdbid FROM "+sample)
+    cursor.execute("SELECT sdbid FROM "+sample+" WHERE sdbid IS NOT NULL")
     ids = []
     for (id,) in cursor:
         ids.append(id)
