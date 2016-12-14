@@ -223,10 +223,11 @@ def sample_plot(cursor,sample):
 
     sel += (" LEFT JOIN simbad USING (sdbid)"
             " LEFT JOIN sdb_results.star ON sdbid=star.id"
-            " LEFT JOIN sdb_results.disk_r ON sdbid=star.id")
+            " LEFT JOIN sdb_results.disk_r ON sdbid=disk_r.id")
 
     # statement for selecting stuff to plot
     sel += " WHERE teff IS NOT NULL AND lstar IS NOT NULL"
+
     selall = ("SELECT sdbid,main_id,teff,lstar,IFNULL(ldisk_lstar,-1) as "
               "ldisklstar,IFNULL(tdisk,-1) as tdisk") + sel
 
@@ -252,7 +253,7 @@ def sample_plot(cursor,sample):
         t[keys[i]] = col
 
     # set up colour scale, grey for nans
-    col = '#969696'
+    col = np.repeat('#969696',ngot)
     if 'ldisklstar' in t:
         ok = t['ldisklstar'] > 0
         if np.sum(ok) > 0:
@@ -266,7 +267,6 @@ def sample_plot(cursor,sample):
             col[col==''] = '#969696'
 
     t['col'] = col
-#        print(t)
     data = ColumnDataSource(data=t)
 
     # remove the plot file to avoid overwrite warnings
@@ -291,12 +291,12 @@ def sample_plot(cursor,sample):
               fill_alpha=0.6,line_color=None)
 
     # f vs temp (if we have any)
-    if 'tdisk_cold' in t and 'ldisklstar' in t:
+    if np.max(t['ldisklstar']) > 0:
         ft = figure(tools=tools2,active_scroll='wheel_zoom',
                     x_axis_label='Disk temperature / K',y_axis_label='Disk fractional luminosity',
                     y_axis_type="log",y_range=(0.5*np.exp(cr[0]),2*np.exp(cr[1])),
-                    x_axis_type="log",x_range=(0.5*min(t['tdisk_cold']),max(t['tdisk_cold'])*2) )
-        ft.circle('tdisk_cold','ldisklstar',source=data,size=10,fill_color='col',
+                    x_axis_type="log",x_range=(0.5*min(t['tdisk']),max(t['tdisk'])*2) )
+        ft.circle('tdisk','ldisklstar',source=data,size=10,fill_color='col',
                   fill_alpha=0.6,line_color=None)
     else:
         ft = figure(title='no IR excesses')
@@ -359,7 +359,7 @@ def flux_size_plot(cursor,sample):
                  "LEFT JOIN "+cfg.mysql['db_results']+".star USING (id) "
                  "LEFT JOIN "+cfg.mysql['db_results']+".disk_r USING (id) "
                  "LEFT JOIN "+cfg.mysql['db_sdb']+".simbad USING (sdbid) "
-                 "WHERE filter = %s AND id IS NOT NULL")
+                 "WHERE filter = %s AND disk_jy > 0 AND id IS NOT NULL")
         # limit table sizes
         if sample != 'everything':
             stmt += " LIMIT "+str(cfg.www['tablemax'])+";"
@@ -385,7 +385,6 @@ def flux_size_plot(cursor,sample):
         else:
             print("    got ",ngot," rows for filter ",f)
 
-        print(t)
         data = ColumnDataSource(data=t)
 
         hover = HoverTool(tooltips=[("name","@id")])
@@ -401,7 +400,7 @@ def flux_size_plot(cursor,sample):
         pl.circle('rdisk','flux',source=data,size=10,fill_color='#969696',
                   fill_alpha=0.6,line_color=None)
 
-        url = cfg.www['root']+"/seds/masters/@sdbid/public/@sdbid"+"-sed.html"
+        url = "/~grant/sdb/seds/masters/@sdbid/public/@sdbid"+"-sed.html"
         taptool = pl.select(type=TapTool)
         taptool.callback = OpenURL(url=url)
 
@@ -427,7 +426,7 @@ if __name__ == "__main__":
     if args.plots:
         print("Updating sample plots")
         flux_size_plots()
-#        sample_plots()
+        sample_plots()
 
 
 
