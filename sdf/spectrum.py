@@ -356,13 +356,17 @@ class ObsSpectrum(Spectrum):
             return ObsSpectrum.read_cassis(file,module_split=module_split)
 
 
-    @classmethod
-    def read_sdb_file(cls,file,module_split=False):
+    def read_sdb_file(file,module_split=False,nspec=99):
         """Read a sdb rawphot file and return a tuple of spectra.
         
         The file format is set by sdb_getphot.py, and is ascii.ipac.
         To get any photometry use photometry.get_sdb_file, and for
         keywords use utils.get_sdb_keywords.
+        
+        The nspec keyword sets now many individual spectra of a given
+        type are returned. These can still be split by module. If more
+        than one spectrum of a given type exists then just the first is
+        returned.
         
         There could be multiple spectra of a given type, so the
         keywords can have extra text in them to allow the keywords
@@ -377,10 +381,14 @@ class ObsSpectrum(Spectrum):
         spnames = ['irsstare']
         s = ()
         for sp in spnames:
+            n = 0
             for key in kw.keys():
+                if n >= nspec:
+                    continue
                 if sp in key:
                     s += ObsSpectrum.read_file_of_type(kw[key]['value'],type=sp,
                                                        module_split=module_split)
+                    n += 1
     
         if len(s) > 0:
             return s
