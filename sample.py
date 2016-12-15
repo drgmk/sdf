@@ -3,14 +3,15 @@
 
 """Generate HTML pages to browse database.
 
-Uses non-standard version of astropy to ensure html anchors in
+Uses non-standard version of astropy to ensure html anchors retained in
 jsviewer tables. This is a virtualenv created into which the modified
 version of astropy is installed.
 
 """
 
-from os.path import isdir,isfile
-from os import mkdir,remove,write
+import glob
+from os.path import isdir,isfile,basename
+from os import mkdir,remove,write,rmdir
 import argparse
 
 import numpy as np
@@ -26,6 +27,23 @@ from bokeh.layouts import gridplot,layout
 from sdf import config as cfg
 
 
+def cleanup_sample_dirs():
+    """Remove dirs for samples that no longer exist."""
+
+    dirs = glob.glob(cfg.www['root']+'samples/*/')
+    samp = get_samples()
+    for d in dirs:
+        dname = basename(d.rstrip('/'))
+        if dname not in samp:
+            fs = glob.glob(d+'/*')
+            fs += glob.glob(d+'/.*')
+            print("  {} removed (and files {})".format(d,fs))
+            [remove(f) for f in fs]
+            rmdir(d)
+        else:
+            print("  {} ok".format(d))
+
+
 def get_samples():
     """Get a list of samples.
     
@@ -37,10 +55,9 @@ def get_samples():
     cnx = mysql.connector.connect(user=cfg.mysql['user'],
                                   password=cfg.mysql['passwd'],
                                   host=cfg.mysql['host'],
-                                  database=cfg.mysql['db_results'])
+                                  database=cfg.mysql['db_samples'])
     cursor = cnx.cursor(buffered=True)
-    cursor.execute("SELECT DISTINCT project FROM "
-                   +cfg.mysql['db_sdb']+".projects;")
+    cursor.execute("SHOW TABLES;")
     samples = cursor.fetchall() # a list of tuples
     samples = [i[0] for i in samples]
     cursor.close()
@@ -120,21 +137,19 @@ def sample_table(cursor,sample):
                    " id as sdbid,ROUND(-2.5*log10(ANY_VALUE(model_jy)/3882.37),1) as Vmag"
                    " FROM sdb_results.phot WHERE filter='VJ' GROUP BY id;")
     sel = ("SELECT "
-           "CONCAT('<a target=\"_blank\" href=\"../../seds/masters/',sdbid,'/public/',sdbid,'-sed.html\">',sdbid,'</a>') as sdbid,"
-           "CONCAT('<a href=\"http://simbad.u-strasbg.fr/simbad/sim-basic?submit=SIMBAD+search&Ident=',main_id,'\" target=\"_blank\">',main_id,'</a>') as Simbad,"
+           "CONCAT('[ <a href=\"http://simbad.u-strasbg.fr/simbad/sim-basic?submit=SIMBAD+search&Ident=',main_id,'\" target=\"_blank\">s</a> | <a href=\"http://irsa.ipac.caltech.edu/applications/finderchart/#id=Hydra_finderchart_finder_chart&RequestClass=ServerRequest&DoSearch=true&subsize=0.083&thumbnail_size=medium&sources=DSS,SDSS,twomass,WISE,IRIS&overlay_catalog=true&catalog_by_radius=true&iras_radius=240&sdss_radius=5&twomass_radius=5&wise_radius=5&one_to_one=_none_&dss_bands=poss1_blue,poss1_red,poss2ukstu_blue,poss2ukstu_red,poss2ukstu_ir&SDSS_bands=u,g,r,i,z&twomass_bands=j,h,k&wise_bands=1,2,3,4&UserTargetWorldPt=',raj2000,';',dej2000,';EQ_J2000&projectId=finderchart&searchName=finder_chart&shortDesc=Finder%20Chart&isBookmarkAble=true&isDrillDownRoot=true&isSearchResult=true\" target=\"_blank\">f</a>',' ] <a target=\"_blank\" href=\"../../seds/masters/',sdbid,'/public/',sdbid,'-sed.html\">',main_id,'</a>') as id,"
            "hd.xid as HD,"
            "hip.xid as HIP,"
            "gj.xid as GJ,"
-           "concat('<a href=\"http://irsa.ipac.caltech.edu/applications/finderchart/#id=Hydra_finderchart_finder_chart&RequestClass=ServerRequest&DoSearch=true&subsize=0.08333333400000001&thumbnail_size=medium&sources=DSS,SDSS,twomass,WISE,IRIS&overlay_catalog=true&catalog_by_radius=true&iras_radius=240&sdss_radius=5&twomass_radius=5&wise_radius=5&one_to_one=_none_&dss_bands=poss1_blue,poss1_red,poss2ukstu_blue,poss2ukstu_red,poss2ukstu_ir&SDSS_bands=u,g,r,i,z&twomass_bands=j,h,k&wise_bands=1,2,3,4&UserTargetWorldPt=',raj2000,';',dej2000,';EQ_J2000&projectId=finderchart&searchName=finder_chart&shortDesc=Finder%20Chart&isBookmarkAble=true&isDrillDownRoot=true&isSearchResult=true\" target=\"_blank\">images</a>') as Finder,"
-           "Vmag,"
-           "raj2000 as RA,"
-           "dej2000 as `Dec`,"
+           "ROUND(Vmag,1) as Vmag,"
+           "ROUND(raj2000,4) as RAdeg,"
+           "ROUND(dej2000,4) as `Dec`,"
            "sp_type as SpType,"
-           "teff as Teff,"
+           "ROUND(teff,0) as Teff,"
            "ROUND(log10(lstar),2) as LogLstar,"
-           "1e3/COALESCE(tgas.plx,simbad.plx_value) AS Dist,"
+           "ROUND(1/COALESCE(star.plx_arcsec),1) AS Dist,"
            "ROUND(log10(ldisk_lstar),1) as Log_f,"
-           "tdisk as T_disk")
+           "ROUND(tdisk,1) as T_disk")
         
     # here we decide which samples get all targets, for now "everything" and "public"
     # get everything, but this could be changed so that "public" is some subset of
@@ -153,30 +168,33 @@ def sample_table(cursor,sample):
             " LEFT JOIN hip USING (sdbid)"
             " LEFT JOIN gj USING (sdbid)"
             " LEFT JOIN phot USING (sdbid)"
-            " ORDER by RA")
+            " ORDER by RAdeg")
     # limit table sizes
     if sample != 'everything':
         sel += " LIMIT "+str(cfg.www['tablemax'])+";"
 
-#        print(sel)
     cursor.execute(sel)
     tsamp = Table(names=cursor.column_names,
-                  dtype=('S200','S200','S50','S50','S50','S1000',
-                         'f','f','f','S10','f','f','f','f','f'))
+                  dtype=('S1000','S50','S50','S50',
+                         'S4','S8','S8','S10','S5','S4','S6','S4','S6'))
     for row in cursor:
         tsamp.add_row(row)
+
+    for n in tsamp.colnames:
+        none = np.where(tsamp[n] == b'None')
+        tsamp[n][none] = '-'
+
     print("    got ",len(tsamp)," rows")
 
     # write html page with interactive table, astropy 1.2.1 doesn't allow all of the
     # the htmldict contents to be passed to write_table_jsviewer so links are
     # bleached out. can use jsviewer with my modifications to that function...
     fd = open(wwwroot+sample+'/table.html','w')
-#        tsamp.write(fd,format='ascii.html',htmldict={'raw_html_cols':['sdbid','Simbad','Finder'],
-#                                                     'raw_html_clean_kwargs':{'attributes':{'a':['href','target']}} })
+#    tsamp.write(fd,format='ascii.html',htmldict={'raw_html_cols':['id'],'raw_html_clean_kwargs':{'attributes':{'a':['href','target']}} })
     jsviewer.write_table_jsviewer(tsamp,fd,max_lines=10000,table_id=sample,
                                   table_class="display compact",
                                   jskwargs={'display_length':25},
-                                  raw_html_cols=['sdbid','Simbad','Finder'],
+                                  raw_html_cols=['id'],
                                   raw_html_clean_kwargs={'attributes':{'a':['href','target']
                                                             }} )
     fd.close()
@@ -252,19 +270,9 @@ def sample_plot(cursor,sample):
         col = np.array(l[i],dtype=dtypes[i])
         t[keys[i]] = col
 
-    # set up colour scale, grey for nans
-    col = np.repeat('#969696',ngot)
-    if 'ldisklstar' in t:
-        ok = t['ldisklstar'] > 0
-        if np.sum(ok) > 0:
-            cr = np.array([np.nanmin(np.log(t['ldisklstar'][ok])),
-                           np.nanmax(np.log(t['ldisklstar'][ok]))])
-            # ensure top is below 1 for indexing
-            ci = 0.999*(np.log(t['ldisklstar'])-cr[0])/(cr[1]-cr[0])
-            ok = np.isfinite(ci)
-            col = np.empty(ngot,dtype='U7')
-            col[ok] = np.array(bokeh.palettes.plasma(100))[np.floor(90*ci[ok]).astype(int)]
-            col[col==''] = '#969696'
+    # colour scale
+    col,cr = colours_for_list(t['ldisklstar'],bokeh.palettes.plasma,log=True)
+    _,tr = colours_for_list(t['tdisk'],bokeh.palettes.plasma)
 
     t['col'] = col
     data = ColumnDataSource(data=t)
@@ -288,16 +296,17 @@ def sample_plot(cursor,sample):
                 y_axis_type="log",y_range=(0.5*min(t['lstar']),max(t['lstar'])*2),
                 x_range=(300+max(t['teff']),min(t['teff'])-300) )
     hr.circle('teff','lstar',source=data,size=10,fill_color='col',
-              fill_alpha=0.6,line_color=None)
+              fill_alpha=0.6,line_color='col',line_alpha=1)
 
     # f vs temp (if we have any)
     if np.max(t['ldisklstar']) > 0:
         ft = figure(tools=tools2,active_scroll='wheel_zoom',
-                    x_axis_label='Disk temperature / K',y_axis_label='Disk fractional luminosity',
-                    y_axis_type="log",y_range=(0.5*np.exp(cr[0]),2*np.exp(cr[1])),
-                    x_axis_type="log",x_range=(0.5*min(t['tdisk']),max(t['tdisk'])*2) )
+                    x_axis_label='Disk temperature / K',
+                    y_axis_label='Disk fractional luminosity',
+                    y_axis_type="log",y_range=(0.5*cr[0],2*cr[1]),
+                    x_axis_type="log",x_range=(0.5*tr[0],2*tr[1]) )
         ft.circle('tdisk','ldisklstar',source=data,size=10,fill_color='col',
-                  fill_alpha=0.6,line_color=None)
+                  fill_alpha=0.6,line_color='col',line_alpha=1)
     else:
         ft = figure(title='no IR excesses')
             
@@ -336,7 +345,7 @@ def flux_size_plot(cursor,sample):
     """Show disk fluxes at various bands vs. their size."""
 
     # bands to show disk fluxes at
-    filters = ['2MKS','WISE3P4','AKARI9','WISE12','WISE22','PACS70']
+    filters = ['WISE3P4','AKARI9','WISE12','WISE22','PACS70']
 
     wwwroot = cfg.www['root']+'samples/'
     plfile = wwwroot+sample+"/fnuvsr.html"
@@ -359,7 +368,7 @@ def flux_size_plot(cursor,sample):
                  "LEFT JOIN "+cfg.mysql['db_results']+".star USING (id) "
                  "LEFT JOIN "+cfg.mysql['db_results']+".disk_r USING (id) "
                  "LEFT JOIN "+cfg.mysql['db_sdb']+".simbad USING (sdbid) "
-                 "WHERE filter = %s AND disk_jy > 0 AND id IS NOT NULL")
+                 "WHERE filter = %s AND id IS NOT NULL")
         # limit table sizes
         if sample != 'everything':
             stmt += " LIMIT "+str(cfg.www['tablemax'])+";"
@@ -371,12 +380,13 @@ def flux_size_plot(cursor,sample):
         ntot = 0
         for (id,sdbid,chisq,flux,rdisk) in cursor:
             ntot += 1
-            if flux is not None:
-                t['id'].append(id)
-                t['sdbid'].append(sdbid)
-                t['chisq'].append(chisq)
-                t['flux'].append(flux)
-                t['rdisk'].append(rdisk)
+            if flux is not None and rdisk is not None:
+                if flux > 0:
+                    t['id'].append(id)
+                    t['sdbid'].append(sdbid)
+                    t['chisq'].append(chisq)
+                    t['flux'].append(flux)
+                    t['rdisk'].append(rdisk)
 
         ngot = len(t['id'])
         if ntot == 0 or ngot == 0:
@@ -384,6 +394,10 @@ def flux_size_plot(cursor,sample):
             return
         else:
             print("    got ",ngot," rows for filter ",f)
+
+        # colour scale
+        col,cr = colours_for_list(t['chisq'],bokeh.palettes.plasma,log=True)
+        t['col'] = col
 
         data = ColumnDataSource(data=t)
 
@@ -396,9 +410,9 @@ def flux_size_plot(cursor,sample):
                     y_axis_label='Disk flux / mJy',
                     y_axis_type="log",y_range=(0.5*min(t['flux']),max(t['flux'])*2),
                     x_axis_type="log",x_range=(0.5*min(t['rdisk']),max(t['rdisk'])*2),
-                    width=800,height=500)
-        pl.circle('rdisk','flux',source=data,size=10,fill_color='#969696',
-                  fill_alpha=0.6,line_color=None)
+                    width=1000,height=700)
+        pl.circle('rdisk','flux',source=data,size=10,fill_color='col',
+                  fill_alpha=0.6,line_color='col',line_alpha=1)
 
         url = "/~grant/sdb/seds/masters/@sdbid/public/@sdbid"+"-sed.html"
         taptool = pl.select(type=TapTool)
@@ -410,13 +424,52 @@ def flux_size_plot(cursor,sample):
     save(tab)
 
 
+def colours_for_list(values_in,palette,log=False):
+    """Return colours for an array of values."""
+    
+    values = np.array(values_in)
+    nval = len(values)
+    col = np.repeat('#969696',nval)
+
+    # if there's only one value
+    if len(np.unique(values)) == 1:
+        return col,np.array([0.5*values[0],2*values[0]])
+
+    # figure what's OK
+    ok = np.isfinite(values)
+    if log:
+        ok1 = values[ok] <= 0
+        ok[ok1] = False
+
+    # set ranges
+    if np.sum(ok) > 0:
+        if log:
+            range = np.array([np.min(np.log(values[ok])),
+                              np.max(np.log(values[ok]))])
+            ci = 0.999*(np.log(values[ok])-range[0])/(range[1]-range[0])
+            range = np.exp(range)
+        else:
+            range = np.array([np.min(values[ok]),np.max(values[ok])])
+            ci = 0.999*(values[ok]-range[0])/(range[1]-range[0])
+    
+        # assign colours, don't use the whole range since the top end
+        # results in very whiteish (invisible) symbols
+        col[ok] = np.array(palette(100))[np.floor(80*ci).astype(int)]
+
+    return col,range
+
+
 # run from the command line
 if __name__ == "__main__":
 
     # inputs
     parser = argparse.ArgumentParser(description='Update web pages')
-    parser.add_argument('--tables','-t',action='store_true',help='Update sample tables')
-    parser.add_argument('--plots','-p',action='store_true',help='Update sample plots')
+    parser.add_argument('--tables','-t',action='store_true',
+                        help='Update sample tables')
+    parser.add_argument('--plots','-p',action='store_true',
+                        help='Update sample plots')
+    parser.add_argument('--cleanup','-c',action='store_true',
+                        help='Remove unneccessary sample dirs')
     args = parser.parse_args()
 
     if args.tables:
@@ -428,5 +481,6 @@ if __name__ == "__main__":
         flux_size_plots()
         sample_plots()
 
-
-
+    if args.cleanup:
+        print("Cleaning up")
+        cleanup_sample_dirs()
