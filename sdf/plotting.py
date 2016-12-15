@@ -1,3 +1,4 @@
+import io
 from os import path,remove
 
 import ast
@@ -5,23 +6,44 @@ import numpy as np
 import matplotlib.pyplot as plt
 import mysql.connector
 
+from jinja2 import Template
+from bokeh.resources import CDN
 from bokeh.plotting import figure,output_file,save,ColumnDataSource
 from bokeh.models.widgets import Panel,Tabs
 from bokeh.models import HoverTool
 from bokeh.layouts import gridplot
 from bokeh import palettes
+from bokeh.embed import components
 
 from . import model
 from . import spectrum
 from . import photometry
 from . import filter
 from . import fitting
+from . import templates
 from .utils import SdfError
 from . import config as cfg
 
 
 def sed(results,tab_order=None,file='sed.html'):
-    """Plot an SED with observations and models.
+    """Make an SED plot."""
+
+    script,div = sed_components(results,tab_order=tab_order)
+
+    template = Template(templates.sed)
+    bokeh_js = CDN.render_js()
+    bokeh_css = CDN.render_css()
+    html = template.render(bokeh_js=bokeh_js,
+                           bokeh_css=bokeh_css,
+                           plot_script=script,
+                           plot_div=div)
+
+    with io.open(file, mode='w', encoding='utf-8') as f:
+        f.write(html)
+
+
+def sed_components(results,tab_order=None):
+    """Make an SED with observations and models.
         
     If multiple models and parameters are passed (i.e. the length of the
     results list is more than 1 then these are placed in tabs.
@@ -31,11 +53,6 @@ def sed(results,tab_order=None,file='sed.html'):
     if not isinstance(results,list):
         raise SdfError("expected list of results, not {}".format(type(results)))
     
-    # remove file to avoid errors
-    if path.exists(file):
-        remove(file)
-    output_file(file,mode='cdn')
-
     # figure plot limits
     xlim,ylim = sed_limits(results)
 
@@ -96,7 +113,8 @@ def sed(results,tab_order=None,file='sed.html'):
     if tab_order is not None:
         tabs = [tabs[i] for i in tab_order]
     tab = Tabs(tabs=tabs)
-    save(tab)
+
+    return components(tab)
 
 
 def add_obs_phot(fig,r):
