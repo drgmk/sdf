@@ -20,6 +20,7 @@ from . import spectrum
 from . import photometry
 from . import filter
 from . import fitting
+from . import db
 from . import templates
 from .utils import SdfError
 from . import config as cfg
@@ -30,13 +31,25 @@ def sed(results,tab_order=None,file='sed.html'):
 
     script,div = sed_components(results,tab_order=tab_order)
 
+    info = db.sdb_info(results[0].id)
+    if info is not None:
+        sdbid,main_id,xids,ra,dec = info
+    else:
+        sdbid,main_id,xids,ra,dec = None,None,None,None,None
+        sdbid,main_id,xids,ra,dec = 'sdfgsdfg','dfgsdfg',None,3345,345
+
     template = Template(templates.sed)
     bokeh_js = CDN.render_js()
     bokeh_css = CDN.render_css()
     html = template.render(bokeh_js=bokeh_js,
                            bokeh_css=bokeh_css,
+                           css=templates.css,
                            plot_script=script,
-                           plot_div=div)
+                           plot_div=div,
+                           sdbid=sdbid,main_id=main_id,
+#                           xids=xids,
+                           ra=ra,dec=dec
+                           )
 
     with io.open(file, mode='w', encoding='utf-8') as f:
         f.write(html)
@@ -350,7 +363,7 @@ def calibration(file=cfg.www['root']+'calibration/cal.html'):
     chist = []
     for i,f in enumerate(filters):
 
-        if wav[i] > 4 or wav[i] < 0.017:
+        if wav[i] > 26 or wav[i] < 0.017:
             continue
 
         # grab the data for this filter

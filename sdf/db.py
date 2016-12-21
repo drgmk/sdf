@@ -148,6 +148,7 @@ def write_star(cursor,r):
     For uncertainty propagation see examples at:
         https://en.wikipedia.org/wiki/Propagation_of_uncertainty
     """
+    # TODO: put all the derived stuff in a function elsewhere
 
     # loop over plotting models, only one SpecModel per component
     for i,comp in enumerate(r.model_comps):
@@ -219,6 +220,7 @@ def write_disk_r(cursor,r):
     For uncertainty propagation see examples at:
         https://en.wikipedia.org/wiki/Propagation_of_uncertainty
     """
+    # TODO: put all the derived stuff in a function elsewhere
 
     # loop over plotting models, only one SpecModel per component
     for i,comp in enumerate(r.model_comps):
@@ -302,3 +304,37 @@ def sample_targets(sample,db='sdb_samples'):
         ids.append(id)
 
     return ids
+
+
+def sdb_info(id):
+    """Get info for a given sdb id."""
+
+    # set up connection
+    try:
+        cnx = mysql.connector.connect(user=cfg.mysql['user'],
+                                      password=cfg.mysql['passwd'],
+                                      host=cfg.mysql['host'],
+                                      database=cfg.mysql['db_sdb'])
+        cursor = cnx.cursor(buffered=True)
+
+    except mysql.connector.InterfaceError:
+        print("Can't connect to {} at {}".format(cfg.mysql['db_sdb'],
+                                                 cfg.mysql['host']) )
+        return
+
+    cursor.execute("SELECT sdbid,COALESCE(main_id,sdbid), "
+                   "raj2000,dej2000,pmra,pmde "
+                   "FROM sdb_pm LEFT JOIN simbad USING (sdbid) "
+                   "WHERE sdbid = '{}'".format(id))
+    out = cursor.fetchall()
+    if len(out) > 0:
+        sdbid,main_id,ra,dec,pmra,pmde = out[0]
+    else:
+        return
+
+    cursor.execute("SELECT xid FROM xids WHERE sdbid = '{}'".format(id))
+    xids = []
+    for (id,) in cursor:
+        xids.append(id)
+
+    return sdbid,main_id,xids,ra,dec
