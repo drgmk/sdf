@@ -9,6 +9,7 @@ version of astropy is installed.
 
 """
 
+import io
 import glob
 from os.path import isdir,isfile,basename
 from os import mkdir,remove,write,rmdir
@@ -18,12 +19,16 @@ import numpy as np
 from astropy.table import Table,jsviewer
 import mysql.connector
 
+from jinja2 import Template
+from bokeh.resources import CDN
 from bokeh.plotting import figure,output_file,save,ColumnDataSource
 import bokeh.palettes
 from bokeh.models.widgets import Panel,Tabs
 from bokeh.models import HoverTool,OpenURL,TapTool
 from bokeh.layouts import gridplot,layout
+from bokeh.embed import components
 
+from sdf import templates
 from sdf import config as cfg
 
 
@@ -209,12 +214,33 @@ def sample_plots():
                                   database=cfg.mysql['db_sdb'])
     cursor = cnx.cursor(buffered=True)
 
+    template = Template(templates.generic_wide)
+    bokeh_js = CDN.render_js()
+    bokeh_css = CDN.render_css()
+
     # get a list of samples and generate their pages
     samples = get_samples()
     for sample in samples:
+        
         print("  sample:",sample)
-        sample_plot(cursor,sample)
-            
+        
+        wwwroot = cfg.www['root']+'samples/'
+
+        # create dir and .htaccess if neeeded
+        create_dir(wwwroot,sample)
+        file = wwwroot+sample+"/hr.html"
+        script,div = sample_plot(cursor,sample)
+
+        html = template.render(bokeh_js=bokeh_js,
+                               bokeh_css=bokeh_css,
+                               css=templates.css,
+                               plot_script=script,
+                               plot_div=div,
+                               title=None)
+
+        with io.open(file, mode='w', encoding='utf-8') as f:
+            f.write(html)
+
     cursor.close()
     cnx.close()
 
@@ -225,11 +251,6 @@ def sample_plot(cursor,sample):
     Extract the necessary information from the database and plot
     using bokeh.
     """
-
-    wwwroot = cfg.www['root']+'samples/'
-
-    # create dir and .htaccess if neeeded
-    create_dir(wwwroot,sample)
 
     # get data, ensure primary axes are not nans else bokeh will
     # complain about the data
@@ -277,12 +298,6 @@ def sample_plot(cursor,sample):
     t['col'] = col
     data = ColumnDataSource(data=t)
 
-    # remove the plot file to avoid overwrite warnings
-    plfile = wwwroot+sample+"/hr.html"
-    if isfile(plfile):
-        remove(plfile)
-    output_file(plfile,mode='cdn')
-
     # TODO: hover in one highlights in the other
     hover1 = HoverTool(tooltips=[("name","@main_id")])
     hover2 = HoverTool(tooltips=[("name","@main_id")])
@@ -290,7 +305,7 @@ def sample_plot(cursor,sample):
     tools2 = ['wheel_zoom,box_zoom,box_select,tap,save,reset',hover2]
 
     # hr diagram
-    hr = figure(title="diagrams for "+sample+" ("+str(ngot)+" of "+str(ntot)+")",
+    hr = figure(title="HR diagram for "+sample+" ("+str(ngot)+" of "+str(ntot)+")",
                 tools=tools1,active_scroll='wheel_zoom',
                 x_axis_label='Effective temperature / K',y_axis_label='Stellar luminosity / Solar',
                 y_axis_type="log",y_range=(0.5*min(t['lstar']),max(t['lstar'])*2),
@@ -300,7 +315,8 @@ def sample_plot(cursor,sample):
 
     # f vs temp (if we have any)
     if np.max(t['ldisklstar']) > 0:
-        ft = figure(tools=tools2,active_scroll='wheel_zoom',
+        ft = figure(title="fractional luminosity vs disk temperature for "+sample,
+                    tools=tools2,active_scroll='wheel_zoom',
                     x_axis_label='Disk temperature / K',
                     y_axis_label='Disk fractional luminosity',
                     y_axis_type="log",y_range=(0.5*cr[0],2*cr[1]),
@@ -319,7 +335,7 @@ def sample_plot(cursor,sample):
     taptool = ft.select(type=TapTool)
     taptool.callback = OpenURL(url=url)
 
-    save(p)
+    return components(p)
 
 
 def flux_size_plots():
@@ -331,11 +347,37 @@ def flux_size_plots():
                                   database=cfg.mysql['db_sdb'])
     cursor = cnx.cursor(buffered=True)
 
+
+    template = Template(templates.generic)
+    bokeh_js = CDN.render_js()
+    bokeh_css = CDN.render_css()
+
     # get a list of samples and generate their pages
     samples = get_samples()
     for sample in samples:
+        
         print("  sample:",sample)
-        flux_size_plot(cursor,sample)
+        
+        wwwroot = cfg.www['root']+'samples/'
+
+        # create dir and .htaccess if neeeded
+        create_dir(wwwroot,sample)
+        file = wwwroot+sample+"/fnuvsr.html"
+        out = flux_size_plot(cursor,sample)
+        if out is not None:
+            script,div = out
+        else:
+            continue        
+
+        html = template.render(bokeh_js=bokeh_js,
+                               bokeh_css=bokeh_css,
+                               css=templates.css,
+                               plot_script=script,
+                               plot_div=div,
+                               title=sample)
+
+        with io.open(file, mode='w', encoding='utf-8') as f:
+            f.write(html)
             
     cursor.close()
     cnx.close()
@@ -345,16 +387,19 @@ def flux_size_plot(cursor,sample):
     """Show disk fluxes at various bands vs. their size."""
 
     # bands to show disk fluxes at
-    filters = ['WISE3P4','AKARI9','WISE12','WISE22','PACS70']
+    filters = ['WISE3P4','AKARI9','WISE12','AKARI18','WISE22','PACS70']
 
-    wwwroot = cfg.www['root']+'samples/'
-    plfile = wwwroot+sample+"/fnuvsr.html"
-    if isfile(plfile):
-        remove(plfile)
-    output_file(plfile,mode='cdn')
+    # sensitivities from Smith & Wyatt 2010
+    miri_10_sens = np.array([[1000.,0.15],[100,0.15],[1,0.2],[0.01,0.3],
+                             [0.001,0.7],[0.001,1.5],[0.01,10],[0.1,50]])
+    miri_18_sens = np.array([[1000,0.25],[100.,0.3],[10,0.4],[1,0.7],
+                             [0.5,1],[0.1,2],[0.05,4],[0.05,10],[0.05,40]])
+    miri_25_sens = np.array([[1000.,0.3],[100,0.3],[10,0.4],[3,0.5],[2,1],
+                             [1,1.5],[0.5,2],[0.2,4],[0.2,10],[0.2,40]])
+    sens = [None,miri_10_sens,miri_10_sens,miri_18_sens,miri_25_sens,None]
 
     tabs = []
-    for f in filters:
+    for i,f in enumerate(filters):
 
         # get the results
         stmt = "SELECT coalesce(main_id,id),sdbid,chisq,1e3*disk_jy,rdisk*plx_arcsec "
@@ -410,7 +455,12 @@ def flux_size_plot(cursor,sample):
                     y_axis_label='Disk flux / mJy',
                     y_axis_type="log",y_range=(0.5*min(t['flux']),max(t['flux'])*2),
                     x_axis_type="log",x_range=(0.5*min(t['rdisk']),max(t['rdisk'])*2),
-                    width=1000,height=700)
+                    width=800,height=600)
+
+        if sens[i] is not None:
+            pl.line(sens[i][:,1],sens[i][:,0],
+                    line_color='red',line_alpha=0.3,line_width=4)
+
         pl.circle('rdisk','flux',source=data,size=10,fill_color='col',
                   fill_alpha=0.6,line_color='col',line_alpha=1)
 
@@ -421,7 +471,7 @@ def flux_size_plot(cursor,sample):
         tabs.append( Panel(child=pl, title=f) )
     
     tab = Tabs(tabs=tabs)
-    save(tab)
+    return components(tab)
 
 
 def colours_for_list(values_in,palette,log=False):

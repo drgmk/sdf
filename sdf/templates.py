@@ -12,7 +12,7 @@ sed=('''<!DOCTYPE html>
         
     </head>
     
-    <body>
+    <body class="sed">
     
         {% if main_id %}
         <table class="head_table"><tr><td>
@@ -55,6 +55,56 @@ sed=('''<!DOCTYPE html>
 </html>
 ''')
 
+generic=('''<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>{{ title }}</title>
+        {{ bokeh_css }}
+        {{ bokeh_js }}
+
+        {{ css }}
+        
+    </head>
+    
+    <body>
+    
+        {% if title %}
+        <h1>{{ title }}</h1>
+        {% endif %}
+
+        {{ plot_div|indent(8) }}
+        {{ plot_script|indent(8) }}
+        
+    </body>
+</html>
+''')
+
+generic_wide=('''<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>{{ title }}</title>
+        {{ bokeh_css }}
+        {{ bokeh_js }}
+
+        {{ css }}
+        
+    </head>
+    
+    <body class="wide">
+    
+        {% if title %}
+        <h1>{{ title }}</h1>
+        {% endif %}
+
+        {{ plot_div|indent(8) }}
+        {{ plot_script|indent(8) }}
+        
+    </body>
+</html>
+''')
+
 css=('''<link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Lato">
     
         <style>
@@ -67,6 +117,9 @@ css=('''<link rel="stylesheet" type="text/css" href="https://fonts.googleapis.co
                 width: 850px;
                 height: 100%;
                 margin: auto;
+            }
+            body.wide {
+                width: 100%
             }
             .head_table {
                 width:100%;
