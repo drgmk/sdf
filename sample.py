@@ -137,7 +137,7 @@ def sample_table(cursor,sample):
                    " id as sdbid,ROUND(-2.5*log10(ANY_VALUE(model_jy)/3882.37),1) as Vmag"
                    " FROM sdb_results.phot WHERE filter='VJ' GROUP BY id;")
     sel = ("SELECT "
-           "CONCAT('[ <a href=\"http://simbad.u-strasbg.fr/simbad/sim-basic?submit=SIMBAD+search&Ident=',main_id,'\" target=\"_blank\">s</a> | <a href=\"http://irsa.ipac.caltech.edu/applications/finderchart/#id=Hydra_finderchart_finder_chart&RequestClass=ServerRequest&DoSearch=true&subsize=0.083&thumbnail_size=medium&sources=DSS,SDSS,twomass,WISE,IRIS&overlay_catalog=true&catalog_by_radius=true&iras_radius=240&sdss_radius=5&twomass_radius=5&wise_radius=5&one_to_one=_none_&dss_bands=poss1_blue,poss1_red,poss2ukstu_blue,poss2ukstu_red,poss2ukstu_ir&SDSS_bands=u,g,r,i,z&twomass_bands=j,h,k&wise_bands=1,2,3,4&UserTargetWorldPt=',raj2000,';',dej2000,';EQ_J2000&projectId=finderchart&searchName=finder_chart&shortDesc=Finder%20Chart&isBookmarkAble=true&isDrillDownRoot=true&isSearchResult=true\" target=\"_blank\">f</a>',' ] <a target=\"_blank\" href=\"../../seds/masters/',sdbid,'/public/',sdbid,'-sed.html\">',main_id,'</a>') as id,"
+           "CONCAT('[ <a href=\"http://simbad.u-strasbg.fr/simbad/sim-basic?submit=SIMBAD+search&Ident=',main_id,'\" target=\"_blank\">s</a> | <a href=\"http://irsa.ipac.caltech.edu/applications/finderchart/#id=Hydra_finderchart_finder_chart&RequestClass=ServerRequest&DoSearch=true&subsize=0.083&thumbnail_size=medium&sources=DSS,SDSS,twomass,WISE,IRIS&overlay_catalog=true&catalog_by_radius=true&iras_radius=240&sdss_radius=5&twomass_radius=5&wise_radius=5&one_to_one=_none_&dss_bands=poss1_blue,poss1_red,poss2ukstu_blue,poss2ukstu_red,poss2ukstu_ir&SDSS_bands=u,g,r,i,z&twomass_bands=j,h,k&wise_bands=1,2,3,4&UserTargetWorldPt=',raj2000,';',dej2000,';EQ_J2000&projectId=finderchart&searchName=finder_chart&shortDesc=Finder%20Chart&isBookmarkAble=true&isDrillDownRoot=true&isSearchResult=true\" target=\"_blank\">f</a>',' ] <a target=\"_blank\" href=\"../../seds/masters/',sdbid,'/public\">',main_id,'</a>') as id,"
            "hd.xid as HD,"
            "hip.xid as HIP,"
            "gj.xid as GJ,"
@@ -313,7 +313,7 @@ def sample_plot(cursor,sample):
     p = gridplot([[hr,ft]],sizing_mode='stretch_both',
                  toolbar_location='above')
                  
-    url = "/~grant/sdb/seds/masters/@sdbid/public/@sdbid"+"-sed.html"
+    url = "/~grant/sdb/seds/masters/@sdbid/public"
     taptool = hr.select(type=TapTool)
     taptool.callback = OpenURL(url=url)
     taptool = ft.select(type=TapTool)
@@ -414,7 +414,7 @@ def flux_size_plot(cursor,sample):
         pl.circle('rdisk','flux',source=data,size=10,fill_color='col',
                   fill_alpha=0.6,line_color='col',line_alpha=1)
 
-        url = "/~grant/sdb/seds/masters/@sdbid/public/@sdbid"+"-sed.html"
+        url = "/~grant/sdb/seds/masters/@sdbid/public"
         taptool = pl.select(type=TapTool)
         taptool.callback = OpenURL(url=url)
 

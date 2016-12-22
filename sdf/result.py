@@ -241,7 +241,7 @@ class Result(object):
             self.disk_spec = None
         
         # path to SED plot (which probably doesn't exist yet)
-        self.sed_plot = self.path + '/' + self.id + cfg.pl['sed_suffix']
+        self.sed_plot = self.path + '/index.html'
 
 
     def delete_multinest(self):
