@@ -223,28 +223,35 @@ def write_disk_r(cursor,r):
     # TODO: put all the derived stuff in a function elsewhere
 
     # loop over plotting models, only one SpecModel per component
+    comp_no = 0
     for i,comp in enumerate(r.model_comps):
         if comp in cfg.models['disk']:
             
             # find the temperature for this component
-            for j,par in enumerate(r.parameters):
+            for j,par in enumerate(r.comp_parameters[i]):
                 if par == 'Temp':
-                    tdisk = 10**r.best_params[j]
-                    e_tdisk = 10**r.best_params_1sig[j]
+                    tdisk = 10**r.comp_best_params[i][j]
+                    e_tdisk = 10**r.comp_best_params_1sig[i][j]
 
             cursor.execute("INSERT INTO "+cfg.mysql['disk_r_table']+" "
-                           "(id,tdisk,e_tdisk) VALUES "
-                           "('{}',{:e},{:e})".format(r.id,tdisk,e_tdisk) )
+                           "(id,comp_no) VALUES "
+                           "('{}',{})".format(r.id,comp_no) )
 
             # parameters directly from model
             for j,par in enumerate(r.comp_parameters[i]):
-                if par == 'Temp' or par == 'norm' or par == 'spec_norm':
+                if par == 'norm' or par == 'spec_norm':
                     continue
+                elif par == 'Temp':
+                    val = 10**r.comp_best_params[i][j]
+                    e_val = 10**r.comp_best_params_1sig[i][j]
+                else:
+                    val = r.comp_best_params[i][j]
+                    e_val = r.comp_best_params_1sig[i][j]
+
                 cursor.execute("UPDATE "+cfg.mysql['disk_r_table']+" "
                                "SET {} = {:e}, e_{} = {:e} WHERE "
-                               "id = '{}'".format(par,r.comp_best_params[i][j],
-                                                  par,r.comp_best_params_1sig[i][j],
-                                                  r.id) )
+                               "id = '{}' AND comp_no = {}".\
+                               format(par,val,par,e_val,r.id,comp_no) )
 
             # disk and fractional luminosity
             frac_norm = np.log(10) * r.comp_best_params_1sig[i][-1]
@@ -268,8 +275,8 @@ def write_disk_r(cursor,r):
             cursor.execute("UPDATE "+cfg.mysql['disk_r_table']+" "
                            "SET ldisk_1pc = {:e},e_ldisk_1pc = {:e}, "
                            "ldisk_lstar = {:e},e_ldisk_lstar = {:e} WHERE "
-                           "id = '{}'".format(ldisk_1pc,e_ldisk_1pc,
-                                              ldls,e_ldls,r.id) )
+                           "id = '{}' AND comp_no = {}".\
+                           format(ldisk_1pc,e_ldisk_1pc,ldls,e_ldls,r.id,comp_no) )
 
             # distance-dependent params
             if r.obs_keywords['plx_value'] is not None:
@@ -279,8 +286,10 @@ def write_disk_r(cursor,r):
                                           + (2*(e_tdisk/tdisk))**2 )
                 cursor.execute("UPDATE "+cfg.mysql['disk_r_table']+" "
                                "SET rdisk = {:e},e_rdisk = {:e} WHERE "
-                               "id = '{}'".format(rdisk,e_rdisk,r.id) )
+                               "id = '{}' AND comp_no = {}".\
+                               format(rdisk,e_rdisk,r.id,comp_no) )
 
+            comp_no += 1
 
 def sample_targets(sample,db='sdb_samples'):
     """Return list of sdbids of targets in some sample."""
