@@ -323,12 +323,16 @@ def sdb_info(id):
         return
 
     cursor.execute("SELECT sdbid,COALESCE(main_id,sdbid), "
-                   "raj2000,dej2000,pmra,pmde "
+                   "raj2000,dej2000, "
+                   "COALESCE(gaia.pmra,sdb_pm.pmra), "
+                   "COALESCE(gaia.pmde,sdb_pm.pmde), "
+                   "1e3/COALESCE(gaia.plx,simbad.plx_value)"
                    "FROM sdb_pm LEFT JOIN simbad USING (sdbid) "
+                   "LEFT JOIN gaia USING (sdbid) "
                    "WHERE sdbid = '{}'".format(id))
     out = cursor.fetchall()
     if len(out) > 0:
-        sdbid,main_id,ra,dec,pmra,pmde = out[0]
+        sdbid,main_id,ra,dec,pmra,pmde,dist = out[0]
     else:
         return
 
@@ -337,4 +341,4 @@ def sdb_info(id):
     for (id,) in cursor:
         xids.append(id)
 
-    return sdbid,main_id,xids,ra,dec
+    return sdbid,main_id,xids,ra,dec,dist

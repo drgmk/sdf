@@ -33,10 +33,9 @@ def sed(results,tab_order=None,file='sed.html'):
 
     info = db.sdb_info(results[0].id)
     if info is not None:
-        sdbid,main_id,xids,ra,dec = info
+        sdbid,main_id,xids,ra,dec,dist = info
     else:
-        sdbid,main_id,xids,ra,dec = None,None,None,None,None
-        sdbid,main_id,xids,ra,dec = 'sdfgsdfg','dfgsdfg',None,3345,345
+        sdbid,main_id,xids,ra,dec,dist = None,None,None,None,None
 
     template = Template(templates.sed)
     bokeh_js = CDN.render_js()
@@ -47,8 +46,7 @@ def sed(results,tab_order=None,file='sed.html'):
                            plot_script=script,
                            plot_div=div,
                            sdbid=sdbid,main_id=main_id,
-#                           xids=xids,
-                           ra=ra,dec=dec
+                           ra=ra/15.0,dec=dec,dist=dist
                            )
 
     with io.open(file, mode='w', encoding='utf-8') as f:
@@ -91,7 +89,7 @@ def sed_components(results,tab_order=None):
                            x_range=xlim,y_range=ylim,
                            y_axis_label='Flux density / Jy',y_axis_type='log',
                            tools=tools,active_scroll='wheel_zoom',
-                           width=800,height=500) )
+                           width=cfg.pl['x_size'],height=cfg.pl['y_top_size']) )
         sed[i].xaxis.visible=False
 
         # add models
@@ -111,7 +109,8 @@ def sed_components(results,tab_order=None):
                            x_range=sed[i].x_range,
                            y_axis_label='Significance',
                            tools=tools,active_scroll='wheel_zoom',
-                           toolbar_location='right',width=800,height=130) )
+                           toolbar_location='right',
+                           width=cfg.pl['x_size'],height=cfg.pl['y_bot_size']) )
 
         # add residuals
         res[i].line(x=xlim,y=[0 , 0],**cfg.pl['guide_dash'])
