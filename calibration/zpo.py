@@ -84,9 +84,9 @@ def chisq_all(zpos):
     return float( cursor.fetchall()[0][0] )
 
 
-zpo0 = [0.04050373,  0.0217984 ,  1.29187515,  0.23172751,  0.03709482,
-        0.03903796,  0.04579623,  0.01117473 ]
-res = minimize(chisq_all,zpo0,method='Nelder-Mead',options={'maxiter':10})
+zpo0 = [-0.03907684,  0.04069183,  1.24540198,  0.2515047 ,  0.03928558,
+        0.03896917,  0.04720522,  0.01113291]
+res = minimize(chisq_all,zpo0,method='Powell',options={'maxiter':5})
 
 
 def mvb_zpo(fname,flam=None):
