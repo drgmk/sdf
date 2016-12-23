@@ -42,7 +42,7 @@ def fit_results(file,update=False,sort=True,nospec=False):
             print("  no photometry = no results")
             return None
 
-        # if evidence didn't go up with second model component, stop
+        # if evidence didn't go up with extra model component, stop
         if len(f) > 1:
             evs = [r.evidence for r in results]
             if np.max(evs) != evs[-1]:
