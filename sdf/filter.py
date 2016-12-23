@@ -224,6 +224,7 @@ class Filter(object):
         return self
 
 
+    @lru_cache(maxsize=128)
     def get_with_zpo(name,zpo_file='/Users/grant/astro/projects/sdf/sdf/calibration/zpos.txt'):
         """Get filter, using ZPO from file."""
         
