@@ -156,7 +156,7 @@ def sample_table(cursor,sample):
            "ROUND(log10(lstar),2) as LogLstar,"
            "ROUND(1/COALESCE(star.plx_arcsec),1) AS Dist,"
            "ROUND(log10(ldisk_lstar),1) as Log_f,"
-           "ROUND(tdisk,1) as T_disk")
+           "ROUND(temp,1) as T_disk")
         
     # here we decide which samples get all targets, for now "everything" and "public"
     # get everything, but this could be changed so that "public" is some subset of
@@ -270,7 +270,7 @@ def sample_plot(cursor,sample):
     sel += " WHERE teff IS NOT NULL AND lstar IS NOT NULL"
 
     selall = ("SELECT sdbid,main_id,teff,lstar,IFNULL(ldisk_lstar,-1) as "
-              "ldisklstar,IFNULL(tdisk,-1) as tdisk") + sel
+              "ldisklstar,IFNULL(temp,-1) as tdisk") + sel
 
     # limit table sizes
     if sample != 'everything':
