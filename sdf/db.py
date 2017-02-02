@@ -188,7 +188,11 @@ def write_star(cursor,r):
             # distance-dependent params
             if r.obs_keywords['plx_value'] is not None:
                 plx_arcsec = r.obs_keywords['plx_value'] / 1e3
-                e_plx_arcsec = r.obs_keywords['plx_err'] / 1e3
+                
+                if r.obs_keywords['plx_err'] is not None:
+                    e_plx_arcsec = r.obs_keywords['plx_err'] / 1e3
+                else:
+                    e_plx_arcsec = plx_arcsec / 3.
                 
                 lstar = lstar_1pc / plx_arcsec**2
                 e_lstar = lstar * np.sqrt( frac_norm**2
