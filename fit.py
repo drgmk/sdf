@@ -117,12 +117,12 @@ if __name__ == '__main__':
                          help='Restrict to subset of targets (e.g. public)')
 
     parser1.add_argument('--plot','-p',action='store_true',
-                         help='Plot SEDs')
+                         help='Plot SEDs',default=True)
     parser1.add_argument('--update-plot',action='store_true',
                          help='Force update of SEDs')
                          
     parser1.add_argument('--dbwrite','-w',action='store_true',
-                         help='Write results to db')
+                         help='Write results to db',default=True)
     parser1.add_argument('--update-db',action='store_true',
                          help='Force udpate of db')
 
