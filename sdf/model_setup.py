@@ -61,10 +61,10 @@ def modbb_spectra():
                                          write=True,overwrite=True)
 
 
-def specmodel2phot(mname='kurucz-0.0'):
+def specmodel2phot(mname='kurucz-0.0',overwrite=False):
     """Generate a PhotModel grid from SpecModel models."""
     
-    convolve_specmodel(mname=mname,overwrite=True)
+    convolve_specmodel(mname=mname,overwrite=overwrite)
     m = model.PhotModel.read_convolved_models(mname)
     m.write_model(m.name,overwrite=True)
 
@@ -73,11 +73,10 @@ def convolve_specmodel(mname='kurucz-0.0',overwrite=False):
     """Convolve a set of SpecModel models.
     
     Write files containing convolved fluxes for each filter. The source
-    spectra are in the kurucz SpecModels as these are saved with the
-    original wavelength resolution.
+    spectra are in the SpecModels as these are saved with high enough
+    wavelength resolution.
 
-    These are at Solar metallicity (by default). Range of parameters is
-    the same as the spectra.
+    Range of parameters is the same as the spectra.
     
     """
 
@@ -103,7 +102,7 @@ def convolve_specmodel(mname='kurucz-0.0',overwrite=False):
             print("Skipping {}, file exists".format(fname))
         
         else:
-#            print("Convolving filter {}".format(fname))
+            print("Convolving filter {}".format(fname))
             for i,ind in enumerate(i_list):
                 s = spectrum.ModelSpectrum(nu_hz=c_micron/m.wavelength,
                                            fnujy_sr=fnujy_sr_roll[ind])
