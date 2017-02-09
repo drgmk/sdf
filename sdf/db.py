@@ -18,7 +18,7 @@ def write_all(r,update=False):
                                       host=cfg.mysql['host'],
                                       database=cfg.mysql['db_results'])
         cursor = cnx.cursor(buffered=True)
-        print(" Writing to db")
+        print(" Database")
 
     except mysql.connector.InterfaceError:
         print("Can't connect to {} at {}".format(cfg.mysql['db_results'],
@@ -27,6 +27,8 @@ def write_all(r,update=False):
 
     # write to the tables
     if update or update_needed(cursor,cfg.mysql['model_table'],r):
+        
+        print("   writing")
         
         stmt = ("DELETE FROM "+cfg.mysql['phot_table']+" WHERE id = %(a)s;")
         cursor.execute(stmt,{'a':str(r.id)})

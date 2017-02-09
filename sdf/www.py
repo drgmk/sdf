@@ -18,7 +18,7 @@ def www_all(results,update=False):
 
     print(" Web")
 
-    # see whether index.html needs updating (unless update is enforced)
+    # see whether index.html needs updating (unless update enforced)
     index_file = results[0].path+'/index.html'
     
     if os.path.exists(index_file):
@@ -30,9 +30,9 @@ def www_all(results,update=False):
             if not update:
                 print("   no update needed")
                 return
-        print("   updating web")
+        print("   updating")
     else:
-        print("   generating web")
+        print("   generating")
 
     index(results,file=index_file)
 

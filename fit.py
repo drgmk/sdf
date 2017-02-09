@@ -73,12 +73,12 @@ if __name__ == '__main__':
     parser1.add_argument('--subset',nargs='+',default='*',
                          help='Restrict to subset of targets (e.g. public)')
 
-    parser1.add_argument('--plot','-p',action='store_true',
-                         help='Plot SEDs',default=True)
-    parser1.add_argument('--update-plot',action='store_true',
-                         help='Force update of SEDs')
+    parser1.add_argument('--www','-w',action='store_true',
+                         help='www material',default=True)
+    parser1.add_argument('--update-www',action='store_true',
+                         help='Force update of www')
                          
-    parser1.add_argument('--dbwrite','-w',action='store_true',
+    parser1.add_argument('--dbwrite','-b',action='store_true',
                          help='Write results to db',default=True)
     parser1.add_argument('--update-db',action='store_true',
                          help='Force udpate of db')
@@ -129,8 +129,8 @@ if __name__ == '__main__':
                 if results is None:
                     continue
 
-                if args.plot:
-                    www.www_all(results,update=args.update_plot)
+                if args.www:
+                    www.www_all(results,update=args.update_www)
 
                 # write best model to db
                 if args.dbwrite:
