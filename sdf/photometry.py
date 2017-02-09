@@ -88,11 +88,12 @@ class Photometry(object):
             p.s_measurement = np.abs( np.array([row['Sys']]) )
             p.unit = np.array([u.Unit(row['Unit'])])
             p.bibcode = np.array([row['bibcode']])
-            p.upperlim = np.array([ row['Lim']==1 ])
+            p.upperlim = np.array([ row['Lim'] == 1 ])
+            p.ignore = np.array([ row['exclude'] == 1 ])
+            
             if row['Band'] in cfg.fitting['exclude_filters']:
                 p.ignore = np.array([True])
-            else:
-                p.ignore = np.array([False])
+
             self.addto(p)
 
         self.fill_fnujy()
