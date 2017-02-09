@@ -12,6 +12,7 @@ import filelock
 from sdf import result
 from sdf import plotting
 from sdf import db
+from sdf import www
 from sdf import config as cfg
 
 
@@ -52,50 +53,6 @@ def fit_results(file,update=False,sort=True,nospec=False):
         results = [results[i] for i in result.sort_results(results)]
 
     return results
-
-
-def plot_seds(results,update=False):
-    """Create SED plots plot of fitting results.
-        
-    Collects all model fits and puts them in tabs in a plot.
-    """
-    
-    print(" Plotting")
-
-    # see whether the sed needs updating (unless update is enforced)
-    if os.path.exists(results[0].sed_plot):
-        pkltime = []
-        for r in results:
-            pkltime.append( os.path.getmtime(r.pickle) )
-
-        if os.path.getmtime(r.sed_plot) > np.max(pkltime):
-            if not update:
-                print("  no update needed")
-                return
-        print("  updating sed")
-    else:
-        print("  generating sed")
-
-    plotting.sed(results,file=results[0].sed_plot)
-
-
-def everything(f,up_res,nospec,up_plot,up_db):
-    """Wrapper to do everything for parallelism."""
-
-    print(f)
-
-    # evidence-sorted list of results
-    results = fit_results( os.path.abspath(f),update=up_res,
-                           nospec=nospec)
-    if results is None:
-        return
-
-    if args.plot:
-        plot_seds(results,update=up_plot)
-
-    # write best model to db
-    if args.dbwrite:
-        db.write_all(results[0],update=up_db)
 
 
 # command line
@@ -173,7 +130,7 @@ if __name__ == '__main__':
                     continue
 
                 if args.plot:
-                    plot_seds(results,update=args.update_plot)
+                    www.www_all(results,update=args.update_plot)
 
                 # write best model to db
                 if args.dbwrite:
@@ -181,11 +138,3 @@ if __name__ == '__main__':
 
         except filelock.Timeout:
             pass
-
-# parallel, this looks like a big fail due to something forking
-#    args = [(f,args.update_all,args.no_spectra,
-#             args.update_plot,args.update_db) for f in files]
-#    print(args)
-#    with Pool(2) as p:
-#        p.starmap(everything,args)
-

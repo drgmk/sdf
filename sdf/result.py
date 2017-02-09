@@ -240,9 +240,6 @@ class Result(object):
         else:
             self.disk_spec = None
         
-        # path to SED plot (which probably doesn't exist yet)
-        self.sed_plot = self.path + '/index.html'
-
 
     def delete_multinest(self):
         """Delete multinest output so it can be run again."""

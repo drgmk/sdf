@@ -26,33 +26,6 @@ from .utils import SdfError
 from . import config as cfg
 
 
-def sed(results,tab_order=None,file='sed.html'):
-    """Make an SED plot."""
-
-    script,div = sed_components(results,tab_order=tab_order)
-
-    info = db.sdb_info(results[0].id)
-    if info is not None:
-        sdbid,main_id,xids,ra,dec,dist = info
-    else:
-        sdbid,main_id,xids,ra,dec,dist = None,None,None,None,None
-
-    template = Template(templates.sed)
-    bokeh_js = CDN.render_js()
-    bokeh_css = CDN.render_css()
-    html = template.render(bokeh_js=bokeh_js,
-                           bokeh_css=bokeh_css,
-                           css=templates.css,
-                           plot_script=script,
-                           plot_div=div,
-                           sdbid=sdbid,main_id=main_id,
-                           ra=ra/15.0,dec=dec,dist=dist
-                           )
-
-    with io.open(file, mode='w', encoding='utf-8') as f:
-        f.write(html)
-
-
 def sed_components(results,tab_order=None):
     """Make an SED with observations and models.
         
