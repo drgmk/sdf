@@ -121,7 +121,7 @@ def residual(param,*args):
     for i,lim in enumerate(obs_uplim):
         if lim:
             if mod_fnu[i] > obs_fnu[i]/3.:
-                resid[i] = mod_fnu[i] / (obs_fnu[i]/3.)
+                resid[i] = -1. * mod_fnu[i] / (obs_fnu[i]/3.)
 
     return resid,obs_wav,obs_filt
 
