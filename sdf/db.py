@@ -187,33 +187,34 @@ def write_star(cursor,r):
 
             # distance-dependent params
             if r.obs_keywords['plx_value'] is not None:
-                plx_arcsec = r.obs_keywords['plx_value'] / 1e3
-                
-                if r.obs_keywords['plx_err'] is not None:
-                    e_plx_arcsec = r.obs_keywords['plx_err'] / 1e3
-                else:
-                    e_plx_arcsec = plx_arcsec / 3.
-                
-                lstar = lstar_1pc / plx_arcsec**2
-                e_lstar = lstar * np.sqrt( frac_norm**2
-                                          + (2*e_plx_arcsec/plx_arcsec)**2 )
-                                  
-                cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
-                               "SET lstar = {:e},e_lstar = {:e} WHERE "
-                               "id = '{}'".format(lstar,e_lstar,r.id) )
-                               
-                cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
-                               "SET plx_arcsec = {:e},e_plx_arcsec = {:e} WHERE "
-                               "id = '{}'".format(plx_arcsec,e_plx_arcsec,r.id) )
+                if r.obs_keywords['plx_value'] > 0:
+                    plx_arcsec = r.obs_keywords['plx_value'] / 1e3
+                    
+                    if r.obs_keywords['plx_err'] is not None:
+                        e_plx_arcsec = r.obs_keywords['plx_err'] / 1e3
+                    else:
+                        e_plx_arcsec = plx_arcsec / 3.
+                    
+                    lstar = lstar_1pc / plx_arcsec**2
+                    e_lstar = lstar * np.sqrt( frac_norm**2
+                                              + (2*e_plx_arcsec/plx_arcsec)**2 )
+                                      
+                    cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
+                                   "SET lstar = {:e},e_lstar = {:e} WHERE "
+                                   "id = '{}'".format(lstar,e_lstar,r.id) )
+                                   
+                    cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
+                                   "SET plx_arcsec = {:e},e_plx_arcsec = {:e} WHERE "
+                                   "id = '{}'".format(plx_arcsec,e_plx_arcsec,r.id) )
 
-                rstar = np.sqrt(cfg.ssr * 10**r.comp_best_params[i][-1]/np.pi) \
-                        * u.pc.to(u.m) / plx_arcsec / u.R_sun.to(u.m)
-                e_rstar = rstar * ( np.sqrt( frac_norm**2
-                                            + (2*e_plx_arcsec/plx_arcsec)**2) )
+                    rstar = np.sqrt(cfg.ssr * 10**r.comp_best_params[i][-1]/np.pi) \
+                            * u.pc.to(u.m) / plx_arcsec / u.R_sun.to(u.m)
+                    e_rstar = rstar * ( np.sqrt( frac_norm**2
+                                                + (2*e_plx_arcsec/plx_arcsec)**2) )
 
-                cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
-                               "SET rstar = {:e},e_rstar = {:e} WHERE "
-                               "id = '{}'".format(rstar,e_rstar,r.id) )
+                    cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
+                                   "SET rstar = {:e},e_rstar = {:e} WHERE "
+                                   "id = '{}'".format(rstar,e_rstar,r.id) )
 
 
 def write_disk_r(cursor,r):
