@@ -21,8 +21,8 @@ def write_all(r,update=False):
         print(" Database")
 
     except mysql.connector.InterfaceError:
-        print("Can't connect to {} at {}".format(cfg.mysql['db_results'],
-                                                 cfg.mysql['host']) )
+        print("   Can't connect to {} at {}".format(cfg.mysql['db_results'],
+                                                    cfg.mysql['host']) )
         return
 
     # write to the tables
@@ -45,6 +45,9 @@ def write_all(r,update=False):
         cursor.execute("DELETE FROM "+cfg.mysql['disk_r_table']+" "
                        "WHERE id = '{}'".format(r.id))
         write_disk_r(cursor,r)
+    
+    else:
+        print("   no update needed")
 
     # commit and close
     cnx.commit()
