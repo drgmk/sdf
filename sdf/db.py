@@ -236,7 +236,7 @@ def write_disk_r(cursor,r):
     # loop over plotting models, only one SpecModel per component
     comp_no = 0
     for i,comp in enumerate(r.model_comps):
-        if comp in cfg.models['disk']:
+        if comp in cfg.models['disk_r']:
             
             # find the temperature for this component
             for j,par in enumerate(r.comp_parameters[i]):

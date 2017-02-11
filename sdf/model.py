@@ -574,7 +574,7 @@ class SpecModel(Model):
     
     
     @classmethod
-    def generate_bb_model(cls,name='bb_disk',temperatures=None,
+    def generate_bb_model(cls,name='bb_disk_r',temperatures=None,
                           wavelengths=None,
                           write=False,overwrite=False):
         """Generate a set of blackbody spectra."""
@@ -614,7 +614,7 @@ class SpecModel(Model):
 
 
     @classmethod
-    def generate_modbb_model(cls,name='modbb_disk',temperatures=None,
+    def generate_modbb_model(cls,name='modbb_disk_r',temperatures=None,
                              wavelengths=None,lam0=None,beta=None,
                              write=False,overwrite=False):
         """Generate a set of modified blackbody spectra"""

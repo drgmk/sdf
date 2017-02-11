@@ -37,15 +37,15 @@ def setup_phot():
     specmodel2phot(mname='kurucz_m')
     specmodel2phot(mname='phoenix-0.0')
     specmodel2phot(mname='phoenix_m')
-    specmodel2phot(mname='bb_disk')
+    specmodel2phot(mname='bb_disk_r')
     specmodel2phot(mname='bb_star')
-    specmodel2phot(mname='modbb_disk')
+    specmodel2phot(mname='modbb_disk_r')
 
 
 def bb_spectra():
     """Generate SpecModel grid of blackbody models."""
     
-    model.SpecModel.generate_bb_model(name='bb_disk',
+    model.SpecModel.generate_bb_model(name='bb_disk_r',
                                       temperatures=cfg.models['bb_disk_temps'],
                                       write=True,overwrite=True)
     model.SpecModel.generate_bb_model(name='bb_star',
@@ -56,7 +56,7 @@ def bb_spectra():
 def modbb_spectra():
     """Generate SpecModel grid of modified blackbody models."""
     
-    model.SpecModel.generate_modbb_model(name='modbb_disk',
+    model.SpecModel.generate_modbb_model(name='modbb_disk_r',
                                          temperatures=cfg.models['bb_disk_temps'],
                                          write=True,overwrite=True)
 
