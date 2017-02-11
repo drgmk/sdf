@@ -37,18 +37,12 @@ def www_all(results,update=False):
     index(results,file=index_file)
 
 
-def index(results,tab_order=None,file='index.html'):
+def index(results,file='index.html'):
     """Make index.html - landing page with an SED and other info."""
 
-    script,div = plotting.sed_components(results,tab_order=tab_order)
+    script,div = plotting.sed_components(results)
 
-    info = db.sdb_info(results[0].id)
-    if info is not None:
-        sdbid,main_id,xids,ra,dec,dist = info
-    else:
-        sdbid,main_id,xids,ra,dec,dist = None,None,None,None,None
-
-    template = Template(templates.sed)
+    template = Template(templates.index)
     bokeh_js = CDN.render_js()
     bokeh_css = CDN.render_css()
     html = template.render(bokeh_js=bokeh_js,
@@ -56,8 +50,12 @@ def index(results,tab_order=None,file='index.html'):
                            css=templates.css,
                            plot_script=script,
                            plot_div=div,
-                           sdbid=sdbid,main_id=main_id,
-                           ra=ra/15.0,dec=dec,dist=dist
+                           phot_file=os.path.basename(results[0].rawphot),
+                           main_id=results[0].obs_keywords['main_id'],
+                           spty=results[0].obs_keywords['sp_type'],
+                           ra=results[0].obs_keywords['raj2000'],
+                           dec=results[0].obs_keywords['dej2000'],
+                           plx=results[0].obs_keywords['plx_value']
                            )
 
     with io.open(file, mode='w', encoding='utf-8') as f:
