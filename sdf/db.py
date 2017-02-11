@@ -11,6 +11,8 @@ from . import config as cfg
 def write_all(r,update=False):
     """Write sdf results to db."""
 
+    print(" Database")
+
     # set up connection
     try:
         cnx = mysql.connector.connect(user=cfg.mysql['user'],
@@ -18,7 +20,6 @@ def write_all(r,update=False):
                                       host=cfg.mysql['host'],
                                       database=cfg.mysql['db_results'])
         cursor = cnx.cursor(buffered=True)
-        print(" Database")
 
     except mysql.connector.InterfaceError:
         print("   Can't connect to {} at {}".format(cfg.mysql['db_results'],
@@ -179,7 +180,7 @@ def write_star(cursor,r):
                                                   par,r.comp_best_params_1sig[i][j],
                                                   r.id) )
 
-            # stellar luminosity, uncertainty is normalisation
+            # stellar luminosity at 1pc, uncertainty is normalisation
             frac_norm = np.log(10) * r.comp_best_params_1sig[i][-1]
             lstar_1pc = r.comp_spectra[i].irradiance \
                         * 4 * np.pi * (u.pc.to(u.m))**2 / u.L_sun.to(u.W)
@@ -300,6 +301,7 @@ def write_disk_r(cursor,r):
                                format(rdisk,e_rdisk,r.id,comp_no) )
 
             comp_no += 1
+
 
 def sample_targets(sample,db='sdb_samples'):
     """Return list of sdbids of targets in some sample."""
