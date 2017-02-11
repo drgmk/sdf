@@ -89,6 +89,9 @@ if __name__ == '__main__':
     parser1.add_argument('--update-all','-u',action='store_true',
                          help='Force udpate of everything')
 
+    parser1.add_argument('--quick-update-check','-q',action='store_true',
+                         help='Skip if index.html most recent file')
+
     args = parser1.parse_args()
     
     # collect the files
@@ -122,6 +125,19 @@ if __name__ == '__main__':
                 
                 print(f)
 
+                # quick check if ANY files are more recently modified
+                # than index.html
+                if args.quick_update_check and \
+                    os.path.exists(os.path.dirname(f)+'/index.html'):
+                    print(" Quick check")
+                    t_index = os.path.getmtime(os.path.dirname(f)+'/index.html')
+                    t_max = np.max([os.path.getmtime(i) for i in \
+                                    glob.glob(os.path.dirname(f)+'**/*',
+                                              recursive=True)])
+                    if t_index >= t_max:
+                        print("   no files more recent than index.html")
+                        continue
+                
                 # evidence-sorted list of results
                 results = fit_results(os.path.abspath(f),
                                       update=args.update_all,
