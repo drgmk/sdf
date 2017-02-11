@@ -1,6 +1,6 @@
 """Jinja2 templates for web pages."""
 
-sed=('''<!DOCTYPE html>
+index=('''<!DOCTYPE html>
 <html lang="en">
     <head>
         <meta charset="utf-8">
@@ -20,11 +20,15 @@ sed=('''<!DOCTYPE html>
                 [
 
                 {% if ra %}
-                    &alpha;={{ ra|round(1) }}h, &delta;={{ dec|round(1) }}&deg;
+                    &alpha;={{ (ra/15.0)|round(1) }}h, &delta;={{ dec|round(1) }}&deg;
                 {% endif %}
                 
-                {% if dist %}
-                    | d={{ dist|round(1) }} pc
+                {% if spty %}
+                    | {{ spty }}
+                {% endif %}
+                
+                {% if plx %}
+                    | d={{ (1000.0/plx)|round(1) }} pc
                 {% endif %}
 
                 ]
@@ -38,14 +42,14 @@ sed=('''<!DOCTYPE html>
             </td></tr>
             
             <tr><td>
-            {% if sdbid %}
-                <a href="{{ sdbid }}-rawphot.txt">data</a> |
+            {% if phot_file %}
+                <a href="{{ phot_file }}">data</a> |
             {% endif %}
             
             <a href="http://simbad.u-strasbg.fr/simbad/sim-basic?submit=SIMBAD+search&Ident={{ main_id }}" target="_blank" \>simbad</a>
             
             {% if ra %}
-                | <a href="http://irsa.ipac.caltech.edu/applications/finderchart/#id=Hydra_finderchart_finder_chart&RequestClass=ServerRequest&DoSearch=true&subsize=0.083&thumbnail_size=medium&sources=DSS,SDSS,twomass,WISE,IRIS&overlay_catalog=true&catalog_by_radius=true&iras_radius=240&sdss_radius=5&twomass_radius=5&wise_radius=5&one_to_one=_none_&dss_bands=poss1_blue,poss1_red,poss2ukstu_blue,poss2ukstu_red,poss2ukstu_ir&SDSS_bands=u,g,r,i,z&twomass_bands=j,h,k&wise_bands=1,2,3,4&UserTargetWorldPt={{ ra*15 }};{{ dec }};EQ_J2000&projectId=finderchart&searchName=finder_chart&shortDesc=Finder%20Chart&isBookmarkAble=true&isDrillDownRoot=true&isSearchResult=true" target="_blank">finder</a>
+                | <a href="http://irsa.ipac.caltech.edu/applications/finderchart/#id=Hydra_finderchart_finder_chart&RequestClass=ServerRequest&DoSearch=true&subsize=0.083&thumbnail_size=medium&sources=DSS,SDSS,twomass,WISE,IRIS&overlay_catalog=true&catalog_by_radius=true&iras_radius=240&sdss_radius=5&twomass_radius=5&wise_radius=5&one_to_one=_none_&dss_bands=poss1_blue,poss1_red,poss2ukstu_blue,poss2ukstu_red,poss2ukstu_ir&SDSS_bands=u,g,r,i,z&twomass_bands=j,h,k&wise_bands=1,2,3,4&UserTargetWorldPt={{ ra }};{{ dec }};EQ_J2000&projectId=finderchart&searchName=finder_chart&shortDesc=Finder%20Chart&isBookmarkAble=true&isDrillDownRoot=true&isSearchResult=true" target="_blank">finder</a>
             {% endif %}
             </td></tr>
 
