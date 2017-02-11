@@ -238,31 +238,30 @@ def write_disk_r(cursor,r):
     for i,comp in enumerate(r.model_comps):
         if comp in cfg.models['disk_r']:
             
-            # find the temperature for this component
-            for j,par in enumerate(r.comp_parameters[i]):
-                if par == 'Temp':
-                    tdisk = 10**r.comp_best_params[i][j]
-                    e_tdisk = 10**r.comp_best_params_1sig[i][j]
-
             cursor.execute("INSERT INTO "+cfg.mysql['disk_r_table']+" "
                            "(id,comp_no) VALUES "
                            "('{}',{})".format(r.id,comp_no) )
 
-            # parameters directly from model
+            # parameters directly from model, keep disk temp and e_temp
             for j,par in enumerate(r.comp_parameters[i]):
                 if par == 'norm' or par == 'spec_norm':
                     continue
-                elif par == 'Temp':
+                elif 'log_' in par:
+                    par_in = par.replace('log_','')
                     val = 10**r.comp_best_params[i][j]
                     e_val = 10**r.comp_best_params_1sig[i][j]
+                    if par == 'log_Temp':
+                        tdisk = val
+                        e_tdisk = e_val
                 else:
+                    par_in = par
                     val = r.comp_best_params[i][j]
                     e_val = r.comp_best_params_1sig[i][j]
 
                 cursor.execute("UPDATE "+cfg.mysql['disk_r_table']+" "
                                "SET {} = {:e}, e_{} = {:e} WHERE "
                                "id = '{}' AND comp_no = {}".\
-                               format(par,val,par,e_val,r.id,comp_no) )
+                               format(par_in,val,par_in,e_val,r.id,comp_no) )
 
             # disk and fractional luminosity
             frac_norm = np.log(10) * r.comp_best_params_1sig[i][-1]

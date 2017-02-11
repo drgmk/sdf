@@ -598,8 +598,8 @@ class SpecModel(Model):
 
         self.name = m[0].name
         self.wavelength = m[0].wavelength
-        self.parameters = ['log_T']
-        self.param_values = {'log_T':np.log10(temperatures)}
+        self.parameters = ['log_Temp']
+        self.param_values = {'log_Temp':np.log10(temperatures)}
 
         # put spectra in their place
         self.fnujy_sr = np.zeros((len(self.wavelength),
@@ -652,8 +652,8 @@ class SpecModel(Model):
 
         self.name = m.name
         self.wavelength = m.wavelength
-        self.parameters = ['log_T','log_lam0','beta']
-        self.param_values = {'log_T':np.log10(temperatures)}
+        self.parameters = ['log_Temp','log_lam0','beta']
+        self.param_values = {'log_Temp':np.log10(temperatures)}
         self.param_values['log_lam0'] = np.log10(lam0)
         self.param_values['beta'] = beta
 

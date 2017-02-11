@@ -547,7 +547,7 @@ class ModelSpectrum(Spectrum):
         self = cls()
         
         self.name = 'bb'
-        self.parameters = ['Temp']
+        self.parameters = ['log_Temp']
         self.param_values = [temp]
         fnujysr = utils.bnu_wav_micron(wave_um,temp)
         srt = np.flipud(np.argsort(wave_um))
@@ -559,7 +559,7 @@ class ModelSpectrum(Spectrum):
         if lam0 is not None and beta is not None:
             lam0 = float(lam0)
             self.name = 'modbb'
-            self.parameters = ['Temp','lam0','beta']
+            self.parameters = ['log_Temp','log_lam0','beta']
             self.param_values = [temp,lam0,beta]
             ok = self.wavelength > lam0
             self.fnujy_sr[ok] /= np.power(self.wavelength[ok]/lam0,beta)

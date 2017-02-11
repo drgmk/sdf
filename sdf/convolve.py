@@ -116,8 +116,8 @@ class ConvolvedModel(object):
         """
         self = cls()
         self.name = 'bb'
-        self.parameters = ['Temp']
-        self.param_values = {'Temp':np.log10(temperatures)}
+        self.parameters = ['log_Temp']
+        self.param_values = {'log_Temp':np.log10(temperatures)}
         
         self.filter = filtername
         if not filter.iscolour(filtername):
@@ -151,9 +151,9 @@ class ConvolvedModel(object):
         
         self = cls()
         self.name = 'modbb'
-        self.parameters = ['Temp','lam0','beta']
-        self.param_values = {'Temp':np.log10(temperatures)}
-        self.param_values['lam0'] = np.log10(lam0)
+        self.parameters = ['log_Temp','log_lam0','beta']
+        self.param_values = {'log_Temp':np.log10(temperatures)}
+        self.param_values['log_lam0'] = np.log10(lam0)
         self.param_values['beta'] = beta
 
         self.filter = filtername
