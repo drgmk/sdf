@@ -150,86 +150,32 @@ def write_star(cursor,r):
     """Write stellar properties to db.
 
     Assumes rows have been removed already (if necessary).
-    
-    For uncertainty propagation see examples at:
-        https://en.wikipedia.org/wiki/Propagation_of_uncertainty
     """
-    # TODO: put all the derived stuff in a function elsewhere
 
-    # loop over plotting models, only one SpecModel per component
-    for i,comp in enumerate(r.model_comps):
-        if comp in cfg.models['star']:
+    # loop over tuple of dicts of star results
+    for star in r.star:
 
-            # find the temperature for this component
-            for j,par in enumerate(r.parameters):
-                if par == 'Teff':
-                    teff = r.best_params[j]
-                    e_teff = r.best_params_1sig[j]
-        
-            cursor.execute("INSERT INTO "+cfg.mysql['star_table']+" "
-                           "(id,teff,e_teff) VALUES "
-                           "('{}',{:e},{:e})".format(r.id,teff,e_teff))
+        # start a row
+        cursor.execute("INSERT INTO "+cfg.mysql['star_table']+" "
+                       "(id,teff,e_teff) VALUES "
+                       "('{}',{:e},{:e})".format(r.id,star['Teff'],
+                                                 star['e_Teff']))
 
-            # parameters directly from model
-            for j,par in enumerate(r.comp_parameters[i]):
-                if par == 'Teff' or par == 'norm' or par == 'spec_norm':
-                    continue
-                cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
-                               "SET {} = {:e}, e_{} = {:e} WHERE "
-                               "id = '{}'".format(par,r.comp_best_params[i][j],
-                                                  par,r.comp_best_params_1sig[i][j],
-                                                  r.id) )
-
-            # stellar luminosity at 1pc, uncertainty is normalisation
-            frac_norm = np.log(10) * r.comp_best_params_1sig[i][-1]
-            lstar_1pc = r.comp_spectra[i].irradiance \
-                        * 4 * np.pi * (u.pc.to(u.m))**2 / u.L_sun.to(u.W)
-            e_lstar_1pc = lstar_1pc * frac_norm
-
+        # and add the rest of the results
+        for key in star.keys():
+            if key.find('e_') == 0:
+                continue
             cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
-                           "SET lstar_1pc = {:e},e_lstar_1pc = {:e} "
-                           "WHERE id = '{}'".format(lstar_1pc,
-                                                    e_lstar_1pc,r.id) )
-
-            # distance-dependent params
-            if r.obs_keywords['plx_value'] is not None:
-                if r.obs_keywords['plx_value'] > 0:
-                    plx_arcsec = r.obs_keywords['plx_value'] / 1e3
-                    
-                    if r.obs_keywords['plx_err'] is not None:
-                        e_plx_arcsec = r.obs_keywords['plx_err'] / 1e3
-                    else:
-                        e_plx_arcsec = plx_arcsec / 3.
-                    
-                    lstar = lstar_1pc / plx_arcsec**2
-                    e_lstar = lstar * np.sqrt( frac_norm**2
-                                              + (2*e_plx_arcsec/plx_arcsec)**2 )
-                                      
-                    cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
-                                   "SET lstar = {:e},e_lstar = {:e} WHERE "
-                                   "id = '{}'".format(lstar,e_lstar,r.id) )
-                                   
-                    cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
-                                   "SET plx_arcsec = {:e},e_plx_arcsec = {:e} WHERE "
-                                   "id = '{}'".format(plx_arcsec,e_plx_arcsec,r.id) )
-
-                    rstar = np.sqrt(cfg.ssr * 10**r.comp_best_params[i][-1]/np.pi) \
-                            * u.pc.to(u.m) / plx_arcsec / u.R_sun.to(u.m)
-                    e_rstar = rstar * ( np.sqrt( frac_norm**2
-                                                + (2*e_plx_arcsec/plx_arcsec)**2) )
-
-                    cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
-                                   "SET rstar = {:e},e_rstar = {:e} WHERE "
-                                   "id = '{}'".format(rstar,e_rstar,r.id) )
+                           "SET {} = {:e}, {} = {:e} WHERE "
+                           "id = '{}'".format(key,star[key],
+                                              'e_'+key,star['e_'+key],
+                                              r.id) )
 
 
 def write_disk_r(cursor,r):
     """Write narrow disk properties to db.
 
     Assumes rows have been removed already (if necessary).
-
-    For uncertainty propagation see examples at:
-        https://en.wikipedia.org/wiki/Propagation_of_uncertainty
     """
     # TODO: put all the derived stuff in a function elsewhere
 

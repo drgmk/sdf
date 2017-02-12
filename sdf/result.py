@@ -7,6 +7,7 @@ import numpy as np
 import pymultinest as pmn
 import matplotlib.pyplot as plt
 import corner
+import astropy.units as u
 
 from . import photometry
 from . import spectrum
@@ -239,7 +240,65 @@ class Result(object):
             self.disk_spec = spectrum.ObsSpectrum(wavelength=wave,fnujy=disk_spec)
         else:
             self.disk_spec = None
+
+        # model-specifics
+        self.star = self.star_results()
+
+
+    def star_results(self):
+        """Return tuple of dicts of star-specifics, if result has star."""
+
+        star = ()
+        for i,comp in enumerate(self.model_comps):
+            if comp in cfg.models['star']:
+                star = star + (self.star_results_one(i),)
+
+        return star
+
+
+    def star_results_one(self,i):
+        """Return dict of star-specifics for ith model component."""
+
+        star = {}
+        for j,par in enumerate(self.comp_parameters[i]):
+            star[par] = self.best_params[j]
+            star['e_'+par] = self.best_params_1sig[j]
         
+        # stellar luminosity at 1pc, uncertainty is normalisation
+        frac_norm = np.log(10) * self.comp_best_params_1sig[i][-1]
+        star['lstar_1pc'] = self.comp_spectra[i].irradiance \
+                    * 4 * np.pi * (u.pc.to(u.m))**2 / u.L_sun.to(u.W)
+        star['e_lstar_1pc'] = star['lstar_1pc'] * frac_norm
+
+        # distance-dependent params
+        if self.obs_keywords['plx_value'] is not None:
+            if self.obs_keywords['plx_value'] > 0:
+                plx_arcsec = self.obs_keywords['plx_value'] / 1e3
+                
+                if self.obs_keywords['plx_err'] is not None:
+                    e_plx_arcsec = self.obs_keywords['plx_err'] / 1e3
+                else:
+                    e_plx_arcsec = plx_arcsec / 3.
+                
+                star['lstar'] = star['lstar_1pc'] / plx_arcsec**2
+                star['e_lstar'] = star['lstar'] * \
+                                  np.sqrt( frac_norm**2
+                                          + (2*e_plx_arcsec/plx_arcsec)**2 )
+                                  
+                star['rstar'] = np.sqrt(cfg.ssr *
+                                        10**self.comp_best_params[i][-1]/np.pi) \
+                        * u.pc.to(u.m) / plx_arcsec / u.R_sun.to(u.m)
+                star['e_rstar'] = star['rstar'] * \
+                                  np.sqrt( frac_norm**2
+                                          + (2*e_plx_arcsec/plx_arcsec)**2)
+
+        return star
+
+
+    def disk_r_results(self):
+        """Return dict of disk_r-specifics, if result has disk_r."""
+
+
 
     def delete_multinest(self):
         """Delete multinest output so it can be run again."""
