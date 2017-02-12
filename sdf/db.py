@@ -177,75 +177,23 @@ def write_disk_r(cursor,r):
 
     Assumes rows have been removed already (if necessary).
     """
-    # TODO: put all the derived stuff in a function elsewhere
 
-    # loop over plotting models, only one SpecModel per component
-    comp_no = 0
-    for i,comp in enumerate(r.model_comps):
-        if comp in cfg.models['disk_r']:
-            
-            cursor.execute("INSERT INTO "+cfg.mysql['disk_r_table']+" "
-                           "(id,comp_no) VALUES "
-                           "('{}',{})".format(r.id,comp_no) )
+    # loop over tuple of dicts of disk_r results
+    for i,disk_r in enumerate(r.disk_r):
+        
+        cursor.execute("INSERT INTO "+cfg.mysql['disk_r_table']+" "
+                       "(id,comp_no) VALUES "
+                       "('{}',{})".format(r.id,comp_no) )
 
-            # parameters directly from model, keep disk temp and e_temp
-            for j,par in enumerate(r.comp_parameters[i]):
-                if par == 'norm' or par == 'spec_norm':
-                    continue
-                elif 'log_' in par:
-                    par_in = par.replace('log_','')
-                    val = 10**r.comp_best_params[i][j]
-                    e_val = 10**r.comp_best_params_1sig[i][j]
-                    if par == 'log_Temp':
-                        tdisk = val
-                        e_tdisk = e_val
-                else:
-                    par_in = par
-                    val = r.comp_best_params[i][j]
-                    e_val = r.comp_best_params_1sig[i][j]
-
-                cursor.execute("UPDATE "+cfg.mysql['disk_r_table']+" "
-                               "SET {} = {:e}, e_{} = {:e} WHERE "
-                               "id = '{}' AND comp_no = {}".\
-                               format(par_in,val,par_in,e_val,r.id,comp_no) )
-
-            # disk and fractional luminosity
-            frac_norm = np.log(10) * r.comp_best_params_1sig[i][-1]
-            ldisk_1pc = r.comp_spectra[i].irradiance \
-                        * 4 * np.pi * (u.pc.to(u.m))**2 / u.L_sun.to(u.W)
-            e_ldisk_1pc = ldisk_1pc * frac_norm
-
-            cursor.execute("SELECT SUM(lstar_1pc) FROM "+cfg.mysql['star_table']+" "
-                           "WHERE id = '{}'".format(r.id) )
-            lstar_1pc = cursor.fetchall()[0][0]
-            
-            cursor.execute("SELECT SUM(e_lstar_1pc) FROM "
-                           +cfg.mysql['star_table']+" "
-                           "WHERE id = '{}'".format(r.id) )
-            e_lstar_1pc = cursor.fetchall()[0][0]
-            frac_lstar_1pc = e_lstar_1pc / lstar_1pc
-
-            ldls = ldisk_1pc/lstar_1pc
-            e_ldls = ldls * np.sqrt(frac_norm**2 + frac_lstar_1pc**2)
-
+        # and add the rest of the results
+        for key in disk_r.keys():
+            if key.find('e_') == 0:
+                continue
             cursor.execute("UPDATE "+cfg.mysql['disk_r_table']+" "
-                           "SET ldisk_1pc = {:e},e_ldisk_1pc = {:e}, "
-                           "ldisk_lstar = {:e},e_ldisk_lstar = {:e} WHERE "
-                           "id = '{}' AND comp_no = {}".\
-                           format(ldisk_1pc,e_ldisk_1pc,ldls,e_ldls,r.id,comp_no) )
-
-            # distance-dependent params
-            if r.obs_keywords['plx_value'] is not None:
-                plx_arcsec = r.obs_keywords['plx_value'] / 1e3
-                rdisk = (lstar_1pc/plx_arcsec**2)**0.5 * (278.3/tdisk)**2
-                e_rdisk = rdisk * np.sqrt( (0.5*frac_lstar_1pc)**2
-                                          + (2*(e_tdisk/tdisk))**2 )
-                cursor.execute("UPDATE "+cfg.mysql['disk_r_table']+" "
-                               "SET rdisk = {:e},e_rdisk = {:e} WHERE "
-                               "id = '{}' AND comp_no = {}".\
-                               format(rdisk,e_rdisk,r.id,comp_no) )
-
-            comp_no += 1
+                           "SET {} = {:e}, {} = {:e} WHERE "
+                           "id = '{}'".format(key,disk_r[key],
+                                              'e_'+key,disk_r['e_'+key],
+                                              r.id) )
 
 
 def sample_targets(sample,db='sdb_samples'):

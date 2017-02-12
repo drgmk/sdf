@@ -243,6 +243,7 @@ class Result(object):
 
         # model-specifics
         self.star = self.star_results()
+        self.disk_r = self.disk_r_results()
 
 
     def star_results(self):
@@ -296,8 +297,59 @@ class Result(object):
 
 
     def disk_r_results(self):
-        """Return dict of disk_r-specifics, if result has disk_r."""
+        """Return tuple of dicts of disk-specifics, if result has disk_r."""
 
+        disk_r = ()
+        for i,comp in enumerate(self.model_comps):
+            if comp in cfg.models['disk_r']:
+                disk_r= disk_r + (self.disk_r_results_one(i),)
+
+        return disk_r
+    
+    
+    def disk_r_results_one(self,i):
+        """Return dict of disk_r-specifics for ith model component."""
+
+        disk_r = {}
+        for j,par in enumerate(self.comp_parameters[i]):
+            if 'log_' in par:
+                par_in = par.replace('log_','')
+                disk_r[par_in] = 10**self.comp_best_params[i][j]
+                disk_r['e_'+par_in] = 10**self.comp_best_params_1sig[i][j]
+            else:
+                disk_r[par] = self.comp_best_params[i][j]
+                disk_r['e_'+par] = self.comp_best_params_1sig[i][j]
+
+        # disk and fractional luminosity
+        frac_norm = np.log(10) * self.comp_best_params_1sig[i][-1]
+        disk_r['ldisk_1pc'] = self.comp_spectra[i].irradiance \
+                    * 4 * np.pi * (u.pc.to(u.m))**2 / u.L_sun.to(u.W)
+        disk_r['e_ldisk_1pc'] = disk_r['ldisk_1pc'] * frac_norm
+
+        # sum stellar luminosity
+        lstar_1pc = 0.0
+        e_lstar_1pc = 0.0
+        if isinstance(self.star,tuple):
+            for star in self.star:
+                lstar_1pc += star['lstar_1pc']
+                e_lstar_1pc = np.sqrt(e_lstar_1pc**2 + star['lstar_1pc']**2)
+
+        if lstar_1pc > 0.0:
+            frac_lstar_1pc = e_lstar_1pc / lstar_1pc
+            disk_r['ldisk_lstar'] = disk_r['ldisk_1pc']/lstar_1pc
+            disk_r['e_ldisk_lsar'] = disk_r['ldisk_lstar'] * \
+                            np.sqrt(frac_norm**2 + frac_lstar_1pc**2)
+
+            # distance (and stellar L)-dependent params
+            if self.obs_keywords['plx_value'] is not None:
+                plx_arcsec = self.obs_keywords['plx_value'] / 1e3
+                disk_r['rdisk_bb'] = (lstar_1pc/plx_arcsec**2)**0.5 * \
+                                        (278.3/disk_r['Temp'])**2
+                disk_r['e_rdisk_bb'] = disk_r['rdisk_bb'] * \
+                            np.sqrt( (0.5*frac_lstar_1pc)**2
+                                    + (2*(disk_r['e_Temp']/disk_r['Temp']))**2 )
+
+        return disk_r
 
 
     def delete_multinest(self):
