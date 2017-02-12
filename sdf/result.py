@@ -85,6 +85,7 @@ class Result(object):
         self.pickle = self.pmn_base + '.pkl'
         
         # see if multinest needs to be re-run
+        # TODO: pickling saves no time as is, either remove or change
         run = update
         if not os.path.exists(self.pickle):
             run = True
@@ -241,9 +242,10 @@ class Result(object):
         else:
             self.disk_spec = None
 
-        # model-specifics
+        # model-specifics, also combined into a single tuple
         self.star = self.star_results()
         self.disk_r = self.disk_r_results()
+        self.main_results = self.star + self.disk_r
 
 
     def star_results(self):
@@ -352,6 +354,30 @@ class Result(object):
         return disk_r
 
 
+    def main_results_text(self):
+        """Return nicely formatted tuple of text of results."""
+    
+        # the array sets the order, and the dict the conversion
+        text_ord = ['Teff','logg','MH','lstar','rstar',
+                    'Temp','lam0','beta','ldisk_lstar','rdisk_bb']
+        text_sub = {'Teff':'T*','MH':'[M/H]','logg':'logg',
+                    'lstar':'L*','rstar':'R*',
+                    'Temp':'T','lam0':'lambda0','beta':'beta',
+                    'ldisk_lstar':'Ld/L*','rdisk_bb':'Rbb'}
+    
+        text = ()
+        for res in self.main_results:
+
+            string = ''
+            for par in text_ord:
+                if par in res.keys():
+                    string += text_sub[par]+'={:.2f}+/-{:.2f}, '.format(res[par],res['e_'+par])
+
+            text = text + (string,)
+                
+        return text
+    
+    
     def delete_multinest(self):
         """Delete multinest output so it can be run again."""
 

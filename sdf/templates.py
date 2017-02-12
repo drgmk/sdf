@@ -52,16 +52,26 @@ index=('''<!DOCTYPE html>
                 | <a href="http://irsa.ipac.caltech.edu/applications/finderchart/#id=Hydra_finderchart_finder_chart&RequestClass=ServerRequest&DoSearch=true&subsize=0.083&thumbnail_size=medium&sources=DSS,SDSS,twomass,WISE,IRIS&overlay_catalog=true&catalog_by_radius=true&iras_radius=240&sdss_radius=5&twomass_radius=5&wise_radius=5&one_to_one=_none_&dss_bands=poss1_blue,poss1_red,poss2ukstu_blue,poss2ukstu_red,poss2ukstu_ir&SDSS_bands=u,g,r,i,z&twomass_bands=j,h,k&wise_bands=1,2,3,4&UserTargetWorldPt={{ ra }};{{ dec }};EQ_J2000&projectId=finderchart&searchName=finder_chart&shortDesc=Finder%20Chart&isBookmarkAble=true&isDrillDownRoot=true&isSearchResult=true" target="_blank">finder</a>
             {% endif %}
             </td></tr>
+            </table>
 
             {% if xids %}
-                <tr><td>
-                    {% for id in xids %}
-                        <span>{{ id }}</span>
-                    {% endfor %}
-                </tr></td>
+                <div>
+                {% for id in xids %}
+                    <span>{{ id }}</span>
+                {% endfor %}
+                </div>
             {% endif %}
 
-            </table>
+            {% if models %}
+                <div>
+                {% for m in models %}
+                    <p>
+                    {{ m }}
+                    </p>
+                {% endfor %}
+                </div>
+            {% endif %}
+
         {% endif %}
 
         {{ plot_div|indent(8) }}
