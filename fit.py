@@ -128,6 +128,7 @@ if __name__ == '__main__':
                 # quick check if ANY files are more recently modified
                 # than index.html
                 if args.quick_update_check and \
+                    not args.www and not args.dbwrite and \
                     os.path.exists(os.path.dirname(f)+'/index.html'):
                     print(" Quick check")
                     t_index = os.path.getmtime(os.path.dirname(f)+'/index.html')
