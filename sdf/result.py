@@ -117,11 +117,20 @@ class Result(object):
         # when the results were finished
         self.mtime = os.path.getmtime(self.pickle)
 
-        # parameter corner plot
+        # parameter corner plot if needed
         self.chain_plot = self.pmn_base+'corner.png'
+        run = False
         if not os.path.exists(self.chain_plot):
+            run = True
+        else:
+            if os.path.getmtime(self.chain_plot) < self.mtime:
+                run = True
+            
+        if run:
             d = self.analyzer.get_data()
-            fig = corner.corner(d[:,2:])
+            fig = corner.corner(d[:,2:],show_titles=True,
+                                labels=self.model_info['parameters'],
+                                quantiles=[0.16, 0.5, 0.84])
             fig.savefig(self.chain_plot)
             plt.close(fig) # not doing this causes an epic memory leak
 
@@ -334,12 +343,12 @@ class Result(object):
         if isinstance(self.star,tuple):
             for star in self.star:
                 lstar_1pc += star['lstar_1pc']
-                e_lstar_1pc = np.sqrt(e_lstar_1pc**2 + star['lstar_1pc']**2)
+                e_lstar_1pc = np.sqrt(e_lstar_1pc**2 + star['e_lstar_1pc']**2)
 
         if lstar_1pc > 0.0:
             frac_lstar_1pc = e_lstar_1pc / lstar_1pc
             disk_r['ldisk_lstar'] = disk_r['ldisk_1pc']/lstar_1pc
-            disk_r['e_ldisk_lsar'] = disk_r['ldisk_lstar'] * \
+            disk_r['e_ldisk_lstar'] = disk_r['ldisk_lstar'] * \
                             np.sqrt(frac_norm**2 + frac_lstar_1pc**2)
 
             # distance (and stellar L)-dependent params
@@ -358,12 +367,18 @@ class Result(object):
         """Return nicely formatted tuple of text of results."""
     
         # the array sets the order, and the dict the conversion
-        text_ord = ['Teff','logg','MH','lstar','rstar',
-                    'Temp','lam0','beta','ldisk_lstar','rdisk_bb']
-        text_sub = {'Teff':'T*','MH':'[M/H]','logg':'logg',
-                    'lstar':'L*','rstar':'R*',
-                    'Temp':'T','lam0':'lambda0','beta':'beta',
-                    'ldisk_lstar':'Ld/L*','rdisk_bb':'Rbb'}
+        text_ord = ['Teff','lstar','rstar',
+                    'Temp','ldisk_lstar','rdisk_bb','lam0','beta']
+        text_sub = {'Teff':['T<sub>star</sub>','K'],
+                    'MH':['[M/H]',''],
+                    'logg':['logg',''],
+                    'lstar':['L<sub>star</sub>','L<sub>Sun</sub>'],
+                    'rstar':['R<sub>star</sub>','R<sub>Sun</Sun>'],
+                    'Temp':['T<sub>dust</sub>','K'],
+                    'lam0':['&lambda;<sub>0</sub>','&mu;m'],
+                    'beta':['&beta;',''],
+                    'ldisk_lstar':['L<sub>disk</sub>/L<sub>star</sub>',''],
+                    'rdisk_bb':['R<sub>BB</sub>','au']}
     
         text = ()
         for res in self.main_results:
@@ -371,7 +386,8 @@ class Result(object):
             string = ''
             for par in text_ord:
                 if par in res.keys():
-                    string += text_sub[par]+'={:.2f}+/-{:.2f}, '.format(res[par],res['e_'+par])
+                    unc,meas = utils.rnd1sf([res['e_'+par],res[par]])
+                    string += '{} = {:g} &plusmn; {:g} {} , '.format(text_sub[par][0],meas,unc,text_sub[par][1])
 
             text = text + (string,)
                 

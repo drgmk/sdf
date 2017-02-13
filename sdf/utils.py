@@ -244,6 +244,12 @@ def linterp(newx,x,y):
     return y[lo] + (y[hi]-y[lo])*(newx-x[lo])/(x[hi]-x[lo])
 
 
+def rnd1sf(x):
+    """Round numbers to 1 s.f. (based on first if more than 1)."""
+    
+    return np.round(x, -np.int(np.floor(np.log10(np.abs(x[0])))))
+
+
 @lru_cache(maxsize=16)
 def spline_filter_mem(arr,order=None):
     """Filter array, memoizing result.

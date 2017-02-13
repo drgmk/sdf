@@ -41,7 +41,7 @@ index=('''<!DOCTYPE html>
                 </form>
             </td></tr>
             
-            <tr><td>
+            <tr><td></td><td class="right">
             {% if phot_file %}
                 <a href="{{ phot_file }}">data</a> |
             {% endif %}
@@ -62,14 +62,23 @@ index=('''<!DOCTYPE html>
                 </div>
             {% endif %}
 
-            {% if models %}
-                <div>
-                {% for m in models %}
-                    <p>
-                    {{ m }}
-                    </p>
+            {% if best_fit %}
+                <table>
+                {% for m in best_fit %}
+                    {% if loop.index is equalto 1 %}
+                        <tr><td>
+                            {% if corner %}
+                                <a href="{{ corner }}" target="_blank" />Best fit</a>
+                            {% else %}
+                                Best fit
+                            {% endif %}
+                        : </td><td>{{ m }}</td></tr>
+                    {% else %}
+                        <tr><td>
+                        </td><td>{{ m }}</td></tr>
+                    {% endif %}
                 {% endfor %}
-                </div>
+                </table>
             {% endif %}
 
         {% endif %}
