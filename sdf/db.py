@@ -183,7 +183,7 @@ def write_disk_r(cursor,r):
         
         cursor.execute("INSERT INTO "+cfg.mysql['disk_r_table']+" "
                        "(id,comp_no) VALUES "
-                       "('{}',{})".format(r.id,comp_no) )
+                       "('{}',{})".format(r.id,i) )
 
         # and add the rest of the results
         for key in disk_r.keys():
