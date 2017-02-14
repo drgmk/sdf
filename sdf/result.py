@@ -368,7 +368,7 @@ class Result(object):
     
         # the array sets the order, and the dict the conversion
         text_ord = ['Teff','lstar','rstar',
-                    'Temp','ldisk_lstar','rdisk_bb','lam0','beta']
+                    'Temp','rdisk_bb','ldisk_lstar','lam0','beta']
         text_sub = {'Teff':['T<sub>star</sub>','K'],
                     'MH':['[M/H]',''],
                     'logg':['logg',''],
