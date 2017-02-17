@@ -74,12 +74,12 @@ if __name__ == '__main__':
                          help='Restrict to subset of targets (e.g. public)')
 
     parser1.add_argument('--www','-w',action='store_true',
-                         help='www material',default=True)
+                         help='www material',default=False)
     parser1.add_argument('--update-www',action='store_true',
                          help='Force update of www')
                          
     parser1.add_argument('--dbwrite','-b',action='store_true',
-                         help='Write results to db',default=True)
+                         help='Write results to db',default=False)
     parser1.add_argument('--update-db',action='store_true',
                          help='Force udpate of db')
 
@@ -136,9 +136,11 @@ if __name__ == '__main__':
                                     glob.glob(os.path.dirname(f)+'**/*',
                                               recursive=True)])
                     if t_index >= t_max:
-                        print("   no files more recent than index.html")
+                        print("   no files more recent than {}".format(os.path.dirname(f)+'/index.html'))
                         continue
-                
+                    else:
+                        print("   index.html out of date, continuing")
+            
                 # evidence-sorted list of results
                 results = fit_results(os.path.abspath(f),
                                       update=args.update_all,
@@ -146,11 +148,11 @@ if __name__ == '__main__':
                 if results is None:
                     continue
 
-                if args.www:
+                if args.www or args.update_www:
                     www.www_all(results,update=args.update_www)
 
                 # write best model to db
-                if args.dbwrite:
+                if args.dbwrite or args.update_db:
                     db.write_all(results[0],update=args.update_db)
 
         except filelock.Timeout:
