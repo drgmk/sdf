@@ -404,7 +404,7 @@ def flux_size_plot(cursor,sample):
     for i,f in enumerate(filters):
 
         # get the results
-        stmt = "SELECT coalesce(main_id,id),sdbid,chisq,1e3*disk_jy,rdisk*plx_arcsec "
+        stmt = "SELECT coalesce(main_id,id),sdbid,chisq,1e3*disk_jy,rdisk_bb*plx_arcsec "
         if sample == 'everything' or sample == 'public':
             stmt += "FROM sdb_pm "
         else:
