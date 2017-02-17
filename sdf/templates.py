@@ -43,12 +43,14 @@ index=('''<!DOCTYPE html>
             
             <tr><td></td><td class="right">
             {% if phot_file %}
-                <a href="{{ phot_file }}">data</a> |
+                <a href="{{ phot_file }}">input</a> |
             {% endif %}
             
             <a href="http://simbad.u-strasbg.fr/simbad/sim-basic?submit=SIMBAD+search&Ident={{ main_id }}" target="_blank" \>simbad</a>
             
             {% if ra %}
+                | <a href="http://cassis.sirtf.com/atlas/cgi/radec.py?ra={{ ra }}&dec={{ dec }}&radius=20" target="_blank" \>cassis</a>
+            
                 | <a href="http://irsa.ipac.caltech.edu/applications/finderchart/#id=Hydra_finderchart_finder_chart&RequestClass=ServerRequest&DoSearch=true&subsize=0.083&thumbnail_size=medium&sources=DSS,SDSS,twomass,WISE,IRIS&overlay_catalog=true&catalog_by_radius=true&iras_radius=240&sdss_radius=5&twomass_radius=5&wise_radius=5&one_to_one=_none_&dss_bands=poss1_blue,poss1_red,poss2ukstu_blue,poss2ukstu_red,poss2ukstu_ir&SDSS_bands=u,g,r,i,z&twomass_bands=j,h,k&wise_bands=1,2,3,4&UserTargetWorldPt={{ ra }};{{ dec }};EQ_J2000&projectId=finderchart&searchName=finder_chart&shortDesc=Finder%20Chart&isBookmarkAble=true&isDrillDownRoot=true&isSearchResult=true" target="_blank">finder</a>
             {% endif %}
             </td></tr>
@@ -142,29 +144,4 @@ generic_wide=('''<!DOCTYPE html>
 
 css=('''<link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Lato">
     
-        <style>
-            html {
-                width: 100%;
-                height: 100%;
-            }
-            body {
-                font-family: Lato;
-                width: 850px;
-                height: 100%;
-                margin: auto;
-            }
-            body.wide {
-                width: 100%
-            }
-            .head_table {
-                width:100%;
-            }
-            table.head_table td.right {
-                vertical-align: top;
-                text-align: right;
-            }
-            h1 {
-                display: inline;
-                padding: 0px 10px 0px 0px;
-            }
-        </style>''')
+        <link rel="stylesheet" type="text/css" href="http://camd21.ast.cam.ac.uk/~grant/sdb/style.css">''')
