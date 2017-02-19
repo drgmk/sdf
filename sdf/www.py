@@ -56,6 +56,7 @@ def index(results,file='index.html'):
                            ra=results[0].obs_keywords['raj2000'],
                            dec=results[0].obs_keywords['dej2000'],
                            plx=results[0].obs_keywords['plx_value'],
+                           xids=db.sdb_xids(results[0].obs_keywords['id']),
                            best_fit=results[0].main_results_text(),
                            corner=os.path.basename(results[0].pmn_dir)+'/'+\
                                     os.path.basename(results[0].chain_plot)

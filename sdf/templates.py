@@ -15,7 +15,8 @@ index=('''<!DOCTYPE html>
     <body class="sed">
     
         {% if main_id %}
-            <table class="head_table"><tr><td>
+            <table class="head_table">
+            <tr><td>
                 <h1>{{ main_id }}</h1>
                 [
 
@@ -41,7 +42,18 @@ index=('''<!DOCTYPE html>
                 </form>
             </td></tr>
             
-            <tr><td></td><td class="right">
+            {% if xids %}
+                <tr><td colspan="2">
+                {% for id in xids %}
+                    {% if loop.index is greaterthan 1 %}
+                        ,
+                    {% endif %}
+                    {{ id }}
+                {% endfor %}
+                </td></tr>
+            {% endif %}
+
+            <tr><td colspan="2" class="right">
             {% if phot_file %}
                 <a href="{{ phot_file }}" title="Input photometry file">data</a> |
             {% endif %}
@@ -57,14 +69,6 @@ index=('''<!DOCTYPE html>
             {% endif %}
             </td></tr>
             </table>
-
-            {% if xids %}
-                <div>
-                {% for id in xids %}
-                    <span>{{ id }}</span>
-                {% endfor %}
-                </div>
-            {% endif %}
 
             {% if best_fit %}
                 <table>
