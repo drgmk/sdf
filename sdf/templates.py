@@ -43,7 +43,7 @@ index=('''<!DOCTYPE html>
             
             <tr><td></td><td class="right">
             {% if phot_file %}
-                <a href="{{ phot_file }}" title="Input photometry file">input</a> |
+                <a href="{{ phot_file }}" title="Input photometry file">data</a> |
             {% endif %}
             
             <a href="http://simbad.u-strasbg.fr/simbad/sim-basic?submit=SIMBAD+search&Ident={{ main_id }}" target="_blank" title="Simbad">simbad</a>
