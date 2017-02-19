@@ -220,8 +220,8 @@ def sample_targets(sample,db='sdb_samples'):
     return ids
 
 
-def sdb_info(id):
-    """Get info for a given sdb id."""
+def sdb_xids(id):
+    """Get selected xids for a given sdb id."""
 
     # set up connection
     try:
@@ -236,23 +236,13 @@ def sdb_info(id):
                                                  cfg.mysql['host']) )
         return
 
-    cursor.execute("SELECT sdbid,COALESCE(main_id,sdbid), "
-                   "raj2000,dej2000, "
-                   "COALESCE(gaia.pmra,sdb_pm.pmra), "
-                   "COALESCE(gaia.pmde,sdb_pm.pmde), "
-                   "1e3/COALESCE(gaia.plx,simbad.plx_value)"
-                   "FROM sdb_pm LEFT JOIN simbad USING (sdbid) "
-                   "LEFT JOIN gaia USING (sdbid) "
-                   "WHERE sdbid = '{}'".format(id))
-    out = cursor.fetchall()
-    if len(out) > 0:
-        sdbid,main_id,ra,dec,pmra,pmde,dist = out[0]
-    else:
-        return
-
-    cursor.execute("SELECT xid FROM xids WHERE sdbid = '{}'".format(id))
+    cursor.execute("SELECT xid FROM xids WHERE sdbid = '{}' AND xid "
+                   "REGEXP('^HD|^HIP|^GJ|^TYC|^NAME|^\\\\* ')".format(id))
     xids = []
     for (id,) in cursor:
         xids.append(id)
 
-    return sdbid,main_id,xids,ra,dec,dist
+    if len(xids) == 0:
+        return
+    else:
+        return xids
