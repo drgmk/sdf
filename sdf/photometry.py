@@ -4,6 +4,7 @@ from astropy.table import Table
 
 from . import filter
 from . import utils
+from .utils import SdfError
 from . import config as cfg
 
 class Photometry(object):
@@ -79,9 +80,15 @@ class Photometry(object):
             if keep_filters is not None:
                 if phot[i]['Band'] not in keep_filters:
                     continue
+
+            row = phot[i]
+
+            # quick sanity checking
+            for par in ['Phot','Err','Sys']:
+                if not np.isfinite(row[par]):
+                    SdfError("non-finite {} value {} in {}".format(par,row[par],file))
             
             p = Photometry()
-            row = phot[i]
             p.filters = np.array([row['Band']])
             p.measurement   = np.array([row['Phot']])
             p.e_measurement = np.abs( np.array([row['Err']]) )
