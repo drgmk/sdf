@@ -237,7 +237,7 @@ def sdb_xids(id):
         return
 
     cursor.execute("SELECT xid FROM xids WHERE sdbid = '{}' AND xid "
-                   "REGEXP('^HD|^HIP|^GJ|^TYC|^NAME|^\\\\* ')".format(id))
+                   "REGEXP('^HD|^HR|^HIP|^GJ|^TYC|^NAME|^\\\\* ')".format(id))
     xids = []
     for (id,) in cursor:
         xids.append(id)
