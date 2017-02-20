@@ -285,24 +285,26 @@ class Result(object):
         # distance-dependent params
         if self.obs_keywords['plx_value'] is not None:
             if self.obs_keywords['plx_value'] > 0:
-                plx_arcsec = self.obs_keywords['plx_value'] / 1e3
+                star['plx_arcsec'] = self.obs_keywords['plx_value'] / 1e3
                 
                 if self.obs_keywords['plx_err'] is not None:
-                    e_plx_arcsec = self.obs_keywords['plx_err'] / 1e3
+                    star['e_plx_arcsec'] = self.obs_keywords['plx_err'] / 1e3
                 else:
-                    e_plx_arcsec = plx_arcsec / 3.
+                    star['e_plx_arcsec'] = star['plx_arcsec'] / 3.
                 
-                star['lstar'] = star['lstar_1pc'] / plx_arcsec**2
+                star['lstar'] = star['lstar_1pc'] / star['plx_arcsec']**2
                 star['e_lstar'] = star['lstar'] * \
                                   np.sqrt( frac_norm**2
-                                          + (2*e_plx_arcsec/plx_arcsec)**2 )
+                                          + (2*star['e_plx_arcsec']/
+                                             star['plx_arcsec'])**2 )
                                   
                 star['rstar'] = np.sqrt(cfg.ssr *
                                         10**self.comp_best_params[i][-1]/np.pi) \
-                        * u.pc.to(u.m) / plx_arcsec / u.R_sun.to(u.m)
+                        * u.pc.to(u.m) / star['plx_arcsec'] / u.R_sun.to(u.m)
                 star['e_rstar'] = star['rstar'] * \
                                   np.sqrt( frac_norm**2
-                                          + (2*e_plx_arcsec/plx_arcsec)**2)
+                                          + (2*star['e_plx_arcsec']/
+                                             star['plx_arcsec'])**2)
 
         return star
 
