@@ -86,7 +86,7 @@ def create_dir(wwwroot,sample):
         fd.write('AuthType Basic\n')
         fd.write('AuthUserFile '+cfg.www['root']+'.htpasswd\n')
         fd.write('AuthGroupFile '+cfg.www['root']+'.htgroup\n')
-        fd.write('require group admin '+sample+'\n')
+        fd.write('require group admin all '+sample+'\n')
         fd.close()
 
 
