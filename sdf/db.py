@@ -190,10 +190,10 @@ def write_disk_r(cursor,r):
             if key.find('e_') == 0:
                 continue
             cursor.execute("UPDATE "+cfg.mysql['disk_r_table']+" "
-                           "SET {} = {:e}, {} = {:e} WHERE "
-                           "id = '{}'".format(key,disk_r[key],
-                                              'e_'+key,disk_r['e_'+key],
-                                              r.id) )
+                           "SET {} = {:e}, {} = {:e} WHERE id = '{}' "
+                           "AND comp_no = {}".format(key,disk_r[key],
+                                                     'e_'+key,disk_r['e_'+key],
+                                                     r.id,i) )
 
 
 def sample_targets(sample,db='sdb_samples'):
