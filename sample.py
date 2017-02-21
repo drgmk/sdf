@@ -143,7 +143,6 @@ def sample_table(cursor,sample):
                    " FROM sdb_results.phot WHERE filter='VJ' GROUP BY id;")
     # TODO: fix blank line in output table when object doesn't have sdbid 
     sel = ("SELECT "
-           "sdbid,"
            "CONCAT('<a target=\"_blank\" href=\"../../seds/masters/',sdbid,'/public\">',COALESCE(main_id,hd.xid,hip.xid,gj.xid),'</a>') as id,"
            "hd.xid as HD,"
            "hip.xid as HIP,"
@@ -182,7 +181,7 @@ def sample_table(cursor,sample):
 
     cursor.execute(sel)
     tsamp = Table(names=cursor.column_names,
-                  dtype=('S25','S1000','S50','S50','S50',
+                  dtype=('S1000','S50','S50','S50',
                          'S4','S8','S8','S10','S5','S4','S6','S4','S6'))
     for row in cursor:
         tsamp.add_row(row)
