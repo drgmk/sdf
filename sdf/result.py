@@ -315,7 +315,7 @@ class Result(object):
         disk_r = ()
         for i,comp in enumerate(self.model_comps):
             if comp in cfg.models['disk_r']:
-                disk_r= disk_r + (self.disk_r_results_one(i),)
+                disk_r = disk_r + (self.disk_r_results_one(i),)
 
         return disk_r
     
