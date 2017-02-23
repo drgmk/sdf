@@ -81,41 +81,22 @@ class Result(object):
         self.pl_models = plmod
         self.model_info = model.models_info(self.models)
 
-        # pickle of results (file may not actually exist)
-        self.pickle = self.pmn_base + '.pkl'
-        
-        # see if multinest needs to be re-run
-        # TODO: pickling saves no time as is, either remove or change
-        run = update
-        if not os.path.exists(self.pickle):
-            run = True
-        elif os.path.getmtime(self.pickle) < os.path.getmtime(rawphot):
-            run = True
+        # TODO: can we save time by pickling the results?
 
-        # if it does, delete the output and run
-        if run:
+        # if we want to re-run multinest, delete previous output first
+        if update:
             self.delete_multinest()
-            
-            # go there, multinest only takes 100 char paths
-            with utils.pushd(self.pmn_dir):
-                fitting.multinest( self.obs,self.models,'.' )
 
-            a = pmn.Analyzer(outputfiles_basename=self.pmn_base,
-                             n_params=self.model_info['ndim'])
-            pfile = open(self.pickle,'wb')
-            pickle.dump(a,pfile)
-            pfile.close()
+        # go there, multinest only takes 100 char paths
+        with utils.pushd(self.pmn_dir):
+            fitting.multinest( self.obs,self.models,'.' )
 
-        # load the results
-        try:
-            self.analyzer = a
-        except NameError:
-            pfile = open(self.pickle,'rb')
-            self.analyzer = pickle.load(pfile)
-            pfile.close()
-        
+        a = pmn.Analyzer(outputfiles_basename=self.pmn_base,
+                         n_params=self.model_info['ndim'])
+        self.analyzer = a
+
         # when the results were finished
-        self.mtime = os.path.getmtime(self.pickle)
+        self.mtime = os.path.getmtime(self.pmn_base+'.txt')
 
         # parameter corner plot if needed
         self.chain_plot = self.pmn_base+'corner.png'
@@ -126,7 +107,7 @@ class Result(object):
             if os.path.getmtime(self.chain_plot) < self.mtime:
                 run = True
             
-        if run:
+        if update:
             d = self.analyzer.get_data()
             fig = corner.corner(d[:,2:],show_titles=True,
                                 labels=self.model_info['parameters'],
