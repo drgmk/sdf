@@ -16,7 +16,8 @@ from os import mkdir,remove,write,rmdir
 import argparse
 
 import numpy as np
-from astropy.table import Table,jsviewer
+from astropy.table import Table
+from astropy.utils import xml
 import mysql.connector
 
 from jinja2 import Template
@@ -141,21 +142,21 @@ def sample_table(cursor,sample):
     cursor.execute("CREATE TEMPORARY TABLE phot SELECT"
                    " id as sdbid,ROUND(-2.5*log10(ANY_VALUE(model_jy)/3882.37),1) as Vmag"
                    " FROM sdb_results.phot WHERE filter='VJ' GROUP BY id;")
-    # TODO: fix blank line in output table when object doesn't have sdbid 
+
     sel = ("SELECT "
            "CONCAT('<a target=\"_blank\" href=\"../../seds/masters/',sdbid,'/public\">',COALESCE(main_id,hd.xid,hip.xid,gj.xid),'</a>') as id,"
            "hd.xid as HD,"
            "hip.xid as HIP,"
            "gj.xid as GJ,"
            "ROUND(Vmag,1) as Vmag,"
-           "ROUND(raj2000,4) as RAdeg,"
-           "ROUND(dej2000,4) as `Dec`,"
+           "ROUND(raj2000/15.,1) as `RA/h`,"
+           "ROUND(dej2000,1) as `Dec`,"
            "sp_type as SpType,"
            "ROUND(teff,0) as Teff,"
-           "ROUND(log10(lstar),2) as LogLstar,"
+           "ROUND(log10(lstar),2) as `LogL*`,"
            "ROUND(1/COALESCE(star.plx_arcsec),1) AS Dist,"
-           "ROUND(log10(ldisk_lstar),1) as Log_f,"
-           "ROUND(temp,1) as T_disk")
+           "ROUND(log10(SUM(ldisk_lstar)),1) as Log_f,"
+           "GROUP_CONCAT(ROUND(temp,1)) as T_disk")
         
     # here we decide which samples get all targets, for now "everything" and "public"
     # get everything, but this could be changed so that "public" is some subset of
@@ -174,7 +175,9 @@ def sample_table(cursor,sample):
             " LEFT JOIN hip USING (sdbid)"
             " LEFT JOIN gj USING (sdbid)"
             " LEFT JOIN phot USING (sdbid)"
-            " ORDER by RAdeg")
+            " WHERE sdb_pm.sdbid IS NOT NULL"
+            " GROUP BY id"
+            " ORDER by `RA/h`")
     # limit table sizes
     if sample != 'everything':
         sel += " LIMIT "+str(cfg.www['tablemax'])+";"
@@ -182,7 +185,7 @@ def sample_table(cursor,sample):
     cursor.execute(sel)
     tsamp = Table(names=cursor.column_names,
                   dtype=('S1000','S50','S50','S50',
-                         'S4','S8','S8','S10','S5','S4','S6','S4','S6'))
+                         'S4','S8','S8','S10','S5','S4','S6','S4','S12'))
     for row in cursor:
         tsamp.add_row(row)
 
@@ -192,18 +195,27 @@ def sample_table(cursor,sample):
 
     print("    got ",len(tsamp)," rows")
 
-    # write html page with interactive table, astropy 1.2.1 doesn't allow all of the
-    # the htmldict contents to be passed to write_table_jsviewer so links are
-    # bleached out. can use jsviewer with my modifications to that function...
-    fd = open(wwwroot+sample+'/table.html','w')
-#    tsamp.write(fd,format='ascii.html',htmldict={'raw_html_cols':['id'],'raw_html_clean_kwargs':{'attributes':{'a':['href','target']}} })
-    jsviewer.write_table_jsviewer(tsamp,fd,max_lines=10000,table_id=sample,
-                                  table_class="display compact",
-                                  jskwargs={'display_length':25},
-                                  raw_html_cols=['id'],
-                                  raw_html_clean_kwargs={'attributes':{'a':['href','target']
-                                                            }} )
-    fd.close()
+    # get the table as xml
+    s = io.StringIO()
+    w = xml.writer.XMLWriter(s)
+    with w.xml_cleaning_method('bleach_clean'):
+        with w.tag('table',attrib={'class':'display compact','id':sample}):
+            with w.tag('thead',attrib={'class':'datatable_header'}):
+                with w.tag('tr'):
+                    for col in tsamp.colnames:
+                        w.element('td',text=col)
+            for i in range(len(tsamp)):
+                with w.tag('tr'):
+                    for txt in tsamp[i]:
+                        w.element('td',text=txt.decode())
+
+    # write the table out to html
+    template = Template(templates.datatable)
+    html = template.render(css=templates.css,name=sample,table=s.getvalue())
+
+    with io.open(wwwroot+sample+'/index.html',
+                 mode='w', encoding='utf-8') as f:
+        f.write(html)
 
 
 def sample_plots():

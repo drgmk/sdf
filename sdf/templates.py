@@ -154,3 +154,56 @@ generic_wide=('''<!DOCTYPE html>
 css=('''<link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Lato">
     
         <link rel="stylesheet" type="text/css" href="http://camd21.ast.cam.ac.uk/~grant/sdb/style.css">''')
+
+datatable=('''<!DOCTYPE html>
+<html lang="en">
+    <head>
+    <meta charset="utf-8"/>
+    <meta content="text/html;charset=UTF-8" http-equiv="Content-type"/>
+    <style>
+    table.dataTable {width: auto !important; margin: 0 !important;}
+    .dataTables_filter, .dataTables_paginate {float: left !important; margin-left:1em}
+    </style>
+    <link href="https://cdn.datatables.net/1.10.9/css/jquery.dataTables.css" rel="stylesheet" type="text/css"/>
+    <script src="https://code.jquery.com/jquery-1.11.3.min.js">
+    </script>
+    <script src="https://cdn.datatables.net/1.10.9/js/jquery.dataTables.min.js">
+    </script>
+    </head>
+    
+    {{ css }}
+    
+    <body class="sample_table">
+    
+    <table class="head_table">
+    <tr><td>
+    <h1>{{ name }}</h1>
+    [ <a href="hr.html">HR diagram</a> | <a href="fnuvsr.html">Flux/radius</a> ]
+    </td>
+    
+    <td class="right">
+    <a href="/~grant/sdb/">home</a>
+    <form style="display:inline-block;" action = "/~grant/sdb/search/search.php" method = "GET">
+    <input type = "text" name = "id"/>
+    <input type = "submit" value = "Search" />
+    </form>
+    </td></tr>
+    </table>
+
+    <script>
+    $(document).ready(function() {
+        $('#{{ name }}').dataTable({
+            "order": [],
+            "scrollX": true,
+            "iDisplayLength": 20,
+            "aLengthMenu": [[10, 20, 50, 100, 500, 1000, -1], [10, 20, 50, 100, 500, 1000, 'All']],
+        "pagingType": "full_numbers"
+        });
+    } );
+    </script>
+    
+    {{ table }}
+    
+    </body>
+</html>
+''')
