@@ -178,7 +178,10 @@ datatable=('''<!DOCTYPE html>
     <table class="head_table">
     <tr><td>
     <h1>{{ name }}</h1>
-    [ <a href="hr.html">HR diagram</a> | <a href="fnuvsr.html">Flux/radius</a> ]
+    [ <a href="hr.html">HR diagram</a>
+    | <a href="fnuvsr.html">Flux/radius</a>
+    | <a href="{{ name }}.xml">votable</a>
+    ]
     </td>
     
     <td class="right">

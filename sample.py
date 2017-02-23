@@ -105,19 +105,19 @@ def sample_tables():
     samples = get_samples()
     for sample in samples:
         print("  sample:",sample)
-        sample_table(cursor,sample)
+        sample_table_www(cursor,sample)
 
     cursor.close()
     cnx.close()
 
 
-def sample_table(cursor,sample):
+def sample_table_www(cursor,sample):
     """Generate an HTML page with a sample table.
 
     Extract the necessary information from the database and create HTML
     pages with the desired tables, one for each sample. These are 
-    generated using astropy's HTML table writer and the jsviewer,which
-    makes tables that are searchable and sortable.
+    generated using astropy's XMLWriter the jsviewer,which makes tables
+    that are searchable and sortable.
     """
 
     wwwroot = cfg.www['root']+'samples/'
@@ -125,23 +125,25 @@ def sample_table(cursor,sample):
     # create dir and .htaccess if neeeded
     create_dir(wwwroot,sample)
 
-    # grab table we want to display
-    cursor.execute("DROP TABLE IF EXISTS hd;")
-    cursor.execute("CREATE TEMPORARY TABLE hd SELECT sdbid,GROUP_CONCAT(xid) as xid"
-                   " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid REGEXP('^HD')"
-                   " GROUP BY sdbid;")
-    cursor.execute("DROP TABLE IF EXISTS hip;")
-    cursor.execute("CREATE TEMPORARY TABLE hip SELECT sdbid,GROUP_CONCAT(xid) as xid"
-                   " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid REGEXP('^HIP')"
-                   " GROUP BY sdbid;")
-    cursor.execute("DROP TABLE IF EXISTS gj;")
-    cursor.execute("CREATE TEMPORARY TABLE gj SELECT sdbid,GROUP_CONCAT(xid) as xid"
-                   " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid REGEXP('^GJ')"
-                   " GROUP BY sdbid;")
-    cursor.execute("DROP TABLE IF EXISTS phot;")
-    cursor.execute("CREATE TEMPORARY TABLE phot SELECT"
-                   " id as sdbid,ROUND(-2.5*log10(ANY_VALUE(model_jy)/3882.37),1) as Vmag"
-                   " FROM sdb_results.phot WHERE filter='VJ' GROUP BY id;")
+    # create temporary tables we want to join on
+    sample_table_temp_tables(cursor)
+
+#    cursor.execute("DROP TABLE IF EXISTS hd;")
+#    cursor.execute("CREATE TEMPORARY TABLE hd SELECT sdbid,GROUP_CONCAT(xid) as xid"
+#                   " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid REGEXP('^HD')"
+#                   " GROUP BY sdbid;")
+#    cursor.execute("DROP TABLE IF EXISTS hip;")
+#    cursor.execute("CREATE TEMPORARY TABLE hip SELECT sdbid,GROUP_CONCAT(xid) as xid"
+#                   " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid REGEXP('^HIP')"
+#                   " GROUP BY sdbid;")
+#    cursor.execute("DROP TABLE IF EXISTS gj;")
+#    cursor.execute("CREATE TEMPORARY TABLE gj SELECT sdbid,GROUP_CONCAT(xid) as xid"
+#                   " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid REGEXP('^GJ')"
+#                   " GROUP BY sdbid;")
+#    cursor.execute("DROP TABLE IF EXISTS phot;")
+#    cursor.execute("CREATE TEMPORARY TABLE phot SELECT"
+#                   " id as sdbid,ROUND(-2.5*log10(ANY_VALUE(model_jy)/3882.37),1) as Vmag"
+#                   " FROM sdb_results.phot WHERE filter='VJ' GROUP BY id;")
 
     sel = ("SELECT "
            "CONCAT('<a target=\"_blank\" href=\"../../seds/masters/',sdbid,'/public\">',COALESCE(main_id,hd.xid,hip.xid,gj.xid),'</a>') as id,"
@@ -168,7 +170,8 @@ def sample_table(cursor,sample):
         
     sel += (" LEFT JOIN simbad USING (sdbid)"
             " LEFT JOIN tyc2 USING (sdbid)"
-            " LEFT JOIN photometry.tgas ON COALESCE(-tyc2.hip,tyc2.tyc2id)=tgas.tyc2hip"
+            " LEFT JOIN gaia USING (sdbid)"
+#            " LEFT JOIN photometry.tgas ON COALESCE(-tyc2.hip,tyc2.tyc2id)=tgas.tyc2hip"
             " LEFT JOIN sdb_results.star on sdbid=star.id"
             " LEFT JOIN sdb_results.disk_r on sdbid=disk_r.id"
             " LEFT JOIN hd USING (sdbid)"
@@ -216,6 +219,72 @@ def sample_table(cursor,sample):
     with io.open(wwwroot+sample+'/index.html',
                  mode='w', encoding='utf-8') as f:
         f.write(html)
+
+
+def sample_table_votable(cursor,sample):
+    """Generate a votable of the results."""
+
+    wwwroot = cfg.www['root']+'samples/'
+
+    # create dir and .htaccess if neeeded
+    create_dir(wwwroot,sample)
+
+    # create temporary tables we want to join on
+    sample_table_temp_tables(cursor)
+    
+    # generate the mysql statement
+    sel = "SELECT *"
+
+    if sample == 'everything' or sample == 'public':
+        sel += " FROM sdb_pm"
+    else:
+        sel += " FROM "+cfg.mysql['db_samples']+"."+sample+" LEFT JOIN sdb_pm USING (sdbid)"
+        
+    sel += (" LEFT JOIN simbad USING (sdbid)"
+            " LEFT JOIN tyc2 USING (sdbid)"
+            " LEFT JOIN gaia USING (sdbid)"
+#            " LEFT JOIN photometry.tgas ON COALESCE(-tyc2.hip,tyc2.tyc2id)=tgas.tyc2hip"
+            " LEFT JOIN sdb_results.star on sdbid=star.id"
+            " LEFT JOIN sdb_results.disk_r on sdbid=disk_r.id"
+            " LEFT JOIN hd USING (sdbid)"
+            " LEFT JOIN hip USING (sdbid)"
+            " LEFT JOIN gj USING (sdbid)"
+            " LEFT JOIN phot USING (sdbid)"
+            " WHERE sdb_pm.sdbid IS NOT NULL"
+            " GROUP BY id"
+            " ORDER by `RA/h`")
+    # limit table sizes
+    if sample != 'everything':
+        sel += " LIMIT "+str(cfg.www['tablemax'])+";"
+
+    cursor.execute(sel)
+    rows = cursor.fetchall()
+    tsamp = Table(rows=rows,names=cursor.column_names)
+
+    print("    got ",len(tsamp)," rows")
+
+    tsamp.write(wwwroot+sample+'/'+sample+'.xml',format='ascii.votable')
+
+
+def sample_table_temp_tables(cursor):
+    """Create temporray tables for creating sample tables."""
+
+    cursor.execute("DROP TABLE IF EXISTS hd;")
+    cursor.execute("CREATE TEMPORARY TABLE hd SELECT sdbid,GROUP_CONCAT(xid) as xid"
+                   " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid REGEXP('^HD')"
+                   " GROUP BY sdbid;")
+    cursor.execute("DROP TABLE IF EXISTS hip;")
+    cursor.execute("CREATE TEMPORARY TABLE hip SELECT sdbid,GROUP_CONCAT(xid) as xid"
+                   " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid REGEXP('^HIP')"
+                   " GROUP BY sdbid;")
+    cursor.execute("DROP TABLE IF EXISTS gj;")
+    cursor.execute("CREATE TEMPORARY TABLE gj SELECT sdbid,GROUP_CONCAT(xid) as xid"
+                   " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid REGEXP('^GJ')"
+                   " GROUP BY sdbid;")
+    cursor.execute("DROP TABLE IF EXISTS phot;")
+    cursor.execute("CREATE TEMPORARY TABLE phot SELECT"
+                   " id as sdbid,ROUND(-2.5*log10(ANY_VALUE(model_jy)/3882.37),1) as Vmag"
+                   " FROM sdb_results.phot WHERE filter='VJ' GROUP BY id;")
 
 
 def sample_plots():
