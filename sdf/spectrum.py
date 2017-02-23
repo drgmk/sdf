@@ -386,7 +386,8 @@ class ObsSpectrum(Spectrum):
                 if n >= nspec:
                     continue
                 if sp in key:
-                    s += ObsSpectrum.read_file_of_type(kw[key]['value'],type=sp,
+                    s += ObsSpectrum.read_file_of_type(cfg.file['spectra']+
+                                                       kw[key]['value'],type=sp,
                                                        module_split=module_split)
                     n += 1
     
