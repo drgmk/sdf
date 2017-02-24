@@ -22,11 +22,11 @@ def www_all(results,update=False):
     index_file = results[0].path+'/index.html'
     
     if os.path.exists(index_file):
-        pkltime = []
+        mtime = []
         for r in results:
-            pkltime.append( os.path.getmtime(r.pickle) )
+            mtime.append( r.mtime )
 
-        if os.path.getmtime(index_file) > np.max(pkltime):
+        if os.path.getmtime(index_file) > np.max(mtime):
             if not update:
                 print("   no update needed")
                 return
