@@ -106,6 +106,7 @@ def sample_tables():
     for sample in samples:
         print("  sample:",sample)
         sample_table_www(cursor,sample)
+        sample_table_votable(cursor,sample)
 
     cursor.close()
     cnx.close()
@@ -127,23 +128,6 @@ def sample_table_www(cursor,sample):
 
     # create temporary tables we want to join on
     sample_table_temp_tables(cursor)
-
-#    cursor.execute("DROP TABLE IF EXISTS hd;")
-#    cursor.execute("CREATE TEMPORARY TABLE hd SELECT sdbid,GROUP_CONCAT(xid) as xid"
-#                   " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid REGEXP('^HD')"
-#                   " GROUP BY sdbid;")
-#    cursor.execute("DROP TABLE IF EXISTS hip;")
-#    cursor.execute("CREATE TEMPORARY TABLE hip SELECT sdbid,GROUP_CONCAT(xid) as xid"
-#                   " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid REGEXP('^HIP')"
-#                   " GROUP BY sdbid;")
-#    cursor.execute("DROP TABLE IF EXISTS gj;")
-#    cursor.execute("CREATE TEMPORARY TABLE gj SELECT sdbid,GROUP_CONCAT(xid) as xid"
-#                   " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid REGEXP('^GJ')"
-#                   " GROUP BY sdbid;")
-#    cursor.execute("DROP TABLE IF EXISTS phot;")
-#    cursor.execute("CREATE TEMPORARY TABLE phot SELECT"
-#                   " id as sdbid,ROUND(-2.5*log10(ANY_VALUE(model_jy)/3882.37),1) as Vmag"
-#                   " FROM sdb_results.phot WHERE filter='VJ' GROUP BY id;")
 
     sel = ("SELECT "
            "CONCAT('<a target=\"_blank\" href=\"../../seds/masters/',sdbid,'/public\">',COALESCE(main_id,hd.xid,hip.xid,gj.xid),'</a>') as id,"
@@ -169,9 +153,8 @@ def sample_table_www(cursor,sample):
         sel += " FROM "+cfg.mysql['db_samples']+"."+sample+" LEFT JOIN sdb_pm USING (sdbid)"
         
     sel += (" LEFT JOIN simbad USING (sdbid)"
-            " LEFT JOIN tyc2 USING (sdbid)"
-            " LEFT JOIN gaia USING (sdbid)"
-#            " LEFT JOIN photometry.tgas ON COALESCE(-tyc2.hip,tyc2.tyc2id)=tgas.tyc2hip"
+#            " LEFT JOIN tyc2 USING (sdbid)"
+#            " LEFT JOIN gaia USING (sdbid)"
             " LEFT JOIN sdb_results.star on sdbid=star.id"
             " LEFT JOIN sdb_results.disk_r on sdbid=disk_r.id"
             " LEFT JOIN hd USING (sdbid)"
@@ -179,8 +162,8 @@ def sample_table_www(cursor,sample):
             " LEFT JOIN gj USING (sdbid)"
             " LEFT JOIN phot USING (sdbid)"
             " WHERE sdb_pm.sdbid IS NOT NULL"
-            " GROUP BY id"
-            " ORDER by `RA/h`")
+            " GROUP BY sdbid"
+            " ORDER by raj2000")
     # limit table sizes
     if sample != 'everything':
         sel += " LIMIT "+str(cfg.www['tablemax'])+";"
@@ -230,8 +213,8 @@ def sample_table_votable(cursor,sample):
     create_dir(wwwroot,sample)
 
     # create temporary tables we want to join on
-    sample_table_temp_tables(cursor)
-    
+#    sample_table_temp_tables(cursor)
+
     # generate the mysql statement
     sel = "SELECT *"
 
@@ -241,18 +224,10 @@ def sample_table_votable(cursor,sample):
         sel += " FROM "+cfg.mysql['db_samples']+"."+sample+" LEFT JOIN sdb_pm USING (sdbid)"
         
     sel += (" LEFT JOIN simbad USING (sdbid)"
-            " LEFT JOIN tyc2 USING (sdbid)"
-            " LEFT JOIN gaia USING (sdbid)"
-#            " LEFT JOIN photometry.tgas ON COALESCE(-tyc2.hip,tyc2.tyc2id)=tgas.tyc2hip"
             " LEFT JOIN sdb_results.star on sdbid=star.id"
-            " LEFT JOIN sdb_results.disk_r on sdbid=disk_r.id"
-            " LEFT JOIN hd USING (sdbid)"
-            " LEFT JOIN hip USING (sdbid)"
-            " LEFT JOIN gj USING (sdbid)"
-            " LEFT JOIN phot USING (sdbid)"
+            " LEFT JOIN sdb_results.disk_r using (id)"
             " WHERE sdb_pm.sdbid IS NOT NULL"
-            " GROUP BY id"
-            " ORDER by `RA/h`")
+            " ORDER by raj2000")
     # limit table sizes
     if sample != 'everything':
         sel += " LIMIT "+str(cfg.www['tablemax'])+";"
@@ -263,28 +238,33 @@ def sample_table_votable(cursor,sample):
 
     print("    got ",len(tsamp)," rows")
 
-    tsamp.write(wwwroot+sample+'/'+sample+'.xml',format='ascii.votable')
+    tsamp.write(wwwroot+sample+'/'+sample+'.xml',
+                format='votable',overwrite=True)
 
 
 def sample_table_temp_tables(cursor):
-    """Create temporray tables for creating sample tables."""
+    """Create temporary tables for creating sample tables."""
 
     cursor.execute("DROP TABLE IF EXISTS hd;")
     cursor.execute("CREATE TEMPORARY TABLE hd SELECT sdbid,GROUP_CONCAT(xid) as xid"
                    " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid REGEXP('^HD')"
                    " GROUP BY sdbid;")
+    cursor.execute("ALTER TABLE hd ADD INDEX sdbid_hd (sdbid);")
     cursor.execute("DROP TABLE IF EXISTS hip;")
     cursor.execute("CREATE TEMPORARY TABLE hip SELECT sdbid,GROUP_CONCAT(xid) as xid"
                    " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid REGEXP('^HIP')"
                    " GROUP BY sdbid;")
+    cursor.execute("ALTER TABLE hip ADD INDEX sdbid_hip (sdbid);")
     cursor.execute("DROP TABLE IF EXISTS gj;")
     cursor.execute("CREATE TEMPORARY TABLE gj SELECT sdbid,GROUP_CONCAT(xid) as xid"
                    " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid REGEXP('^GJ')"
                    " GROUP BY sdbid;")
+    cursor.execute("ALTER TABLE gj ADD INDEX sdbid_gj (sdbid);")
     cursor.execute("DROP TABLE IF EXISTS phot;")
     cursor.execute("CREATE TEMPORARY TABLE phot SELECT"
                    " id as sdbid,ROUND(-2.5*log10(ANY_VALUE(model_jy)/3882.37),1) as Vmag"
                    " FROM sdb_results.phot WHERE filter='VJ' GROUP BY id;")
+    cursor.execute("ALTER TABLE phot ADD INDEX sdbid_phot (sdbid);")
 
 
 def sample_plots():
@@ -318,7 +298,7 @@ def sample_plots():
                                css=templates.css,
                                plot_script=script,
                                plot_div=div,
-                               title=None)
+                               title=sample)
 
         with io.open(file, mode='w', encoding='utf-8') as f:
             f.write(html)
