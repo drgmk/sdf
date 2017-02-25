@@ -22,7 +22,7 @@ from . import filter
 from . import fitting
 from . import db
 from . import templates
-from .utils import SdfError
+from . import utils
 from . import config as cfg
 
 
@@ -35,7 +35,7 @@ def sed_components(results,tab_order=None):
 
     # results should be list so we can loop
     if not isinstance(results,list):
-        raise SdfError("expected list of results, not {}".format(type(results)))
+        raise utils.SdfError("expected list of results, not {}".format(type(results)))
     
     # figure plot limits
     xlim,ylim = sed_limits(results)

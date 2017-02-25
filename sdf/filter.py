@@ -7,7 +7,6 @@ import astropy.units as u
 from . import spectrum
 from . import filter_info
 from . import utils
-from .utils import SdfError
 
 # ignore warnings about SVO filter votables
 warnings.simplefilter('ignore', exceptions.W42)
@@ -25,7 +24,7 @@ def common_x(x1,y1,x2,y2):
     xmax = np.min([np.max(x1),np.max(x2)])
     keep = (xall >= xmin) & ( xall <= xmax)
     if np.any(keep) == False:
-        raise SdfError("x arrays don't overlap {} to {} and {} to {}".format(
+        raise utils.SdfError("x arrays don't overlap {} to {} and {} to {}".format(
                          np.min(x1),np.max(x1),np.min(x2),np.max(x2)))
     x = np.unique( xall[keep] )
     srt = np.argsort(x1)
@@ -250,7 +249,7 @@ class Filter(object):
         """
 
         if self.zero_point is None or self.zero_point_offset is None:
-            raise SdfError("no zero point or offset for filter {})".
+            raise utils.SdfError("no zero point or offset for filter {})".
                            format(self.name))
         return self.zero_point * 10**(-0.4*(mag-self.zero_point_offset))
     
@@ -264,7 +263,7 @@ class Filter(object):
         """
         
         if self.zero_point is None or self.zero_point_offset is None:
-            raise SdfError("no zero point or offset for filter {})".\
+            raise utils.SdfError("no zero point or offset for filter {})".\
                            format(self.name))
         return self.zero_point_offset                               \
                - 2.5 * np.log10( flux / self.zero_point )
@@ -476,7 +475,7 @@ class Colour(object):
         """Get a Colour object given a name."""
     
         if not iscolour(name):
-            raise SdfError("name given ({}) not a colour".format(name))
+            raise utils.SdfError("name given ({}) not a colour".format(name))
 
         self = cls()
         self.name = name
@@ -530,10 +529,10 @@ def iscolour(filter):
         if '_' in filter:
             fs = filter.split('_')
             if len(fs) != 2:
-                raise SdfError("filter name {} "
+                raise utils.SdfError("filter name {} "
                                "has too many '_'s".format(filter))
             if fs[0] == fs[1]:
-                raise SdfError("filters in colour {} "
+                raise utils.SdfError("filters in colour {} "
                                " are the same".format(filter))
             return True
         elif filter == 'STROMM1':

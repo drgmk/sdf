@@ -7,7 +7,6 @@ from astropy.io import fits
 from astropy.table import Table
 from . import filter
 from . import utils
-from .utils import SdfError
 from . import config as cfg
 
 c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
@@ -70,7 +69,7 @@ class Spectrum(object):
                     ccs = np.append( ccs, cc)
                         
             else:
-                raise SdfError("synthphot requires either filter class or\
+                raise utils.SdfError("synthphot requires either filter class or\
                                string, not {} or type {}".format(f,type(f)))
                     
         return fnus,ccs
@@ -89,7 +88,7 @@ class Spectrum(object):
         """
     
         if len(filters) != len(weights):
-            raise SdfError("length of filters ({}) needs to be same as weights ({})".format(filters,weights))
+            raise utils.SdfError("length of filters ({}) needs to be same as weights ({})".format(filters,weights))
         
         value = 0.0
         for i,f in enumerate(filters):
@@ -111,7 +110,7 @@ class Spectrum(object):
         elif key == 'wave':
             _,srt = np.unique( self.wavelength, return_index=True )
         else:
-            raise SdfError("pass either 'nu' or 'wave' to sort by")
+            raise utils.SdfError("pass either 'nu' or 'wave' to sort by")
 
         # check we need to do something
         if len(self.nu_hz) == len(self.nu_hz[srt]):
@@ -186,7 +185,7 @@ class Spectrum(object):
             self.fnujy_sr = np.append(self.fnujy_sr,meanfnu_sr * max_wav_micron**index)
         
         if hasattr(self,'e_fnujy'):
-            raise SdfError("Cannot extrapolate spectrum with uncertainties!")
+            raise utils.SdfError("Cannot extrapolate spectrum with uncertainties!")
 
 
     def fill_gaps(self,npt=100,log=True):
@@ -245,7 +244,7 @@ class Spectrum(object):
             self.fnujy_sr = np.append(self.fnujy_sr,fnujy_sr_add)
 
         if hasattr(self,'e_fnujy'):
-            raise SdfError("Cannot fill gaps in spectrum with uncertainties!")
+            raise utils.SdfError("Cannot fill gaps in spectrum with uncertainties!")
 
 
     @property
@@ -668,7 +667,7 @@ class ModelSpectrum(Spectrum):
                 metalAlpha = re.search('\[([\s+-]?\d+\.\d+)([aAbB]?)\]?',l)
                 mh = np.append(mh,float(metalAlpha.groups()[0]))
                 if metalAlpha.groups()[1] != '':
-                    raise SdfError("Alpha non-nothing ({}), wtf?".\
+                    raise utils.SdfError("Alpha non-nothing ({}), wtf?".\
                                    format(metalAlpha.groups()))
             else:
                 for c in cols:

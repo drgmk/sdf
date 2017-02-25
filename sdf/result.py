@@ -15,7 +15,6 @@ from . import model
 from . import filter
 from . import fitting
 from . import utils
-from .utils import SdfError
 from . import config as cfg
 
 
@@ -35,7 +34,7 @@ class Result(object):
             elif comp in cfg.models['disk']:
                 self.star_or_disk += ('disk',)
             else:
-                raise SdfError("couldn't assigm comp {} to star or disk "
+                raise utils.SdfError("couldn't assigm comp {} to star or disk "
                                "given lists in {} and {}".
                                format(comp,cfg.models['star'],
                                       cfg.models['disk']))

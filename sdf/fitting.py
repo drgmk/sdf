@@ -9,7 +9,7 @@ from . import model
 from . import photometry
 from . import spectrum
 from . import filter
-from .utils import SdfError
+from . import utils
 from . import config as cfg
 
 # these are for getting info to pymultinest
@@ -252,7 +252,7 @@ def sort_evidence(ev_in,ndim):
     """
 
     if len(ev_in) != len(ndim):
-        raise SdfError("length of ev_in ({}) and ndim ({}) not equal".\
+        raise utils.SdfError("length of ev_in ({}) and ndim ({}) not equal".\
                        format(ev_in,ndim))
     if isinstance(ev_in,list):
         ev_in = np.array(ev_in)

@@ -9,7 +9,7 @@ from bokeh.resources import CDN
 from . import plotting
 from . import db
 from . import templates
-from .utils import SdfError
+from . import utils
 from . import config as cfg
 
 

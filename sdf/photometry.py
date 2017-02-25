@@ -4,7 +4,6 @@ from astropy.table import Table
 
 from . import filter
 from . import utils
-from .utils import SdfError
 from . import config as cfg
 
 class Photometry(object):
@@ -86,7 +85,7 @@ class Photometry(object):
             # quick sanity checking
             for par in ['Phot','Err','Sys']:
                 if not np.isfinite(row[par]):
-                    SdfError("non-finite {} value {} in {}".format(par,row[par],file))
+                    utils.SdfError("non-finite {} value {} in {}".format(par,row[par],file))
             
             p = Photometry()
             p.filters = np.array([row['Band']])

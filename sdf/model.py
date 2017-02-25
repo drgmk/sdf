@@ -18,7 +18,6 @@ from . import photometry
 from . import spectrum
 from . import filter
 from . import utils
-from .utils import SdfError
 from . import config as cfg
 
 class Model(object):
@@ -64,7 +63,7 @@ class Model(object):
             self.wavelength = np.array(dat,dtype=dat.dtype[0])
         
         else:
-            raise SdfError("file {} not a PhotModel or SpecModel,\
+            raise utils.SdfError("file {} not a PhotModel or SpecModel,\
                            is a {}".format(file,type))
 
         self.name = keywords['NAME']
@@ -76,7 +75,7 @@ class Model(object):
         for i,par in enumerate(self.parameters):
             j = i+3
             if str.upper(par) != fh[j].name:
-                raise SdfError("{}th parameter {} not equal to HDU\
+                raise utils.SdfError("{}th parameter {} not equal to HDU\
                                with name {}".format(j,par,fh[j].name))
             dat = fh[j].data
             d[par] = np.array(dat,dtype=dat.dtype[0])
@@ -312,15 +311,15 @@ class Model(object):
         if self.param_values is not None:
             if isinstance(self,PhotModel):
                 if value.shape[0] != len(self.filters):
-                    raise SdfError("expected {} elements in first dim,got {}".
+                    raise utils.SdfError("expected {} elements in first dim,got {}".
                                    format(len(self.filters),value.shape[0]))
             elif isinstance(self,SpecModel):
                 if value.shape[0] != len(self.wavelength):
-                    raise SdfError("expected {} elements in first dim, got {}".
+                    raise utils.SdfError("expected {} elements in first dim, got {}".
                                    format(len(self.wavelength),value.shape[0]))
             for i,key in enumerate(self.parameters):
                 if len(self.param_values[key]) != value.shape[i+1]:
-                    raise SdfError("expected dimension {} to have size {}\
+                    raise utils.SdfError("expected dimension {} to have size {}\
                                     but got {}".format(i,
                                                 len(self.param_values[key]),
                                                 value.shape[i+1]))
@@ -387,16 +386,16 @@ class PhotModel(Model):
         for i in range(len(cm)):
             filters = np.append(filters,cm[i].filter)
             if not self.name == cm[i].name:
-                raise SdfError("name {} in {} not the same as {} in {}".
+                raise utils.SdfError("name {} in {} not the same as {} in {}".
                                format(cm[i].name,files[i],self.name,files[0]))
             if not np.all(self.parameters == cm[i].parameters):
-                raise SdfError("parameters {} in {} not the same as {} in {}".
+                raise utils.SdfError("parameters {} in {} not the same as {} in {}".
                                format(cm[i].parameters,
                                       files[i],self.parameters,files[0]))
             for param in cm[i].parameters:
                 if not np.all( np.equal(self.param_values[param],
                                         cm[i].param_values[param]) ):
-                    raise SdfError("parameter {} values {} in {}\
+                    raise utils.SdfError("parameter {} values {} in {}\
                                    not the same as {} in {}".
                                    format(param,cm[i].param_values[param],
                                           files[i],self.param_values[param],
@@ -478,7 +477,7 @@ class PhotModel(Model):
                     keep = np.append( keep, fi )
     
         if len(keep) != len(filternames):
-            raise SdfError("filters has {} elements ({}) but {} were found\
+            raise utils.SdfError("filters has {} elements ({}) but {} were found\
                            (from {}) in PhotModel".
                            format(len(filternames),filternames,len(keep),
                                   self.filters))
@@ -582,7 +581,7 @@ class SpecModel(Model):
         # don't do the calculation if there will be a write error
         if write and overwrite == False:
             if exists(cfg.model_loc[name]+name+'.fits'):
-                raise SdfError("{} exists, will not overwrite".
+                raise utils.SdfError("{} exists, will not overwrite".
                                format(cfg.model_loc[name]+name+'.fits'))
     
         self = cls()
@@ -622,7 +621,7 @@ class SpecModel(Model):
         # don't do the calculation if there will be a write error
         if write and overwrite == False:
             if exists(cfg.model_loc[name]+name+'.fits'):
-                raise SdfError("{} exists, will not overwrite".
+                raise utils.SdfError("{} exists, will not overwrite".
                                format(cfg.model_loc[name]+name+'.fits'))
     
         self = cls()
@@ -751,7 +750,7 @@ def crop(self,param,range):
     out = self.copy()
     
     if param not in out.parameters:
-        raise SdfError("parameter {} not in model (has {})".
+        raise utils.SdfError("parameter {} not in model (has {})".
                        foramt(param,out.parameters))
 
     # get axis to cut, and locations
@@ -799,22 +798,22 @@ def concat(self,m):
     # check types, parameters, wavelengths, filters are the same
     for i,par in enumerate(out.parameters):
         if par != m.parameters[i]:
-            raise SdfError("parameters {} and {} different".
+            raise utils.SdfError("parameters {} and {} different".
                            format(out.parameters,m.parameters))
     
     if type(out) != type(m):
-        raise SdfError("can't join models of type {} and {}".
+        raise utils.SdfError("can't join models of type {} and {}".
                        format(type(out),type(m)))
     
     if isinstance(out,PhotModel):
         for i,filt in enumerate(out.filters):
             if filt != m.filters[i]:
-                raise SdfError("filters {} and {} different".
+                raise utils.SdfError("filters {} and {} different".
                                format(out.filters,m.filters))
     
     if isinstance(out,SpecModel):
         if not np.all( np.equal(out.wavelength,m.wavelength) ):
-            raise SdfError("wavelengths {} and {} different".
+            raise utils.SdfError("wavelengths {} and {} different".
                            format(out.wavelength,m.wavelength))
 
     # parameters to add and their locations in out
@@ -830,7 +829,7 @@ def concat(self,m):
                 ploc.append( np.searchsorted(out.param_values[p],val) )
 
     if len(padd) != 1:
-        raise SdfError("model parameters can't be joined (padd={})".
+        raise utils.SdfError("model parameters can't be joined (padd={})".
                        format(padd))
     else:
         padd = padd[0]
@@ -841,7 +840,7 @@ def concat(self,m):
     for i,loc in enumerate(ploc):
         
         if m.param_values[padd][i] in out.param_values[padd]:
-            raise SdfError("model already has {}={}".
+            raise utils.SdfError("model already has {}={}".
                            format(padd,m.param_values[padd][i]))
 
         print("  adding {}={} (dims {} to {}) at {}".
@@ -996,11 +995,11 @@ def models_info(m):
 
     # check structure looks OK
     if len(np.unique(info['ncomp'])) > 1:
-        raise SdfError("model structure {} should have same number of\
+        raise utils.SdfError("model structure {} should have same number of\
                         subcomponents in each component, not {}".
                         format(m,info['ncomp']))
     if len(np.unique(info['nspec'])) > 1:
-        raise SdfError("model structure {} should have same number of spectra\
+        raise utils.SdfError("model structure {} should have same number of spectra\
                         in each component, not {}".format(m,info['nspec']))
 
     return info

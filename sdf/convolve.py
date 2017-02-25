@@ -2,8 +2,7 @@ import numpy as np
 import astropy.units as u
 from . import filter
 from . import spectrum
-from . import utils as utils
-from .utils import SdfError
+from . import utils
 from . import config as cfg
 
 c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
@@ -40,7 +39,7 @@ class ConvolvedModel(object):
         keywords = fh[0].header
         type = keywords['SDFTYPE']
         if type != 'convolvedmodel':
-            raise SdfError("file {} not a convolvedmodel, is a {}".format(file,type))
+            raise utils.SdfError("file {} not a convolvedmodel, is a {}".format(file,type))
 
         self.name = keywords['NAME']
         self.filter = keywords['FILTER']
@@ -53,7 +52,7 @@ class ConvolvedModel(object):
         for i,par in enumerate(self.parameters):
             j = i+2
             if str.upper(par) != fh[j].name:
-                raise SdfError("{}th parameter {} not equal to HDU with name {}".format(j,par,fh[j].name))
+                raise utils.SdfError("{}th parameter {} not equal to HDU with name {}".format(j,par,fh[j].name))
             dat = fh[j].data
             d[par] = np.array(dat,dtype=dat.dtype[0])
         self.param_values = d
@@ -233,5 +232,5 @@ class ConvolvedModel(object):
         if self.param_values is not None and value is not None:
             for i,key in enumerate(self.parameters):
                 if len(self.param_values[key]) != value.shape[i]:
-                    raise SdfError("expected dimension {} to have size {} but got {}".format(i,len(self.param_values[key]),value.shape[i]))
+                    raise utils.SdfError("expected dimension {} to have size {} but got {}".format(i,len(self.param_values[key]),value.shape[i]))
         self._fnujy_sr = value

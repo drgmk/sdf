@@ -9,7 +9,6 @@ from . import convolve
 from . import model
 from . import spectrum
 from . import filter
-from .utils import SdfError
 from . import config as cfg
 
 c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
@@ -243,7 +242,7 @@ def phoenix_mh_spectra(resolution=500,mh=0.0,overwrite=False):
 
     for i,sp in enumerate(spec):
         if not np.all( np.equal(s.wavelength,sp.wavelength) ):
-            raise SdfError("wavelength grids not the same \
+            raise utils.SdfError("wavelength grids not the same \
                             in files {} and {}".format(fs[0],fs[i]))
         j = np.where(teff[i] == teffarr)[0][0]
         k = np.where(logg[i] == loggarr)[0][0]
