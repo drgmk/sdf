@@ -147,7 +147,7 @@ class Model(object):
         hdus = [hdu0,hdu1,hdu2]
         hdus.extend(hdup)
         hdulist = fits.HDUList(hdus)
-        hdulist.writeto(file, clobber=overwrite)
+        hdulist.writeto(file, overwrite=overwrite)
     
 
     @lru_cache(maxsize=8)
