@@ -106,7 +106,7 @@ class Result(object):
             if os.path.getmtime(self.chain_plot) < self.mtime:
                 run = True
             
-        if update:
+        if run:
             d = self.analyzer.get_data()
             fig = corner.corner(d[:,2:],show_titles=True,
                                 labels=self.model_info['parameters'],
@@ -350,15 +350,19 @@ class Result(object):
     
         # the array sets the order, and the dict the conversion
         text_ord = ['Teff','lstar','rstar',
-                    'Temp','rdisk_bb','ldisk_lstar','lam0','beta']
-        text_sub = {'Teff':['T<sub>star</sub>','K'],
-                    'MH':['[M/H]',''],
-                    'logg':['logg',''],
+                    'Temp','rdisk_bb','ldisk_lstar',
+                    'lam0','beta','Dmin','q']
+                    
+        text_sub = {'Teff': ['T<sub>star</sub>','K'],
+                    'MH':   ['[M/H]',''],
+                    'logg': ['logg',''],
                     'lstar':['L<sub>star</sub>','L<sub>Sun</sub>'],
                     'rstar':['R<sub>star</sub>','R<sub>Sun</Sun>'],
-                    'Temp':['T<sub>dust</sub>','K'],
-                    'lam0':['&lambda;<sub>0</sub>','&mu;m'],
-                    'beta':['&beta;',''],
+                    'Temp': ['T<sub>dust</sub>','K'],
+                    'lam0': ['&lambda;<sub>0</sub>','&mu;m'],
+                    'beta': ['&beta;',''],
+                    'Dmin': ['D<sub>min</sub>','&mu;m'],
+                    'q':    ['q',''],
                     'ldisk_lstar':['L<sub>disk</sub>/L<sub>star</sub>',''],
                     'rdisk_bb':['R<sub>BB</sub>','au']}
     
