@@ -1,6 +1,7 @@
 import glob
 from os.path import exists,basename
 from itertools import product
+from scipy.io import readsav
 
 import numpy as np
 import astropy.units as u
@@ -39,6 +40,7 @@ def setup_phot():
     specmodel2phot(mname='bb_disk_r')
     specmodel2phot(mname='bb_star')
     specmodel2phot(mname='modbb_disk_r')
+    specmodel2phot(mname='amsil_r')
 
 
 def bb_spectra():
@@ -251,3 +253,28 @@ def phoenix_mh_spectra(resolution=500,mh=0.0,overwrite=False):
     s.write_model(name,overwrite=overwrite)
 
     return s
+
+
+def real_grain_spectra(file,overwrite=False):
+    """Real dust grain models from IDL save file.
+    
+    Files are made by sdf/dust_spectra.pro, saving a grid of P(r)
+    with dimensions [wav,temp,dmin,q]. When restored the dimensions are
+    reversed."""
+
+    pr = readsav(file)
+
+    s = model.SpecModel()
+    s.name = 'amsil_r'
+    s.wavelength = pr['wavs']
+    s.parameters = ['log_Temp','Dmin','q']
+    s.param_values = {'log_Temp': np.log10(pr['temps']),
+                      'Dmin': pr['dmins'],
+                      'q': pr['qs']}
+
+    s.fnujy_sr = np.rollaxis(np.rollaxis(np.rollaxis(pr['pr'],1),2),3)
+    s.fnujy_sr[ s.fnujy_sr < cfg.tiny ] = cfg.tiny
+
+    print(s.wavelength)
+
+    s.write_model(s.name,overwrite=overwrite)
