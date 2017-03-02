@@ -4,7 +4,7 @@ import os
 import numpy as np
 
 from jinja2 import Template
-from bokeh.resources import CDN
+from bokeh.resources import CDN,INLINE
 
 from . import plotting
 from . import db
@@ -45,6 +45,8 @@ def index(results,file='index.html'):
     template = Template(templates.index)
     bokeh_js = CDN.render_js()
     bokeh_css = CDN.render_css()
+#    bokeh_js = INLINE.render_js()
+#    bokeh_css = INLINE.render_css()
     html = template.render(bokeh_js=bokeh_js,
                            bokeh_css=bokeh_css,
                            css=templates.css,
