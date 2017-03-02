@@ -233,7 +233,7 @@ class Model(object):
         ff = utils.spline_filter_mem(utils.hashable(self.fnujy_sr),order=2)
         fluxes = map_coordinates(ff,pargrid.T,order=2,prefilter=False)
         
-        # hack to avoid negative fluxes from ringing
+        # hack to avoid negative fluxes arising from ringing
         fluxes[fluxes<cfg.tiny] = cfg.tiny
 
         # per-filter normalisation for photometry (leave colours)
@@ -673,6 +673,10 @@ class SpecModel(Model):
         # almost certainly be near the spectral resolution of whatever
         # instrument it came from. Probably use resample.
 
+        # check we need to do something
+        if np.all(self.wavelength == wavelength):
+            return
+
         if log:
             neg = self.fnujy_sr <= 0.0
             self.fnujy_sr[neg] = cfg.tiny
@@ -684,9 +688,11 @@ class SpecModel(Model):
             wave = self.wavelength
             wave_interp = wavelength
         
-        # get a function that will return interpolated values
+        # get a function that will return interpolated values, ensure
+        # error if extrapolation in wavelength requested (i.e. model
+        # doesn't cover as wide as was requested)
         f = interp1d(wave,cube,axis=0,kind='linear',
-                     bounds_error=False,fill_value=np.inf)
+                     bounds_error=True)
         cube_interp = f(wave_interp)
 
         self.wavelength = wavelength
