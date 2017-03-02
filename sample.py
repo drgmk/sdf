@@ -130,7 +130,7 @@ def sample_table_www(cursor,sample):
     sample_table_temp_tables(cursor)
 
     sel = ("SELECT "
-           "CONCAT('<a target=\"_blank\" href=\"../../seds/masters/',sdbid,'/public\">',COALESCE(main_id,hd.xid,hip.xid,gj.xid),'</a>') as id,"
+           "CONCAT('<a target=\"_blank\" href=\"../../seds/masters/',sdbid,'/public\">',COALESCE(main_id,hd.xid,hip.xid,gj.xid,tmass.xid),'</a>') as id,"
            "hd.xid as HD,"
            "hip.xid as HIP,"
            "gj.xid as GJ,"
@@ -153,13 +153,12 @@ def sample_table_www(cursor,sample):
         sel += " FROM "+cfg.mysql['db_samples']+"."+sample+" LEFT JOIN sdb_pm USING (sdbid)"
         
     sel += (" LEFT JOIN simbad USING (sdbid)"
-#            " LEFT JOIN tyc2 USING (sdbid)"
-#            " LEFT JOIN gaia USING (sdbid)"
             " LEFT JOIN sdb_results.star on sdbid=star.id"
             " LEFT JOIN sdb_results.disk_r on sdbid=disk_r.id"
             " LEFT JOIN hd USING (sdbid)"
             " LEFT JOIN hip USING (sdbid)"
             " LEFT JOIN gj USING (sdbid)"
+            " LEFT JOIN tmass USING (sdbid)"
             " LEFT JOIN phot USING (sdbid)"
             " WHERE sdb_pm.sdbid IS NOT NULL"
             " GROUP BY sdbid"
@@ -212,9 +211,6 @@ def sample_table_votable(cursor,sample):
     # create dir and .htaccess if neeeded
     create_dir(wwwroot,sample)
 
-    # create temporary tables we want to join on
-#    sample_table_temp_tables(cursor)
-
     # generate the mysql statement
     sel = "SELECT *"
 
@@ -245,6 +241,11 @@ def sample_table_votable(cursor,sample):
 def sample_table_temp_tables(cursor):
     """Create temporary tables for creating sample tables."""
 
+    cursor.execute("DROP TABLE IF EXISTS tmass;")
+    cursor.execute("CREATE TEMPORARY TABLE tmass SELECT sdbid,GROUP_CONCAT(xid) as xid"
+                   " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid REGEXP('^2MASS')"
+                   " GROUP BY sdbid;")
+    cursor.execute("ALTER TABLE tmass ADD INDEX sdbid_tmass (sdbid);")
     cursor.execute("DROP TABLE IF EXISTS hd;")
     cursor.execute("CREATE TEMPORARY TABLE hd SELECT sdbid,GROUP_CONCAT(xid) as xid"
                    " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid REGEXP('^HD')"
