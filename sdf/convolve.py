@@ -103,7 +103,7 @@ class ConvolvedModel(object):
         hdus = [hdu0,hdu1]
         hdus.extend(hdup)
         hdulist = fits.HDUList(hdus)
-        hdulist.writeto(file, clobber=overwrite)
+        hdulist.writeto(file, overwrite=overwrite)
 
         
     @classmethod
