@@ -139,6 +139,7 @@ class Result(object):
             i0 += nparam
         
         # fluxes etc., this is largely copied from fitting.residual
+        # TODO: add realistic uncertainties
         
         # observed fluxes
         tmp = fitting.concat_obs(self.obs)
@@ -157,8 +158,7 @@ class Result(object):
         self.chisq = np.sum( np.square( self.residuals ) )
         self.dof = len(self.wavelengths)-len(self.parameters)-1
 
-        # star/disk photometry for all filters, obs_nel is just no of
-        # filters (p_all.nphot)
+        # star/disk photometry for all filters
         star_comps = ()
         star_params = []
         disk_comps = ()
@@ -220,7 +220,6 @@ class Result(object):
                     disk_spec += mtmp.fnujy(self.comp_best_params[i])
 
         # and star/disk spectra
-        # TODO: add realistic uncertainties
         if np.max(star_spec) > 0:
             self.star_spec = spectrum.ObsSpectrum(wavelength=wave,fnujy=star_spec)
         else:
