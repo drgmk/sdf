@@ -238,7 +238,7 @@ class Model(object):
 
         # per-filter normalisation for photometry (leave colours)
         if isinstance(self,PhotModel):
-            filt = filter.iscolour(tuple(self.filters))
+            filt = filter.iscolour(tuple(self.filters.tolist()))
             norm = np.zeros(len(self.filters)) + area_sr
             if np.any(filt):
                 norm[filt] = 1.0
