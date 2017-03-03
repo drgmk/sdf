@@ -147,7 +147,7 @@ class Result(object):
             obs_ispec,obs_nel,self.wavelengths,self.filters,self.obs_bibcode = tmp
         spec_norm = np.take(self.best_params+[1.0],obs_ispec)
         self.obs_fnujy = self.obs_fnujy * spec_norm
-        self.obs_e_fnujy = self.obs_fnujy * spec_norm
+        self.obs_e_fnujy = self.obs_e_fnujy * spec_norm
 
         # model photometry and residuals, including filling of
         # colours/indices
