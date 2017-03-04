@@ -95,7 +95,7 @@ class Result(object):
         self.analyzer = a
 
         # when the results were finished
-        self.mtime = os.path.getmtime(self.pmn_base+'.txt')
+        self.mtime = os.path.getmtime(self.pmn_base+'phys_live.points')
 
         # parameter corner plot if needed
         self.chain_plot = self.pmn_base+'corner.png'
@@ -126,22 +126,36 @@ class Result(object):
             self.best_params_1sig.append(self.analyzer.get_stats()\
                                          ['marginals'][i]['sigma'])
         
+        # tuple of multinest samples to use for uncertainty estimation
+        self.param_samples = ()
+        for i in np.random.randint(0,high=len(self.analyzer.data),
+                                   size=cfg.fitting['n_samples']):
+            self.param_samples += (self.analyzer.data[i,2:],)
+
+        # as above, split into components
         self.n_parameters = len(self.parameters)
         self.comp_best_params = ()
         self.comp_best_params_1sig = ()
         self.comp_parameters = ()
+        self.comp_param_samples = ()
         i0 = 0
         for comp in self.models:
             nparam = len(comp[0].parameters)+1
             self.comp_parameters += (comp[0].parameters,)
             self.comp_best_params += (self.best_params[i0:i0+nparam],)
             self.comp_best_params_1sig += (self.best_params_1sig[i0:i0+nparam],)
+            
+            comp_i_samples = ()
+            for i in np.random.randint(0,high=len(self.analyzer.data),
+                                       size=cfg.fitting['n_samples']):
+                comp_i_samples += (self.analyzer.data[i,i0+2:i0+nparam+2],)
+            self.comp_param_samples += (comp_i_samples,)
+
             i0 += nparam
         
-        # fluxes etc., this is largely copied from fitting.residual
-        # TODO: add realistic uncertainties
+        # fluxes and uncertainties etc. using parameter samples
         
-        # observed fluxes
+        # observed fluxes, this is largely copied from fitting.residual
         tmp = fitting.concat_obs(self.obs)
         self.obs_fnujy,self.obs_e_fnujy,self.obs_upperlim,self.filters_ignore,\
             obs_ispec,obs_nel,self.wavelengths,self.filters,self.obs_bibcode = tmp
@@ -149,10 +163,30 @@ class Result(object):
         self.obs_fnujy = self.obs_fnujy * spec_norm
         self.obs_e_fnujy = self.obs_e_fnujy * spec_norm
 
-        # model photometry and residuals, including filling of
-        # colours/indices
-        self.model_fnujy,self.model_comp_fnujy                      \
-            = model.model_fluxes(self.models,self.best_params,obs_nel)
+        # model photometry and residuals, including colours/indices
+        model_dist = np.zeros((len(self.filters),cfg.fitting['n_samples']))
+        model_comp_dist = np.zeros((self.n_comps,len(self.filters),
+                                    cfg.fitting['n_samples']))
+                                    
+        for i,par in enumerate(self.param_samples):
+            model_fnujy,model_comp_fnujy = \
+                model.model_fluxes(self.models,par,obs_nel)
+        
+            model_dist[:,i] = model_fnujy
+            model_comp_dist[:,:,i] = model_comp_fnujy
+
+        # summed model fluxes
+        lo,self.model_fnujy,hi = np.percentile(model_dist,[31.73,50.0,68.27],axis=1)
+        self.model_fnujy_1sig_lo = self.model_fnujy - lo
+        self.model_fnujy_1sig_hi = hi - self.model_fnujy
+
+        # per-component model fluxes
+        lo,self.model_comp_fnujy,hi = np.percentile(model_comp_dist,
+                                                    [31.73,50.0,68.27],axis=2)
+        self.model_comp_fnujy_1sig_lo = self.model_comp_fnujy - lo
+        self.model_comp_fnujy_1sig_hi = hi - self.model_comp_fnujy
+
+        # fitting results
         self.residuals,_,_ = fitting.residual(self.best_params,
                                               self.obs,self.models)
         self.chisq = np.sum( np.square( self.residuals ) )
@@ -161,42 +195,84 @@ class Result(object):
         # star/disk photometry for all filters
         star_comps = ()
         star_params = []
+        star_param_samples = [[] for i in range(cfg.fitting['n_samples'])]
         disk_comps = ()
         disk_params = []
+        disk_param_samples = [[] for i in range(cfg.fitting['n_samples'])]
+
+        # first create star/disk component arrays
         for i,comp in enumerate(self.model_comps):
             if self.star_or_disk[i] == 'star':
                 star_comps += (comp,)
                 star_params += self.comp_best_params[i]
+                for j in range(cfg.fitting['n_samples']):
+                    star_param_samples[j] = np.append(star_param_samples[j],
+                                                      self.comp_param_samples[i][j])
             elif self.star_or_disk[i] == 'disk':
                 disk_comps += (comp,)
                 disk_params += self.comp_best_params[i]
-        
+                for j in range(cfg.fitting['n_samples']):
+                    disk_param_samples[j] = np.append(disk_param_samples[j],
+                                                      self.comp_param_samples[i][j])
+
+        # compute all star photometry for each parameter sample
         p_all = photometry.Photometry(filters=filter.Filter.all)
         if len(star_comps) > 0:
             star_mod,_ = model.get_models((p_all,),star_comps)
-            self.star_phot,_ = model.model_fluxes(star_mod,star_params,[p_all.nphot])
+            
+            phot_dist = np.zeros((p_all.nphot,cfg.fitting['n_samples']))
+            for i,par in enumerate(star_param_samples):
+                tmp,_ = model.model_fluxes(star_mod,par,[p_all.nphot])
+                phot_dist[:,i] = tmp
+
+            lo,self.star_phot,hi = np.percentile(phot_dist,[31.73,50.0,68.27],axis=1)
+            self.star_phot_1sig_lo = self.star_phot - lo
+            self.star_phot_1sig_hi = hi - self.star_phot
+
         else:
             self.star_phot = None
-        
+
+        # repeat for disk photometry
         if len(disk_comps) > 0:
             disk_mod,_ = model.get_models((p_all,),disk_comps)
-            self.disk_phot,_ = model.model_fluxes(disk_mod,disk_params,[p_all.nphot])
+
+            phot_dist = np.zeros((p_all.nphot,cfg.fitting['n_samples']))
+            for i,par in enumerate(disk_param_samples):
+                tmp,_ = model.model_fluxes(disk_mod,par,[p_all.nphot])
+                phot_dist[:,i] = tmp
+
+            lo,self.disk_phot,hi = np.percentile(phot_dist,[31.73,50.0,68.27],axis=1)
+            self.disk_phot_1sig_lo = self.disk_phot - lo
+            self.disk_phot_1sig_hi = hi - self.disk_phot
+
         else:
             self.disk_phot = None
         
         self.all_filters = p_all.filters
         
         # total photometry
-        if self.star_phot is not None:
-            self.all_phot = self.star_phot
-            if self.disk_phot is not None:
-                self.all_phot += self.disk_phot
+        mod,_ = model.get_models((p_all,),self.model_comps)
+        phot_dist = np.zeros((p_all.nphot,cfg.fitting['n_samples']))
+        for i,par in enumerate(self.param_samples):
+            tmp,_ = model.model_fluxes(mod,par,[p_all.nphot])
+            phot_dist[:,i] = tmp
         
-        else:
-            if self.disk_phot is not None:
-                self.all_phot = self.disk_phot
-            else:
-                self.all_phot = None
+        self.all_phot_dist = phot_dist
+
+        lo,self.all_phot,hi = np.percentile(phot_dist,[31.73,50.0,68.27],axis=1)
+        self.all_phot_1sig_lo = self.all_phot - lo
+        self.all_phot_1sig_hi = hi - self.all_phot
+
+#        if self.star_phot is not None:
+#            self.all_phot = np.array(self.star_phot)
+#            if self.disk_phot is not None:
+#                self.all_phot += self.disk_phot
+#        
+#        else:
+#            if self.disk_phot is not None:
+#                self.all_phot = np.array(self.disk_phot)
+#            else:
+#                self.all_phot = None
 
         # ObsSpectrum for each component
         wave = cfg.models['default_wave']
