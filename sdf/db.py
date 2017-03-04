@@ -89,8 +89,8 @@ def write_phot(cursor,r):
 
             stmt = ("INSERT INTO "+cfg.mysql['phot_table']+" "
                     "(id,filter,obs_jy,e_obs_jy,obs_upperlim,bibcode,"
-                    "model_jy,chi,R) "
-                    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)")
+                    "model_jy,e_model_jy_lo,e_model_jy_hi,chi,R) "
+                    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)")
                     
             # compute R properly, / for flux and - for colurs
             ratio = r.obs_fnujy[j] / r.model_fnujy[j]
@@ -100,6 +100,7 @@ def write_phot(cursor,r):
             values = (str(r.id),str(r.filters[j]),str(r.obs_fnujy[j]),
                       str(r.obs_e_fnujy[j]),str(r.obs_upperlim[j].astype(int)),
                       str(r.obs_bibcode[j]),str(r.model_fnujy[j]),
+                      str(r.model_fnujy_1sig_lo),str(r.model_fnujy_1sig_hi),
                       str(r.residuals[j]),str(ratio))
             
             cursor.execute(stmt,values)
@@ -108,24 +109,32 @@ def write_phot(cursor,r):
         else:
 
             stmt = ("INSERT INTO "+cfg.mysql['phot_table']+" "
-                    "(id,filter,model_jy) "
-                    "VALUES (%s,%s,%s)")
-            values = (str(r.id),str(filt),
-                      str(r.all_phot[i]) )
+                    "(id,filter,model_jy,e_model_jy_lo,e_model_jy_hi) "
+                    "VALUES (%s,%s,%s,%s,%s)")
+            values = (str(r.id),str(filt),str(r.all_phot[i]),
+                      str(r.all_phot_1sig_lo[i]),str(r.all_phot_1sig_hi[i]))
             cursor.execute(stmt,values)
 
         # add these on to both
         if r.star_phot is not None:
             cursor.execute("UPDATE "+cfg.mysql['phot_table']+" "
-                           "SET star_jy = {:e} WHERE id = '{}' "
+                           "SET star_jy = {:e}, "
+                           "e_star_jy_lo = {:e}, e_star_jy_hi = {:e} "
+                           "WHERE id = '{}' "
                            "AND filter = '{}'".format(r.star_phot[i],
-                                                    r.id,filt) )
+                                                      r.star_phot_1sig_lo[i],
+                                                      r.star_phot_1sig_hi[i],
+                                                      r.id,filt) )
 
         if r.disk_phot is not None:
             cursor.execute("UPDATE "+cfg.mysql['phot_table']+" "
-                           "SET disk_jy = {:e} WHERE id = '{}' "
+                           "SET disk_jy = {:e}, "
+                           "e_disk_jy_lo = {:e}, e_disk_jy_hi = {:e} "
+                           "WHERE id = '{}' "
                            "AND filter = '{}'".format(r.disk_phot[i],
-                                                    r.id,filt) )
+                                                      r.disk_phot_1sig_lo[i],
+                                                      r.disk_phot_1sig_hi[i],
+                                                      r.id,filt) )
 
 
 def write_model(cursor,r):
