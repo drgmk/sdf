@@ -263,17 +263,6 @@ class Result(object):
         self.all_phot_1sig_lo = self.all_phot - lo
         self.all_phot_1sig_hi = hi - self.all_phot
 
-#        if self.star_phot is not None:
-#            self.all_phot = np.array(self.star_phot)
-#            if self.disk_phot is not None:
-#                self.all_phot += self.disk_phot
-#        
-#        else:
-#            if self.disk_phot is not None:
-#                self.all_phot = np.array(self.disk_phot)
-#            else:
-#                self.all_phot = None
-
         # ObsSpectrum for each component
         wave = cfg.models['default_wave']
         star_spec = np.zeros(len(wave))
