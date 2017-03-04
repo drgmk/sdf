@@ -31,20 +31,20 @@ def write_all(r,update=False):
         
         print("   writing")
         
-        stmt = ("DELETE FROM "+cfg.mysql['phot_table']+" WHERE id = %(a)s;")
-        cursor.execute(stmt,{'a':str(r.id)})
+        cursor.execute("DELETE FROM {} "
+                       "WHERE id = '{}'".format(cfg.mysql['phot_table'],r.id))
         write_phot(cursor,r)
 
-        stmt = ("DELETE FROM "+cfg.mysql['model_table']+" WHERE id = %(a)s;")
-        cursor.execute(stmt,{'a':str(r.id)})
+        cursor.execute("DELETE FROM {} "
+                       "WHERE id = '{}'".format(cfg.mysql['model_table'],r.id))
         write_model(cursor,r)
 
-        cursor.execute("DELETE FROM "+cfg.mysql['star_table']+" "
-                       "WHERE id = '{}'".format(r.id))
+        cursor.execute("DELETE FROM {} "
+                       "WHERE id = '{}'".format(cfg.mysql['star_table'],r.id))
         write_star(cursor,r)
 
-        cursor.execute("DELETE FROM "+cfg.mysql['disk_r_table']+" "
-                       "WHERE id = '{}'".format(r.id))
+        cursor.execute("DELETE FROM {} "
+                       "WHERE id = '{}'".format(cfg.mysql['disk_r_table'],r.id))
         write_disk_r(cursor,r)
     
     else:
@@ -60,9 +60,8 @@ def update_needed(cursor,table,r):
     """Check mtime against result, deleting old entries."""
 
     # if entries in table, get file modification time
-    stmt = ("SELECT MIN(model_mtime) FROM "
-            +table+" WHERE id = %(a)s;")
-    cursor.execute(stmt,{'a':str(r.id)})
+    cursor.execute("SELECT MIN(model_mtime) "
+                   "FROM {} WHERE id = '{}';".format(table,r.id))
     db_mtime = cursor.fetchall()[0][0]
 
     # False if sql up to date
@@ -87,33 +86,33 @@ def write_phot(cursor,r):
             
             j = np.where(filt == r.filters)[0][0]
 
-            stmt = ("INSERT INTO "+cfg.mysql['phot_table']+" "
-                    "(id,filter,obs_jy,e_obs_jy,obs_upperlim,bibcode,"
-                    "model_jy,e_model_jy_lo,e_model_jy_hi,chi,R) "
-                    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)")
-                    
             # compute R properly, / for flux and - for colurs
             ratio = r.obs_fnujy[j] / r.model_fnujy[j]
             if filter.iscolour(r.filters[j]):
                 ratio = r.obs_fnujy[j] - r.model_fnujy[j]
             
-            values = (str(r.id),str(r.filters[j]),str(r.obs_fnujy[j]),
-                      str(r.obs_e_fnujy[j]),str(r.obs_upperlim[j].astype(int)),
-                      str(r.obs_bibcode[j]),str(r.model_fnujy[j]),
-                      str(r.model_fnujy_1sig_lo),str(r.model_fnujy_1sig_hi),
-                      str(r.residuals[j]),str(ratio))
-            
-            cursor.execute(stmt,values)
-
+            cursor.execute("INSERT INTO {} "
+                    "(id,filter,obs_jy,e_obs_jy,obs_upperlim,bibcode,"
+                    "model_jy,e_model_jy_lo,e_model_jy_hi,chi,R) "
+                    "VALUES ('{}','{}',{:e}, "
+                    "{:e},{},'{}',{:e},{:e},{:e}, "
+                    "{:e},{:e})".format(cfg.mysql['phot_table'],
+                                        r.id,r.filters[j],r.obs_fnujy[j],
+                                        r.obs_e_fnujy[j],r.obs_upperlim[j].astype(int),
+                                        r.obs_bibcode[j],r.model_fnujy[j],
+                                        r.model_fnujy_1sig_lo[j],r.model_fnujy_1sig_hi[j],
+                                        r.residuals[j],ratio))
+                    
         # the other filters
         else:
 
-            stmt = ("INSERT INTO "+cfg.mysql['phot_table']+" "
+            cursor.execute("INSERT INTO {} "
                     "(id,filter,model_jy,e_model_jy_lo,e_model_jy_hi) "
-                    "VALUES (%s,%s,%s,%s,%s)")
-            values = (str(r.id),str(filt),str(r.all_phot[i]),
-                      str(r.all_phot_1sig_lo[i]),str(r.all_phot_1sig_hi[i]))
-            cursor.execute(stmt,values)
+                    "VALUES ('{}','{}',{:e},{:e}, "
+                    "{:e})".format(cfg.mysql['phot_table'],
+                                   r.id,filt,r.all_phot[i],
+                                   r.all_phot_1sig_lo[i],
+                                   r.all_phot_1sig_hi[i]))
 
         # add these on to both
         if r.star_phot is not None:
@@ -165,18 +164,18 @@ def write_star(cursor,r):
     for star in r.star:
 
         # start a row
-        cursor.execute("INSERT INTO "+cfg.mysql['star_table']+" "
-                       "(id,teff,e_teff) VALUES "
-                       "('{}',{:e},{:e})".format(r.id,star['Teff'],
+        cursor.execute("INSERT INTO {} (id,teff,e_teff) VALUES "
+                       "('{}',{:e},{:e})".format(cfg.mysql['star_table'],
+                                                 r.id,star['Teff'],
                                                  star['e_Teff']))
 
         # and add the rest of the results
         for key in star.keys():
             if key.find('e_') == 0:
                 continue
-            cursor.execute("UPDATE "+cfg.mysql['star_table']+" "
-                           "SET {} = {:e}, {} = {:e} WHERE "
-                           "id = '{}'".format(key,star[key],
+            cursor.execute("UPDATE {} SET {} = {:e}, {} = {:e} WHERE "
+                           "id = '{}'".format(cfg.mysql['star_table'],
+                                              key,star[key],
                                               'e_'+key,star['e_'+key],
                                               r.id) )
 
@@ -190,17 +189,16 @@ def write_disk_r(cursor,r):
     # loop over tuple of dicts of disk_r results
     for i,disk_r in enumerate(r.disk_r):
         
-        cursor.execute("INSERT INTO "+cfg.mysql['disk_r_table']+" "
-                       "(id,comp_no) VALUES "
-                       "('{}',{})".format(r.id,i) )
+        cursor.execute("INSERT INTO {} (id,comp_no) VALUES "
+                       "('{}',{})".format(cfg.mysql['disk_r_table'],r.id,i) )
 
         # and add the rest of the results
         for key in disk_r.keys():
             if key.find('e_') == 0:
                 continue
-            cursor.execute("UPDATE "+cfg.mysql['disk_r_table']+" "
-                           "SET {} = {:e}, {} = {:e} WHERE id = '{}' "
-                           "AND comp_no = {}".format(key,disk_r[key],
+            cursor.execute("UPDATE {} SET {} = {:e}, {} = {:e} WHERE id = '{}' "
+                           "AND comp_no = {}".format(cfg.mysql['disk_r_table'],
+                                                     key,disk_r[key],
                                                      'e_'+key,disk_r['e_'+key],
                                                      r.id,i) )
 
