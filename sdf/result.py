@@ -154,6 +154,7 @@ class Result(object):
             i0 += nparam
         
         # fluxes and uncertainties etc. using parameter samples
+        self.distributions = {}
         
         # observed fluxes, this is largely copied from fitting.residual
         tmp = fitting.concat_obs(self.obs)
@@ -176,11 +177,13 @@ class Result(object):
             model_comp_dist[:,:,i] = model_comp_fnujy
 
         # summed model fluxes
+        self.distributions['model_fnujy'] = model_dist
         lo,self.model_fnujy,hi = np.percentile(model_dist,[31.73,50.0,68.27],axis=1)
         self.model_fnujy_1sig_lo = self.model_fnujy - lo
         self.model_fnujy_1sig_hi = hi - self.model_fnujy
 
         # per-component model fluxes
+        self.distributions['model_comp_fnujy'] = model_comp_dist
         lo,self.model_comp_fnujy,hi = np.percentile(model_comp_dist,
                                                     [31.73,50.0,68.27],axis=2)
         self.model_comp_fnujy_1sig_lo = self.model_comp_fnujy - lo
@@ -220,12 +223,13 @@ class Result(object):
         if len(star_comps) > 0:
             star_mod,_ = model.get_models((p_all,),star_comps)
             
-            phot_dist = np.zeros((p_all.nphot,cfg.fitting['n_samples']))
+            star_phot_dist = np.zeros((p_all.nphot,cfg.fitting['n_samples']))
             for i,par in enumerate(star_param_samples):
                 tmp,_ = model.model_fluxes(star_mod,par,[p_all.nphot])
-                phot_dist[:,i] = tmp
+                star_phot_dist[:,i] = tmp
 
-            lo,self.star_phot,hi = np.percentile(phot_dist,[31.73,50.0,68.27],axis=1)
+            self.distributions['star_phot'] = star_phot_dist
+            lo,self.star_phot,hi = np.percentile(star_phot_dist,[31.73,50.0,68.27],axis=1)
             self.star_phot_1sig_lo = self.star_phot - lo
             self.star_phot_1sig_hi = hi - self.star_phot
 
@@ -236,12 +240,13 @@ class Result(object):
         if len(disk_comps) > 0:
             disk_mod,_ = model.get_models((p_all,),disk_comps)
 
-            phot_dist = np.zeros((p_all.nphot,cfg.fitting['n_samples']))
+            disk_phot_dist = np.zeros((p_all.nphot,cfg.fitting['n_samples']))
             for i,par in enumerate(disk_param_samples):
                 tmp,_ = model.model_fluxes(disk_mod,par,[p_all.nphot])
-                phot_dist[:,i] = tmp
+                disk_phot_dist[:,i] = tmp
 
-            lo,self.disk_phot,hi = np.percentile(phot_dist,[31.73,50.0,68.27],axis=1)
+            self.distributions['disk_phot'] = disk_phot_dist
+            lo,self.disk_phot,hi = np.percentile(disk_phot_dist,[31.73,50.0,68.27],axis=1)
             self.disk_phot_1sig_lo = self.disk_phot - lo
             self.disk_phot_1sig_hi = hi - self.disk_phot
 
@@ -252,14 +257,15 @@ class Result(object):
         
         # total photometry
         mod,_ = model.get_models((p_all,),self.model_comps)
-        phot_dist = np.zeros((p_all.nphot,cfg.fitting['n_samples']))
+        all_phot_dist = np.zeros((p_all.nphot,cfg.fitting['n_samples']))
         for i,par in enumerate(self.param_samples):
             tmp,_ = model.model_fluxes(mod,par,[p_all.nphot])
-            phot_dist[:,i] = tmp
+            all_phot_dist[:,i] = tmp
         
-        self.all_phot_dist = phot_dist
+        self.all_phot_dist = all_phot_dist
 
-        lo,self.all_phot,hi = np.percentile(phot_dist,[31.73,50.0,68.27],axis=1)
+        self.distributions['all_phot'] = all_phot_dist
+        lo,self.all_phot,hi = np.percentile(all_phot_dist,[31.73,50.0,68.27],axis=1)
         self.all_phot_1sig_lo = self.all_phot - lo
         self.all_phot_1sig_hi = hi - self.all_phot
 
@@ -321,11 +327,26 @@ class Result(object):
             star['e_'+par] = self.best_params_1sig[j]
         
         # stellar luminosity at 1pc, uncertainty is normalisation
-        frac_norm = np.log(10) * self.comp_best_params_1sig[i][-1]
-        star['lstar_1pc'] = self.comp_spectra[i].irradiance \
-                    * 4 * np.pi * (u.pc.to(u.m))**2 / u.L_sun.to(u.W)
-        star['e_lstar_1pc'] = star['lstar_1pc'] * frac_norm
+        lstar_1pc_dist = np.zeros(cfg.fitting['n_samples'])
+        for j,par in enumerate(self.comp_param_samples[i]):
+            
+            # there will only be one SpecModel in the ith component
+            for m in self.pl_models[i]:
+                if not isinstance(m,model.SpecModel):
+                    continue
+                s = spectrum.ObsSpectrum(wavelength=m.wavelength,
+                                         fnujy=m.fnujy(par))
+                s.fill_irradiance()
 
+            lstar_1pc_dist[j] = s.irradiance \
+                        * 4 * np.pi * (u.pc.to(u.m))**2 / u.L_sun.to(u.W)
+        
+        self.distributions['lstar_1pc'] = lstar_1pc_dist
+        lo,star['lstar_1pc'],hi = np.percentile(lstar_1pc_dist,[31.73,50.0,68.27])
+        star['e_lstar_1pc_lo'] = star['lstar_1pc'] - lo
+        star['e_lstar_1pc_hi'] = hi - star['lstar_1pc']
+        star['e_lstar_1pc'] = (star['e_lstar_1pc_lo']+star['e_lstar_1pc_hi'])/2.0
+    
         # distance-dependent params
         if self.obs_keywords['plx_value'] is not None:
             if self.obs_keywords['plx_value'] > 0:
@@ -336,20 +357,28 @@ class Result(object):
                 else:
                     star['e_plx_arcsec'] = star['plx_arcsec'] / 3.
                 
-                star['lstar'] = star['lstar_1pc'] / star['plx_arcsec']**2
-                star['e_lstar'] = star['lstar'] * \
-                                  np.sqrt( frac_norm**2
-                                          + (2*star['e_plx_arcsec']/
-                                             star['plx_arcsec'])**2 )
-                                  
-                star['rstar'] = np.sqrt(cfg.ssr *
-                                        10**self.comp_best_params[i][-1]/np.pi) \
-                        * u.pc.to(u.m) / star['plx_arcsec'] / u.R_sun.to(u.m)
-                star['e_rstar'] = star['rstar'] * \
-                                  np.sqrt( frac_norm**2
-                                          + (2*star['e_plx_arcsec']/
-                                             star['plx_arcsec'])**2)
-
+                # generate a normal distribution of parallaxes
+                plx_dist = np.random.normal(loc=star['plx_arcsec'],
+                                            scale=star['e_plx_arcsec'],
+                                            size=cfg.fitting['n_samples'])
+                                            
+                # combine lstar_1pc and plx distributions for lstar
+                lstar_dist = lstar_1pc_dist / plx_dist**2
+                lo,star['lstar'],hi = np.percentile(lstar_dist,[31.73,50.0,68.27])
+                star['e_lstar_lo'] = star['lstar'] - lo
+                star['e_lstar_hi'] = hi - star['lstar']
+                star['e_lstar'] = (star['e_lstar_lo']+star['e_lstar_hi'])/2.0
+                
+                rstar_dist = np.zeros(cfg.fitting['n_samples'])
+                for j,par in enumerate(self.comp_param_samples[i]):
+                    rstar_dist[j] = np.sqrt(cfg.ssr * 10**par[-1]/np.pi) \
+                        * u.pc.to(u.m) / plx_dist[j] / u.R_sun.to(u.m)
+                
+                lo,star['rstar'],hi = np.percentile(rstar_dist,[31.73,50.0,68.27])
+                star['e_rstar_lo'] = star['rstar'] - lo
+                star['e_rstar_hi'] = hi - star['rstar']
+                star['e_rstar'] = (star['e_rstar_lo']+star['e_rstar_hi'])/2.0
+                
         return star
 
 
