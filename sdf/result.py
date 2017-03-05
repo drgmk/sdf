@@ -364,6 +364,7 @@ class Result(object):
                                             
                 # combine lstar_1pc and plx distributions for lstar
                 lstar_dist = lstar_1pc_dist / plx_dist**2
+                self.distributions['lstar'] = lstar_dist
                 lo,star['lstar'],hi = np.percentile(lstar_dist,[31.73,50.0,68.27])
                 star['e_lstar_lo'] = star['lstar'] - lo
                 star['e_lstar_hi'] = hi - star['lstar']
@@ -403,37 +404,80 @@ class Result(object):
                 disk_r[par_in] = 10**self.comp_best_params[i][j]
                 disk_r['e_'+par_in] = 10**self.comp_best_params_1sig[i][j]
             else:
-                disk_r[par] = self.comp_best_params[i][j]
-                disk_r['e_'+par] = self.comp_best_params_1sig[i][j]
+                par_in = par
+                disk_r[par_in] = self.comp_best_params[i][j]
+                disk_r['e_'+par_in] = self.comp_best_params_1sig[i][j]
+    
+            # array of disk temperature samples
+            if par_in == 'Temp':
+                temp_dist = np.zeros(cfg.fitting['n_samples'])
+                for k,sample in enumerate(self.comp_param_samples[i]):
+                    temp_dist[k] = sample[j]
+
 
         # disk and fractional luminosity
-        frac_norm = np.log(10) * self.comp_best_params_1sig[i][-1]
-        disk_r['ldisk_1pc'] = self.comp_spectra[i].irradiance \
-                    * 4 * np.pi * (u.pc.to(u.m))**2 / u.L_sun.to(u.W)
-        disk_r['e_ldisk_1pc'] = disk_r['ldisk_1pc'] * frac_norm
+        ldisk_1pc_dist = np.zeros(cfg.fitting['n_samples'])
+        for j,par in enumerate(self.comp_param_samples[i]):
+            
+            # there will only be one SpecModel in the ith component
+            for m in self.pl_models[i]:
+                if not isinstance(m,model.SpecModel):
+                    continue
+                s = spectrum.ObsSpectrum(wavelength=m.wavelength,
+                                         fnujy=m.fnujy(par))
+                s.fill_irradiance()
+
+            ldisk_1pc_dist[j] = s.irradiance \
+                        * 4 * np.pi * (u.pc.to(u.m))**2 / u.L_sun.to(u.W)
+        
+        self.distributions['ldisk_1pc'] = ldisk_1pc_dist
+        lo,disk_r['ldisk_1pc'],hi = np.percentile(ldisk_1pc_dist,[31.73,50.0,68.27])
+        disk_r['e_ldisk_1pc_lo'] = disk_r['ldisk_1pc'] - lo
+        disk_r['e_ldisk_1pc_hi'] = hi - disk_r['ldisk_1pc']
+        disk_r['e_ldisk_1pc'] = (disk_r['e_ldisk_1pc_lo']+disk_r['e_ldisk_1pc_hi'])/2.0
+        
+#        frac_norm = np.log(10) * self.comp_best_params_1sig[i][-1]
+#        disk_r['ldisk_1pc'] = self.comp_spectra[i].irradiance \
+#                    * 4 * np.pi * (u.pc.to(u.m))**2 / u.L_sun.to(u.W)
+#        disk_r['e_ldisk_1pc'] = disk_r['ldisk_1pc'] * frac_norm
 
         # sum stellar luminosity
-        lstar_1pc = 0.0
-        e_lstar_1pc = 0.0
+        lstar_1pc_tot = np.zeros(cfg.fitting['n_samples'])
         if isinstance(self.star,tuple):
             for star in self.star:
-                lstar_1pc += star['lstar_1pc']
-                e_lstar_1pc = np.sqrt(e_lstar_1pc**2 + star['e_lstar_1pc']**2)
+                lstar_1pc_tot += star['lstar_1pc']
 
-        if lstar_1pc > 0.0:
-            frac_lstar_1pc = e_lstar_1pc / lstar_1pc
-            disk_r['ldisk_lstar'] = disk_r['ldisk_1pc']/lstar_1pc
-            disk_r['e_ldisk_lstar'] = disk_r['ldisk_lstar'] * \
-                            np.sqrt(frac_norm**2 + frac_lstar_1pc**2)
+        if np.sum(lstar_1pc_tot) > 0.0:
+
+            ldisk_lstar_dist = ldisk_1pc_dist / lstar_1pc_tot
+            self.distributions['ldisk_lstar'] = ldisk_lstar_dist
+            lo,disk_r['ldisk_lstar'],hi = np.percentile(ldisk_lstar_dist,[31.73,50.0,68.27])
+            disk_r['e_ldisk_lstar_lo'] = disk_r['ldisk_lstar'] - lo
+            disk_r['e_ldisk_lstar_hi'] = hi - disk_r['ldisk_lstar']
+            disk_r['e_ldisk_lstar'] = (disk_r['e_ldisk_lstar_lo']+disk_r['e_ldisk_lstar_hi'])/2.0
+
+#            frac_lstar_1pc = e_lstar_1pc / lstar_1pc
+#            disk_r['ldisk_lstar'] = disk_r['ldisk_1pc']/lstar_1pc
+#            disk_r['e_ldisk_lstar'] = disk_r['ldisk_lstar'] * \
+#                            np.sqrt(frac_norm**2 + frac_lstar_1pc**2)
 
             # distance (and stellar L)-dependent params
             if self.obs_keywords['plx_value'] is not None:
-                plx_arcsec = self.obs_keywords['plx_value'] / 1e3
-                disk_r['rdisk_bb'] = (lstar_1pc/plx_arcsec**2)**0.5 * \
-                                        (278.3/disk_r['Temp'])**2
-                disk_r['e_rdisk_bb'] = disk_r['rdisk_bb'] * \
-                            np.sqrt( (0.5*frac_lstar_1pc)**2
-                                    + (2*(disk_r['e_Temp']/disk_r['Temp']))**2 )
+                rdisk_bb_dist = self.distributions['lstar']**0.5 * \
+                                        (278.3/temp_dist)**2
+
+                self.distributions['rdisk_bb'] = rdisk_bb_dist
+                lo,disk_r['rdisk_bb'],hi = np.percentile(rdisk_bb_dist,[31.73,50.0,68.27])
+                disk_r['e_rdisk_bb_lo'] = disk_r['rdisk_bb'] - lo
+                disk_r['e_rdisk_bb_hi'] = hi - disk_r['rdisk_bb']
+                disk_r['e_rdisk_bb'] = (disk_r['e_rdisk_bb_lo']+disk_r['e_rdisk_bb_hi'])/2.0
+
+#                plx_arcsec = self.obs_keywords['plx_value'] / 1e3
+#                disk_r['rdisk_bb'] = (lstar_1pc/plx_arcsec**2)**0.5 * \
+#                                        (278.3/disk_r['Temp'])**2
+#                disk_r['e_rdisk_bb'] = disk_r['rdisk_bb'] * \
+#                            np.sqrt( (0.5*frac_lstar_1pc)**2
+#                                    + (2*(disk_r['e_Temp']/disk_r['Temp']))**2 )
 
         return disk_r
 
