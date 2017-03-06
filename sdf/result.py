@@ -373,6 +373,14 @@ class Result(object):
         # distance-dependent params
         if 'parallax' in self.distributions.keys():
 
+            if self.obs_keywords['plx_err'] is not None:
+                e_plx_arcsec = self.obs_keywords['plx_err'] / 1e3
+            else:
+                e_plx_arcsec = star['plx_arcsec'] / 3.
+
+            star['plx_arcsec'] = self.obs_keywords['plx_value']
+            star['e_plx_arcsec'] = e_plx_arcsec
+
             # combine lstar_1pc and plx distributions for lstar
             lstar_dist = lstar_1pc_dist / self.distributions['parallax']**2
             distributions['lstar'] = lstar_dist
