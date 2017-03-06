@@ -156,6 +156,24 @@ class Result(object):
         # fluxes and uncertainties etc. using parameter samples
         self.distributions = {}
         
+        # we will want lstar at 1pc below
+        self.distributions['lstar_1pc_tot'] = np.zeros(cfg.fitting['n_samples'])
+        
+        # generate a normal distribution of parallaxes, assume a large
+        # uncertainty if none exists
+        if self.obs_keywords['plx_value'] is not None:
+            if self.obs_keywords['plx_value'] > 0:
+                
+                if self.obs_keywords['plx_err'] is not None:
+                    e_plx_arcsec = self.obs_keywords['plx_err'] / 1e3
+                else:
+                    e_plx_arcsec = star['plx_arcsec'] / 3.
+                
+                self.distributions['parallax'] = \
+                        np.random.normal(loc=self.obs_keywords['plx_value']/1e3,
+                                         scale=e_plx_arcsec,
+                                         size=cfg.fitting['n_samples'])
+
         # observed fluxes, this is largely copied from fitting.residual
         tmp = fitting.concat_obs(self.obs)
         self.obs_fnujy,self.obs_e_fnujy,self.obs_upperlim,self.filters_ignore,\
@@ -311,9 +329,12 @@ class Result(object):
         """Return tuple of dicts of star-specifics, if result has star."""
 
         star = ()
+        distributions = ()
         for i,comp in enumerate(self.model_comps):
             if comp in cfg.models['star']:
-                star = star + (self.star_results_one(i),)
+                star_one, dist_one = self.star_results_one(i)
+                star = star + (star_one,)
+                distributions = distributions + (dist_one,)
 
         return star
 
@@ -322,6 +343,7 @@ class Result(object):
         """Return dict of star-specifics for ith model component."""
 
         star = {}
+        distributions = {}
         for j,par in enumerate(self.comp_parameters[i]):
             star[par] = self.best_params[j]
             star['e_'+par] = self.best_params_1sig[j]
@@ -341,55 +363,48 @@ class Result(object):
             lstar_1pc_dist[j] = s.irradiance \
                         * 4 * np.pi * (u.pc.to(u.m))**2 / u.L_sun.to(u.W)
         
-        self.distributions['lstar_1pc'] = lstar_1pc_dist
+        distributions['lstar_1pc'] = lstar_1pc_dist
+        self.distributions['lstar_1pc_tot'] += lstar_1pc_dist
         lo,star['lstar_1pc'],hi = np.percentile(lstar_1pc_dist,[31.73,50.0,68.27])
         star['e_lstar_1pc_lo'] = star['lstar_1pc'] - lo
         star['e_lstar_1pc_hi'] = hi - star['lstar_1pc']
         star['e_lstar_1pc'] = (star['e_lstar_1pc_lo']+star['e_lstar_1pc_hi'])/2.0
     
         # distance-dependent params
-        if self.obs_keywords['plx_value'] is not None:
-            if self.obs_keywords['plx_value'] > 0:
-                star['plx_arcsec'] = self.obs_keywords['plx_value'] / 1e3
+        if 'parallax' in self.distributions.keys():
+
+            # combine lstar_1pc and plx distributions for lstar
+            lstar_dist = lstar_1pc_dist / self.distributions['parallax']**2
+            distributions['lstar'] = lstar_dist
+            lo,star['lstar'],hi = np.percentile(lstar_dist,[31.73,50.0,68.27])
+            star['e_lstar_lo'] = star['lstar'] - lo
+            star['e_lstar_hi'] = hi - star['lstar']
+            star['e_lstar'] = (star['e_lstar_lo']+star['e_lstar_hi'])/2.0
+            
+            rstar_dist = np.zeros(cfg.fitting['n_samples'])
+            for j,par in enumerate(self.comp_param_samples[i]):
+                rstar_dist[j] = np.sqrt(cfg.ssr * 10**par[-1]/np.pi) \
+                    * u.pc.to(u.m) / self.distributions['parallax'][j] / u.R_sun.to(u.m)
+            
+            distributions['rstar'] = rstar_dist
+            lo,star['rstar'],hi = np.percentile(rstar_dist,[31.73,50.0,68.27])
+            star['e_rstar_lo'] = star['rstar'] - lo
+            star['e_rstar_hi'] = hi - star['rstar']
+            star['e_rstar'] = (star['e_rstar_lo']+star['e_rstar_hi'])/2.0
                 
-                if self.obs_keywords['plx_err'] is not None:
-                    star['e_plx_arcsec'] = self.obs_keywords['plx_err'] / 1e3
-                else:
-                    star['e_plx_arcsec'] = star['plx_arcsec'] / 3.
-                
-                # generate a normal distribution of parallaxes
-                plx_dist = np.random.normal(loc=star['plx_arcsec'],
-                                            scale=star['e_plx_arcsec'],
-                                            size=cfg.fitting['n_samples'])
-                                            
-                # combine lstar_1pc and plx distributions for lstar
-                lstar_dist = lstar_1pc_dist / plx_dist**2
-                self.distributions['lstar'] = lstar_dist
-                lo,star['lstar'],hi = np.percentile(lstar_dist,[31.73,50.0,68.27])
-                star['e_lstar_lo'] = star['lstar'] - lo
-                star['e_lstar_hi'] = hi - star['lstar']
-                star['e_lstar'] = (star['e_lstar_lo']+star['e_lstar_hi'])/2.0
-                
-                rstar_dist = np.zeros(cfg.fitting['n_samples'])
-                for j,par in enumerate(self.comp_param_samples[i]):
-                    rstar_dist[j] = np.sqrt(cfg.ssr * 10**par[-1]/np.pi) \
-                        * u.pc.to(u.m) / plx_dist[j] / u.R_sun.to(u.m)
-                
-                lo,star['rstar'],hi = np.percentile(rstar_dist,[31.73,50.0,68.27])
-                star['e_rstar_lo'] = star['rstar'] - lo
-                star['e_rstar_hi'] = hi - star['rstar']
-                star['e_rstar'] = (star['e_rstar_lo']+star['e_rstar_hi'])/2.0
-                
-        return star
+        return (star,distributions)
 
 
     def disk_r_results(self):
         """Return tuple of dicts of disk-specifics, if result has disk_r."""
 
         disk_r = ()
+        distributions = ()
         for i,comp in enumerate(self.model_comps):
             if comp in cfg.models['disk_r']:
-                disk_r = disk_r + (self.disk_r_results_one(i),)
+                disk_r_one,dist_one = self.disk_r_results_one(i)
+                disk_r = disk_r + (disk_r_one,)
+                distributions = distributions + (dist_one,)
 
         return disk_r
     
@@ -398,6 +413,7 @@ class Result(object):
         """Return dict of disk_r-specifics for ith model component."""
 
         disk_r = {}
+        distributions = {}
         for j,par in enumerate(self.comp_parameters[i]):
             if 'log_' in par:
                 par_in = par.replace('log_','')
@@ -414,7 +430,6 @@ class Result(object):
                 for k,sample in enumerate(self.comp_param_samples[i]):
                     temp_dist[k] = sample[j]
 
-
         # disk and fractional luminosity
         ldisk_1pc_dist = np.zeros(cfg.fitting['n_samples'])
         for j,par in enumerate(self.comp_param_samples[i]):
@@ -430,56 +445,35 @@ class Result(object):
             ldisk_1pc_dist[j] = s.irradiance \
                         * 4 * np.pi * (u.pc.to(u.m))**2 / u.L_sun.to(u.W)
         
-        self.distributions['ldisk_1pc'] = ldisk_1pc_dist
+        distributions['ldisk_1pc'] = ldisk_1pc_dist
         lo,disk_r['ldisk_1pc'],hi = np.percentile(ldisk_1pc_dist,[31.73,50.0,68.27])
         disk_r['e_ldisk_1pc_lo'] = disk_r['ldisk_1pc'] - lo
         disk_r['e_ldisk_1pc_hi'] = hi - disk_r['ldisk_1pc']
         disk_r['e_ldisk_1pc'] = (disk_r['e_ldisk_1pc_lo']+disk_r['e_ldisk_1pc_hi'])/2.0
         
-#        frac_norm = np.log(10) * self.comp_best_params_1sig[i][-1]
-#        disk_r['ldisk_1pc'] = self.comp_spectra[i].irradiance \
-#                    * 4 * np.pi * (u.pc.to(u.m))**2 / u.L_sun.to(u.W)
-#        disk_r['e_ldisk_1pc'] = disk_r['ldisk_1pc'] * frac_norm
+        # stellar luminosities (if >1 star) were summed already
+        if np.sum(self.distributions['lstar_1pc_tot']) > 0.0:
 
-        # sum stellar luminosity
-        lstar_1pc_tot = np.zeros(cfg.fitting['n_samples'])
-        if isinstance(self.star,tuple):
-            for star in self.star:
-                lstar_1pc_tot += star['lstar_1pc']
-
-        if np.sum(lstar_1pc_tot) > 0.0:
-
-            ldisk_lstar_dist = ldisk_1pc_dist / lstar_1pc_tot
-            self.distributions['ldisk_lstar'] = ldisk_lstar_dist
+            ldisk_lstar_dist = ldisk_1pc_dist / self.distributions['lstar_1pc_tot']
+            distributions['ldisk_lstar'] = ldisk_lstar_dist
             lo,disk_r['ldisk_lstar'],hi = np.percentile(ldisk_lstar_dist,[31.73,50.0,68.27])
             disk_r['e_ldisk_lstar_lo'] = disk_r['ldisk_lstar'] - lo
             disk_r['e_ldisk_lstar_hi'] = hi - disk_r['ldisk_lstar']
             disk_r['e_ldisk_lstar'] = (disk_r['e_ldisk_lstar_lo']+disk_r['e_ldisk_lstar_hi'])/2.0
 
-#            frac_lstar_1pc = e_lstar_1pc / lstar_1pc
-#            disk_r['ldisk_lstar'] = disk_r['ldisk_1pc']/lstar_1pc
-#            disk_r['e_ldisk_lstar'] = disk_r['ldisk_lstar'] * \
-#                            np.sqrt(frac_norm**2 + frac_lstar_1pc**2)
-
             # distance (and stellar L)-dependent params
             if self.obs_keywords['plx_value'] is not None:
-                rdisk_bb_dist = self.distributions['lstar']**0.5 * \
-                                        (278.3/temp_dist)**2
+                lstar = self.distributions['lstar_1pc_tot'] / \
+                        self.distributions['parallax']
+                rdisk_bb_dist = lstar**0.5 * (278.3/temp_dist)**2
 
-                self.distributions['rdisk_bb'] = rdisk_bb_dist
+                distributions['rdisk_bb'] = rdisk_bb_dist
                 lo,disk_r['rdisk_bb'],hi = np.percentile(rdisk_bb_dist,[31.73,50.0,68.27])
                 disk_r['e_rdisk_bb_lo'] = disk_r['rdisk_bb'] - lo
                 disk_r['e_rdisk_bb_hi'] = hi - disk_r['rdisk_bb']
                 disk_r['e_rdisk_bb'] = (disk_r['e_rdisk_bb_lo']+disk_r['e_rdisk_bb_hi'])/2.0
 
-#                plx_arcsec = self.obs_keywords['plx_value'] / 1e3
-#                disk_r['rdisk_bb'] = (lstar_1pc/plx_arcsec**2)**0.5 * \
-#                                        (278.3/disk_r['Temp'])**2
-#                disk_r['e_rdisk_bb'] = disk_r['rdisk_bb'] * \
-#                            np.sqrt( (0.5*frac_lstar_1pc)**2
-#                                    + (2*(disk_r['e_Temp']/disk_r['Temp']))**2 )
-
-        return disk_r
+        return (disk_r,distributions)
 
 
     def main_results_text(self):
