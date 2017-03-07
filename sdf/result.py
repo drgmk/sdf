@@ -23,7 +23,7 @@ class Result(object):
 
     @lru_cache(maxsize=128)
     def __init__(self,rawphot,model_comps,update=False,nospec=False):
-        """Take photometry file and model_name, and fill the rest."""
+        """Basic instantiation of the Result object."""
         
         self.rawphot = rawphot
         self.model_comps = model_comps
@@ -58,6 +58,23 @@ class Result(object):
                         + '+'.join(self.model_comps)        \
                         + cfg.fitting['pmn_model_suffix']
 
+        # pickle file, may not exist yet
+        self.pickle = self.pmn_base + '.pkl'
+
+
+    def get(rawphot,model_comps,update=False,nospec=False):
+        """Take photometry file and model_name, and fill the rest."""
+
+        self = Result(rawphot,model_comps,update=update,nospec=nospec)
+
+        # see if we have a pickle of results to return
+        if not update and os.path.exists(self.pickle):
+            if os.path.getmtime(self.pickle) > \
+                os.path.getmtime(self.pmn_base+'phys_live.points'):
+                with open(self.pickle,'rb') as f:
+                    self = pickle.load(f)
+                return self
+
         # observations; keywords, tuples of photometry and spectra. if
         # there is nothing in the photometry file then don't fill
         # anything else
@@ -80,12 +97,10 @@ class Result(object):
         self.pl_models = plmod
         self.model_info = model.models_info(self.models)
 
-        # TODO: can we save time by pickling the results?
-
         # if we want to re-run multinest, delete previous output first
         if update:
             self.delete_multinest()
-
+        
         # go there, multinest only takes 100 char paths
         with utils.pushd(self.pmn_dir):
             fitting.multinest( self.obs,self.models,'.' )
@@ -287,26 +302,28 @@ class Result(object):
         self.all_phot_1sig_lo = self.all_phot - lo
         self.all_phot_1sig_hi = hi - self.all_phot
 
-        # ObsSpectrum for each component
+        # ObsSpectrum for each component, all the same wavelengths
         wave = cfg.models['default_wave']
         star_spec = np.zeros(len(wave))
         disk_spec = np.zeros(len(wave))
         self.comp_spectra = ()
         for i,comp in enumerate(self.pl_models):
-            for m in comp:
-                if not isinstance(m,model.SpecModel):
+            for mtmp in comp:
+                if not isinstance(mtmp,model.SpecModel):
                     continue
+                
+                m = mtmp.copy()
+                m.interp_to_wavelengths(wave)
+
                 s = spectrum.ObsSpectrum(wavelength=m.wavelength,
                                          fnujy=m.fnujy(self.comp_best_params[i]))
                 s.fill_irradiance()
                 self.comp_spectra += (s,)
     
-                mtmp = m.copy()
-                mtmp.interp_to_wavelengths(wave)
                 if self.star_or_disk[i] == 'star':
-                    star_spec += mtmp.fnujy(self.comp_best_params[i])
+                    star_spec += m.fnujy(self.comp_best_params[i])
                 elif self.star_or_disk[i] == 'disk':
-                    disk_spec += mtmp.fnujy(self.comp_best_params[i])
+                    disk_spec += m.fnujy(self.comp_best_params[i])
 
         # and star/disk spectra
         if np.max(star_spec) > 0:
@@ -324,6 +341,16 @@ class Result(object):
         self.disk_r,self.disk_r_distributions = self.disk_r_results()
         self.main_results = self.star + self.disk_r
 
+        # delete the models to save space and we don't need them again
+        self.models = ''
+        self.pl_models = ''
+
+        # save for later in a pickle
+        with open(self.pickle,'wb') as f:
+            pickle.dump(self,f)
+
+        return self
+            
 
     def star_results(self):
         """Return tuple of dicts of star-specifics, if result has star."""

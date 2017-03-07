@@ -35,7 +35,7 @@ def fit_results(file,update=False,sort=True,nospec=False):
 
         print("  ",f)
         
-        res = result.Result(file,f,update=update,nospec=nospec)
+        res = result.Result.get(file,f,update=update,nospec=nospec)
 
         if hasattr(res,'obs'):
             results.append(res)
