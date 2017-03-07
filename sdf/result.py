@@ -320,8 +320,8 @@ class Result(object):
             self.disk_spec = None
 
         # model-specifics, also combined into a single tuple
-        self.star = self.star_results()
-        self.disk_r = self.disk_r_results()
+        self.star,self.star_distributions = self.star_results()
+        self.disk_r,self.disk_r_distributions = self.disk_r_results()
         self.main_results = self.star + self.disk_r
 
 
@@ -336,7 +336,7 @@ class Result(object):
                 star = star + (star_one,)
                 distributions = distributions + (dist_one,)
 
-        return star
+        return star,distributions
 
 
     def star_results_one(self,i):
@@ -414,7 +414,7 @@ class Result(object):
                 disk_r = disk_r + (disk_r_one,)
                 distributions = distributions + (dist_one,)
 
-        return disk_r
+        return disk_r,distributions
     
     
     def disk_r_results_one(self,i):
