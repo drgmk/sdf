@@ -129,7 +129,7 @@ class Result(object):
         self.analyzer = a
 
         # when the results were finished
-        self.mtime = os.path.getmtime(self.pmn_base + '.pkl')
+        self.mtime = os.path.getmtime(self.pmn_base + '.phys_live.points')
 
         # parameter corner plot if needed
         self.chain_plot = self.pmn_base+'corner.png'
