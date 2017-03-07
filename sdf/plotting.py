@@ -202,31 +202,27 @@ def add_model_phot(fig,r):
 
 
 def add_model_spec(fig,r):
-    """Add model spectra to an SED plot.
+    """Add model spectra to an SED plot."""
+    
+    if len(r.comp_spectra) == 0:
+        return
+    
+    # one thick line if one model
+    elif len(r.comp_spectra) == 1:
         
-    If object components are not model.SpecModel,
-    don't do anything
-    """
-    
-    # TODO: use component spectra in result object 
-    
-    # create wavelengths to plot with
-    wav_pl = cfg.models['default_wave']
+        data = {'wave':r.comp_spectra[0].wavelength,
+                'flux':r.comp_spectra[0].fnujy}
+        pldata = ColumnDataSource(data=data)
+        fig.line('wave','flux',source=pldata,**cfg.pl['mod_sp'][0])
 
-    i0 = 0
-    i = 0
-    for comp in r.pl_models:
-        if not isinstance(comp,tuple):
-            comp = (comp,)
-        nparam = len(comp[0].parameters)+1
-        for m in comp:
-            if not isinstance(m,model.SpecModel):
-                continue
+    # thin lines plus thick total for >1 models
+    else:
+        for i,s in enumerate(r.comp_spectra):
+
             data = {}
-            data['wave'] = wav_pl
-            m_pl = m.copy()
-            m_pl.interp_to_wavelengths(wav_pl)
-            data['flux'] = m_pl.fnujy(r.best_params[i0:i0+nparam])
+            data['wave'] = s.wavelength
+            data['flux'] = s.fnujy
+
             try:
                 totflux += data['flux']
             except NameError:
@@ -236,12 +232,8 @@ def add_model_spec(fig,r):
             
             fig.line('wave','flux',source=pldata,**cfg.pl['mod_sp'][i+1])
 
-            i += 1
-        i0 += nparam
-
-    # sum of all models
-    if i > 1 and i0 > 0:
-        data = {'wave':wav_pl,'flux':totflux}
+        # sum of all models
+        data = {'wave':data['wave'],'flux':totflux}
         pldata = ColumnDataSource(data=data)
         fig.line('wave','flux',source=pldata,**cfg.pl['mod_sp'][0])
 
