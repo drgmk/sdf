@@ -22,10 +22,16 @@ class Result(object):
     """Class to compute and handle multinest results."""
 
     @lru_cache(maxsize=128)
-    def __init__(self,rawphot,model_comps,update=False,nospec=False):
+    def __init__(self,rawphot,model_comps):
         """Basic instantiation of the Result object."""
         
-        self.rawphot = rawphot
+        self.file_info(rawphot,model_comps)
+    
+    
+    def file_info(self,rawphot,model_comps):
+        """Basic file info."""
+                  
+        # component info
         self.model_comps = model_comps
         self.star_or_disk = ()
         for comp in model_comps:
@@ -41,12 +47,13 @@ class Result(object):
     
         self.n_comps = len(model_comps)
         
+        # where the rawphot file is
+        self.rawphot = rawphot
+        self.path = os.path.dirname(rawphot)
+        
         # id
         self.id = os.path.basename(rawphot).rstrip('-rawphot.txt')
 
-        # where the rawphot file is
-        self.path = os.path.dirname(rawphot)
-        
         # where the multinest output is (or will be), create if needed
         self.pmn_dir = self.path + '/' + self.id            \
                        + cfg.fitting['pmn_dir_suffix']
@@ -65,7 +72,7 @@ class Result(object):
     def get(rawphot,model_comps,update=False,nospec=False):
         """Take photometry file and model_name, and fill the rest."""
 
-        self = Result(rawphot,model_comps,update=update,nospec=nospec)
+        self = Result(rawphot,model_comps)
 
         # see if we have a pickle of results to return
         if not update and os.path.exists(self.pickle):
@@ -73,6 +80,9 @@ class Result(object):
                 os.path.getmtime(self.pmn_base+'phys_live.points'):
                 with open(self.pickle,'rb') as f:
                     self = pickle.load(f)
+                
+                # update object with local file info before returning
+                self.file_info(rawphot,model_comps)
                 return self
 
         # observations; keywords, tuples of photometry and spectra. if
