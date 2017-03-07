@@ -111,8 +111,13 @@ class Result(object):
         self.model_info = model.models_info(self.models)
 
         # if we want to re-run multinest, delete previous output first
-        if update or os.path.getmtime(self.rawphot) > \
-                        os.path.getmtime(self.pmn_base+'phys_live.points'):
+        run_mn = update
+        if os.path.exists(self.pmn_base+'phys_live.points'):
+            if os.path.getmtime(self.rawphot) > \
+                os.path.getmtime(self.pmn_base+'phys_live.points'):
+                run_mn = True
+
+        if run_mn:
             self.delete_multinest()
         
         # go there, multinest only takes 100 char paths
