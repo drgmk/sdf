@@ -69,7 +69,7 @@ class Filter(object):
     """
 
     # this needs to return all desired filters, colours, and indices
-    all = filter_info.filters.keys()
+    all = list(filter_info.filters.keys())
     
     def __init__(self,name=None,system=None,nu_hz=None,fileloc=None,
                  response=None,response_type=None,
