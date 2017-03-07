@@ -74,9 +74,12 @@ class Result(object):
 
         self = Result(rawphot,model_comps)
 
-        # see if we have a pickle of results to return
+        # see if we have a pickle of results to return, checking that
+        # it's more recent than the multinest output and the phot file
         if not update and os.path.exists(self.pickle):
-            if os.path.getmtime(self.pickle) > \
+            if os.path.getmtime(self.pickle) >       \
+                os.path.getmtime(self.rawphot) and   \
+                os.path.getmtime(self.pickle) >      \
                 os.path.getmtime(self.pmn_base+'phys_live.points'):
                 with open(self.pickle,'rb') as f:
                     self = pickle.load(f)
@@ -120,7 +123,7 @@ class Result(object):
         self.analyzer = a
 
         # when the results were finished
-        self.mtime = os.path.getmtime(self.pmn_base+'phys_live.points')
+        self.mtime = os.path.getmtime(self.pmn_base + '.pkl')
 
         # parameter corner plot if needed
         self.chain_plot = self.pmn_base+'corner.png'
