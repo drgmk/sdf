@@ -208,6 +208,8 @@ def add_model_spec(fig,r):
     don't do anything
     """
     
+    # TODO: use component spectra in result object 
+    
     # create wavelengths to plot with
     wav_pl = cfg.models['default_wave']
 
