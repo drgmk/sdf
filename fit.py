@@ -8,6 +8,7 @@ import numpy as np
 import corner
 import pymultinest as pmn
 import filelock
+import binarytree as bt
 
 from sdf import result
 from sdf import plotting
@@ -27,27 +28,31 @@ def fit_results(file,update=False,sort=True,nospec=False):
 
     print(" Fitting")
 
-    # load models, fit is a list of model combos
-    fit = cfg.fitting['models']
-
+    t = cfg.fitting['tree']
     results = []
-    for f in fit:
 
-        print("  ",f)
-        
-        res = result.Result.get(file,f,update=update,nospec=nospec)
+    while t.left is not None and t.right is not None:
 
-        if hasattr(res,'obs'):
-            results.append(res)
-        else:
+        print("  ",t.left.value,"vs.",t.right.value)
+
+        r1 = result.Result.get(file,t.left.value,update=update,nospec=nospec)
+        r2 = result.Result.get(file,t.right.value,update=update,nospec=nospec)
+
+        # check for files with no photometry
+        if not hasattr(r1,'obs'):
             print("  no photometry = no results")
             return None
 
-        # if evidence didn't go up with extra model component, stop
-        if len(f) > 1:
-            evs = [r.evidence for r in results]
-            if np.max(evs) != evs[-1]:
-                break
+        # append results, only append left result at start
+        if t.value == 'start':
+            results.append(r1)
+        results.append(r2)
+
+        # move on down the tree
+        if r2.evidence > r1.evidence + cfg.fitting['ev_threshold']:
+            t = t.right
+        else:
+            t = t.left
 
     if sort:
         results = [results[i] for i in result.sort_results(results)]
