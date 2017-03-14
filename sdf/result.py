@@ -201,7 +201,7 @@ class Result(object):
                 if self.obs_keywords['plx_err'] is not None:
                     e_plx_arcsec = self.obs_keywords['plx_err'] / 1e3
                 else:
-                    e_plx_arcsec = star['plx_arcsec'] / 3.
+                    e_plx_arcsec = self.obs_keywords['plx_value'] / 3.0
                 
                 self.distributions['parallax'] = \
                         np.random.normal(loc=self.obs_keywords['plx_value']/1e3,
