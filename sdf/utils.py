@@ -247,7 +247,11 @@ def linterp(newx,x,y):
 def rnd1sf(x):
     """Round numbers to 1 s.f. (based on first if more than 1)."""
     
-    return np.round(x, -np.int(np.floor(np.log10(np.abs(x[0])))))
+    # TODO: make this neater
+    if not np.all(np.isfinite(x)) or np.min(x) <= 0:
+        return np.zeros(len(x))
+    else:
+        return np.round(x, -np.int(np.floor(np.log10(np.abs(x[0])))))
 
 
 @lru_cache(maxsize=16)
