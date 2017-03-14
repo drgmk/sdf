@@ -422,7 +422,7 @@ class Result(object):
             if self.obs_keywords['plx_err'] is not None:
                 e_plx_arcsec = self.obs_keywords['plx_err'] / 1e3
             else:
-                e_plx_arcsec = star['plx_arcsec'] / 3.
+                e_plx_arcsec = self.obs_keywords['plx_value'] / 3.
 
             star['plx_arcsec'] = self.obs_keywords['plx_value']
             star['e_plx_arcsec'] = e_plx_arcsec
