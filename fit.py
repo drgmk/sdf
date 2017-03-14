@@ -28,6 +28,7 @@ def fit_results(file,update=False,sort=True,nospec=False):
 
     print(" Fitting")
 
+    # binary tree-based fitting
     t = cfg.fitting['tree']
     results = []
 
@@ -54,6 +55,20 @@ def fit_results(file,update=False,sort=True,nospec=False):
         else:
             t = t.left
 
+    # fit specific models
+    for m in cfg.fitting['models']:
+
+        print("  ",m)
+        r = result.Result.get(file,m,update=update,nospec=nospec)
+
+        # check for files with no photometry
+        if not hasattr(r1,'obs'):
+            print("  no photometry = no results")
+            return None
+
+        results.append(r)
+
+    # sort list of results by evidence
     if sort:
         results = [results[i] for i in result.sort_results(results)]
 

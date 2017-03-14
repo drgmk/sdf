@@ -275,6 +275,4 @@ def real_grain_spectra(file,overwrite=False):
     s.fnujy_sr = np.rollaxis(np.rollaxis(np.rollaxis(pr['pr'],1),2),3)
     s.fnujy_sr[ s.fnujy_sr < cfg.tiny ] = cfg.tiny
 
-    print(s.wavelength)
-
     s.write_model(s.name,overwrite=overwrite)
