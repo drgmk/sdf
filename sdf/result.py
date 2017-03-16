@@ -28,6 +28,7 @@ class Result(object):
         self.file_info(rawphot,model_comps)
     
     
+    @lru_cache(maxsize=128)
     def file_info(self,rawphot,model_comps):
         """Basic file info."""
                   
@@ -69,6 +70,7 @@ class Result(object):
         self.pickle = self.pmn_base + '.pkl'
 
 
+    @lru_cache(maxsize=128)
     def get(rawphot,model_comps,update_mn=False,update_an=False,
             nospec=False):
         """Take photometry file and model_name, and fill the rest."""
@@ -508,10 +510,13 @@ class Result(object):
                 disk_r['e_'+par_in] = self.comp_best_params_1sig[i][j]
     
             # array of disk temperature samples
-            if par_in == 'Temp':
+            if 'Temp' in par:
                 temp_dist = np.zeros(cfg.fitting['n_samples'])
                 for k,sample in enumerate(self.comp_param_samples[i]):
-                    temp_dist[k] = sample[j]
+                    if par == 'log_Temp':
+                        temp_dist[k] = 10**sample[j]
+                    elif par == 'Temp':
+                        temp_dist[k] = sample[j]
 
         # disk and fractional luminosity
         ldisk_1pc_dist = np.zeros(cfg.fitting['n_samples'])
