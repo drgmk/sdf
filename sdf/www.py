@@ -61,7 +61,7 @@ def index(results,file='index.html'):
                            xids=db.sdb_xids(results[0].obs_keywords['id']),
                            best_fit=results[0].main_results_text(),
                            corner=os.path.basename(results[0].pmn_dir)+'/'+\
-                                    os.path.basename(results[0].chain_plot)
+                                    os.path.basename(results[0].corner_plot)
                            )
 
     with io.open(file, mode='w', encoding='utf-8') as f:

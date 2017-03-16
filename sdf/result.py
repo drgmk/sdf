@@ -132,20 +132,20 @@ class Result(object):
         self.mtime = os.path.getmtime(self.pmn_base + 'phys_live.points')
 
         # parameter corner plot if needed
-        self.chain_plot = self.pmn_base+'corner.png'
-        run = False
-        if not os.path.exists(self.chain_plot):
-            run = True
+        self.corner_plot = self.pmn_base+'corner.png'
+        plot = False
+        if not os.path.exists(self.corner_plot):
+            plot = True
         else:
-            if os.path.getmtime(self.chain_plot) < self.mtime:
-                run = True
+            if os.path.getmtime(self.corner_plot) < self.mtime:
+                plot = True
             
-        if run:
+        if plot:
             d = self.analyzer.get_data()
             fig = corner.corner(d[:,2:],show_titles=True,
                                 labels=self.model_info['parameters'],
                                 quantiles=[0.16, 0.5, 0.84])
-            fig.savefig(self.chain_plot)
+            fig.savefig(self.corner_plot)
             plt.close(fig) # not doing this causes an epic memory leak
 
         # parameter names and best fit
@@ -359,6 +359,34 @@ class Result(object):
         self.star,self.star_distributions = self.star_results()
         self.disk_r,self.disk_r_distributions = self.disk_r_results()
         self.main_results = self.star + self.disk_r
+        
+        # corner plot of distributions
+        samples = np.zeros(cfg.fitting['n_samples'])
+        labels = []
+        for dist in self.star_distributions:
+            for key in dist.keys():
+                samples = np.vstack((samples,dist[key]))
+                labels.append(key)
+        for dist in self.disk_r_distributions:
+            for key in dist.keys():
+                samples = np.vstack((samples,dist[key]))
+                labels.append(key)
+        samples = samples[1:]
+
+        # corner plot if needed
+        self.distributions_plot = self.pmn_base+'distributions.png'
+        plot = False
+        if not os.path.exists(self.distributions_plot):
+            plot = True
+        else:
+            if os.path.getmtime(self.distributions_plot) < self.mtime:
+                plot = True
+            
+        if plot:
+            fig = corner.corner(samples.transpose(),show_titles=True,
+                                labels=labels,quantiles=[0.16, 0.5, 0.84])
+            fig.savefig(self.distributions_plot)
+            plt.close(fig)
 
         # delete the models to save space and we don't need them again
         self.models = ''
