@@ -136,7 +136,7 @@ class Result(object):
 
         # parameter corner plot if needed
         self.corner_plot = self.pmn_base+'corner.png'
-        plot = False
+        plot = update_an
         if not os.path.exists(self.corner_plot):
             plot = True
         else:
@@ -378,7 +378,7 @@ class Result(object):
 
         # corner plot if needed
         self.distributions_plot = self.pmn_base+'distributions.png'
-        plot = False
+        plot = update_an
         if not os.path.exists(self.distributions_plot):
             plot = True
         else:
