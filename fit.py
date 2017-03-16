@@ -62,7 +62,7 @@ def fit_results(file,update=False,sort=True,nospec=False):
         r = result.Result.get(file,m,update=update,nospec=nospec)
 
         # check for files with no photometry
-        if not hasattr(r1,'obs'):
+        if not hasattr(r,'obs'):
             print("  no photometry = no results")
             return None
 
