@@ -597,8 +597,12 @@ class SpecModel(Model):
 
         self.name = m[0].name
         self.wavelength = m[0].wavelength
-        self.parameters = ['log_Temp']
-        self.param_values = {'log_Temp':np.log10(temperatures)}
+        if 'star' in name:
+            self.parameters = ['Teff']
+            self.param_values = {'Teff':temperatures}
+        else:
+            self.parameters = ['log_Temp']
+            self.param_values = {'log_Temp':np.log10(temperatures)}
 
         # put spectra in their place
         self.fnujy_sr = np.zeros((len(self.wavelength),
