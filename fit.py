@@ -17,7 +17,7 @@ from sdf import www
 from sdf import config as cfg
 
 
-def fit_results(file,update=False,sort=True,nospec=False):
+def fit_results(file,update_mn=False,update_an=False,sort=True,nospec=False):
     """Return a list of fitting results.
         
     If necessary, the fitting will be done, otherwise the results are
@@ -36,8 +36,10 @@ def fit_results(file,update=False,sort=True,nospec=False):
 
         print("  ",t.left.value,"vs.",t.right.value)
 
-        r1 = result.Result.get(file,t.left.value,update=update,nospec=nospec)
-        r2 = result.Result.get(file,t.right.value,update=update,nospec=nospec)
+        r1 = result.Result.get(file,t.left.value,update_mn=update_mn,
+                               update_an=update_an,nospec=nospec)
+        r2 = result.Result.get(file,t.right.value,update_mn=update_mn,
+                               update_an=update_an,nospec=nospec)
 
         # check for files with no photometry
         if not hasattr(r1,'obs'):
@@ -59,7 +61,8 @@ def fit_results(file,update=False,sort=True,nospec=False):
     for m in cfg.fitting['models']:
 
         print("  ",m)
-        r = result.Result.get(file,m,update=update,nospec=nospec)
+        r = result.Result.get(file,m,update_mn=update_mn,
+                              update_an=update_an,nospec=nospec)
 
         # check for files with no photometry
         if not hasattr(r,'obs'):
@@ -108,6 +111,9 @@ if __name__ == '__main__':
 
     parser1.add_argument('--update-all','-u',action='store_true',
                          help='Force udpate of everything')
+
+    parser1.add_argument('--update-analysis','-a',action='store_true',
+                         help='Force udpate of post-multinest analysis')
 
     parser1.add_argument('--quick-update-check','-q',action='store_true',
                          help='Skip if index.html most recent file')
@@ -162,7 +168,8 @@ if __name__ == '__main__':
             
                 # evidence-sorted list of results
                 results = fit_results(os.path.abspath(f),
-                                      update=args.update_all,
+                                      update_mn=args.update_all,
+                                      update_an=args.update_analysis,
                                       nospec=args.no_spectra)
                 if results is None:
                     continue

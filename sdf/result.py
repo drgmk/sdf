@@ -69,14 +69,15 @@ class Result(object):
         self.pickle = self.pmn_base + '.pkl'
 
 
-    def get(rawphot,model_comps,update=False,nospec=False):
+    def get(rawphot,model_comps,update_mn=False,update_an=False,
+            nospec=False):
         """Take photometry file and model_name, and fill the rest."""
 
         self = Result(rawphot,model_comps)
 
         # see if we have a pickle of results to return, checking that
         # it's more recent than the multinest output and the phot file
-        if not update and os.path.exists(self.pickle):
+        if not update_mn and not update_an and os.path.exists(self.pickle):
             if os.path.getmtime(self.pickle) >       \
                 os.path.getmtime(self.rawphot) and   \
                 os.path.getmtime(self.pickle) >      \
@@ -111,7 +112,7 @@ class Result(object):
         self.model_info = model.models_info(self.models)
 
         # if we want to re-run multinest, delete previous output first
-        run_mn = update
+        run_mn = update_mn
         if os.path.exists(self.pmn_base+'phys_live.points'):
             if os.path.getmtime(self.rawphot) > \
                 os.path.getmtime(self.pmn_base+'phys_live.points'):
