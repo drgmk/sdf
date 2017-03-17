@@ -567,7 +567,7 @@ class Result(object):
                     'MH':   ['[M/H]',''],
                     'logg': ['logg',''],
                     'lstar':['L<sub>star</sub>','L<sub>Sun</sub>'],
-                    'rstar':['R<sub>star</sub>','R<sub>Sun</Sun>'],
+                    'rstar':['R<sub>star</sub>','R<sub>Sun</sub>'],
                     'Temp': ['T<sub>dust</sub>','K'],
                     'lam0': ['&lambda;<sub>0</sub>','&mu;m'],
                     'beta': ['&beta;',''],
