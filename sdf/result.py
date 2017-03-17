@@ -196,19 +196,15 @@ class Result(object):
         # we will want lstar at 1pc below
         self.distributions['lstar_1pc_tot'] = np.zeros(cfg.fitting['n_samples'])
         
-        # generate a normal distribution of parallaxes, assume a large
-        # uncertainty if none exists
-        if self.obs_keywords['plx_value'] is not None:
+        # generate a normal distribution of parallaxes, if there is an
+        # uncertainty
+        if self.obs_keywords['plx_err'] is not None \
+            and self.obs_keywords['plx_value'] is not None:
             if self.obs_keywords['plx_value'] > 0:
-                
-                if self.obs_keywords['plx_err'] is not None:
-                    e_plx_arcsec = self.obs_keywords['plx_err'] / 1e3
-                else:
-                    e_plx_arcsec = self.obs_keywords['plx_value'] / 2.0
                 
                 self.distributions['parallax'] = \
                         np.random.normal(loc=self.obs_keywords['plx_value']/1e3,
-                                         scale=e_plx_arcsec,
+                                         scale=self.obs_keywords['plx_err']/1e3,
                                          size=cfg.fitting['n_samples'])
 
         # observed fluxes, this is largely copied from fitting.residual
@@ -450,13 +446,8 @@ class Result(object):
         # distance-dependent params
         if 'parallax' in self.distributions.keys():
 
-            if self.obs_keywords['plx_err'] is not None:
-                e_plx_arcsec = self.obs_keywords['plx_err'] / 1e3
-            else:
-                e_plx_arcsec = self.obs_keywords['plx_value'] / 2.0
-
-            star['plx_arcsec'] = self.obs_keywords['plx_value']
-            star['e_plx_arcsec'] = e_plx_arcsec
+            star['plx_arcsec'] = self.obs_keywords['plx_value'] / 1e3
+            star['e_plx_arcsec'] = self.obs_keywords['plx_err'] / 1e3
 
             # combine lstar_1pc and plx distributions for lstar
             lstar_dist = lstar_1pc_dist / self.distributions['parallax']**2
@@ -550,7 +541,7 @@ class Result(object):
             disk_r['e_ldisk_lstar'] = (disk_r['e_ldisk_lstar_lo']+disk_r['e_ldisk_lstar_hi'])/2.0
 
             # distance (and stellar L)-dependent params
-            if self.obs_keywords['plx_value'] is not None:
+            if 'parallax' in self.distributions.keys():
                 lstar = self.distributions['lstar_1pc_tot'] / \
                         self.distributions['parallax']
                 rdisk_bb_dist = lstar**0.5 * (278.3/temp_dist)**2
