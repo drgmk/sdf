@@ -4,6 +4,7 @@ import pickle
 import glob
 
 import numpy as np
+from scipy.stats import truncnorm
 import pymultinest as pmn
 import matplotlib.pyplot as plt
 import corner
@@ -196,17 +197,21 @@ class Result(object):
         # we will want lstar at 1pc below
         self.distributions['lstar_1pc_tot'] = np.zeros(cfg.fitting['n_samples'])
         
-        # generate a normal distribution of parallaxes, if there is an
-        # uncertainty
+        # generate a normal distribution of parallaxes, truncated to
+        # contain no negative values, if there is an uncertainty
         if self.obs_keywords['plx_err'] is not None \
             and self.obs_keywords['plx_value'] is not None:
             if self.obs_keywords['plx_value'] > 0:
                 
+                lo_cut = -1. * ( self.obs_keywords['plx_value'] /   \
+                                 self.obs_keywords['plx_err'] )
+                                 
                 self.distributions['parallax'] = \
-                        np.random.normal(loc=self.obs_keywords['plx_value']/1e3,
-                                         scale=self.obs_keywords['plx_err']/1e3,
-                                         size=cfg.fitting['n_samples'])
-
+                    truncnorm.rvs(lo_cut,np.inf,
+                                  loc=self.obs_keywords['plx_value']/1e3,
+                                  scale=self.obs_keywords['plx_err']/1e3,
+                                  size=cfg.fitting['n_samples'])
+                    
         # observed fluxes, this is largely copied from fitting.residual
         tmp = fitting.concat_obs(self.obs)
         self.obs_fnujy,self.obs_e_fnujy,self.obs_upperlim,self.filters_ignore,\
