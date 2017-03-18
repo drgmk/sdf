@@ -1,5 +1,6 @@
 import io
 import os
+import datetime
 
 import numpy as np
 
@@ -61,7 +62,8 @@ def index(results,file='index.html'):
                            xids=db.sdb_xids(results[0].obs_keywords['id']),
                            best_fit=results[0].main_results_text(),
                            corner=os.path.basename(results[0].pmn_dir)+'/'+\
-                                    os.path.basename(results[0].corner_plot)
+                                    os.path.basename(results[0].corner_plot),
+                           creation_time=datetime.datetime.now().strftime("%d/%m/%y %X")
                            )
 
     with io.open(file, mode='w', encoding='utf-8') as f:

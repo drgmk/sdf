@@ -97,6 +97,9 @@ index=('''<!DOCTYPE html>
         {{ plot_div|indent(8) }}
         {{ plot_script|indent(8) }}
         
+        {% if creation_time %}
+            <p class="foot">generated {{ creation_time }}</p>
+        {% endif %}
     </body>
 </html>
 ''')
@@ -122,6 +125,9 @@ generic=('''<!DOCTYPE html>
         {{ plot_div|indent(8) }}
         {{ plot_script|indent(8) }}
         
+        {% if creation_time %}
+            <p class="foot">generated {{ creation_time }}</p>
+        {% endif %}
     </body>
 </html>
 ''')
@@ -147,6 +153,9 @@ generic_wide=('''<!DOCTYPE html>
         {{ plot_div|indent(8) }}
         {{ plot_script|indent(8) }}
         
+        {% if creation_time %}
+            <p class="foot">generated {{ creation_time }}</p>
+        {% endif %}
     </body>
 </html>
 ''')
@@ -206,6 +215,10 @@ datatable=('''<!DOCTYPE html>
     </script>
     
     {{ table }}
+    
+    {% if creation_time %}
+        <p class="foot">generated {{ creation_time }}</p>
+    {% endif %}
     
     </body>
 </html>
