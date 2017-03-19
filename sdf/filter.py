@@ -46,7 +46,7 @@ class Filter(object):
     integrated directly (F_lambda.S'.dlambda, A11). For 2MASS 
     multiplication by lambda was done already (2003AJ....126.1090C), but
     this is not always the case so must be checked for each filter, and
-    photon-counting responses convertedto energy-integrating.
+    photon-counting responses converted to energy-integrating.
 
     We also need to know the reference spectrum to do synthetic 
     photometry in systems where the flux density is given at a specific
