@@ -104,7 +104,7 @@ index=('''<!DOCTYPE html>
         {% if creation_time %}
         <div>
             <hr>
-            <p class="foot">generated {{ creation_time }}</p>
+            <p class="foot">generated {{ creation_time }} UTC</p>
         </div>
         {% endif %}
     </body>
@@ -135,7 +135,7 @@ generic=('''<!DOCTYPE html>
         {% if creation_time %}
         <div>
             <hr>
-            <p class="foot">generated {{ creation_time }}</p>
+            <p class="foot">generated {{ creation_time }} UTC</p>
         </div>
         {% endif %}
     </body>
@@ -166,7 +166,7 @@ generic_wide=('''<!DOCTYPE html>
         {% if creation_time %}
         <div>
             <hr>
-            <p class="foot">generated {{ creation_time }}</p>
+            <p class="foot">generated {{ creation_time }} UTC</p>
         </div>
         {% endif %}
     </body>
@@ -232,7 +232,7 @@ datatable=('''<!DOCTYPE html>
     {% if creation_time %}
     <div>
         <hr>
-        <p class="foot">generated {{ creation_time }}</p>
+        <p class="foot">generated {{ creation_time }} UTC</p>
     </div>
     {% endif %}
     

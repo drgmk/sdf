@@ -10,7 +10,7 @@ version of astropy is installed.
 """
 
 import io
-import datetime
+from datetime import datetime
 import glob
 from os.path import isdir,isfile,basename
 from os import mkdir,remove,write,rmdir
@@ -198,7 +198,7 @@ def sample_table_www(cursor,sample):
     # write the table out to html
     template = Template(templates.datatable)
     html = template.render(css=templates.css,name=sample,table=s.getvalue(),
-                           creation_time=datetime.datetime.now().strftime("%d/%m/%y %X"))
+                           creation_time=datetime.utcnow().strftime("%d/%m/%y %X"))
 
     with io.open(wwwroot+sample+'/index.html',
                  mode='w', encoding='utf-8') as f:
@@ -302,7 +302,7 @@ def sample_plots():
                                plot_script=script,
                                plot_div=div,
                                title=sample,
-                               creation_time=datetime.datetime.now().strftime("%d/%m/%y %X"))
+                               creation_time=datetime.utcnow().strftime("%d/%m/%y %X"))
 
         with io.open(file, mode='w', encoding='utf-8') as f:
             f.write(html)
@@ -441,7 +441,7 @@ def flux_size_plots():
                                plot_script=script,
                                plot_div=div,
                                title=sample,
-                               creation_time=datetime.datetime.now().strftime("%d/%m/%y %X"))
+                               creation_time=datetime.utcnow().strftime("%d/%m/%y %X"))
 
         with io.open(file, mode='w', encoding='utf-8') as f:
             f.write(html)
