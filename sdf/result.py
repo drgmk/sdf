@@ -234,14 +234,14 @@ class Result(object):
 
         # summed model fluxes
         self.distributions['model_fnujy'] = model_dist
-        lo,self.model_fnujy,hi = np.percentile(model_dist,[31.73,50.0,68.27],axis=1)
+        lo,self.model_fnujy,hi = np.percentile(model_dist,[16.0,50.0,84.0],axis=1)
         self.model_fnujy_1sig_lo = self.model_fnujy - lo
         self.model_fnujy_1sig_hi = hi - self.model_fnujy
 
         # per-component model fluxes
         self.distributions['model_comp_fnujy'] = model_comp_dist
         lo,self.model_comp_fnujy,hi = np.percentile(model_comp_dist,
-                                                    [31.73,50.0,68.27],axis=2)
+                                                    [16.0,50.0,84.0],axis=2)
         self.model_comp_fnujy_1sig_lo = self.model_comp_fnujy - lo
         self.model_comp_fnujy_1sig_hi = hi - self.model_comp_fnujy
 
@@ -285,7 +285,7 @@ class Result(object):
                 star_phot_dist[:,i] = tmp
 
             self.distributions['star_phot'] = star_phot_dist
-            lo,self.star_phot,hi = np.percentile(star_phot_dist,[31.73,50.0,68.27],axis=1)
+            lo,self.star_phot,hi = np.percentile(star_phot_dist,[16.0,50.0,84.0],axis=1)
             self.star_phot_1sig_lo = self.star_phot - lo
             self.star_phot_1sig_hi = hi - self.star_phot
 
@@ -302,7 +302,7 @@ class Result(object):
                 disk_phot_dist[:,i] = tmp
 
             self.distributions['disk_phot'] = disk_phot_dist
-            lo,self.disk_phot,hi = np.percentile(disk_phot_dist,[31.73,50.0,68.27],axis=1)
+            lo,self.disk_phot,hi = np.percentile(disk_phot_dist,[16.0,50.0,84.0],axis=1)
             self.disk_phot_1sig_lo = self.disk_phot - lo
             self.disk_phot_1sig_hi = hi - self.disk_phot
 
@@ -321,7 +321,7 @@ class Result(object):
         self.all_phot_dist = all_phot_dist
 
         self.distributions['all_phot'] = all_phot_dist
-        lo,self.all_phot,hi = np.percentile(all_phot_dist,[31.73,50.0,68.27],axis=1)
+        lo,self.all_phot,hi = np.percentile(all_phot_dist,[16.0,50.0,84.0],axis=1)
         self.all_phot_1sig_lo = self.all_phot - lo
         self.all_phot_1sig_hi = hi - self.all_phot
 
@@ -443,7 +443,7 @@ class Result(object):
         
         distributions['lstar_1pc'] = lstar_1pc_dist
         self.distributions['lstar_1pc_tot'] += lstar_1pc_dist
-        lo,star['lstar_1pc'],hi = np.percentile(lstar_1pc_dist,[31.73,50.0,68.27])
+        lo,star['lstar_1pc'],hi = np.percentile(lstar_1pc_dist,[16.0,50.0,84.0])
         star['e_lstar_1pc_lo'] = star['lstar_1pc'] - lo
         star['e_lstar_1pc_hi'] = hi - star['lstar_1pc']
         star['e_lstar_1pc'] = (star['e_lstar_1pc_lo']+star['e_lstar_1pc_hi'])/2.0
@@ -457,7 +457,7 @@ class Result(object):
             # combine lstar_1pc and plx distributions for lstar
             lstar_dist = lstar_1pc_dist / self.distributions['parallax']**2
             distributions['lstar'] = lstar_dist
-            lo,star['lstar'],hi = np.percentile(lstar_dist,[31.73,50.0,68.27])
+            lo,star['lstar'],hi = np.percentile(lstar_dist,[16.0,50.0,84.0])
             star['e_lstar_lo'] = star['lstar'] - lo
             star['e_lstar_hi'] = hi - star['lstar']
             star['e_lstar'] = (star['e_lstar_lo']+star['e_lstar_hi'])/2.0
@@ -468,7 +468,7 @@ class Result(object):
                     * u.pc.to(u.m) / self.distributions['parallax'][j] / u.R_sun.to(u.m)
             
             distributions['rstar'] = rstar_dist
-            lo,star['rstar'],hi = np.percentile(rstar_dist,[31.73,50.0,68.27])
+            lo,star['rstar'],hi = np.percentile(rstar_dist,[16.0,50.0,84.0])
             star['e_rstar_lo'] = star['rstar'] - lo
             star['e_rstar_hi'] = hi - star['rstar']
             star['e_rstar'] = (star['e_rstar_lo']+star['e_rstar_hi'])/2.0
@@ -530,7 +530,7 @@ class Result(object):
                         * 4 * np.pi * (u.pc.to(u.m))**2 / u.L_sun.to(u.W)
         
         distributions['ldisk_1pc'] = ldisk_1pc_dist
-        lo,disk_r['ldisk_1pc'],hi = np.percentile(ldisk_1pc_dist,[31.73,50.0,68.27])
+        lo,disk_r['ldisk_1pc'],hi = np.percentile(ldisk_1pc_dist,[16.0,50.0,84.0])
         disk_r['e_ldisk_1pc_lo'] = disk_r['ldisk_1pc'] - lo
         disk_r['e_ldisk_1pc_hi'] = hi - disk_r['ldisk_1pc']
         disk_r['e_ldisk_1pc'] = (disk_r['e_ldisk_1pc_lo']+disk_r['e_ldisk_1pc_hi'])/2.0
@@ -540,7 +540,7 @@ class Result(object):
 
             ldisk_lstar_dist = ldisk_1pc_dist / self.distributions['lstar_1pc_tot']
             distributions['ldisk_lstar'] = ldisk_lstar_dist
-            lo,disk_r['ldisk_lstar'],hi = np.percentile(ldisk_lstar_dist,[31.73,50.0,68.27])
+            lo,disk_r['ldisk_lstar'],hi = np.percentile(ldisk_lstar_dist,[16.0,50.0,84.0])
             disk_r['e_ldisk_lstar_lo'] = disk_r['ldisk_lstar'] - lo
             disk_r['e_ldisk_lstar_hi'] = hi - disk_r['ldisk_lstar']
             disk_r['e_ldisk_lstar'] = (disk_r['e_ldisk_lstar_lo']+disk_r['e_ldisk_lstar_hi'])/2.0
@@ -552,7 +552,7 @@ class Result(object):
                 rdisk_bb_dist = lstar**0.5 * (278.3/temp_dist)**2
 
                 distributions['rdisk_bb'] = rdisk_bb_dist
-                lo,disk_r['rdisk_bb'],hi = np.percentile(rdisk_bb_dist,[31.73,50.0,68.27])
+                lo,disk_r['rdisk_bb'],hi = np.percentile(rdisk_bb_dist,[16.0,50.0,84.0])
                 disk_r['e_rdisk_bb_lo'] = disk_r['rdisk_bb'] - lo
                 disk_r['e_rdisk_bb_hi'] = hi - disk_r['rdisk_bb']
                 disk_r['e_rdisk_bb'] = (disk_r['e_rdisk_bb_lo']+disk_r['e_rdisk_bb_hi'])/2.0
