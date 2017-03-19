@@ -35,7 +35,6 @@ index=('''<!DOCTYPE html>
                 ]
             </td>
             <td class="right">
-                <a href="/~grant/sdb/">home</a>
                 <form style="display:inline-block;" action = "/~grant/sdb/search/search.php" method = "GET">
                 <input type = "text" name = "id"/>
                 <input type = "submit" value = "Search" />
@@ -53,11 +52,22 @@ index=('''<!DOCTYPE html>
                 </td></tr>
             {% endif %}
 
-            <tr><td colspan="2" class="right">
-            {% if phot_file %}
+            <tr>
+            <td>
+                {% if phot_file %}
+                input:
                 <a href="{{ phot_file }}" title="Input photometry file">data</a> |
-            {% endif %}
+                {% endif %}
+
+                posteriors:
+                <a href="{{ par_dist }}" title="Fitting posteriors" target="_blank">fitting</a>
+                |
+                <a href="{{ derived_dist }}" title="Derived parameters" target="_blank">derived</a>
+            </td>
             
+            <td class="right">
+            
+            external:
             <a href="http://simbad.u-strasbg.fr/simbad/sim-basic?submit=SIMBAD+search&Ident={{ main_id }}" target="_blank" title="Simbad">simbad</a>
             
             {% if ra %}

@@ -61,8 +61,10 @@ def index(results,file='index.html'):
                            plx=results[0].obs_keywords['plx_value'],
                            xids=db.sdb_xids(results[0].obs_keywords['id']),
                            best_fit=results[0].main_results_text(),
-                           corner=os.path.basename(results[0].pmn_dir)+'/'+\
+                           par_dist=os.path.basename(results[0].pmn_dir)+'/'+\
                                     os.path.basename(results[0].corner_plot),
+                           derived_dist=os.path.basename(results[0].pmn_dir)+'/'+\
+                                        os.path.basename(results[0].distributions_plot),
                            creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
                            )
 
