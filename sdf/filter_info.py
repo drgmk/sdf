@@ -29,7 +29,7 @@ and integration, but exactly where isn't clear (e.g.  np.trapz and
 scipy.integrate.simps give the same results). Anyway, the success of
 these tests suggests that the synthetic photometry works.
 
-Asolute calibration
+Absolute calibration
 -------------------
 
 To ensure a consistent absolute calibration the zero points are re-
