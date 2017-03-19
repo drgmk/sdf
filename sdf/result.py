@@ -392,7 +392,7 @@ class Result(object):
             fig.savefig(self.distributions_plot)
             plt.close(fig)
 
-        # delete the models to save space and we don't need them again
+        # delete the models to save space, we don't need them again
         self.models = ''
         self.pl_models = ''
 
@@ -585,10 +585,14 @@ class Result(object):
         for res in self.main_results:
 
             string = ''
+            i = 0
             for par in text_ord:
                 if par in res.keys():
                     unc,meas = utils.rnd1sf([res['e_'+par],res[par]])
-                    string += '{} = {:g} &plusmn; {:g} {} , '.format(text_sub[par][0],meas,unc,text_sub[par][1])
+                    if i > 0:
+                        string += ' , '
+                    string += '{} = {:g} &plusmn; {:g} {}'.format(text_sub[par][0],meas,unc,text_sub[par][1])
+                    i += 1
 
             text = text + (string,)
                 
