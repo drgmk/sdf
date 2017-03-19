@@ -241,6 +241,70 @@ def pmn_models(dir):
     return mbase,models
 
 
+def pmn_pc(prob,samples,pcs,axis=0):
+    """Return numpy-like percentile for multinest output.
+        
+    Accounts for probability of samples, which must therefore be given.
+    Mostly a copy from analyzer.get_stats() in pymultinest.
+    """
+
+    # sort what to do depending on sample array dimension
+    if np.ndim(samples) == 3:
+    
+        # loop over each column
+        if axis == 2:
+            out = np.zeros((len(pcs),samples.shape[0],samples.shape[1]))
+            for i in range(samples.shape[0]):
+                for j in range(samples.shape[1]):
+                    out[:,i,j] = pmn_pc(prob,samples[i,j,:],pcs)
+            
+            return out
+        else:
+            raise utils.SdfError("axis must be 2 for 3d samples")
+
+    if np.ndim(samples) == 2:
+    
+        if axis == 1:
+            return pmn_pc(prob,samples.T,pcs) # do for the transpose
+        
+        # loop over each column
+        elif axis == 0:
+            out = np.zeros((len(pcs),samples.shape[1]))
+            for i in range(samples.shape[1]):
+                out[:,i] = pmn_pc(prob,samples[:,i],pcs)
+            
+            return out
+        else:
+            raise utils.SdfError("axis must be 0 or 1")
+
+    elif np.ndim(samples) > 2:
+        raise utils.SdfError("can't do more than 2d")
+    elif np.ndim(samples) == 0:
+        raise utils.SdfError("need an array/list/tuple of values")
+    else:
+        # organise and sort probabilities and samples
+        if len(prob) != len(samples):
+            raise utils.SdfError("prob and samples have different lengths"
+                                 " {} and {}".format(len(prob),len(samples)))
+        b = list(zip(prob,samples))
+        b.sort(key=lambda x: x[1])
+        b = np.array(b)
+        b[:,0] = b[:,0].cumsum()
+        
+        # additional normalisation step, since expect to use sub-samples
+        b[:,0] /= np.max(b[:,0])
+        
+        # interpolation function to get percentiles
+        bi = lambda x: np.interp(x, b[:,0], b[:,1], left=b[0,1], right=b[-1,1])
+
+        if isinstance(pcs,(int,float)):
+            return bi(pcs/100.0)
+        elif isinstance(pcs,(np.ndarray,list,tuple)):
+            return np.array([bi(pc/100.0) for pc in pcs])
+        else:
+            raise utils.SdfError("wrong type {}".format(type(pcs)))
+
+
 def sort_evidence(ev_in,ndim):
     """Return argsort for models using evidence.
 
