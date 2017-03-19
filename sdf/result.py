@@ -147,8 +147,7 @@ class Result(object):
             
         if plot:
             d = self.analyzer.get_data()
-            fig = corner.corner(d[:,2:],labels=self.model_info['parameters'],
-                                show_titles=True)
+            fig = corner.corner(d[:,2:],labels=self.model_info['parameters'])
             fig.savefig(self.corner_plot)
             plt.close(fig) # not doing this causes an epic memory leak
 
@@ -399,8 +398,7 @@ class Result(object):
                 plot = True
             
         if plot:
-            fig = corner.corner(samples.transpose(),labels=labels,
-                                show_titles=True)
+            fig = corner.corner(samples.transpose(),labels=labels)
             fig.savefig(self.distributions_plot)
             plt.close(fig)
 
