@@ -139,9 +139,9 @@ generic=('''<!DOCTYPE html>
         {{ plot_script|indent(8) }}
         
         {% if creation_time %}
-        <div>
+        <div class="footer">
             <hr>
-            <p class="foot">generated {{ creation_time }} UTC</p>
+            <p>generated {{ creation_time }} UTC</p>
         </div>
         {% endif %}
     </body>
@@ -163,16 +163,20 @@ generic_wide=('''<!DOCTYPE html>
     <body class="wide">
     
         {% if title %}
-        <h1>{{ title }}</h1>
+        <div id=="target_head">
+            <div>
+                <h1>{{ title }}</h1>
+            </div>
+        </div>
         {% endif %}
 
         {{ plot_div|indent(8) }}
         {{ plot_script|indent(8) }}
         
         {% if creation_time %}
-        <div>
+        <div class="footer">
             <hr>
-            <p class="foot">generated {{ creation_time }} UTC</p>
+            <p>generated {{ creation_time }} UTC</p>
         </div>
         {% endif %}
     </body>
@@ -236,9 +240,9 @@ datatable=('''<!DOCTYPE html>
     {{ table }}
     
     {% if creation_time %}
-    <div>
+    <div class="footer">
         <hr>
-        <p class="foot">generated {{ creation_time }} UTC</p>
+        <p>generated {{ creation_time }} UTC</p>
     </div>
     {% endif %}
     
