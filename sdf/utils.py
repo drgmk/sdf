@@ -260,13 +260,14 @@ def rnd1sf(x):
 def spline_filter_mem(arr,order=None):
     """Filter array, memoizing result.
         
-    Is passed an array using the hashable wrapper"""
+    Is passed an array using the hashable wrapper.
+    """
     
     return spline_filter(arr.unwrap(),order=order)
 
 
 class hashable(object):
-    r'''Hashable wrapper for ndarray objects.
+    """Hashable wrapper for ndarray objects.
         
     Instances of ndarray are not hashable, meaning they cannot be added to
     sets, nor used as keys in dictionaries. This is by design - ndarray
@@ -280,15 +281,17 @@ class hashable(object):
     not to modify it).
         
     From https://gist.github.com/marquisthunder/9ef974477e1aef9dbb41
-    '''
+    """
+    
     def __init__(self, wrapped, tight=False):
-        r'''Creates a new hashable object encapsulating an ndarray.
+        """Creates a new hashable object encapsulating an ndarray.
             wrapped
                 The wrapped ndarray.
             tight
                 Optional. If True, a copy of the input ndaray is created.
                 Defaults to False.
-        '''
+        """
+        
         self.__tight = tight
         self.__wrapped = np.array(wrapped) if tight else wrapped
         self.__hash = int(sha1(wrapped.view(np.uint8)).hexdigest(), 16)
@@ -300,10 +303,12 @@ class hashable(object):
         return self.__hash
 
     def unwrap(self):
-        r'''Returns the encapsulated ndarray.
-            If the wrapper is "tight", a copy of the encapsulated ndarray is
-            returned. Otherwise, the encapsulated ndarray itself is returned.
-        '''
+        """Returns the encapsulated ndarray.
+            
+        If the wrapper is "tight", a copy of the encapsulated ndarray is
+        returned. Otherwise, the encapsulated ndarray itself is returned.
+        """
+        
         if self.__tight:
             return np.array(self.__wrapped)
 
