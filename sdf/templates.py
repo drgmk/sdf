@@ -15,9 +15,17 @@ index=('''<!DOCTYPE html>
     <body class="sed">
     
         {% if main_id %}
-            <table class="head_table">
-            <tr><td>
-                <h1>{{ main_id }}</h1>
+            <div id="target_head">
+            
+            <div class="search">
+            <form style="display:inline-block;" action = "/~grant/sdb/search/search.php" method = "GET">
+            <input type = "text" name = "id"/>
+            <input type = "submit" value = "Search" />
+            </form>
+            </div>
+
+            <div class="target_info">
+            <h1>{{ main_id }}</h1>
                 [
 
                 {% if ra %}
@@ -33,41 +41,37 @@ index=('''<!DOCTYPE html>
                 {% endif %}
 
                 ]
-            </td>
-            <td class="right">
-                <form style="display:inline-block;" action = "/~grant/sdb/search/search.php" method = "GET">
-                <input type = "text" name = "id"/>
-                <input type = "submit" value = "Search" />
-                </form>
-            </td></tr>
+            </div>
             
             {% if xids %}
-                <tr><td colspan="2">
+                <div class="xids">
                 {% for id in xids %}
                     {% if loop.index is greaterthan 1 %}
                         ,
                     {% endif %}
                     {{ id }}
                 {% endfor %}
-                </td></tr>
+                </div<
             {% endif %}
-
-            <tr>
-            <td>
+            
+            <div class="links">
+            <table>
+            <tr><td>
                 {% if phot_file %}
-                input:
-                <a href="{{ phot_file }}" title="Input photometry file">data</a> |
+                Input:
+                <a href="{{ phot_file }}" title="Input photometry file">data</a>
                 {% endif %}
-
-                posteriors:
+            </td>
+            <td>
+                Posteriors:
                 <a href="{{ par_dist }}" title="Fitting posteriors" target="_blank">fitting</a>
                 |
                 <a href="{{ derived_dist }}" title="Derived parameters" target="_blank">derived</a>
             </td>
             
-            <td class="right">
+            <td>
             
-            external:
+            External:
             <a href="http://simbad.u-strasbg.fr/simbad/sim-basic?submit=SIMBAD+search&Ident={{ main_id }}" target="_blank" title="Simbad">simbad</a>
             
             {% if ra %}
@@ -82,26 +86,18 @@ index=('''<!DOCTYPE html>
             {% endif %}
             </td></tr>
             </table>
-
+            </div>
+            
             {% if best_fit %}
-                <table>
+                <div class="best_fit">
+                <div class="best_fit_title">Best fit:</div>
                 {% for m in best_fit %}
-                    {% if loop.index is equalto 1 %}
-                        <tr><td>
-                            {% if corner %}
-                                <a href="{{ corner }}" target="_blank" title="Corner plot of parameters">Best fit</a>
-                            {% else %}
-                                Best fit
-                            {% endif %}
-                        : </td><td>{{ m }}</td></tr>
-                    {% else %}
-                        <tr><td>
-                        </td><td>{{ m }}</td></tr>
-                    {% endif %}
+                <div class="best_fit_line">{{ m }}</div>
                 {% endfor %}
-                </table>
+                </div>
             {% endif %}
 
+        </div><!-- end header section -->
         {% endif %}
 
         <table>
@@ -112,9 +108,9 @@ index=('''<!DOCTYPE html>
         </table>
         
         {% if creation_time %}
-        <div>
+        <div class="footer">
             <hr>
-            <p class="foot">generated {{ creation_time }} UTC</p>
+            <p>generated {{ creation_time }} UTC</p>
         </div>
         {% endif %}
     </body>
