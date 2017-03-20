@@ -32,7 +32,7 @@ these tests suggests that the synthetic photometry works.
 Absolute calibration
 -------------------
 
-To ensure a consistent absolute calibration the zero points are re-
+To ensure a consistent absolute calibration all zero points are re-
 derived using the CALSPEC Vega spectrum, as this has been used by many
 authors to derive zero point magnitudes (i.e. the magnitude of Vega in a
 given photometric system, also known as the zero point offset). In
@@ -55,6 +55,10 @@ In MvB there are no zero point offsets, so the zero points can be used
 to derive ZPOs relative to the CALSPEC Vega spectrum. Their zero points
 tend to be larger numbers, meaning that the ZPO (i.e. Vega) is a more
 positive magnitude.
+
+In most cases the zero point offsets have been re-derived with a
+minimisation process that attempts to reach a happy medium across all
+filters.
 
 
 Infrared
@@ -103,54 +107,52 @@ GALEX
   Filters are from SVO, and are effective area so can be considered
   photon counting. Catalogue supplies fluxes and magnitudes, so for now
   the former is used and no zero point needed. As-yet no evidence that
-  this system is or isn't consistent with "Vega". A spectrum of "Vega"
-  that extends to shorter wavelengths would needed to get the zero
-  point. Magnitude system is AB.
+  this system is or isn't consistent with "Vega". Magnitude system is 
+  AB. Generally don't include in fitting due to the possibility of a UV
+  excess.
 
 Johnson
-  Filters are from MvB, zero points re-derived with "Vega". Photometry
-  in this system comes from Mermilliod (UBV means), Bessell (UBV, also
-  Cousins RI), Koen (UBV).
+  Filters are from MvB. Photometry in this system comes from Mermilliod
+  (UBV means), Bessell (UBV, also Cousins RI), Koen (UBV).
 
 Stromgren
-  Filters are from MvB, zero points from various sources are very
-  similar, and all seem to have similar problems. Using the corrections
-  of Bessell 2011 doesn't seem to help.
+  Filters are from Bessell 2011 (MvB exist), used because conversions
+  from that paper are also used. Using these corrections didn't make any
+  obvious differences.
   
   Vega has non-zero magnitudes in this system (e.g. Gray 1998), and 
   measurements in this system are only in colours/indices so the 
   absolute calibration is not important.
   
 Hipparcos/Tycho
-  Filters are from MvB, zero points re-derived with "Vega". Photometry
-  in this system comes from the original Hipparcos catalogue, and the
-  Tycho 2 catalogue.
+  Filters are from MvB. Photometry in this system comes from the 
+  original Hipparcos catalogue, and the Tycho 2 catalogue. Tycho-2 is
+  taken to have the "correct" absolute calibration in deriving others.
 
 Cousins
-  Filters are from MvB, zero points re-derived with "Vega". Photometry
-  in this system comes from Bessell. Haven't been able to find which
-  system most Gliese (CNS3) RI photmetry is in, so not included.
+  Filters are from MvB. Photometry in this system comes from Bessell.
+  Haven't been able to find which system most Gliese (CNS3) RI photmetry
+  is in, so not included.
 
 Kepler
-  Filter from SVO, zero point derived from "Vega". No photometry from
-  this system used, so filter exists to make predictions.
+  Filter from SVO. No photometry from this system used, so filter exists
+  to make predictions.
   
 DDO
   Filter from SVO, KPNO/Mosaic.D51 assumed to be similar to that used
-  for the survey of the Kepler field. Zero point derived from "Vega".
+  for the survey of the Kepler field.
   
 2MASS
-  Filters from Cohen (via SVO). Zero points re-derived from "Vega".
-  Photometry from the 2MASS PSC, separated into read1 (e.g. 2MR1H) and
-  read2 (e.g. 2MR2H) after suggestion in Rieke (2008) that there is a
-  few percent offset for stars observed in both modes. No evidence for
-  this offset seenin SED fitting (yet).
+  Filters from Cohen (via SVO). Photometry from the 2MASS PSC, separated
+  into read1 (e.g. 2MR1H) and read2 (e.g. 2MR2H) after suggestion in 
+  Rieke (2008) that there is a few percent offset for stars observed in 
+  both modes. No evidence for this offset seen in SED fitting (yet).
+  This system is used as one of those with the "correct" absolute
+  calibration.
   
 Spitzer/IRAC
-  Filters from SSC (via SVO), need to be converted to energy. Zero
-  points re-derived from "Vega". Photometry is from SEIP, which needs
-  to be revised upward by 1.5% based on Rieke (2008). This is done when
-  it is extracted from sdb into the photometry files.
+  Filters from SSC (via SVO), need to be converted to energy. Photometry
+  is from SEIP.
 
 Spitzer/IRS PUI
   Filters from SSC (via SVO), need to be converted to energy. No
@@ -164,8 +166,7 @@ Spitzer/MIPS
   photometric uncertainties much larger than calibration unceratinty).
  
 WISE
-  Filters from SVO in energy units. Zero points derived from "Vega".
-  Photometry from ALLWISE.
+  Filters from SVO in energy units. Photometry from ALLWISE.
 
 AKARI/IRC
   Filters from SVO in energy units. Photometry from IRC PSC. Catalogue
@@ -185,7 +186,7 @@ IRAS
   Filters from SVO in energy units. Photometry from PSC and FSC. At 12
   micron Rieke conclude that the fluxes need to be reduced by a factor
   of 0.992, and by 0.98 at 25 micron. These corrections are applied
-  upon extraction from sdb.
+  upon extraction from sdb. Original calibration used.
 
 Herschel/PACS
   Filters from SVO in energy units. Use fluxes as published or in GMK's
@@ -364,7 +365,7 @@ filters['2MR2KS'] = filters['2MKS']
 # is F_nu oc 1/nu^2. residuals from seds suggest small changes
 # in zero point offsets, perhaps because "Vega" is fainter than Vega
 # Patel+2014 find Ks-W1=0.031
-# 3.3% shift in W4 bandpass receommended by 2014PASA...31...49B
+# 3.3% shift in W4 bandpass recommended by 2014PASA...31...49B
 filters['WISE3P4'] = {'svo_name': 'WISE/WISE.W1',
                       'response_type': 'energy',
                       'zero_point_offset': 0.0,
