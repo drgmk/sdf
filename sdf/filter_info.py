@@ -197,6 +197,7 @@ Herschel/SPIRE
   Filters from SVO in energy units. Use fluxes as published or in GMK's
   personal catalogue, assume calibration uncertainty much smaller than
   photometric uncertainty.
+  TODO: use HSA SPIRE catalogue.
 
 """
 
