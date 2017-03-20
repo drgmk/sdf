@@ -1,5 +1,5 @@
-#!/Users/grant/.virtualenvs/astropy-dev/bin/python3
 #!/usr/bin/env python3
+#!/Users/grant/.virtualenvs/astropy-dev/bin/python3
 
 """Generate HTML pages to browse database.
 
