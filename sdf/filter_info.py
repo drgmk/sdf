@@ -152,7 +152,7 @@ DDO
   
 Spitzer/IRAC
   Filters from SSC (via SVO), need to be converted to energy. Photometry
-  is from SEIP.
+  is from SEIP. No zero point offsets used.
 
 Spitzer/IRS PUI
   Filters from SSC (via SVO), need to be converted to energy. No
@@ -166,13 +166,13 @@ Spitzer/MIPS
   photometric uncertainties much larger than calibration unceratinty).
  
 WISE
-  Filters from SVO in energy units. Photometry from ALLWISE.
+  Filters from SVO in energy units. Photometry from ALLWISE. Zero point
+  offset needed for W3.
 
 AKARI/IRC
   Filters from SVO in energy units. Photometry from IRC PSC. Catalogue
   has fluxes so zero points not needed. Calibration uses Cohen network
-  so should have similar offsets to 2MASS and IRAC, so are revised up
-  by 1.02 upon extraction from sdb.
+  so should have similar offsets to IRAC.
 
 MSX
   Filters from SVO as RSRs. No photometry in this system currently
@@ -185,8 +185,7 @@ LBTI/NOMIC
 IRAS
   Filters from SVO in energy units. Photometry from PSC and FSC. At 12
   micron Rieke conclude that the fluxes need to be reduced by a factor
-  of 0.992, and by 0.98 at 25 micron. These corrections are applied
-  upon extraction from sdb. Original calibration used.
+  of 0.992, and by 0.98 at 25 micron. Original calibration used.
 
 Herschel/PACS
   Filters from SVO in energy units. Use fluxes as published or in GMK's
