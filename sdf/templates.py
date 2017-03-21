@@ -51,7 +51,7 @@ index=('''<!DOCTYPE html>
                     {% endif %}
                     {{ id }}
                 {% endfor %}
-                </div<
+                </div>
             {% endif %}
             
             <div class="links">
@@ -207,24 +207,25 @@ datatable=('''<!DOCTYPE html>
     
     <body class="sample_table">
     
-    <table class="head_table">
-    <tr><td>
-    <h1>{{ name }}</h1>
-    [ <a href="hr.html">HR diagram</a>
-    | <a href="fnuvsr.html">Flux/radius</a>
-    | <a href="{{ name }}.xml">votable</a>
-    ]
-    </td>
+    <div id="target_head">
     
-    <td class="right">
-    <a href="/~grant/sdb/">home</a>
-    <form style="display:inline-block;" action = "/~grant/sdb/search/search.php" method = "GET">
-    <input type = "text" name = "id"/>
-    <input type = "submit" value = "Search" />
-    </form>
-    </td></tr>
-    </table>
+    <div class="search">
+        <form style="display:inline-block;" action = "/~grant/sdb/search/search.php" method = "GET">
+        <input type = "text" name = "id"/>
+        <input type = "submit" value = "Search" />
+        </form>
+    </div>
 
+    <div class="target_info">
+        <h1>{{ name }}</h1>
+        [ <a href="hr.html">HR diagram</a>
+        | <a href="fnuvsr.html">Flux/radius</a>
+        | <a href="{{ name }}.xml">votable</a>
+        ]
+    </div>
+    
+    </div>
+    
     <script>
     $(document).ready(function() {
         $('#{{ name }}').dataTable({
