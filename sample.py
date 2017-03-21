@@ -375,7 +375,8 @@ def sample_plot(cursor,sample):
                 tools=tools1,active_scroll='wheel_zoom',
                 x_axis_label='Effective temperature / K',y_axis_label='Stellar luminosity / Solar',
                 y_axis_type="log",y_range=(0.5*min(t['lstar']),max(t['lstar'])*2),
-                x_range=(300+max(t['teff']),min(t['teff'])-300) )
+                x_range=(300+max(t['teff']),min(t['teff'])-300),
+                width=750,height=800)
     hr.circle('teff','lstar',source=data,size=10,fill_color='col',
               fill_alpha=0.6,line_color='col',line_alpha=1)
 
@@ -386,13 +387,14 @@ def sample_plot(cursor,sample):
                     x_axis_label='Disk temperature / K',
                     y_axis_label='Disk fractional luminosity',
                     y_axis_type="log",y_range=(0.5*cr[0],2*cr[1]),
-                    x_axis_type="log",x_range=(0.5*tr[0],2*tr[1]) )
+                    x_axis_type="log",x_range=(0.5*tr[0],2*tr[1]),
+                    width=750,height=800)
         ft.circle('tdisk','ldisklstar',source=data,size=10,fill_color='col',
                   fill_alpha=0.6,line_color='col',line_alpha=1)
     else:
         ft = figure(title='no IR excesses')
             
-    p = gridplot([[hr,ft]],sizing_mode='stretch_both',
+    p = gridplot([[hr,ft]],#sizing_mode='stretch_both',
                  toolbar_location='above')
                  
     url = "/~grant/sdb/seds/masters/@sdbid/public"

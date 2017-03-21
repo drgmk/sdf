@@ -132,11 +132,28 @@ generic=('''<!DOCTYPE html>
     <body>
     
         {% if title %}
+        <div id="target_head">
+        
+        <div class="search">
+        <form style="display:inline-block;" action = "/~grant/sdb/search/search.php" method = "GET">
+        <input type = "text" name = "id"/>
+        <input type = "submit" value = "Search" />
+        </form>
+        </div>
+
+        <div>
         <h1>{{ title }}</h1>
+        </div>
+        
+        </div>
         {% endif %}
 
-        {{ plot_div|indent(8) }}
+        <table>
+        <tr><td>
         {{ plot_script|indent(8) }}
+        {{ plot_div|indent(8) }}
+        </td></tr>
+        </table>
         
         {% if creation_time %}
         <div class="footer">
@@ -163,15 +180,28 @@ generic_wide=('''<!DOCTYPE html>
     <body class="wide">
     
         {% if title %}
-        <div id=="target_head">
-            <div>
-                <h1>{{ title }}</h1>
-            </div>
+        <div id="target_head">
+        
+        <div class="search">
+        <form style="display:inline-block;" action = "/~grant/sdb/search/search.php" method = "GET">
+        <input type = "text" name = "id"/>
+        <input type = "submit" value = "Search" />
+        </form>
+        </div>
+
+        <div>
+        <h1>{{ title }}</h1>
+        </div>
+        
         </div>
         {% endif %}
 
-        {{ plot_div|indent(8) }}
+        <table>
+        <tr><td>
         {{ plot_script|indent(8) }}
+        {{ plot_div|indent(8) }}
+        </td></tr>
+        </table>
         
         {% if creation_time %}
         <div class="footer">
@@ -201,9 +231,10 @@ datatable=('''<!DOCTYPE html>
     </script>
     <script src="https://cdn.datatables.net/1.10.9/js/jquery.dataTables.min.js">
     </script>
-    </head>
-    
+
     {{ css }}
+    
+    </head>
     
     <body class="sample_table">
     
