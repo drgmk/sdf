@@ -83,10 +83,12 @@ class Photometry(object):
             row = phot[i]
 
             # quick sanity checking
+            sum = 0.0
             for par in ['Phot','Err','Sys']:
                 if not np.isfinite(row[par]):
                     utils.SdfError("non-finite {} value {} in {}".format(par,row[par],file))
-            
+                sum += row[par]
+        
             p = Photometry()
             p.filters = np.array([row['Band']])
             p.measurement   = np.array([row['Phot']])
@@ -97,7 +99,12 @@ class Photometry(object):
             p.upperlim = np.array([ row['Lim'] == 1 ])
             p.ignore = np.array([ row['exclude'] == 1 ])
             
+            # if exclude desired
             if row['Band'] in cfg.fitting['exclude_filters']:
+                p.ignore = np.array([True])
+
+            # or if zero fluxes and errors
+            if sum == 0.0:
                 p.ignore = np.array([True])
 
             self.addto(p)
