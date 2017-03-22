@@ -63,7 +63,6 @@ def sed_components(results,tab_order=None):
                            y_axis_label='Flux density / Jy',y_axis_type='log',
                            tools=tools,active_scroll='wheel_zoom',
                            width=cfg.pl['x_size'],height=cfg.pl['y_top_size']) )
-        sed[i].xaxis.visible=False
 
         # add models
         add_model_phot(sed[i],r)
@@ -78,9 +77,9 @@ def sed_components(results,tab_order=None):
                                                     ('sigma',"@res")])
         tools = ['wheel_zoom,box_zoom,save,reset',hover]
 
-        res.append( figure(x_axis_label='Wavelength / micron',x_axis_type='log',
+        res.append( figure(x_axis_type='log',x_axis_location='above',
                            x_range=sed[i].x_range,
-                           y_axis_label='Significance',
+                           y_axis_label='Residuals',
                            tools=tools,active_scroll='wheel_zoom',
                            toolbar_location='right',
                            width=cfg.pl['x_size'],height=cfg.pl['y_bot_size']) )
