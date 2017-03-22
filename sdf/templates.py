@@ -100,7 +100,7 @@ index=('''<!DOCTYPE html>
         </div><!-- end header section -->
         {% endif %}
 
-        <table>
+        <table class="plot">
         <tr><td>
         {{ plot_script|indent(8) }}
         {{ plot_div|indent(8) }}
