@@ -521,12 +521,12 @@ class Result(object):
     
             # array of disk temperature samples
             if 'Temp' in par:
-                temp_dist = np.zeros(cfg.fitting['n_samples'])
+                distributions['tdisk'] = np.zeros(cfg.fitting['n_samples'])
                 for k,sample in enumerate(self.comp_param_samples[i]):
                     if par == 'log_Temp':
-                        temp_dist[k] = 10**sample[j]
+                        distributions['tdisk'][k] = 10**sample[j]
                     elif par == 'Temp':
-                        temp_dist[k] = sample[j]
+                        distributions['tdisk'][k] = sample[j]
 
         # disk and fractional luminosity
         ldisk_1pc_dist = np.zeros(cfg.fitting['n_samples'])
@@ -559,13 +559,14 @@ class Result(object):
                                                          ldisk_lstar_dist,[16.0,50.0,84.0])
             disk_r['e_ldisk_lstar_lo'] = disk_r['ldisk_lstar'] - lo
             disk_r['e_ldisk_lstar_hi'] = hi - disk_r['ldisk_lstar']
-            disk_r['e_ldisk_lstar'] = (disk_r['e_ldisk_lstar_lo']+disk_r['e_ldisk_lstar_hi'])/2.0
+            disk_r['e_ldisk_lstar'] = (disk_r['e_ldisk_lstar_lo']+
+                                       disk_r['e_ldisk_lstar_hi'])/2.0
 
             # distance (and stellar L)-dependent params
             if 'parallax' in self.distributions.keys():
-                lstar = self.distributions['lstar_1pc_tot'] / \
-                        self.distributions['parallax']
-                rdisk_bb_dist = lstar**0.5 * (278.3/temp_dist)**2
+                lstar = self.distributions['lstar_1pc_tot'] /   \
+                        self.distributions['parallax']**2
+                rdisk_bb_dist = lstar**0.5 * (278.3/distributions['tdisk'])**2
 
                 distributions['rdisk_bb'] = rdisk_bb_dist
                 lo,disk_r['rdisk_bb'],hi = fitting.pmn_pc(self.param_sample_probs,
