@@ -96,6 +96,9 @@ class Model(object):
             self.i = np.arange(len(self.wavelength))
         self.n_i = len(self.i)
 
+        # create the hashed version
+        self.fill_fnujy_sr_hashed()
+        
         return self
 
 
@@ -149,6 +152,12 @@ class Model(object):
         hdulist = fits.HDUList(hdus)
         hdulist.writeto(file, overwrite=overwrite)
     
+
+    def fill_fnujy_sr_hashed(self):
+        """Get a hashed copy of fnujy_sr."""
+
+        self.fnujy_sr_hashed = utils.hashable(self.fnujy_sr)
+
 
     @lru_cache(maxsize=8)
     def rginterpolator(self):
@@ -230,7 +239,7 @@ class Model(object):
         # interpolation, sped up by doing spline_filter first and
         # memoizing the result, order must be the same in both calls
         # TODO: this method causes ringing in the interpolated spectra
-        ff = utils.spline_filter_mem(utils.hashable(self.fnujy_sr),order=2)
+        ff = utils.spline_filter_mem(self.fnujy_sr_hashed,order=2)
         fluxes = map_coordinates(ff,pargrid.T,order=2,prefilter=False)
         
         # hack to avoid negative fluxes arising from ringing
@@ -500,6 +509,9 @@ class PhotModel(Model):
         self.i = np.arange(len(self.filters))
         self.n_i = len(self.i)
 
+        # and update the hashed version
+        self.fill_fnujy_sr_hashed()
+            
 
 class SpecModel(Model):
     """Class to hold grids of model spectra
@@ -707,6 +719,9 @@ class SpecModel(Model):
 
         self.i = np.arange(len(self.wavelength))
         self.n_i = len(self.i)
+
+        # and update the hashed version
+        self.fill_fnujy_sr_hashed()
 
 
 def model_fluxes(m,param,obs_nel,phot_only=False):
