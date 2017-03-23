@@ -99,6 +99,8 @@ class Result(object):
         p = photometry.Photometry.read_sdb_file(self.rawphot)
         if p is None:
             return
+        elif np.sum(p.ignore) == p.nphot:
+            return
 
         self.obs = (p,)
         self.obs_keywords = utils.get_sdb_keywords(self.rawphot)
