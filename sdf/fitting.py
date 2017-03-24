@@ -117,9 +117,9 @@ def residual(param,*args):
     resid[ok] = (obs_fnu[ok] - mod_fnu[ok]) / obs_e_fnu[ok]
 
     # set residual if any 3sigma upper limits exceeded at the 1sigma
-    # level, otherwise zero as set above
+    # level, ignored and otherwise zero as set above
     for i,lim in enumerate(obs_uplim):
-        if lim:
+        if lim and not obs_ignore[i]:
             if mod_fnu[i] > obs_fnu[i]/3.:
                 resid[i] = -1. * mod_fnu[i] / (obs_fnu[i]/3.)
 
