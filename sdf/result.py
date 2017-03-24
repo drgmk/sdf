@@ -380,6 +380,9 @@ class Result(object):
         # corner plot of distributions
         samples = np.zeros(cfg.fitting['n_samples'])
         labels = []
+        if 'parallax' in self.distributions.keys():
+            samples = np.vstack((samples,self.distributions['parallax']))
+            labels.append('parallax')
         for dist in self.star_distributions:
             for key in dist.keys():
                 samples = np.vstack((samples,dist[key]))
