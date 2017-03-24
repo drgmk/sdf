@@ -110,7 +110,8 @@ index=('''<!DOCTYPE html>
         {% if creation_time %}
         <div class="footer">
             <hr>
-            <p>generated {{ creation_time }} UTC</p>
+            <div class="footer_home"><a href="/~grant/sdb">home</a></div>
+            <div class="footer_gen">generated {{ creation_time }} UTC</div>
         </div>
         {% endif %}
     </body>
