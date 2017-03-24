@@ -117,7 +117,7 @@ index=('''<!DOCTYPE html>
 </html>
 ''')
 
-generic=('''<!DOCTYPE html>
+sample_plot=('''<!DOCTYPE html>
 <html lang="en">
     <head>
         <meta charset="utf-8">
@@ -143,6 +143,7 @@ generic=('''<!DOCTYPE html>
 
         <div>
         <h1>{{ title }}</h1>
+        [ <a href="/~grant/sdb/samples/{{ title }}">table</a> ]
         </div>
         
         </div>
@@ -165,7 +166,7 @@ generic=('''<!DOCTYPE html>
 </html>
 ''')
 
-generic_wide=('''<!DOCTYPE html>
+sample_plot_wide=('''<!DOCTYPE html>
 <html lang="en">
     <head>
         <meta charset="utf-8">
@@ -191,6 +192,7 @@ generic_wide=('''<!DOCTYPE html>
 
         <div>
         <h1>{{ title }}</h1>
+        [ <a href="/~grant/sdb/samples/{{ title }}">table</a> ]
         </div>
         
         </div>

@@ -279,7 +279,7 @@ def sample_plots():
                                   database=cfg.mysql['db_sdb'])
     cursor = cnx.cursor(buffered=True)
 
-    template = Template(templates.generic_wide)
+    template = Template(templates.sample_plot_wide)
     bokeh_js = CDN.render_js()
     bokeh_css = CDN.render_css()
 
@@ -416,7 +416,7 @@ def flux_size_plots():
     cursor = cnx.cursor(buffered=True)
 
 
-    template = Template(templates.generic)
+    template = Template(templates.sample_plot)
     bokeh_js = CDN.render_js()
     bokeh_css = CDN.render_css()
 
