@@ -1,4 +1,5 @@
 import io
+from datetime import datetime
 from os import path,remove
 
 import ast
@@ -289,7 +290,8 @@ def sed_limits(results):
     return xlims,ylims
 
 
-def calibration(file=cfg.www['root']+'calibration/cal.html'):
+def calibration(sample='zpo_cal_',
+                fileroot=cfg.www['root']+'calibration/'):
     """Diagnostic plot showing quality of photometric calibration."""
 
     try:
@@ -304,8 +306,6 @@ def calibration(file=cfg.www['root']+'calibration/cal.html'):
         print("Can't connect to {} at {}".format(cfg.mysql['db_results'],
                                                  cfg.mysql['host']) )
         return
-
-    output_file(file,mode='cdn')
 
     # get a wavelength-sorted list of filters.
     cursor.execute("SELECT DISTINCT filter FROM "+cfg.mysql['phot_table']+" "
@@ -338,7 +338,8 @@ def calibration(file=cfg.www['root']+'calibration/cal.html'):
                 "chisq/IF(dof<1,1,dof) as cdof FROM "
                 +cfg.mysql['model_table']+" ""LEFT JOIN "
                 +cfg.mysql['phot_table']+" USING (id) "
-                "WHERE filter='"+f+"' AND obs_upperlim=0")
+                "LEFT JOIN "+cfg.mysql['db_samples']+'.'+sample+" ON id=sdbid "
+                "WHERE sdbid IS NOT NULL AND filter='"+f+"' AND obs_upperlim=0")
         cursor.execute(stmt)
         for (id,chi,R,par,cdof) in cursor.fetchall():
             data['id'].append(id)
@@ -349,6 +350,9 @@ def calibration(file=cfg.www['root']+'calibration/cal.html'):
             col = np.append(col, cdof )
         
         print("  ",f,":",len(col))
+
+        if len(col) == 0:
+            continue
 
         # set colour range, clipped at chisq/dof=10
         col = np.clip(255 * col / 10.,0,255)
@@ -365,7 +369,7 @@ def calibration(file=cfg.www['root']+'calibration/cal.html'):
         flux.append( figure(x_axis_label='Teff / K',y_axis_label=f,
                             y_range=std.tolist(),
                             tools=tools+[hover],active_scroll='wheel_zoom',
-                            width=800,height=200) )
+                            width=1050,height=200) )
 
         center = (1 if std[0] > 0.5 else 0)
         flux[-1].line(x=[ np.min(data['Teff']) , np.max(data['Teff']) ],
@@ -400,13 +404,27 @@ def calibration(file=cfg.www['root']+'calibration/cal.html'):
     for i in range(len(flux)-1):
         flux[i].x_range = flux[-1].x_range
 
-    # add a title
-    flux[0].title.text = 'Photometric calibration'
-
     pl = []
     for i in range(len(flux)):
         pl.append([flux[i],rhist[i],chist[i]])
 
-    grid = gridplot(pl,toolbar_location='above')
+    grid = gridplot(pl,toolbar_location='right')
 
-    save(grid)
+    script,div = components(grid)
+
+    # now write the html
+    template = Template(templates.sample_plot_wide)
+    bokeh_js = CDN.render_js()
+    bokeh_css = CDN.render_css()
+
+    html = template.render(bokeh_js=bokeh_js,
+                           bokeh_css=bokeh_css,
+                           css=templates.css,
+                           plot_script=script,
+                           plot_div=div,
+                           title=sample,
+                           creation_time=datetime.utcnow().strftime("%d/%m/%y %X"))
+
+    file = fileroot + sample + '.html'
+    with io.open(file, mode='w', encoding='utf-8') as f:
+        f.write(html)
