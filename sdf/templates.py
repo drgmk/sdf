@@ -72,7 +72,7 @@ index=('''<!DOCTYPE html>
             <td>
             
             External:
-            <a href="http://simbad.u-strasbg.fr/simbad/sim-basic?submit=SIMBAD+search&Ident={{ main_id }}" target="_blank" title="Simbad">simbad</a>
+            <a href="http://simbad.u-strasbg.fr/simbad/sim-basic?submit=SIMBAD+search&Ident={{ main_id|urlencode }}" target="_blank" title="Simbad">simbad</a>
             
             {% if ra %}
                 | <a href="http://cassis.sirtf.com/atlas/cgi/radec.py?ra={{ ra }}&dec={{ dec }}&radius=20" target="_blank" title="Cornell IRS Spectra">cassis</a>
