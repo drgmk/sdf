@@ -205,7 +205,8 @@ class Result(object):
         # contain no negative values, if there is an uncertainty
         if self.obs_keywords['plx_err'] is not None \
             and self.obs_keywords['plx_value'] is not None:
-            if self.obs_keywords['plx_value'] > 0:
+            if self.obs_keywords['plx_err'] > 0 \
+                and self.obs_keywords['plx_value'] > 0:
                 
                 lo_cut = -1. * ( self.obs_keywords['plx_value'] /   \
                                  self.obs_keywords['plx_err'] )
