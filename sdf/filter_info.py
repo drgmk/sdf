@@ -149,7 +149,11 @@ DDO
   both modes. No evidence for this offset seen in SED fitting (yet).
   This system is used as one of those with the "correct" absolute
   calibration.
-  
+
+DENIS
+  Filters from Fouque et al 2000. Calibration assumes Vega is zero mag.
+  No zero point offsets.
+
 Spitzer/IRAC
   Filters from SSC (via SVO), need to be converted to energy. Photometry
   is from SEIP. No zero point offsets used.
@@ -360,6 +364,18 @@ filters['2MR1KS'] = filters['2MKS']
 filters['2MR2J'] = filters['2MJ']
 filters['2MR2H'] = filters['2MH']
 filters['2MR2KS'] = filters['2MKS']
+
+# DENIS, assume energy counting
+filters['IDENIS'] = {'svo_name': 'DENIS/DENIS.I',
+                     'zero_point_offset': 0.0,
+                     'response_type': 'energy'}
+filters['JDENIS'] = {'svo_name': 'DENIS/DENIS.J',
+                     'zero_point_offset': 0.0,
+                     'response_type': 'energy'}
+filters['KSDENIS'] = {'svo_name': 'DENIS/DENIS.Ks',
+                     'zero_point_offset': 0.0,
+                     'response_type': 'energy'}
+
 
 # WISE, RSRs already converted to energy, ref spectrum
 # is F_nu oc 1/nu^2. residuals from seds suggest small changes
