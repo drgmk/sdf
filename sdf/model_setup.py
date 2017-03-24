@@ -31,6 +31,8 @@ def setup_spec():
 def setup_phot():
     """Rederive convolved models.
         
+    Run this when new filters have been added in sdf.filter_info.
+        
     This needs to be run to propagate ZPOs into colours/indices.
     """
     specmodel2phot(mname='kurucz-0.0')
