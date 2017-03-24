@@ -300,7 +300,7 @@ def calibration(sample='zpo_cal_',
                                       host=cfg.mysql['host'],
                                       database=cfg.mysql['db_results'])
         cursor = cnx.cursor(buffered=True)
-        print("Photometric calibration")
+        print("  "+sample)
             
     except mysql.connector.InterfaceError:
         print("Can't connect to {} at {}".format(cfg.mysql['db_results'],
@@ -349,7 +349,7 @@ def calibration(sample='zpo_cal_',
             data['Teff'].append(pars[0])
             col = np.append(col, cdof )
         
-        print("  ",f,":",len(col))
+#        print("  ",f,":",len(col))
 
         if len(col) == 0:
             continue
@@ -369,7 +369,7 @@ def calibration(sample='zpo_cal_',
         flux.append( figure(x_axis_label='Teff / K',y_axis_label=f,
                             y_range=std.tolist(),
                             tools=tools+[hover],active_scroll='wheel_zoom',
-                            width=1050,height=200) )
+                            width=1100,height=200) )
 
         center = (1 if std[0] > 0.5 else 0)
         flux[-1].line(x=[ np.min(data['Teff']) , np.max(data['Teff']) ],
@@ -408,7 +408,7 @@ def calibration(sample='zpo_cal_',
     for i in range(len(flux)):
         pl.append([flux[i],rhist[i],chist[i]])
 
-    grid = gridplot(pl,toolbar_location='right')
+    grid = gridplot(pl,toolbar_location='above')
 
     script,div = components(grid)
 

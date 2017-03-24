@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-#!/Users/grant/.virtualenvs/astropy-dev/bin/python3
-
 """Generate HTML pages to browse database.
 
 Uses non-standard version of astropy to ensure html anchors retained in
@@ -30,6 +27,7 @@ from bokeh.models import HoverTool,OpenURL,TapTool
 from bokeh.layouts import gridplot,layout
 from bokeh.embed import components
 
+from sdf import plotting
 from sdf import templates
 from sdf import config as cfg
 
@@ -333,8 +331,9 @@ def sample_plot(cursor,sample):
     # statement for selecting stuff to plot
     sel += " WHERE teff IS NOT NULL AND lstar IS NOT NULL"
 
-    selall = ("SELECT sdbid,main_id,teff,lstar,IFNULL(ldisk_lstar,-1) as "
-              "ldisklstar,IFNULL(temp,-1) as tdisk") + sel
+    selall = ("SELECT sdbid,main_id,teff,e_teff,lstar,e_lstar,"
+              " IFNULL(ldisk_lstar,-1) as ldisklstar,"
+              " IFNULL(temp,-1) as tdisk") + sel
 
     # limit table sizes
     if sample != 'everything':
@@ -352,7 +351,7 @@ def sample_plot(cursor,sample):
     print("    got ",ngot," rows")
     l = list(zip(*allsql))
     keys = cursor.column_names
-    dtypes = [None,None,float,float,float,float]
+    dtypes = [None,None,float,float,float,float,float,float]
     for i in range(len(keys)):
         col = np.array(l[i],dtype=dtypes[i])
         t[keys[i]] = col
@@ -371,24 +370,37 @@ def sample_plot(cursor,sample):
     tools2 = ['wheel_zoom,box_zoom,box_select,tap,save,reset',hover2]
 
     # hr diagram
-    hr = figure(title="HR diagram for "+sample+" ("+str(ngot)+" of "+str(ntot)+")",
+    hr = figure(title="HR diagram ("+str(ngot)+" of "+str(ntot)+")",
                 tools=tools1,active_scroll='wheel_zoom',
                 x_axis_label='Effective temperature / K',y_axis_label='Stellar luminosity / Solar',
                 y_axis_type="log",y_range=(0.5*min(t['lstar']),max(t['lstar'])*2),
                 x_range=(300+max(t['teff']),min(t['teff'])-300),
                 width=750,height=800)
-    hr.circle('teff','lstar',source=data,size=10,fill_color='col',
-              fill_alpha=0.6,line_color='col',line_alpha=1)
+    err_xs = []
+    err_ys = []
+    for x, y, yerr in zip(t['teff'], t['lstar'], t['e_lstar']):
+        err_xs.append((x, x))
+        err_ys.append((y - yerr, y + yerr))
+    hr.multi_line(err_xs,err_ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
+    err_xs = []
+    err_ys = []
+    for y, x, xerr in zip(t['lstar'], t['teff'], t['e_teff']):
+        err_ys.append((y, y))
+        err_xs.append((x - xerr, x + xerr))
+    hr.multi_line(err_xs,err_ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
+    hr.circle('teff','lstar',source=data,line_color='col',
+              fill_color='col',**cfg.pl['hr_dot'])
 
     # f vs temp (if we have any)
     if np.max(t['ldisklstar']) > 0:
-        ft = figure(title="fractional luminosity vs disk temperature for "+sample,
+        ft = figure(title="fractional luminosity vs disk temperature",
                     tools=tools2,active_scroll='wheel_zoom',
                     x_axis_label='Disk temperature / K',
                     y_axis_label='Disk fractional luminosity',
                     y_axis_type="log",y_range=(0.5*cr[0],2*cr[1]),
                     x_axis_type="log",x_range=(0.5*tr[0],2*tr[1]),
                     width=750,height=800)
+                    
         ft.circle('tdisk','ldisklstar',source=data,size=10,fill_color='col',
                   fill_alpha=0.6,line_color='col',line_alpha=1)
     else:
@@ -587,6 +599,8 @@ if __name__ == "__main__":
                         help='Update sample tables')
     parser.add_argument('--plots','-p',action='store_true',
                         help='Update sample plots')
+    parser.add_argument('--calibration','-l',action='store_true',
+                        help='Update calibration plots')
     parser.add_argument('--cleanup','-c',action='store_true',
                         help='Remove unneccessary sample dirs')
     args = parser.parse_args()
@@ -599,6 +613,11 @@ if __name__ == "__main__":
         print("Updating sample plots")
         flux_size_plots()
         sample_plots()
+
+    if args.calibration:
+        print("Updating calibration plots")
+        for sample in cfg.www['cal_samples']:
+            plotting.calibration(sample=sample)
 
     if args.cleanup:
         print("Cleaning up")
