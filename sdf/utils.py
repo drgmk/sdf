@@ -236,6 +236,22 @@ def uvby_convert(by,m1,c1):
     return by_out,m1_out,c1_out
 
 
+def plot_err(a,e_a,b,e_b):
+    """Return x,y arrays to use a lines for error bars."""
+
+    c = []
+    d = []
+    err_c = []
+    err_d = []
+    for x, xerr, y, yerr in zip(a,e_a,b,e_b):
+        c.append((x, x))
+        d.append((y, y))
+        err_c.append((x - xerr, x + xerr))
+        err_d.append((y - yerr, y + yerr))
+
+    return c,err_c,d,err_d
+
+
 def linterp(newx,x,y):
     """Linear interpolation."""
 

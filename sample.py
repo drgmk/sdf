@@ -20,7 +20,7 @@ import mysql.connector
 
 from jinja2 import Template
 from bokeh.resources import CDN
-from bokeh.plotting import figure,output_file,save,ColumnDataSource
+from bokeh.plotting import figure,ColumnDataSource
 import bokeh.palettes
 from bokeh.models.widgets import Panel,Tabs
 from bokeh.models import HoverTool,OpenURL,TapTool
@@ -29,6 +29,7 @@ from bokeh.embed import components
 
 from sdf import plotting
 from sdf import templates
+from sdf import utils
 from sdf import config as cfg
 
 
@@ -333,7 +334,9 @@ def sample_plot(cursor,sample):
 
     selall = ("SELECT sdbid,main_id,teff,e_teff,lstar,e_lstar,"
               " IFNULL(ldisk_lstar,-1) as ldisklstar,"
-              " IFNULL(temp,-1) as tdisk") + sel
+              " e_ldisk_lstar as e_ldisklstar,"
+              " IFNULL(temp,-1) as tdisk,"
+              " e_temp as e_tdisk") + sel
 
     # limit table sizes
     if sample != 'everything':
@@ -351,7 +354,8 @@ def sample_plot(cursor,sample):
     print("    got ",ngot," rows")
     l = list(zip(*allsql))
     keys = cursor.column_names
-    dtypes = [None,None,float,float,float,float,float,float]
+    dtypes = [None,None,float,float,float,float,
+              float,float,float,float]
     for i in range(len(keys)):
         col = np.array(l[i],dtype=dtypes[i])
         t[keys[i]] = col
@@ -376,18 +380,9 @@ def sample_plot(cursor,sample):
                 y_axis_type="log",y_range=(0.5*min(t['lstar']),max(t['lstar'])*2),
                 x_range=(300+max(t['teff']),min(t['teff'])-300),
                 width=750,height=800)
-    err_xs = []
-    err_ys = []
-    for x, y, yerr in zip(t['teff'], t['lstar'], t['e_lstar']):
-        err_xs.append((x, x))
-        err_ys.append((y - yerr, y + yerr))
-    hr.multi_line(err_xs,err_ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
-    err_xs = []
-    err_ys = []
-    for y, x, xerr in zip(t['lstar'], t['teff'], t['e_teff']):
-        err_ys.append((y, y))
-        err_xs.append((x - xerr, x + xerr))
-    hr.multi_line(err_xs,err_ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
+    xs,err_xs,ys,err_ys = utils.plot_err(t['teff'],t['e_teff'],t['lstar'],t['e_lstar'])
+    hr.multi_line(xs,err_ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
+    hr.multi_line(err_xs,ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
     hr.circle('teff','lstar',source=data,line_color='col',
               fill_color='col',**cfg.pl['hr_dot'])
 
@@ -401,6 +396,10 @@ def sample_plot(cursor,sample):
                     x_axis_type="log",x_range=(0.5*tr[0],2*tr[1]),
                     width=750,height=800)
                     
+        xs,err_xs,ys,err_ys = utils.plot_err(t['tdisk'],t['e_tdisk'],
+                                             t['ldisklstar'], t['e_ldisklstar'])
+        ft.multi_line(xs,err_ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
+        hr.multi_line(err_xs,ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
         ft.circle('tdisk','ldisklstar',source=data,size=10,fill_color='col',
                   fill_alpha=0.6,line_color='col',line_alpha=1)
     else:
