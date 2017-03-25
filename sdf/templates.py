@@ -100,12 +100,8 @@ index=('''<!DOCTYPE html>
         </div><!-- end header section -->
         {% endif %}
 
-        <table class="plot">
-        <tr><td>
         {{ plot_script|indent(8) }}
         {{ plot_div|indent(8) }}
-        </td></tr>
-        </table>
         
         {% if creation_time %}
         <div class="footer">
@@ -150,12 +146,8 @@ sample_plot=('''<!DOCTYPE html>
         </div>
         {% endif %}
 
-        <table>
-        <tr><td>
         {{ plot_script|indent(8) }}
         {{ plot_div|indent(8) }}
-        </td></tr>
-        </table>
         
         {% if creation_time %}
         <div class="footer">
@@ -200,12 +192,8 @@ sample_plot_wide=('''<!DOCTYPE html>
         </div>
         {% endif %}
 
-        <table>
-        <tr><td>
         {{ plot_script|indent(8) }}
         {{ plot_div|indent(8) }}
-        </td></tr>
-        </table>
         
         {% if creation_time %}
         <div class="footer">

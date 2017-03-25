@@ -408,8 +408,7 @@ def sample_plot(cursor,sample):
     else:
         ft = figure(title='no IR excesses')
             
-    p = gridplot([[hr,ft]],#sizing_mode='stretch_both',
-                 toolbar_location='above')
+    p = gridplot([[hr,ft]],sizing_mode='scale_width',toolbar_location='above')
 
     # taptool callback
     url = "/~grant/sdb/seds/masters/@sdbid/public"
@@ -533,13 +532,13 @@ def flux_size_plot(cursor,sample):
         hover = HoverTool(tooltips=[("name","@id")])
         tools = ['wheel_zoom,box_zoom,box_select,tap,save,reset',hover]
 
-        pl = figure(title="disk flux vs radius for "+sample+" ("+str(ngot)+" of "+str(ntot)+")",
-                    tools=tools,active_scroll='wheel_zoom',
+        pl = figure(title="disk flux vs radius ("+str(ngot)+" of "+str(ntot)+")",
+                    tools=tools,active_scroll='wheel_zoom',toolbar_location='above',
                     x_axis_label='Disk black body radius / arcsec',
                     y_axis_label='Disk flux / mJy',
                     y_axis_type="log",y_range=(0.5*min(t['flux']),max(t['flux'])*2),
                     x_axis_type="log",x_range=(0.5*min(t['rdisk']),max(t['rdisk'])*2),
-                    width=800,height=600)
+                    width=850,height=600)
 
         if sens[i] is not None:
             pl.line(sens[i][:,1],sens[i][:,0],

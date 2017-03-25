@@ -47,10 +47,7 @@ def sed_components(results,tab_order=None):
     tabs = []
     for i,r in enumerate(results):
 
-        title = "Evidence: {:.2f} | ".format(r.evidence)
-        for j,par in enumerate(r.parameters):
-            if 'norm' not in par:
-                title += "{}:{:.1f}, ".format(par,r.best_params[j])
+        title = "Evidence: {:.2f}".format(r.evidence)
 
         # sed plot
         hover = HoverTool(names=['phot'],tooltips=[('band',"@filter"),
@@ -91,7 +88,7 @@ def sed_components(results,tab_order=None):
         res[i].line(x=xlim,y=[3 , 3],**cfg.pl['guide_dash'])
         add_res(res[i],r)
 
-        grid = gridplot([[sed[i]],[res[i]]],toolbar_location='right')
+        grid = gridplot([[sed[i]],[res[i]]],toolbar_location='below')
 
         tabs.append( Panel(child=grid, title=r.model_info['name']) )
     
@@ -309,7 +306,7 @@ def calibration(sample='zpo_cal_',
 
     # get a wavelength-sorted list of filters.
     cursor.execute("SELECT DISTINCT filter FROM "+cfg.mysql['phot_table']+" "
-                   "WHERE obs_jy IS NOT NULL")
+                   "WHERE obs_jy IS NOT NULL LIMIT 100")
     filters = cursor.fetchall()
     filters = [f for (f,) in filters]
     wav = filter.mean_wavelength(filters)
@@ -408,6 +405,8 @@ def calibration(sample='zpo_cal_',
     for i in range(len(flux)):
         pl.append([flux[i],rhist[i],chist[i]])
 
+    # TODO: future bokeh release might allow sizing_mod='scale_both'
+    # with different element widths
     grid = gridplot(pl,toolbar_location='above')
 
     script,div = components(grid)
