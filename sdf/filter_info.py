@@ -242,6 +242,33 @@ filters['GALFUV'] = {'svo_name': 'PhotCalID=GALEX/GALEX.FUV/AB',
 filters['GALNUV'] = {'svo_name': 'PhotCalID=GALEX/GALEX.NUV/AB',
                      'response_type': 'photon'}
 
+# SDSS
+filters['USDSS'] = {'svo_name': 'SLOAN/SDSS.u',
+                    'magnitude_system': 'AB',
+                    'zero_point_offset': 0.04,
+                    'response_type': 'energy'}
+filters['GSDSS'] = {'svo_name': 'SLOAN/SDSS.g',
+                    'magnitude_system': 'AB',
+                    'zero_point_offset': 0.01,
+                    'response_type': 'energy'}
+filters['RSDSS'] = {'svo_name': 'SLOAN/SDSS.r',
+                    'magnitude_system': 'AB',
+                    'zero_point_offset': 0.01,
+                    'response_type': 'energy'}
+filters['ISDSS'] = {'svo_name': 'SLOAN/SDSS.i',
+                    'magnitude_system': 'AB',
+                    'zero_point_offset': 0.01,
+                    'response_type': 'energy'}
+filters['ZSDSS'] = {'svo_name': 'SLOAN/SDSS.z',
+                    'magnitude_system': 'AB',
+                    'zero_point_offset': 0.0,
+                    'response_type': 'energy'}
+
+# APASS the same filters
+filters['GAPASS'] = filters['GSDSS']
+filters['RAPASS'] = filters['RSDSS']
+filters['IAPASS'] = filters['ISDSS']
+
 # zero point offsets from Bessel & Murphy 2012 are 0.04, 0.022, 0.027.
 # from MvB are 0.0188, 0.0185, 0.027 (latter fixed to 0.027)
 # consider Johnson V magnitude of Vega to be immutable at 0.027
@@ -254,6 +281,9 @@ filters['BJ'] = {'svo_name': 'GCPD/Johnson.B',
 filters['VJ'] = {'svo_name': 'GCPD/Johnson.V',
                  'zero_point_offset': 0.027,
                  'response_type': 'energy'}
+
+filters['BAPASS'] = filters['BJ']
+filters['VAPASS'] = filters['VJ']
 
 # zero point offsets from Bessel & Murphy 2012 are 0.027,0.028
 # from MvB are 0.0212, 0.0091. Note that their R bandpasses look a bit

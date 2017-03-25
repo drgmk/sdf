@@ -210,7 +210,7 @@ class Filter(object):
             self.fill_ref_nu_hz()
             self.fill_cc_denom()
         
-        # compute zero-point in Vega system, otherwise set to None
+        # compute zero-point in Vega system
         if self.magnitude_system == 'Vega':
             v = spectrum.ObsSpectrum.vega_stis()
             if (np.min(v.nu_hz) < np.min(self.nu_hz) and
@@ -219,6 +219,10 @@ class Filter(object):
                 self.zero_point = zp[0]
             else:
                 self.zero_point = None
+
+        # or for AB
+        elif self.magnitude_system == 'AB':
+            self.zero_point = 3631.0
 
         return self
 
