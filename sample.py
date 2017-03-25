@@ -367,11 +367,14 @@ def sample_plot(cursor,sample):
     t['col'] = col
     data = ColumnDataSource(data=t)
 
+    # set up hover/tap tools
     # TODO: hover in one highlights in the other
-    hover1 = HoverTool(tooltips=[("name","@main_id")])
-    hover2 = HoverTool(tooltips=[("name","@main_id")])
-    tools1 = ['wheel_zoom,box_zoom,box_select,tap,save,reset',hover1]
-    tools2 = ['wheel_zoom,box_zoom,box_select,tap,save,reset',hover2]
+    hover1 = HoverTool(names=['dot'],tooltips=[("name","@main_id")])
+    hover2 = HoverTool(names=['dot'],tooltips=[("name","@main_id")])
+    tap1 = TapTool(names=['dot'])
+    tap2 = TapTool(names=['dot'])
+    tools1 = ['wheel_zoom,box_zoom,box_select,save,reset',hover1,tap1]
+    tools2 = ['wheel_zoom,box_zoom,box_select,save,reset',hover2,tap2]
 
     # hr diagram
     hr = figure(title="HR diagram ("+str(ngot)+" of "+str(ntot)+")",
@@ -383,7 +386,7 @@ def sample_plot(cursor,sample):
     xs,err_xs,ys,err_ys = utils.plot_err(t['teff'],t['e_teff'],t['lstar'],t['e_lstar'])
     hr.multi_line(xs,err_ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
     hr.multi_line(err_xs,ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
-    hr.circle('teff','lstar',source=data,line_color='col',
+    hr.circle('teff','lstar',source=data,name='dot',line_color='col',
               fill_color='col',**cfg.pl['hr_dot'])
 
     # f vs temp (if we have any)
@@ -399,15 +402,16 @@ def sample_plot(cursor,sample):
         xs,err_xs,ys,err_ys = utils.plot_err(t['tdisk'],t['e_tdisk'],
                                              t['ldisklstar'], t['e_ldisklstar'])
         ft.multi_line(xs,err_ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
-        hr.multi_line(err_xs,ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
-        ft.circle('tdisk','ldisklstar',source=data,size=10,fill_color='col',
-                  fill_alpha=0.6,line_color='col',line_alpha=1)
+        ft.multi_line(err_xs,ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
+        ft.circle('tdisk','ldisklstar',source=data,name='dot',fill_color='col',
+                  line_color='col',**cfg.pl['hr_dot'])
     else:
         ft = figure(title='no IR excesses')
             
     p = gridplot([[hr,ft]],#sizing_mode='stretch_both',
                  toolbar_location='above')
-                 
+
+    # taptool callback
     url = "/~grant/sdb/seds/masters/@sdbid/public"
     taptool = hr.select(type=TapTool)
     taptool.callback = OpenURL(url=url)
