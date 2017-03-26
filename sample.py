@@ -56,6 +56,9 @@ def get_samples():
     Get a list of samples from the database. Add "everything" and
     "public" samples, "public" might not show everything in the list,
     but "everything" will (but may not be visible to anyone).
+    
+    Samples with no sdbid column, i.e. those that haven't been imported
+    yet, will be excluded.
     """
     
     cnx = mysql.connector.connect(user=cfg.mysql['user'],
@@ -64,8 +67,14 @@ def get_samples():
                                   database=cfg.mysql['db_samples'])
     cursor = cnx.cursor(buffered=True)
     cursor.execute("SHOW TABLES;")
-    samples = cursor.fetchall() # a list of tuples
-    samples = [i[0] for i in samples]
+    samples_tmp = cursor.fetchall() # a list of tuples
+    samples = []
+    for s_tuple in samples_tmp:
+        s = s_tuple[0]
+        cursor.execute("SHOW COLUMNS FROM {} LIKE 'sdbid'".format(s))
+        if cursor.rowcount == 1:
+            samples.append(s)
+#    samples = [i[0] for i in samples]
     cursor.close()
     cnx.close()
     return( samples + ['public','everything'] )
@@ -178,7 +187,7 @@ def sample_table_www(cursor,sample):
         none = np.where(tsamp[n] == b'None')
         tsamp[n][none] = '-'
 
-    print("    got ",len(tsamp)," rows")
+    print("    got ",len(tsamp)," rows for html table")
 
     # get the table as xml
     s = io.StringIO()
@@ -227,13 +236,13 @@ def sample_table_votable(cursor,sample):
             " ORDER by raj2000")
     # limit table sizes
     if sample != 'everything':
-        sel += " LIMIT "+str(cfg.www['tablemax'])+";"
+        sel += " LIMIT "+str(cfg.www['votmax'])+";"
 
     cursor.execute(sel)
     rows = cursor.fetchall()
     tsamp = Table(rows=rows,names=cursor.column_names)
 
-    print("    got ",len(tsamp)," rows")
+    print("    got ",len(tsamp)," rows for votable")
 
     tsamp.write(wwwroot+sample+'/'+sample+'.xml',
                 format='votable',overwrite=True)
@@ -340,7 +349,7 @@ def sample_plot(cursor,sample):
 
     # limit table sizes
     if sample != 'everything':
-        selall += " LIMIT "+str(cfg.www['tablemax'])+";"
+        selall += " LIMIT "+str(cfg.www['plotmax'])+";"
 
     # number we could have plotted (more if some were nan)
     selnum = "SELECT COUNT(*)" + sel
@@ -351,7 +360,7 @@ def sample_plot(cursor,sample):
     t = {}
     allsql = cursor.fetchall()
     ngot = len(allsql)
-    print("    got ",ngot," rows")
+    print("    got ",ngot," rows for plot")
     l = list(zip(*allsql))
     keys = cursor.column_names
     dtypes = [None,None,float,float,float,float,
