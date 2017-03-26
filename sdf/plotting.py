@@ -109,8 +109,10 @@ def add_obs_phot(fig,r):
     for p in r.obs:
         if not isinstance(p,photometry.Photometry):
             continue
+        
+        # photometry, not upper limits or ignored
         data = {}
-        ok = np.invert(p.upperlim)
+        ok = np.invert(np.logical_or(p.upperlim,p.ignore))
         data['filter'] = p.filters[ok]
         data['wave'] = p.mean_wavelength()[ok]
         data['flux'] = p.fnujy[ok]
@@ -118,24 +120,28 @@ def add_obs_phot(fig,r):
         pldata = ColumnDataSource(data=data)
 
         # plot detections
+        xs,_,_,err_ys = utils.plot_err(data['wave'],data['wave'],
+                                       data['flux'],data['err'])
+        fig.multi_line(xs,err_ys,**cfg.pl['obs_e_ph'])
         fig.circle('wave','flux',source=pldata,name='phot',**cfg.pl['obs_ph'])
 
-        # create and plot errorbars
-        err_xs = []
-        err_ys = []
-        for x, y, yerr in zip(data['wave'], data['flux'], data['err']):
-            err_xs.append((x, x))
-            err_ys.append((y - yerr, y + yerr))
-        fig.multi_line(err_xs,err_ys,**cfg.pl['obs_e_ph'])
+        # ignored photometry
+        data['filter'] = p.filters[p.ignore]
+        data['wave'] = p.mean_wavelength()[p.ignore]
+        data['flux'] = p.fnujy[p.ignore]
+        data['err'] = p.e_fnujy[p.ignore]
+        pldata = ColumnDataSource(data=data)
+        xs,_,_,err_ys = utils.plot_err(data['wave'],data['wave'],
+                                       data['flux'],data['err'])
+        fig.multi_line(xs,err_ys,**cfg.pl['obs_e_ig_ph'])
+        fig.circle('wave','flux',source=pldata,name='phot',**cfg.pl['obs_ig_ph'])
 
-        # and remaining uppper limits
+        # upper limits
         data['filter'] = p.filters[p.upperlim]
         data['wave'] = p.mean_wavelength()[p.upperlim]
         data['flux'] = p.fnujy[p.upperlim]
         data['err'] = p.e_fnujy[p.upperlim]
         pldata = ColumnDataSource(data=data)
-        
-        # plot non-detections
         fig.inverted_triangle('wave','flux',source=pldata,name='phot',
                               **cfg.pl['obs_ph'])
 
@@ -238,16 +244,22 @@ def add_model_spec(fig,r):
 def add_res(fig,r):
     """Add residuals to a plot."""
 
-#    res,wav,filt = fitting.residual(param,o,m)
-    res = r.residuals
-    wav = r.wavelengths
-    filt = r.filters
+    # used photometry
     data = {}
-    data['filter'] = filt
-    data['wave'] = wav
-    data['res'] = res
+    ok = np.invert(np.logical_or(r.obs_upperlim,r.filters_ignore))
+    data['filter'] = r.filters[ok]
+    data['wave'] = r.wavelengths[ok]
+    data['res'] = r.residuals[ok]
     pldata = ColumnDataSource(data=data)
     fig.circle('wave','res',source=pldata,name='resid',**cfg.pl['obs_ph'])
+
+    # upper limits and ignored
+    ok = np.logical_or(r.obs_upperlim,r.filters_ignore)
+    data['filter'] = r.filters[ok]
+    data['wave'] = r.wavelengths[ok]
+    data['res'] = r.residuals[ok]
+    pldata = ColumnDataSource(data=data)
+    fig.circle('wave','res',source=pldata,name='resid',**cfg.pl['obs_ig_ph'])
 
 
 def sed_limits(results):
