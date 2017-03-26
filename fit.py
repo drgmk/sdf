@@ -90,8 +90,8 @@ if __name__ == '__main__':
                         help='Fit SED to file or files')
     parser.add_argument('--dir','-d',nargs='+',action='append',
                         help='Fit SED to *-rawphot.txt files in path(s)')
-    parser.add_argument('--sample','-s',nargs='+',
-                        help='Restrict to target sample')
+    parser.add_argument('--samples','-s',nargs='+',
+                        help='Restrict to target samples')
 
     parser1.add_argument('--subset',nargs='+',default='*',
                          help='Restrict to subset of targets (e.g. public)')
@@ -131,9 +131,9 @@ if __name__ == '__main__':
                               +args.subset[0]+'/*-rawphot.txt',
                               recursive=True)
 
-    elif args.sample is not None:
+    elif args.samples is not None:
         ids = []
-        for s in args.sample:
+        for s in args.samples:
             ids += db.sample_targets(s)
         files = []
         for id in ids:
