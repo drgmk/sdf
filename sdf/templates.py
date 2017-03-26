@@ -215,15 +215,17 @@ datatable=('''<!DOCTYPE html>
     <head>
     <meta charset="utf-8"/>
     <meta content="text/html;charset=UTF-8" http-equiv="Content-type"/>
-    <style>
-    table.dataTable {width: auto !important; margin: 0 !important;}
-    .dataTables_filter, .dataTables_paginate {float: left !important; margin-left:1em}
-    </style>
+
     <link href="https://cdn.datatables.net/1.10.9/css/jquery.dataTables.css" rel="stylesheet" type="text/css"/>
-    <script src="https://code.jquery.com/jquery-1.11.3.min.js">
-    </script>
-    <script src="https://cdn.datatables.net/1.10.9/js/jquery.dataTables.min.js">
-    </script>
+
+    <script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.9/js/jquery.dataTables.min.js"></script>
+
+<!--
+    <script src="https://cdn.datatables.net/1.10.13/js/dataTables.bootstrap.min.js"></script>
+    <link href="https:////maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <link href="https://cdn.datatables.net/1.10.13/css/dataTables.bootstrap.min.css" rel="stylesheet" type="text/css">
+-->
 
     {{ css }}
     
