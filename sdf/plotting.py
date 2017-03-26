@@ -11,7 +11,7 @@ from jinja2 import Template
 from bokeh.resources import CDN
 from bokeh.plotting import figure,output_file,save,ColumnDataSource
 from bokeh.models.widgets import Panel,Tabs
-from bokeh.models import HoverTool
+from bokeh.models import HoverTool,TapTool,OpenURL
 from bokeh.layouts import gridplot
 from bokeh import palettes
 from bokeh.embed import components
@@ -329,17 +329,17 @@ def calibration(sample='zpo_cal_',
             continue
 
         # grab the data for this filter
-        data = {'id':[],'chi':[],'R':[],'Teff':[]}
+        data = {'sdbid':[],'chi':[],'R':[],'Teff':[]}
         col = np.array([])
-        stmt = ("SELECT id,chi,IF(R BETWEEN -100 and 100,R,100),parameters, "
+        stmt = ("SELECT sdbid,chi,IF(R BETWEEN -100 and 100,R,100),parameters, "
                 "chisq/IF(dof<1,1,dof) as cdof FROM "
                 +cfg.mysql['model_table']+" ""LEFT JOIN "
                 +cfg.mysql['phot_table']+" USING (id) "
                 "LEFT JOIN "+cfg.mysql['db_samples']+'.'+sample+" ON id=sdbid "
                 "WHERE sdbid IS NOT NULL AND filter='"+f+"' AND obs_upperlim=0")
         cursor.execute(stmt)
-        for (id,chi,R,par,cdof) in cursor.fetchall():
-            data['id'].append(id)
+        for (sdbid,chi,R,par,cdof) in cursor.fetchall():
+            data['sdbid'].append(sdbid)
             data['chi'].append(chi)
             data['R'].append(R)
             pars = ast.literal_eval(par)
@@ -361,11 +361,12 @@ def calibration(sample='zpo_cal_',
         std = np.percentile(data['R'],[5,95])
 
         # flux ratio plot
-        hover = HoverTool(names=['pl'],tooltips=[('id',"@id")])
+        hover = HoverTool(names=['pl'],tooltips=[('id',"@sdbid")])
+        tap = TapTool(names=['pl'])
         tools = ['wheel_zoom,pan,save,reset']
         flux.append( figure(x_axis_label='Teff / K',y_axis_label=f,
                             y_range=std.tolist(),
-                            tools=tools+[hover],active_scroll='wheel_zoom',
+                            tools=tools+[hover,tap],active_scroll='wheel_zoom',
                             width=1100,height=200) )
 
         center = (1 if std[0] > 0.5 else 0)
@@ -396,6 +397,11 @@ def calibration(sample='zpo_cal_',
                          line_color='#333333')
         else:
             chist.append( figure(width=200,height=200) )
+
+        # taptool callback
+        url = "/~grant/sdb/seds/masters/@sdbid/public"
+        taptool = flux[-1].select(type=TapTool)
+        taptool.callback = OpenURL(url=url)
 
     # link all the x ranges
     for i in range(len(flux)-1):
