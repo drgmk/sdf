@@ -242,7 +242,7 @@ filters['GALFUV'] = {'svo_name': 'PhotCalID=GALEX/GALEX.FUV/AB',
 filters['GALNUV'] = {'svo_name': 'PhotCalID=GALEX/GALEX.NUV/AB',
                      'response_type': 'photon'}
 
-# SDSS
+# SDSS, zpos untested
 filters['USDSS'] = {'svo_name': 'SLOAN/SDSS.u',
                     'magnitude_system': 'AB',
                     'zero_point_offset': 0.04,
@@ -264,10 +264,19 @@ filters['ZSDSS'] = {'svo_name': 'SLOAN/SDSS.z',
                     'zero_point_offset': 0.0,
                     'response_type': 'energy'}
 
-# APASS the same filters
-filters['GAPASS'] = filters['GSDSS']
-filters['RAPASS'] = filters['RSDSS']
-filters['IAPASS'] = filters['ISDSS']
+# APASS the same filters as SDSS, slight changes in zero point offsets
+filters['GAPASS'] = {'svo_name': 'SLOAN/SDSS.g',
+                     'magnitude_system': 'AB',
+                     'zero_point_offset': 0.005,
+                     'response_type': 'energy'}
+filters['RAPASS'] = {'svo_name': 'SLOAN/SDSS.r',
+                     'magnitude_system': 'AB',
+                     'zero_point_offset': 0.005,
+                     'response_type': 'energy'}
+filters['IAPASS'] = {'svo_name': 'SLOAN/SDSS.i',
+                     'magnitude_system': 'AB',
+                     'zero_point_offset': -0.01,
+                     'response_type': 'energy'}
 
 # zero point offsets from Bessel & Murphy 2012 are 0.04, 0.022, 0.027.
 # from MvB are 0.0188, 0.0185, 0.027 (latter fixed to 0.027)
@@ -282,8 +291,13 @@ filters['VJ'] = {'svo_name': 'GCPD/Johnson.V',
                  'zero_point_offset': 0.027,
                  'response_type': 'energy'}
 
-filters['BAPASS'] = filters['BJ']
-filters['VAPASS'] = filters['VJ']
+# APASS, uses Landolt standards
+filters['BAPASS'] = {'svo_name': 'GCPD/Johnson.B_Landolt',
+                     'zero_point_offset': 0.058,
+                     'response_type': 'energy'}
+filters['VAPASS'] = {'svo_name': 'GCPD/Johnson.V_Landolt',
+                     'zero_point_offset': 0.017,
+                     'response_type': 'energy'}
 
 # zero point offsets from Bessel & Murphy 2012 are 0.027,0.028
 # from MvB are 0.0212, 0.0091. Note that their R bandpasses look a bit
@@ -383,10 +397,10 @@ filters['2MJ'] = {'svo_name': '2MASS/2MASS.J',
                  'zero_point_offset': -0.001 - 0.03,
                   'response_type': 'energy'}
 filters['2MH'] = {'svo_name': '2MASS/2MASS.H',
-                 'zero_point_offset': 0.019,
+                 'zero_point_offset': 0.019 + 0.005,
                   'response_type': 'energy'}
 filters['2MKS'] = {'svo_name': '2MASS/2MASS.Ks',
-                   'zero_point_offset': -0.017,
+                   'zero_point_offset': -0.017 + 0.01,
                    'response_type': 'energy'}
 filters['2MR1J'] = filters['2MJ']
 filters['2MR1H'] = filters['2MH']
@@ -414,17 +428,17 @@ filters['KSDENIS'] = {'svo_name': 'DENIS/DENIS.Ks',
 # 3.3% shift in W4 bandpass recommended by 2014PASA...31...49B
 filters['WISE3P4'] = {'svo_name': 'WISE/WISE.W1',
                       'response_type': 'energy',
-                      'zero_point_offset': 0.0,
+                      'zero_point_offset': -0.015,
                       'ref_wavelength': 3.3526,
                       'ref_spectrum': lambda nu: 1.0/nu/nu}
 filters['WISE4P6'] = {'svo_name': 'WISE/WISE.W2',
                       'response_type': 'energy',
-                      'zero_point_offset': 0.0,
+                      'zero_point_offset': 0.01,
                       'ref_wavelength': 4.6028,
                       'ref_spectrum': lambda nu: 1.0/nu/nu}
 filters['WISE12'] = {'svo_name': 'WISE/WISE.W3',
                      'response_type': 'energy',
-                     'zero_point_offset': 0.03,
+                     'zero_point_offset': 0.0,
                      'ref_wavelength': 11.5608,
                      'ref_spectrum': lambda nu: 1.0/nu/nu}
 filters['WISE22'] = {'svo_name': 'WISE/WISE.W4',
