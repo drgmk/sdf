@@ -47,7 +47,10 @@ def sed_components(results,tab_order=None):
     tabs = []
     for i,r in enumerate(results):
 
-        title = "Evidence: {:.2f}".format(r.evidence)
+        title = "Evidence: {:.2f} | ".format(r.evidence)
+        for j,par in enumerate(r.parameters):
+            if 'norm' not in par:
+                title += "{}:{:.1f}, ".format(par,r.best_params[j])
 
         # sed plot
         hover = HoverTool(names=['phot'],tooltips=[('band',"@filter"),
