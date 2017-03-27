@@ -382,7 +382,7 @@ def calibration(sample='zpo_cal_',
                             tools=tools+[hover,tap],active_scroll='wheel_zoom',
                             width=1100,height=200) )
 
-        center = (1 if std[0] > 0.5 else 0)
+        center = (1 if std[0] > 0.0 else 0)
         flux[-1].line(x=[ np.min(data['Teff']) , np.max(data['Teff']) ],
                     y=[center,center],**cfg.pl['guide_dash'])
         flux[-1].circle('Teff','R',source=pldata,name='pl',

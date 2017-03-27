@@ -103,6 +103,16 @@ class Photometry(object):
             if row['Band'] in cfg.fitting['exclude_filters']:
                 p.ignore = np.array([True])
 
+            # if upper limit desired
+            if row['Band'] in cfg.fitting['upperlim_filters']:
+                if not p.upperlim:
+                    if p.unit != 'mag':
+                        p.measurement += 3 * p.e_measurement
+                    else:
+                        p.measurement -= 3 * p.e_measurement
+
+                p.upperlim = np.array([True])
+
             # or if zero fluxes and errors
             if sum == 0.0:
                 p.ignore = np.array([True])
@@ -147,7 +157,7 @@ class Photometry(object):
             elif not np.isfinite(self.e_measurement[i]) and np.isfinite(self.s_measurement[i]):
                 etot = self.s_measurement[i]
             else:
-                print("WARNING no uncertainties given, assuming nan")
+                print("WARNING no uncertainties given, assuming 10%")
                 etot = np.nan
 
             # convert flux and uncertainty
