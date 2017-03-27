@@ -385,7 +385,7 @@ def sample_plot(cursor,sample):
 
     # colour scale
     col,cr = colours_for_list(t['ldisklstar'],bokeh.palettes.plasma,log=True)
-    _,tr = colours_for_list(t['tdisk'],bokeh.palettes.plasma)
+    _,tr = colours_for_list(t['tdisk'],bokeh.palettes.plasma,log=True)
 
     t['col'] = col
     data = ColumnDataSource(data=t)
@@ -404,7 +404,7 @@ def sample_plot(cursor,sample):
                 tools=tools1,active_scroll='wheel_zoom',
                 x_axis_label='Effective temperature / K',y_axis_label='Stellar luminosity / Solar',
                 y_axis_type="log",y_range=(0.5*min(t['lstar']),max(t['lstar'])*2),
-                x_range=(300+max(t['teff']),min(t['teff'])-300),
+                x_axis_type="log",x_range=(1.1*max(t['teff']),min(t['teff'])/1.1),
                 width=750,height=800)
     xs,err_xs,ys,err_ys = utils.plot_err(t['teff'],t['e_teff'],t['lstar'],t['e_lstar'])
     hr.multi_line(xs,err_ys,line_color=t['col'],**cfg.pl['hr_e_dot'])

@@ -129,10 +129,11 @@ def add_obs_phot(fig,r):
         fig.circle('wave','flux',source=pldata,name='phot',**cfg.pl['obs_ph'])
 
         # ignored photometry
-        data['filter'] = p.filters[p.ignore]
-        data['wave'] = p.mean_wavelength()[p.ignore]
-        data['flux'] = p.fnujy[p.ignore]
-        data['err'] = p.e_fnujy[p.ignore]
+        ok = (p.ignore) & (np.invert(p.upperlim))
+        data['filter'] = p.filters[ok]
+        data['wave'] = p.mean_wavelength()[ok]
+        data['flux'] = p.fnujy[ok]
+        data['err'] = p.e_fnujy[ok]
         pldata = ColumnDataSource(data=data)
         xs,_,_,err_ys = utils.plot_err(data['wave'],data['wave'],
                                        data['flux'],data['err'])
