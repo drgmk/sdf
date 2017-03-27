@@ -35,6 +35,7 @@ from sdf import config as cfg
 
 def cleanup_sample_dirs():
     """Remove dirs for samples that no longer exist."""
+    # TODO: add equivalent for calibration output
 
     dirs = glob.glob(cfg.www['root']+'samples/*/')
     samp = get_samples()
