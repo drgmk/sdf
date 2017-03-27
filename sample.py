@@ -51,6 +51,19 @@ def cleanup_sample_dirs():
             print("  {} ok".format(d))
 
 
+def cleanup_calibration_dirs():
+    """Remove dirs for calibrations that are no longer required."""
+    
+    fs = glob.glob(cfg.www['root']+'calibration/*')
+    for f in fs:
+        fname = basename(f.rstrip('.html'))
+        if fname not in cfg.www['cal_samples']:
+            print("  {} removed ".format(f))
+            remove(f)
+        else:
+            print("  {} ok".format(f))
+
+
 def get_samples():
     """Get a list of samples.
     
@@ -634,3 +647,4 @@ if __name__ == "__main__":
     if args.cleanup:
         print("Cleaning up")
         cleanup_sample_dirs()
+        cleanup_calibration_dirs()
