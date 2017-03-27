@@ -341,16 +341,17 @@ def calibration(sample='zpo_cal_',
             continue
 
         # grab the data for this filter
-        data = {'sdbid':[],'chi':[],'R':[],'Teff':[]}
+        data = {'name':[],'sdbid':[],'chi':[],'R':[],'Teff':[]}
         col = np.array([])
-        stmt = ("SELECT sdbid,chi,IF(R BETWEEN -100 and 100,R,100),parameters, "
+        stmt = ("SELECT name,sdbid,chi,IF(R BETWEEN -100 and 100,R,100),parameters, "
                 "chisq/IF(dof<1,1,dof) as cdof FROM "
                 +cfg.mysql['model_table']+" ""LEFT JOIN "
                 +cfg.mysql['phot_table']+" USING (id) "
                 "LEFT JOIN "+cfg.mysql['db_samples']+'.'+sample+" ON id=sdbid "
                 "WHERE sdbid IS NOT NULL AND filter='"+f+"' AND obs_upperlim=0")
         cursor.execute(stmt)
-        for (sdbid,chi,R,par,cdof) in cursor.fetchall():
+        for (name,sdbid,chi,R,par,cdof) in cursor.fetchall():
+            data['name'].append(name)
             data['sdbid'].append(sdbid)
             data['chi'].append(chi)
             data['R'].append(R)
@@ -373,7 +374,7 @@ def calibration(sample='zpo_cal_',
         std = np.percentile(data['R'],[5,95])
 
         # flux ratio plot
-        hover = HoverTool(names=['pl'],tooltips=[('id',"@sdbid")])
+        hover = HoverTool(names=['pl'],tooltips=[('id',"@name")])
         tap = TapTool(names=['pl'])
         tools = ['wheel_zoom,pan,save,reset']
         flux.append( figure(x_axis_label='Teff / K',y_axis_label=f,
