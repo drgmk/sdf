@@ -28,21 +28,21 @@ def setup_spec():
     kurucz_spectra()
     phoenix_spectra()
 
-def setup_phot():
+def setup_phot(overwrite=False):
     """Rederive convolved models.
         
     Run this when new filters have been added in sdf.filter_info.
         
     This needs to be run to propagate ZPOs into colours/indices.
     """
-    specmodel2phot(mname='kurucz-0.0')
-    specmodel2phot(mname='kurucz_m')
-    specmodel2phot(mname='phoenix-0.0')
-    specmodel2phot(mname='phoenix_m')
-    specmodel2phot(mname='bb_disk_r')
-    specmodel2phot(mname='bb_star')
-    specmodel2phot(mname='modbb_disk_r')
-    specmodel2phot(mname='amsil_r')
+    specmodel2phot(mname='kurucz-0.0',overwrite=overwrite)
+    specmodel2phot(mname='kurucz_m',overwrite=overwrite)
+    specmodel2phot(mname='phoenix-0.0',overwrite=overwrite)
+    specmodel2phot(mname='phoenix_m',overwrite=overwrite)
+    specmodel2phot(mname='bb_disk_r',overwrite=overwrite)
+    specmodel2phot(mname='bb_star',overwrite=overwrite)
+    specmodel2phot(mname='modbb_disk_r',overwrite=overwrite)
+    specmodel2phot(mname='amsil_r',overwrite=overwrite)
 
 
 def bb_spectra():
