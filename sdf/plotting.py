@@ -129,7 +129,7 @@ def add_obs_phot(fig,r):
         fig.circle('wave','flux',source=pldata,name='phot',**cfg.pl['obs_ph'])
 
         # ignored photometry
-        ok = (p.ignore) & (np.invert(p.upperlim))
+        ok = np.logical_and(p.ignore,np.invert(p.upperlim))
         data['filter'] = p.filters[ok]
         data['wave'] = p.mean_wavelength()[ok]
         data['flux'] = p.fnujy[ok]
@@ -250,15 +250,15 @@ def add_res(fig,r):
 
     # used photometry
     data = {}
-    ok = np.invert(np.logical_or(r.obs_upperlim,r.filters_ignore))
+    ok = np.invert(r.filters_ignore)
     data['filter'] = r.filters[ok]
     data['wave'] = r.wavelengths[ok]
     data['res'] = r.residuals[ok]
     pldata = ColumnDataSource(data=data)
     fig.circle('wave','res',source=pldata,name='resid',**cfg.pl['obs_ph'])
 
-    # upper limits and ignored
-    ok = np.logical_or(r.obs_upperlim,r.filters_ignore)
+    # ignored photometry
+    ok = r.filters_ignore
     data['filter'] = r.filters[ok]
     data['wave'] = r.wavelengths[ok]
     data['res'] = r.residuals[ok]
@@ -352,7 +352,8 @@ def calibration(sample='zpo_cal_',
                 +cfg.mysql['model_table']+" ""LEFT JOIN "
                 +cfg.mysql['phot_table']+" USING (id) "
                 "LEFT JOIN "+cfg.mysql['db_samples']+'.'+sample+" ON id=sdbid "
-                "WHERE sdbid IS NOT NULL AND filter='"+f+"' AND obs_upperlim=0")
+                "WHERE sdbid IS NOT NULL AND filter='"+f+"' "
+                "AND obs_upperlim=0 and chi != 0")
         cursor.execute(stmt)
         for (name,sdbid,chi,R,par,cdof) in cursor.fetchall():
             data['name'].append(name)
