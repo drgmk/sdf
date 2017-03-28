@@ -590,7 +590,7 @@ class ModelSpectrum(Spectrum):
         (Rstar/d)^2 is the normalisation, so divide spectra by pi here.
         Comparing the results with Kurucz models shows this is correct.
         """
-        # TODO: Can this go faster? BT-Settl files are epic
+        # TODO: Can read go faster? BT-Settl files are epic
 
         self = cls()
 
@@ -602,10 +602,16 @@ class ModelSpectrum(Spectrum):
             logg = float(par.groups()[1])
             mh = float(par.groups()[2])
         self.param_values = {'Teff':teff,'logg':logg,'MH':mh}
+
+        # attempt to load numpy save from last time, otherwise read in
+        try:
+            w,f = np.load(file+'.npy')
+        except FileNotFoundError:
+            c = lambda s: s.decode().replace("D", "E") # deal with fortran 1.0D+01
+            w,f = np.loadtxt(file,dtype=float,usecols=(0,1),
+                             converters={0:c,1:c},unpack=True)
+            np.save(file,[w,f])
         
-        c = lambda s: s.decode().replace("D", "E") # deal with fortran 1.0D+01
-        w,f = np.loadtxt(file,dtype=float,usecols=(0,1),
-                         converters={0:c,1:c},unpack=True)
         f = np.power(10,f)
         _,srt = np.unique( w, return_index=True )
         srt = np.flipud(srt)
