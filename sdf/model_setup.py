@@ -181,7 +181,7 @@ def phoenix_spectra():
     s00.write_model('phoenix_m',overwrite=True)
 
 
-def phoenix_mh_spectra(resolution=500,mh=0.0,overwrite=False):
+def phoenix_mh_spectra(resolution=1000,mh=0.0,overwrite=False):
     """Generate SpecModel from phoenix spectra.
 
     Teff and logg range is hardcoded to 2600-29,000K and 2-4.5. This is
@@ -190,10 +190,9 @@ def phoenix_mh_spectra(resolution=500,mh=0.0,overwrite=False):
 
     BT-Settl model files are large, so read and downsample files one at
     a time to avoid having them all in memory at once.
-    
-    TODO: this takes hours, parallelize...
     """
-
+    # TODO: this takes hours, parallelize...
+    
     # models from 2600-29000K, logg 2-4.5, at [M/H]=0.0,
     # sorted by temperature and then gravity
     if mh == 0.0:
