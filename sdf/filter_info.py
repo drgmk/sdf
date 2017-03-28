@@ -414,10 +414,10 @@ filters['IDENIS'] = {'svo_name': 'DENIS/DENIS.I',
                      'zero_point_offset': 0.0,
                      'response_type': 'energy'}
 filters['JDENIS'] = {'svo_name': 'DENIS/DENIS.J',
-                     'zero_point_offset': 0.0,
+                     'zero_point_offset': -0.02,
                      'response_type': 'energy'}
 filters['KSDENIS'] = {'svo_name': 'DENIS/DENIS.Ks',
-                     'zero_point_offset': 0.0,
+                     'zero_point_offset': -0.01,
                      'response_type': 'energy'}
 
 
