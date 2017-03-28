@@ -589,10 +589,9 @@ class ModelSpectrum(Spectrum):
         https://phoenix.ens-lyon.fr/Grids/FORMAT suggest that
         (Rstar/d)^2 is the normalisation, so divide spectra by pi here.
         Comparing the results with Kurucz models shows this is correct.
-        
-        TODO: Can this go faster? BT-Settl files are epic
-
         """
+        # TODO: Can this go faster? BT-Settl files are epic
+
         self = cls()
 
         self.name = 'phoenix'
