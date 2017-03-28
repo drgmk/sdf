@@ -1,8 +1,9 @@
 import glob
 from os.path import exists,basename
 from itertools import product
-from scipy.io import readsav
+from multiprocessing import Pool
 
+from scipy.io import readsav
 import numpy as np
 import astropy.units as u
 
@@ -10,6 +11,7 @@ from . import convolve
 from . import model
 from . import spectrum
 from . import filter
+from . import utils
 from . import config as cfg
 
 c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
@@ -181,7 +183,18 @@ def phoenix_spectra():
     s00.write_model('phoenix_m',overwrite=True)
 
 
-def phoenix_mh_spectra(resolution=1000,mh=0.0,overwrite=False):
+def phoenix_mh_spectra_one(par):
+    """Read in and convolve one phoenix spectrum, used for
+    parallelisation."""
+
+    f,resolution = par
+    s = spectrum.ModelSpectrum.read_phoenix(f)
+    kern = s.resample(resolution=resolution)
+    return s
+
+
+def phoenix_mh_spectra(resolution=2000,mh=0.0,overwrite=False,
+                       processes=8):
     """Generate SpecModel from phoenix spectra.
 
     Teff and logg range is hardcoded to 2600-29,000K and 2-4.5. This is
@@ -202,33 +215,41 @@ def phoenix_mh_spectra(resolution=1000,mh=0.0,overwrite=False):
 
     name = 'phoenix'+mhstr
     
+    # don't do the calculation if there will be a write error
+    if overwrite == False:
+        if exists(cfg.model_loc[name]+name+'_SpecModel.fits'):
+            raise utils.SdfError("{} exists, will not overwrite".
+                           format(cfg.model_loc[name]+name+'.fits'))
+
+    # the files
     fs = glob.glob(cfg.file['phoenix_models']
                    +'lte[0-2][0-9][0-9]-[2-4].?'+mhstr
                    +'a?[0-9].[0-9].BT-Settl.7.bz2')
     fs.sort()
 
+    # read in and resample, in parallel
+    pool = Pool(processes=processes)
+    par = zip(fs,[resolution for i in range(len(fs))])
+    spec = pool.map(phoenix_mh_spectra_one,par)
+
     # read in and resample, one at a time
-    filters = list(filter.Filter.all)
-    conv_fnujy_sr = np.zeros((len(filters),len(fs)))
-    spec = []
-    teff = []
-    logg = []
-    for i,f in enumerate(fs):
+#    spec = []
+#    for i,f in enumerate(fs):
         
-        s = spectrum.ModelSpectrum.read_phoenix(f)
-        teff.append(s.param_values['Teff'])
-        logg.append(s.param_values['logg'])
-        print("Read teff:{}, logg:{}, [M/H]:{} ({} of {})".
-              format(s.param_values['Teff'],
-                     s.param_values['logg'],
-                     mhstr,
-                     i+1,len(fs)) )
-        
+        #        s = spectrum.ModelSpectrum.read_phoenix(f)
+        #        print("Read teff:{}, logg:{}, [M/H]:{} ({} of {})".
+        #      format(s.param_values['Teff'],
+        #            s.param_values['logg'],
+        #             mhstr,
+        #             i+1,len(fs)) )
+
         # convolve spectrum to much lower resolution
-        kern = s.resample(resolution=resolution)
-        spec.append(s)
+        #        kern = s.resample(resolution=resolution)
+        #        spec.append(s)
 
     # sort spectra
+    teff = [s.param_values['Teff'] for s in spec]
+    logg = [s.param_values['logg'] for s in spec]
     teffarr = np.unique(teff)
     loggarr = np.unique(logg)
 

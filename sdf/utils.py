@@ -185,6 +185,7 @@ def resample_matrix(wave_in,new_wave,new_R,old_R=np.inf,
         xtmp = np.clip(xtmp,0,M-1)
         x_indices = np.append(x_indices,xtmp)
         pdftmp = np.exp(-(wave_in[xtmp] - new_wave[i])**2/(2.*sigmas[i]**2))
+        # TODO: squash warning in divide here
         pdftmp /= pdftmp.sum()
         pdf = np.append(pdf,pdftmp)
 
