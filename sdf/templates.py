@@ -58,8 +58,10 @@ index=('''<!DOCTYPE html>
             <table>
             <tr><td>
                 {% if phot_file %}
-                Input:
+                I/O:
                 <a href="{{ phot_file }}" title="Input photometry file">data</a>
+                |
+                <a href="{{ json_file }}" title="Best-fit results">model</a>
                 {% endif %}
             </td>
             <td>

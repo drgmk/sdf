@@ -3,6 +3,7 @@ import os.path
 import pickle
 import glob
 import time
+import json
 
 import numpy as np
 from scipy.stats import truncnorm
@@ -412,6 +413,12 @@ class Result(object):
         self.models = ''
         self.pl_models = ''
 
+        # write results that don't rely on any of the sdf classes, which
+        # can be used elsewhere for plotting or whatever
+        self.json = self.pmn_base + '.json'
+        with open(self.json,'w') as f:
+            json.dump(self.basic_results(),f)
+
         # save for later in a pickle, updating the mtime to now
         self.mtime = time.time()
         with open(self.pickle,'wb') as f:
@@ -629,6 +636,68 @@ class Result(object):
         fs = glob.glob(self.pmn_base+'*')
         for f in fs:
             os.remove(f)
+
+
+    def basic_results(self):
+        """A dictionary of basic results, unreliant on classes."""
+
+        r = {}
+
+        # some info
+        r['id'] = self.id
+        r['model_comps'] = self.model_comps
+        r['main_results'] = self.main_results
+        r['parameters'] = self.parameters
+        r['best_params'] = self.best_params
+        r['best_params_1sig'] = self.best_params_1sig
+        r['chisq'] = self.chisq
+
+        # observed photometry
+        r['phot_wavelength'] = []
+        r['phot_fnujy'] = []
+        r['phot_e_fnujy'] = []
+        r['phot_upperlim'] = []
+        r['phot_ignore'] = []
+        for p in self.obs:
+            if not isinstance(p,photometry.Photometry):
+                continue
+            r['phot_wavelength'].append(p.mean_wavelength().tolist())
+            r['phot_fnujy'].append(p.fnujy.tolist())
+            r['phot_e_fnujy'].append(p.e_fnujy.tolist())
+            r['phot_upperlim'].append(p.upperlim.tolist())
+            r['phot_ignore'].append(p.ignore.tolist())
+
+        # observed spectra
+        ispec = -1
+        r['spectra'] = []
+        for s in self.obs:
+            if not isinstance(s,spectrum.ObsSpectrum):
+                continue
+            t = {}
+            t['wavelength'] = s.wavelength.tolist()
+            t['fnujy'] = (s.fnujy * self.best_params[ispec]).tolist()
+            t['e_fnujy'] = (s.e_fnujy * self.best_params[ispec]).tolist()
+            ispec -= 1
+            r['spectra'].append(t)
+
+        # spectra of each model component
+        r['model_spectra'] = {}
+        r['model_spectra']['wavelength'] = self.comp_spectra[0].wavelength.tolist()
+        r['model_spectra']['fnujy'] = ()
+        for s in self.comp_spectra:
+            r['model_spectra']['fnujy'] += (s.fnujy.tolist(),)
+
+        # total spectra for "star" and "disk" components
+        if self.star_spec is not None:
+            r['star_spec'] = {}
+            r['star_spec']['wavelength'] = self.star_spec.wavelength.tolist()
+            r['star_spec']['fnujy'] = self.star_spec.fnujy.tolist()
+        if self.disk_spec is not None:
+            r['disk_spec'] = {}
+            r['disk_spec']['wavelength'] = self.disk_spec.wavelength.tolist()
+            r['disk_spec']['fnujy'] = self.disk_spec.fnujy.tolist()
+
+        return r
 
 
 def sort_results(results):
