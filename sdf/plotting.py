@@ -266,6 +266,41 @@ def add_res(fig,r):
     fig.circle('wave','res',source=pldata,name='resid',**cfg.pl['obs_ig_ph'])
 
 
+def hardcopy_sed(r,file='sed.pdf'):
+    """Make a hardcopy SED for a specific result object."""
+    # TODO: this is very simple, needs work
+
+    fig,ax = plt.subplots(figsize=(8,6))
+
+    # model spectra, using star and disk means multiple components will
+    # be added together
+    if r.star_spec is not None:
+        ax.loglog(r.star_spec.wavelength,r.star_spec.fnujy)
+    if r.disk_spec is not None:
+        ax.loglog(r.disk_spec.wavelength,r.disk_spec.fnujy)
+
+    # photometry
+    for p in r.obs:
+        if not isinstance(p,photometry.Photometry):
+            continue
+
+        ok = np.invert(p.upperlim)
+        ax.errorbar(p.mean_wavelength()[ok],p.fnujy[ok],yerr=p.e_fnujy[ok],
+                    fmt='o')
+        ok = p.upperlim
+        ax.plot(p.mean_wavelength()[ok],p.fnujy[ok],'v')
+
+    # cosmetics
+    xl,yl = sed_limits((r,))
+    ax.set_xlim(xl)
+    ax.set_ylim(yl)
+    ax.set_xlabel('Wavelength / $\mu$m')
+    ax.set_ylabel('Flux density / Jy')
+
+    fig.savefig(file)
+    plt.close(fig)
+
+
 def sed_limits(results):
     """Figure out plotting limits given observations
         
