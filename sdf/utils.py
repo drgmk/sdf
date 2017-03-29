@@ -185,7 +185,10 @@ def resample_matrix(wave_in,new_wave,new_R,old_R=np.inf,
         xtmp = np.clip(xtmp,0,M-1)
         x_indices = np.append(x_indices,xtmp)
         pdftmp = np.exp(-(wave_in[xtmp] - new_wave[i])**2/(2.*sigmas[i]**2))
-        # TODO: squash warning in divide here
+        # die if no weights in kernel, arises from new wavelength grid
+        # point having no nearby points in old grid
+        if pdftmp.sum() == 0.0:
+            raise SdfError("{} {} {} {} {} {} {} {} {}".format(i,N,ioff[i],nkern[i],pdftmp,xtmp,wave_in[xtmp],new_wave[i],sigmas[i]))
         pdftmp /= pdftmp.sum()
         pdf = np.append(pdf,pdftmp)
 

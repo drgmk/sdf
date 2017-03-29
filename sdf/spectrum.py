@@ -622,7 +622,8 @@ class ModelSpectrum(Spectrum):
         self.fnujy_sr = flam.to(u.jansky,
                                 equivalencies=u.spectral_density(wav) ).value
         self.extend_power_law()
-        self.fill_gaps()
+        # make npt large, as we may resample with R>1000
+        self.fill_gaps(npt=5000)
         self.sort('wave')
         return self
 

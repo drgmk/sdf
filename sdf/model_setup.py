@@ -166,10 +166,7 @@ def kurucz_spectra():
 
 
 def phoenix_spectra():
-    """Convolve PHOENIX spectra to lower resolution and combine [M/H].
-        
-    TODO: allow for separate convolution and combination.
-    """
+    """Combine PHOENIX spectra with a range of [M/H]."""
 
     s00 = model.SpecModel.read_model('phoenix-0.0')
     s00 = model.append_parameter(s00,'MH',0.0)
@@ -183,29 +180,33 @@ def phoenix_spectra():
     s00.write_model('phoenix_m',overwrite=True)
 
 
+def resample_phoenix_spectra():
+    """Resample all phoenix spectra to common wavelength grid."""
+
+    for m in [0.5,0.0,-0.5,-1.0,-1.5,-2.0,-2.5,-3.0,-3.5,-4.0]:
+        phoenix_mh_spectra(mh=m,overwrite=True)
+
+
 def phoenix_mh_spectra_one(par):
     """Read in and convolve one phoenix spectrum, used for
-    parallelisation."""
+    parallelisation in phoenix_mh_spectra()."""
 
-    f,resolution = par
+    f,resolution,i = par
+    print("#{} ({})".format(i,f))
     s = spectrum.ModelSpectrum.read_phoenix(f)
     kern = s.resample(resolution=resolution)
     return s
 
 
 def phoenix_mh_spectra(resolution=2000,mh=0.0,overwrite=False,
-                       processes=8):
-    """Generate SpecModel from phoenix spectra.
+                       processes=6):
+    """Generate a SpecModel at some metallicity from phoenix spectra.
 
     Teff and logg range is hardcoded to 2600-29,000K and 2-4.5. This is
     a range where the grid is rectangular over all metallicities and
     covers a wide range.
-
-    BT-Settl model files are large, so read and downsample files one at
-    a time to avoid having them all in memory at once.
     """
-    # TODO: this takes hours, parallelize...
-    
+
     # models from 2600-29000K, logg 2-4.5, at [M/H]=0.0,
     # sorted by temperature and then gravity
     if mh == 0.0:
@@ -229,23 +230,9 @@ def phoenix_mh_spectra(resolution=2000,mh=0.0,overwrite=False,
 
     # read in and resample, in parallel
     pool = Pool(processes=processes)
-    par = zip(fs,[resolution for i in range(len(fs))])
+    par = zip(fs,[resolution for i in range(len(fs))],range(len(fs)))
     spec = pool.map(phoenix_mh_spectra_one,par)
-
-    # read in and resample, one at a time
-#    spec = []
-#    for i,f in enumerate(fs):
-        
-        #        s = spectrum.ModelSpectrum.read_phoenix(f)
-        #        print("Read teff:{}, logg:{}, [M/H]:{} ({} of {})".
-        #      format(s.param_values['Teff'],
-        #            s.param_values['logg'],
-        #             mhstr,
-        #             i+1,len(fs)) )
-
-        # convolve spectrum to much lower resolution
-        #        kern = s.resample(resolution=resolution)
-        #        spec.append(s)
+    pool.close()
 
     # sort spectra
     teff = [s.param_values['Teff'] for s in spec]
