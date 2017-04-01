@@ -19,13 +19,7 @@ from astropy.utils import xml
 import mysql.connector
 
 from jinja2 import Template
-from bokeh.resources import CDN
-from bokeh.plotting import figure,ColumnDataSource
-import bokeh.palettes
-from bokeh.models.widgets import Panel,Tabs
-from bokeh.models import HoverTool,OpenURL,TapTool
-from bokeh.layouts import gridplot,layout
-from bokeh.embed import components
+import bokeh.resources
 
 from sdf import plotting
 from sdf import templates
@@ -35,7 +29,6 @@ from sdf import config as cfg
 
 def cleanup_sample_dirs():
     """Remove dirs for samples that no longer exist."""
-    # TODO: add equivalent for calibration output
 
     dirs = glob.glob(cfg.file['www_root']+'samples/*/')
     samp = get_samples()
@@ -302,8 +295,8 @@ def sample_plots():
     cursor = cnx.cursor(buffered=True)
 
     template = Template(templates.sample_plot_wide)
-    bokeh_js = CDN.render_js()
-    bokeh_css = CDN.render_css()
+    bokeh_js = bokeh.resources.CDN.render_js()
+    bokeh_css = bokeh.resources.CDN.render_css()
 
     # get a list of samples and generate their pages
     samples = get_samples()
@@ -316,7 +309,7 @@ def sample_plots():
         # create dir and .htaccess if neeeded
         create_dir(wwwroot,sample)
         file = wwwroot+sample+"/hr.html"
-        script,div = sample_plot(cursor,sample)
+        script,div = plotting.sample_plot(cursor,sample)
 
         html = template.render(bokeh_js=bokeh_js,
                                bokeh_css=bokeh_css,
@@ -333,116 +326,6 @@ def sample_plots():
     cnx.close()
 
 
-def sample_plot(cursor,sample):
-    """Generate HTML sample plot.
-
-    Extract the necessary information from the database and plot
-    using bokeh.
-    """
-
-    # get data, ensure primary axes are not nans else bokeh will
-    # complain about the data
-    if sample == 'everything' or sample == 'public':
-        sel = " FROM sdb_pm"
-    else:
-        sel = (" FROM "+cfg.mysql['db_samples']+"."+sample+
-               " LEFT JOIN sdb_pm USING (sdbid)")
-
-    sel += (" LEFT JOIN simbad USING (sdbid)"
-            " LEFT JOIN sdb_results.star ON sdbid=star.id"
-            " LEFT JOIN sdb_results.disk_r ON sdbid=disk_r.id")
-
-    # statement for selecting stuff to plot
-    sel += " WHERE teff IS NOT NULL AND lstar IS NOT NULL"
-
-    selall = ("SELECT sdbid,main_id,teff,e_teff,lstar,e_lstar,"
-              " IFNULL(ldisk_lstar,-1) as ldisklstar,"
-              " e_ldisk_lstar as e_ldisklstar,"
-              " IFNULL(temp,-1) as tdisk,"
-              " e_temp as e_tdisk") + sel
-
-    # limit table sizes
-    if sample != 'everything':
-        selall += " LIMIT "+str(cfg.www['plotmax'])+";"
-
-    # number we could have plotted (more if some were nan)
-    selnum = "SELECT COUNT(*)" + sel
-    cursor.execute(selnum)
-    ntot = cursor.fetchall()[0][0]
-
-    cursor.execute(selall)
-    t = {}
-    allsql = cursor.fetchall()
-    ngot = len(allsql)
-    print("    got ",ngot," rows for plot")
-    l = list(zip(*allsql))
-    keys = cursor.column_names
-    dtypes = [None,None,float,float,float,float,
-              float,float,float,float]
-    for i in range(len(keys)):
-        col = np.array(l[i],dtype=dtypes[i])
-        t[keys[i]] = col
-
-    # colour scale
-    col,cr = colours_for_list(t['ldisklstar'],bokeh.palettes.plasma,log=True)
-    _,tr = colours_for_list(t['tdisk'],bokeh.palettes.plasma,log=True)
-
-    t['col'] = col
-    data = ColumnDataSource(data=t)
-
-    # set up hover/tap tools
-    # TODO: hover in one highlights in the other
-    hover1 = HoverTool(names=['dot'],tooltips=[("name","@main_id")])
-    hover2 = HoverTool(names=['dot'],tooltips=[("name","@main_id")])
-    tap1 = TapTool(names=['dot'])
-    tap2 = TapTool(names=['dot'])
-    tools1 = ['wheel_zoom,box_zoom,box_select,save,reset',hover1,tap1]
-    tools2 = ['wheel_zoom,box_zoom,box_select,save,reset',hover2,tap2]
-
-    # hr diagram
-    hr = figure(title="HR diagram ("+str(ngot)+" of "+str(ntot)+")",
-                tools=tools1,active_scroll='wheel_zoom',
-                x_axis_label='Effective temperature / K',y_axis_label='Stellar luminosity / Solar',
-                y_axis_type="log",y_range=(0.5*min(t['lstar']),max(t['lstar'])*2),
-                x_axis_type="log",x_range=(1.1*max(t['teff']),min(t['teff'])/1.1),
-                width=750,height=800)
-    xs,err_xs,ys,err_ys = utils.plot_err(t['teff'],t['e_teff'],t['lstar'],t['e_lstar'])
-    hr.multi_line(xs,err_ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
-    hr.multi_line(err_xs,ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
-    hr.circle('teff','lstar',source=data,name='dot',line_color='col',
-              fill_color='col',**cfg.pl['hr_dot'])
-
-    # f vs temp (if we have any)
-    if np.max(t['ldisklstar']) > 0:
-        ft = figure(title="fractional luminosity vs disk temperature",
-                    tools=tools2,active_scroll='wheel_zoom',
-                    x_axis_label='Disk temperature / K',
-                    y_axis_label='Disk fractional luminosity',
-                    y_axis_type="log",y_range=(0.5*cr[0],2*cr[1]),
-                    x_axis_type="log",x_range=(0.5*tr[0],2*tr[1]),
-                    width=750,height=800)
-                    
-        xs,err_xs,ys,err_ys = utils.plot_err(t['tdisk'],t['e_tdisk'],
-                                             t['ldisklstar'], t['e_ldisklstar'])
-        ft.multi_line(xs,err_ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
-        ft.multi_line(err_xs,ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
-        ft.circle('tdisk','ldisklstar',source=data,name='dot',fill_color='col',
-                  line_color='col',**cfg.pl['hr_dot'])
-    else:
-        ft = figure(title='no IR excesses')
-            
-    p = gridplot([[hr,ft]],sizing_mode='scale_width',toolbar_location='above')
-
-    # taptool callback
-    url = "/~grant/sdb/seds/masters/@sdbid/public"
-    taptool = hr.select(type=TapTool)
-    taptool.callback = OpenURL(url=url)
-    taptool = ft.select(type=TapTool)
-    taptool.callback = OpenURL(url=url)
-
-    return components(p)
-
-
 def flux_size_plots():
 
     # set up connection
@@ -454,8 +337,8 @@ def flux_size_plots():
 
 
     template = Template(templates.sample_plot)
-    bokeh_js = CDN.render_js()
-    bokeh_css = CDN.render_css()
+    bokeh_js = bokeh.resources.CDN.render_js()
+    bokeh_css = bokeh.resources.CDN.render_css()
 
     # get a list of samples and generate their pages
     samples = get_samples()
@@ -468,7 +351,7 @@ def flux_size_plots():
         # create dir and .htaccess if neeeded
         create_dir(wwwroot,sample)
         file = wwwroot+sample+"/fnuvsr.html"
-        out = flux_size_plot(cursor,sample)
+        out = plotting.flux_size_plot(cursor,sample)
         if out is not None:
             script,div = out
         else:
@@ -487,133 +370,6 @@ def flux_size_plots():
             
     cursor.close()
     cnx.close()
-
-
-def flux_size_plot(cursor,sample):
-    """Show disk fluxes at various bands vs. their size."""
-    # TODO: multiple compoments are plotted at the total disk flux =bad
-
-    # bands to show disk fluxes at
-    filters = ['WISE3P4','AKARI9','WISE12','AKARI18','WISE22','PACS70']
-
-    # sensitivities from Smith & Wyatt 2010
-    miri_10_sens = np.array([[1000.,0.15],[100,0.15],[1,0.2],[0.01,0.3],
-                             [0.001,0.7],[0.001,1.5],[0.01,10],[0.1,50]])
-    miri_18_sens = np.array([[1000,0.25],[100.,0.3],[10,0.4],[1,0.7],
-                             [0.5,1],[0.1,2],[0.05,4],[0.05,10],[0.05,40]])
-    miri_25_sens = np.array([[1000.,0.3],[100,0.3],[10,0.4],[3,0.5],[2,1],
-                             [1,1.5],[0.5,2],[0.2,4],[0.2,10],[0.2,40]])
-    sens = [None,miri_10_sens,miri_10_sens,miri_18_sens,miri_25_sens,None]
-
-    tabs = []
-    for i,f in enumerate(filters):
-
-        # get the results
-        stmt = "SELECT coalesce(main_id,id),sdbid,chisq,1e3*disk_jy,rdisk_bb*plx_arcsec "
-        if sample == 'everything' or sample == 'public':
-            stmt += "FROM sdb_pm "
-        else:
-            stmt += "FROM "+cfg.mysql['db_samples']+"."+sample+" "
-         
-        stmt += ("LEFT JOIN "+cfg.mysql['db_results']+".model ON sdbid=id "
-                 "LEFT JOIN "+cfg.mysql['db_results']+".phot USING (id) "
-                 "LEFT JOIN "+cfg.mysql['db_results']+".star USING (id) "
-                 "LEFT JOIN "+cfg.mysql['db_results']+".disk_r USING (id) "
-                 "LEFT JOIN "+cfg.mysql['db_sdb']+".simbad USING (sdbid) "
-                 "WHERE filter = %s AND id IS NOT NULL")
-        # limit table sizes
-        if sample != 'everything':
-            stmt += " LIMIT "+str(cfg.www['tablemax'])+";"
-
-        cursor.execute(stmt,(str(f),))
-
-        # fill a table with fluxes
-        t = {'id':[],'sdbid':[],'chisq':[],'flux':[],'rdisk':[]}
-        ntot = 0
-        for (id,sdbid,chisq,flux,rdisk) in cursor:
-            ntot += 1
-            if flux is not None and rdisk is not None:
-                if flux > 0:
-                    t['id'].append(id)
-                    t['sdbid'].append(sdbid)
-                    t['chisq'].append(chisq)
-                    t['flux'].append(flux)
-                    t['rdisk'].append(rdisk)
-
-        ngot = len(t['id'])
-        if ntot == 0 or ngot == 0:
-            print("    flux vs r: nothing to plot")
-            return
-        else:
-            print("    got ",ngot," rows for filter ",f)
-
-        # colour scale
-        col,cr = colours_for_list(t['chisq'],bokeh.palettes.plasma,log=True)
-        t['col'] = col
-
-        data = ColumnDataSource(data=t)
-
-        hover = HoverTool(tooltips=[("name","@id")])
-        tools = ['wheel_zoom,box_zoom,box_select,tap,save,reset',hover]
-
-        pl = figure(title="disk flux vs radius ("+str(ngot)+" of "+str(ntot)+")",
-                    tools=tools,active_scroll='wheel_zoom',toolbar_location='above',
-                    x_axis_label='Disk black body radius / arcsec',
-                    y_axis_label='Disk flux / mJy',
-                    y_axis_type="log",y_range=(0.5*min(t['flux']),max(t['flux'])*2),
-                    x_axis_type="log",x_range=(0.5*min(t['rdisk']),max(t['rdisk'])*2),
-                    width=850,height=600)
-
-        if sens[i] is not None:
-            pl.line(sens[i][:,1],sens[i][:,0],
-                    line_color='red',line_alpha=0.3,line_width=4)
-
-        pl.circle('rdisk','flux',source=data,size=10,fill_color='col',
-                  fill_alpha=0.6,line_color='col',line_alpha=1)
-
-        url = "/~grant/sdb/seds/masters/@sdbid/public"
-        taptool = pl.select(type=TapTool)
-        taptool.callback = OpenURL(url=url)
-
-        tabs.append( Panel(child=pl, title=f) )
-    
-    tab = Tabs(tabs=tabs)
-    return components(tab)
-
-
-def colours_for_list(values_in,palette,log=False):
-    """Return colours for an array of values."""
-    
-    values = np.array(values_in)
-    nval = len(values)
-    col = np.repeat('#969696',nval)
-
-    # if there's only one value
-    if len(np.unique(values)) == 1:
-        return col,np.array([0.5*values[0],2*values[0]])
-
-    # figure what's OK
-    ok = np.isfinite(values)
-    if log:
-        ok1 = values[ok] <= 0
-        ok[ok1] = False
-
-    # set ranges
-    if np.sum(ok) > 0:
-        if log:
-            range = np.array([np.min(np.log(values[ok])),
-                              np.max(np.log(values[ok]))])
-            ci = 0.999*(np.log(values[ok])-range[0])/(range[1]-range[0])
-            range = np.exp(range)
-        else:
-            range = np.array([np.min(values[ok]),np.max(values[ok])])
-            ci = 0.999*(values[ok]-range[0])/(range[1]-range[0])
-    
-        # assign colours, don't use the whole range since the top end
-        # results in very whiteish (invisible) symbols
-        col[ok] = np.array(palette(100))[np.floor(80*ci).astype(int)]
-
-    return col,range
 
 
 # run from the command line
