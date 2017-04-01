@@ -51,10 +51,10 @@ def bb_spectra():
     """Generate SpecModel grid of blackbody models."""
     
     model.SpecModel.generate_bb_model(name='bb_disk_r',
-                                      temperatures=cfg.models['bb_disk_temps'],
+                                      temperatures=10**np.arange(0,3,0.1),
                                       write=True,overwrite=True)
     model.SpecModel.generate_bb_model(name='bb_star',
-                                      temperatures=cfg.models['bb_star_temps'],
+                                      temperatures=10**np.arange(2.7,3.5,0.1),
                                       write=True,overwrite=True)
 
 
