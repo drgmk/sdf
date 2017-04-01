@@ -10,8 +10,6 @@ from scipy.ndimage import spline_filter
 from astropy.table import Table
 import astropy.units as u
 
-from . import photometry
-from . import spectrum
 from . import config as cfg
 
 c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
