@@ -339,7 +339,7 @@ def sed_limits(results):
 
 
 def calibration(sample='zpo_cal_',
-                fileroot=cfg.www['root']+'calibration/'):
+                fileroot=cfg.file['www_root']+'calibration/'):
     """Diagnostic plot showing quality of photometric calibration."""
 
     try:

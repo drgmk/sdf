@@ -37,7 +37,7 @@ def cleanup_sample_dirs():
     """Remove dirs for samples that no longer exist."""
     # TODO: add equivalent for calibration output
 
-    dirs = glob.glob(cfg.www['root']+'samples/*/')
+    dirs = glob.glob(cfg.file['www_root']+'samples/*/')
     samp = get_samples()
     for d in dirs:
         dname = basename(d.rstrip('/'))
@@ -54,7 +54,7 @@ def cleanup_sample_dirs():
 def cleanup_calibration_dirs():
     """Remove dirs for calibrations that are no longer required."""
     
-    fs = glob.glob(cfg.www['root']+'calibration/*')
+    fs = glob.glob(cfg.file['www_root']+'calibration/*')
     for f in fs:
         fname = basename(f.rstrip('.html'))
         if fname not in cfg.www['cal_samples']:
@@ -108,8 +108,8 @@ def create_dir(wwwroot,sample):
         fd = open(wwwroot+sample+'/.htaccess','w')
         fd.write('AuthName "Must login"\n')
         fd.write('AuthType Basic\n')
-        fd.write('AuthUserFile '+cfg.www['root']+'.htpasswd\n')
-        fd.write('AuthGroupFile '+cfg.www['root']+'.htgroup\n')
+        fd.write('AuthUserFile '+cfg.file['www_root']+'.htpasswd\n')
+        fd.write('AuthGroupFile '+cfg.file['www_root']+'.htgroup\n')
         fd.write('require group admin '+sample+'\n')
         fd.close()
 
@@ -144,7 +144,7 @@ def sample_table_www(cursor,sample):
     that are searchable and sortable.
     """
 
-    wwwroot = cfg.www['root']+'samples/'
+    wwwroot = cfg.file['www_root']+'samples/'
 
     # create dir and .htaccess if neeeded
     create_dir(wwwroot,sample)
@@ -230,7 +230,7 @@ def sample_table_www(cursor,sample):
 def sample_table_votable(cursor,sample):
     """Generate a votable of the results."""
 
-    wwwroot = cfg.www['root']+'samples/'
+    wwwroot = cfg.file['www_root']+'samples/'
 
     # create dir and .htaccess if neeeded
     create_dir(wwwroot,sample)
@@ -311,7 +311,7 @@ def sample_plots():
         
         print("  sample:",sample)
         
-        wwwroot = cfg.www['root']+'samples/'
+        wwwroot = cfg.file['www_root']+'samples/'
 
         # create dir and .htaccess if neeeded
         create_dir(wwwroot,sample)
@@ -463,7 +463,7 @@ def flux_size_plots():
         
         print("  sample:",sample)
         
-        wwwroot = cfg.www['root']+'samples/'
+        wwwroot = cfg.file['www_root']+'samples/'
 
         # create dir and .htaccess if neeeded
         create_dir(wwwroot,sample)
