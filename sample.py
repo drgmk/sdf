@@ -491,6 +491,7 @@ def flux_size_plots():
 
 def flux_size_plot(cursor,sample):
     """Show disk fluxes at various bands vs. their size."""
+    # TODO: multiple compoments are plotted at the total disk flux =bad
 
     # bands to show disk fluxes at
     filters = ['WISE3P4','AKARI9','WISE12','AKARI18','WISE22','PACS70']
