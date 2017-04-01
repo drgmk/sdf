@@ -10,6 +10,13 @@ from scipy.ndimage import spline_filter
 from astropy.table import Table
 import astropy.units as u
 
+# do this first, since SdfError called in config
+# TODO: presumably there is a way to avoid this...
+class SdfError(Exception):
+    """Use this for non-standard errors."""
+    pass
+
+
 from . import config as cfg
 
 c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
@@ -136,11 +143,6 @@ def validate_quantity(value):
         return value
     else:
         raise TypeError("should be an astropy units Quantity")
-
-
-class SdfError(Exception):
-    """Use this for non-standard errors."""
-    pass
 
 
 def resample_matrix(wave_in,new_wave,new_R,old_R=np.inf,
