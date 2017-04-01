@@ -139,9 +139,9 @@ def validate_quantity(value):
     else:
         raise TypeError("should be an astropy units Quantity")
 
+
 class SdfError(Exception):
-    """Use this for non-standard errors
-    """
+    """Use this for non-standard errors."""
     pass
 
 

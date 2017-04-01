@@ -174,7 +174,7 @@ class Spectrum(object):
         self.sort('wave')
         self.wavelength = np.append(self.wavelength,max_wav_micron)
         self.nu_hz = np.append(self.nu_hz,c_micron/max_wav_micron)
-        i = -5
+        i = -5 # use average of -this many points at end of spectrum
         
         if hasattr(self,'fnujy'):
             meanfnu = np.mean(self.wavelength[i:-1]**(-1.*index) * self.fnujy[i+1:])
@@ -582,7 +582,8 @@ class ModelSpectrum(Spectrum):
         
         Format is wavelength (A), flam (erg/s/cm^2/cm), bnu 
         (erg/s/cm^2/cm), and a bunch of other stuff we don't care 
-        about. The flam column is log10(flam).
+        about. The flam column is log10(flam). The shortest wavelength
+        is 10A (0.001um), so short of what we'll need here (~0.1um). 
 
         A factor of pi is needed to get the PHOENIX models into Jy/sr
         (and get stellar radii correct). The docs
