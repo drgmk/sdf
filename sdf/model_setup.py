@@ -178,26 +178,30 @@ def phoenix_spectra():
     s00.write_model('phoenix_m',overwrite=True)
 
 
-def resample_phoenix_spectra():
-    """Resample all phoenix spectra to common wavelength grid."""
+def resample_phoenix_spectra(resolution=2000,name_postfix=''):
+    """Resample all phoenix spectra to common wavelength grid.
+        
+    This will take about a week for R=2000 with 8 cores on a 5k iMac, so
+    it's practically about the same to do each metallicity individually.
+    """
 
     for m in [0.5,0.0,-0.5,-1.0,-1.5,-2.0,-2.5,-3.0,-3.5,-4.0]:
-        phoenix_mh_spectra(mh=m,overwrite=True)
+        phoenix_mh_spectra(resolution=resolution,mh=m,
+                           name_postfix=name_postfix,overwrite=True)
 
 
 def phoenix_mh_spectra_one(par):
-    """Read in and convolve one phoenix spectrum, used for
-    parallelisation in phoenix_mh_spectra()."""
-
-    f,resolution,i = par
-    print("#{} ({})".format(i,f))
+    """Read in and convolve one phoenix spectrum."""
+    
+    wave,f,resolution = par
+    print("{}".format(f))
     s = spectrum.ModelSpectrum.read_phoenix(f)
-    kern = s.resample(resolution=resolution)
+    kern = s.resample(wave,resolution=resolution)
     return s
 
 
 def phoenix_mh_spectra(resolution=2000,mh=0.0,overwrite=False,
-                       processes=6):
+                       processes=cfg.calc['cpu'],name_postfix=''):
     """Generate a SpecModel at some metallicity from phoenix spectra.
 
     Teff and logg range is hardcoded to 2600-29,000K and 2-4.5. This is
@@ -212,7 +216,7 @@ def phoenix_mh_spectra(resolution=2000,mh=0.0,overwrite=False,
     else:
         mhstr = '{:+}'.format(mh)
 
-    name = 'phoenix'+mhstr
+    name = 'phoenix'+mhstr+name_postfix
     
     # don't do the calculation if there will be a write error
     if overwrite == False:
@@ -226,9 +230,16 @@ def phoenix_mh_spectra(resolution=2000,mh=0.0,overwrite=False,
                    +'a?[0-9].[0-9].BT-Settl.7.bz2')
     fs.sort()
 
+    # get the new wavelength grid, and ensure it goes to the max
+    wave = np.power(10,np.arange(np.log10(cfg.models['min_wav_micron']),
+                                np.log10(cfg.models['max_wav_micron']),
+                                1.0/float(resolution)) )
+    if np.max(wave) != cfg.models['max_wav_micron']:
+        wave = np.append(wave,cfg.models['max_wav_micron'])
+
     # read in and resample, in parallel
     pool = Pool(processes=processes)
-    par = zip(fs,[resolution for i in range(len(fs))],range(len(fs)))
+    par = zip([wave for i in range(len(fs))],fs,[resolution for i in range(len(fs))])
     spec = pool.map(phoenix_mh_spectra_one,par)
     pool.close()
 

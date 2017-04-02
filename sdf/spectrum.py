@@ -516,16 +516,11 @@ class ModelSpectrum(Spectrum):
             self.fill_wave2hz()
 
 
-    def resample(self,resolution=100,kernel=None):
+    def resample(self,wav,resolution=100,kernel=None):
         """Resample a model spectrum to a different resolution.
             
         Return the kernel that was used in case we want to use it again.
         """
-    
-        # get the new wavelength grid
-        wav = np.power(10,np.arange(np.log10(np.min(self.wavelength)),
-                                    np.log10(np.max(self.wavelength)),
-                                    1.0/float(resolution)) )
     
         # get the convolution/resampling matrix (unless we got it)
         self.sort('wave')
