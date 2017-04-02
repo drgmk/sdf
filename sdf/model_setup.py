@@ -51,7 +51,6 @@ def bb_spectra():
     """Generate SpecModel grid of blackbody models."""
     
     model.SpecModel.generate_bb_model(name='bb_disk_r',
-                                      temperatures=10**np.arange(0,3,0.1),
                                       write=True,overwrite=True)
     model.SpecModel.generate_bb_model(name='bb_star',
                                       temperatures=10**np.arange(2.7,3.5,0.1),
@@ -62,7 +61,6 @@ def modbb_spectra():
     """Generate SpecModel grid of modified blackbody models."""
     
     model.SpecModel.generate_modbb_model(name='modbb_disk_r',
-                                         temperatures=cfg.models['bb_disk_temps'],
                                          write=True,overwrite=True)
 
 

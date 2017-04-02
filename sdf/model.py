@@ -585,8 +585,9 @@ class SpecModel(Model):
     
     
     @classmethod
-    def generate_bb_model(cls,name='bb_disk_r',temperatures=None,
-                          wavelengths=None,
+    def generate_bb_model(cls,name='bb_disk_r',
+                          wavelengths=cfg.models['default_wave'],
+                          temperatures=10**np.arange(0,3,0.1),
                           write=False,overwrite=False):
         """Generate a set of blackbody spectra."""
         
@@ -598,12 +599,6 @@ class SpecModel(Model):
     
         self = cls()
 
-        if wavelengths is None:
-            wavelengths = cfg.models['default_wave']
-
-        if temperatures is None:
-            temperatures = cfg.models['bb_disk_temps']
-    
         m = [spectrum.ModelSpectrum.bnu_wave_micron(wavelengths,t)\
              for t in temperatures]
 
@@ -629,8 +624,11 @@ class SpecModel(Model):
 
 
     @classmethod
-    def generate_modbb_model(cls,name='modbb_disk_r',temperatures=None,
-                             wavelengths=None,lam0=None,beta=None,
+    def generate_modbb_model(cls,name='modbb_disk_r',
+                             wavelengths=cfg.models['default_wave'],
+                             temperatures=10**np.arange(0,3,0.1),
+                             lam0=10**np.arange(1,3,0.1),
+                             beta=np.arange(0,3,0.1),
                              write=False,overwrite=False):
         """Generate a set of modified blackbody spectra"""
         
@@ -641,18 +639,6 @@ class SpecModel(Model):
                                format(cfg.model_loc[name]+name+'.fits'))
     
         self = cls()
-
-        if wavelengths is None:
-            wavelengths = cfg.models['default_wave']
-
-        if temperatures is None:
-            temperatures = cfg.models['bb_disk_temps']
-
-        if lam0 is None:
-            lam0 = np.power(10,np.arange(1,3,0.1))
-
-        if beta is None:
-            beta = np.arange(0,3,0.1)
 
         self.fnujy_sr = np.zeros((len(wavelengths),
                                   len(temperatures),
