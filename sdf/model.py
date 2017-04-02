@@ -820,7 +820,9 @@ def concat(self,m):
 
     out = self.copy()
 
-    # check types, parameters, wavelengths, filters are the same
+    # check types, parameters, wavelengths, filters are the same, allow
+    # for small differences in wavelengths, which can apparently occur
+    # when the arrays are calculated on different machines
     for i,par in enumerate(out.parameters):
         if par != m.parameters[i]:
             raise utils.SdfError("parameters {} and {} different".
@@ -837,7 +839,7 @@ def concat(self,m):
                                format(out.filters,m.filters))
     
     if isinstance(out,SpecModel):
-        if not np.all( np.equal(out.wavelength,m.wavelength) ):
+        if not np.allclose(out.wavelength,m.wavelength,rtol=1e-12,atol=1e-12):
             raise utils.SdfError("wavelengths {} and {} different".
                            format(out.wavelength,m.wavelength))
 
