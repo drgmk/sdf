@@ -6,6 +6,7 @@ import ast
 import numpy as np
 import matplotlib.pyplot as plt
 import mysql.connector
+import astropy.units as u
 
 from jinja2 import Template
 import bokeh.resources
@@ -701,7 +702,7 @@ def calibration(sample='zpo_cal_',
     for i in range(len(flux)):
         pl.append([flux[i],rhist[i],chist[i]])
 
-    # TODO: future bokeh release might allow sizing_mod='scale_both'
+    # TODO: future bokeh release might allow sizing_mode='scale_both'
     # with different element widths
     grid = gridplot(pl,toolbar_location='above')
 
@@ -721,5 +722,83 @@ def calibration(sample='zpo_cal_',
                            creation_time=datetime.utcnow().strftime("%d/%m/%y %X"))
 
     file = fileroot + sample + '.html'
+    with io.open(file, mode='w', encoding='utf-8') as f:
+        f.write(html)
+
+
+def filter_plot(file=cfg.file['www_root']+'filters.html'):
+    """Plot all filters."""
+
+    c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
+    cols = bokeh.palettes.Category10[10]
+
+    # groups in which to split the filters
+    groups = [['GALFUV','GALNUV','UJ'],
+              ['US','VS','BS','YS','D51'],
+              ['BJ','VJ',
+               'BAPASS','VAPASS',
+               'BT','VT'],
+              ['HP','KP',
+               'RC','IC'],
+              ['USDSS','GSDSS','RSDSS','ISDSS','ZSDSS'],
+              ['2MH','2MJ','2MKS',
+               'IDENIS','JDENIS','KSDENIS'],
+              ['WISE3P4','WISE4P6',
+               'IRAC3P6','IRAC4P5'],
+              ['IRAC5P8','IRAC8','NOMICN',
+#               'MSX8','MSX12',
+               'AKARI9','WISE12','IRAS12'],
+              ['AKARI18','WISE22',
+#               'MSX15','MSX21',
+               'IRSPUB','IRSPUR','MIPS24','IRAS25'],
+              ['PACS70','PACS100','PACS160',
+               'MIPS70','MIPS160',
+               'IRAS60','IRAS100'],
+              ['SPIRE250','SPIRE350','SPIRE500']]
+              
+
+    hover = HoverTool(tooltips=[('',"@filter")])
+    tools = ['wheel_zoom,pan,save,reset']
+
+    pl = []
+    for g in groups:
+
+        pl.append( figure(x_axis_label='wavelength / micron',
+                         y_axis_label='response',
+                         tools=tools,active_scroll='wheel_zoom',
+                         width=1100,height=200) )
+
+        for i,fname in enumerate(g):
+            
+            f = filter.Filter.get(fname)
+            
+            data = {'wave': c_micron/f.nu_hz,
+                    'response':f.response/np.max(f.response)}
+            pldata = ColumnDataSource(data=data)
+
+            pl[-1].line('wave','response',
+                        line_color=cols[i],line_width=2,
+                        source=pldata,legend=fname)
+
+            pl[-1].legend.label_text_font_size = '8pt'
+
+    grid = gridplot(pl,ncols=1,sizing_mode='scale_width',
+                    toolbar_location='above')
+
+    script,div = bokeh.embed.components(grid)
+
+    # now write the html
+    template = Template(templates.sample_plot_wide)
+    bokeh_js = bokeh.resources.CDN.render_js()
+    bokeh_css = bokeh.resources.CDN.render_css()
+
+    html = template.render(bokeh_js=bokeh_js,
+                           bokeh_css=bokeh_css,
+                           css=templates.css,
+                           plot_script=script,
+                           plot_div=div,
+                           title='filters',
+                           creation_time=datetime.utcnow().strftime("%d/%m/%y %X"))
+
     with io.open(file, mode='w', encoding='utf-8') as f:
         f.write(html)
