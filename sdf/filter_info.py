@@ -599,19 +599,19 @@ filters['IRAS100'] = {'svo_name': 'IRAS/IRAS.100mu',
                       'ref_spectrum': lambda nu: 1.0/nu}
 
 # MSX, RSRs, ref spectrum is F_nu oc 1/nu^2
-filters['MXS8'] = {'svo_name': 'MSX/MSX.A',
+filters['MSX8'] = {'svo_name': 'MSX/MSX.A',
                    'response_type': 'energy',
                    'ref_wavelength': 8.28,
                    'ref_spectrum': lambda nu: 1.0/nu}
-filters['MXS12'] = {'svo_name': 'MSX/MSX.C',
+filters['MSX12'] = {'svo_name': 'MSX/MSX.C',
                     'response_type': 'energy',
                     'ref_wavelength': 12.13,
                     'ref_spectrum': lambda nu: 1.0/nu}
-filters['MXS15'] = {'svo_name': 'MSX/MSX.D',
+filters['MSX15'] = {'svo_name': 'MSX/MSX.D',
                     'response_type': 'energy',
                     'ref_wavelength': 14.65,
                     'ref_spectrum': lambda nu: 1.0/nu}
-filters['MXS21'] = {'svo_name': 'MSX/MSX.E',
+filters['MSX21'] = {'svo_name': 'MSX/MSX.E',
                     'response_type': 'energy',
                     'ref_wavelength': 21.34,
                     'ref_spectrum': lambda nu: 1.0/nu}
