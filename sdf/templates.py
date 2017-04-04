@@ -61,7 +61,7 @@ index=('''<!DOCTYPE html>
                 I/O:
                 <a href="{{ phot_file }}" title="Input photometry file">data</a>
                 |
-                <a href="{{ json_file }}" title="Best-fit results">model</a>
+                <a href="{{ json_file }}" title="Best-fit results in json format">model</a>
                 {% endif %}
             </td>
             <td>
