@@ -2,7 +2,6 @@ sandbox/
 sdf.xcodeproj/
 __pycache__
 .cache
-config.py
 .DS_Store
 *.html
 *.pyc
