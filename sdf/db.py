@@ -66,7 +66,7 @@ def update_needed(cursor,table,r):
 
     # False if sql up to date
     if db_mtime is not None:
-        if r.mtime <= db_mtime:
+        if r.pickle_time <= db_mtime:
             return False
 
     return True
@@ -149,7 +149,7 @@ def write_model(cursor,r):
     values = (str(r.id),str(r.model_comps),
               '['+','.join("{:e}".format(p) for p in r.best_params)+']',
               str(r.evidence),str(r.chisq),
-              str(r.dof),str(r.mtime))
+              str(r.dof),str(r.pickle_time))
 
     cursor.execute(stmt,values)
 

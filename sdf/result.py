@@ -69,47 +69,53 @@ class Result(object):
                         + '+'.join(self.model_comps)        \
                         + cfg.fitting['pmn_model_suffix']
 
-        # plot names, files may not exist yet
+        # plot names, pickle, and json, files may not exist yet
         self.corner_plot = self.pmn_base+'corner.png'
         self.distributions_plot = self.pmn_base+'distributions.png'
-
-        # pickle file, may not exist yet
         self.pickle = self.pmn_base + '.pkl'
-
-        # json basic results file, may not exist yet
         self.json = self.pmn_base + '.json'
+
+        # modification times
+        self.rawphot_time = os.path.getmtime(self.rawphot)
+
+        if os.path.exists(self.pmn_base+'phys_live.points'):
+            self.mn_time = os.path.getmtime(self.pmn_base+'phys_live.points')
+        else:
+            self.mn_time = 0
+
+        if os.path.exists(self.pickle):
+            self.pickle_time = os.path.getmtime(self.pickle)
+        else:
+            self.pickle_time = 0
+
 
 
     @lru_cache(maxsize=128)
-    def get(rawphot,model_comps,update_mn=False,update_an=False,
-            update_pl=False,nospec=False):
+    def get(rawphot,model_comps,update_mn=False,
+            update_an=False,nospec=False):
         """Take photometry file and model_name, and fill the rest."""
 
         self = Result(rawphot,model_comps)
 
         # see if we have a pickle of results to return, checking that
         # it's more recent than the multinest output and the phot file
-        if not update_mn and not update_an and os.path.exists(self.pickle):
-            if os.path.getmtime(self.pickle) >       \
-                os.path.getmtime(self.rawphot) and   \
-                os.path.getmtime(self.pickle) >      \
-                os.path.getmtime(self.pmn_base+'phys_live.points'):
-                with open(self.pickle,'rb') as f:
-                    self = pickle.load(f)
-                
-                # update object with local file info before returning
-                self.file_info(rawphot,model_comps)
+        if not update_mn and not update_an and             \
+                os.path.exists(self.pickle) and            \
+                self.pickle_time > self.rawphot_time and   \
+                self.pickle_time > self.mn_time:
+            with open(self.pickle,'rb') as f:
+                self = pickle.load(f)
 
-                # update plots if necessary
-                self.make_plots(update_pl=update_pl)
+            # update object with local file info before returning
+            # since processing may have been done elsewhere
+            self.file_info(rawphot,model_comps)
 
-                return self
+            return self
 
         # otherwise do everything
         self.fill_data_models(nospec=nospec)
         self.run_multinest(update_mn=update_mn)
-        self.run_analysis(update_an=update_an)
-        self.make_plots(update_pl=update_pl)
+        self.run_analysis()
 
         # and always update the pickle and json files
         self.save_output()
@@ -151,8 +157,7 @@ class Result(object):
         # if we want to re-run multinest, delete previous output first
         run_mn = update_mn
         if os.path.exists(self.pmn_base+'phys_live.points'):
-            if os.path.getmtime(self.rawphot) > \
-                os.path.getmtime(self.pmn_base+'phys_live.points'):
+            if self.rawphot_time > self.mn_time:
                 run_mn = True
 
         if run_mn:
@@ -161,16 +166,28 @@ class Result(object):
         # go there, multinest only takes 100 char paths
         with utils.pushd(self.pmn_dir):
             fitting.multinest( self.obs,self.models,'.' )
+            self.mn_time = time.time()
 
         a = pmn.Analyzer(outputfiles_basename=self.pmn_base,
                          n_params=self.model_info['ndim'])
         self.analyzer = a
 
-        # update mtime to now
-        self.mtime = time.time()
+        # parameter fitting corner plot
+        plot = False
+        if not os.path.exists(self.corner_plot):
+            plot = True
+        else:
+            if os.path.getmtime(self.corner_plot) < self.mn_time:
+                plot = True
+            
+        if plot:
+            d = self.analyzer.get_data()
+            fig = corner.corner(d[:,2:],labels=self.model_info['parameters'])
+            fig.savefig(self.corner_plot)
+            plt.close(fig) # not doing this causes an epic memory leak
 
 
-    def run_analysis(self,update_an=False):
+    def run_analysis(self):
         """Run analysis of the results."""
 
         # parameter names and best fit
@@ -402,51 +419,26 @@ class Result(object):
         self.models = ''
         self.pl_models = ''
 
-        # update mtime to now
-        self.mtime = time.time()
-
-
-    def make_plots(self,update_pl=False):
-        """Generate plots if necessary."""
-
-        # parameter fitting corner plot
-        plot = update_pl
-        if not os.path.exists(self.corner_plot):
-            plot = True
-        else:
-            if os.path.getmtime(self.corner_plot) < self.mtime:
-                plot = True
-            
-        if plot:
-            d = self.analyzer.get_data()
-            fig = corner.corner(d[:,2:],labels=self.model_info['parameters'])
-            fig.savefig(self.corner_plot)
-            plt.close(fig) # not doing this causes an epic memory leak
+        # set analysis finish time
+        self.analysis_time = time.time()
 
         # corner plot of distributions, join them together first
-        samples = np.zeros(cfg.fitting['n_samples'])
-        labels = []
-        if 'parallax' in self.distributions.keys():
-            samples = np.vstack((samples,self.distributions['parallax']))
-            labels.append('parallax')
-        for dist in self.star_distributions:
-            for key in dist.keys():
-                samples = np.vstack((samples,dist[key]))
-                labels.append(key)
-        for dist in self.disk_r_distributions:
-            for key in dist.keys():
-                samples = np.vstack((samples,dist[key]))
-                labels.append(key)
-        samples = samples[1:]
-
-        plot = update_pl
         if not os.path.exists(self.distributions_plot):
-            plot = True
-        else:
-            if os.path.getmtime(self.distributions_plot) < self.mtime:
-                plot = True
-            
-        if plot:
+            samples = np.zeros(cfg.fitting['n_samples'])
+            labels = []
+            if 'parallax' in self.distributions.keys():
+                samples = np.vstack((samples,self.distributions['parallax']))
+                labels.append('parallax')
+            for dist in self.star_distributions:
+                for key in dist.keys():
+                    samples = np.vstack((samples,dist[key]))
+                    labels.append(key)
+            for dist in self.disk_r_distributions:
+                for key in dist.keys():
+                    samples = np.vstack((samples,dist[key]))
+                    labels.append(key)
+            samples = samples[1:]
+
             fig = corner.corner(samples.transpose(),labels=labels)
             fig.savefig(self.distributions_plot)
             plt.close(fig)
@@ -460,8 +452,8 @@ class Result(object):
         with open(self.json,'w') as f:
             json.dump(self.basic_results(),f)
 
-        # save for later in a pickle, updating the mtime to now
-        self.mtime = time.time()
+        # save for later in a pickle, updating the pickle_time to now
+        self.pickle_time = time.time()
         with open(self.pickle,'wb') as f:
             pickle.dump(self,f)
 

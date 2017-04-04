@@ -25,7 +25,7 @@ def www_all(results,update=False):
     if os.path.exists(index_file):
         mtime = []
         for r in results:
-            mtime.append( r.mtime )
+            mtime.append( r.pickle_time )
 
         if os.path.getmtime(index_file) > np.max(mtime):
             if not update:

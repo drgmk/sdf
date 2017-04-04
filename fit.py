@@ -21,7 +21,7 @@ from sdf import www
 from sdf import config as cfg
 
 
-def fit_results(file,update_mn=False,update_an=False,update_pl=False,
+def fit_results(file,update_mn=False,update_an=False,
                 sort=True,nospec=False):
     """Return a list of fitting results.
         
@@ -42,11 +42,9 @@ def fit_results(file,update_mn=False,update_an=False,update_pl=False,
         print("  ",t.left.value,"vs.",t.right.value)
 
         r1 = result.Result.get(file,t.left.value,update_mn=update_mn,
-                               update_an=update_an,update_pl=update_pl,
-                               nospec=nospec)
+                               update_an=update_an,nospec=nospec)
         r2 = result.Result.get(file,t.right.value,update_mn=update_mn,
-                               update_an=update_an,update_pl=update_pl,
-                               nospec=nospec)
+                               update_an=update_an,nospec=nospec)
 
         # check for files with no photometry
         if not hasattr(r1,'obs'):
@@ -68,8 +66,8 @@ def fit_results(file,update_mn=False,update_an=False,update_pl=False,
     for m in cfg.fitting['models']:
 
         print("  ",m)
-        r = result.Result.get(file,m,update_mn=update_mn,update_an=update_an,
-                              update_pl=update_pl,nospec=nospec)
+        r = result.Result.get(file,m,update_mn=update_mn,
+                              update_an=update_an,nospec=nospec)
 
         # check for files with no photometry
         if not hasattr(r,'obs'):
@@ -121,9 +119,6 @@ if __name__ == '__main__':
 
     parser1.add_argument('--update-analysis','-a',action='store_true',
                          help='Force udpate of post-multinest analysis')
-
-    parser1.add_argument('--update-plots','-p',action='store_true',
-                         help='Force udpate of post-multinest plots')
 
     parser1.add_argument('--quick-update-check','-q',action='store_true',
                          help='Skip if index.html most recent file')
@@ -180,7 +175,6 @@ if __name__ == '__main__':
                 results = fit_results(os.path.abspath(f),
                                       update_mn=args.update_all,
                                       update_an=args.update_analysis,
-                                      update_pl=args.update_plots,
                                       nospec=args.no_spectra)
                 if results is None:
                     continue
