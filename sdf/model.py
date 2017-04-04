@@ -12,7 +12,7 @@ import astropy.units as u
 from astropy.io import fits
 from astropy.table import Table
 
-from .convolve import ConvolvedModel
+from . import convolve
 from . import fitting
 from . import photometry
 from . import spectrum
@@ -429,9 +429,9 @@ class PhotModel(Model):
         for model in models:
             if model in files:
                 files.remove(model)
-        cm = [ConvolvedModel() for i in range(len(files))]
+        cm = [convolve.ConvolvedModel() for i in range(len(files))]
         for i,f in enumerate(files):
-            cm[i] = ConvolvedModel.read_file(f)
+            cm[i] = convolve.ConvolvedModel.read_file(f)
         
         self = PhotModel.cmlist2model(cm)
         if filters != 'all':
