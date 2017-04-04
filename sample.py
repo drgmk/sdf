@@ -6,6 +6,10 @@ version of astropy is installed.
 
 """
 
+import sys
+if sys.version_info[0] < 3:
+    raise Exception("Please use python3, not {}!".format(sys.version))
+
 import io
 from datetime import datetime
 import glob

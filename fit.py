@@ -1,3 +1,7 @@
+import sys
+if sys.version_info[0] < 3:
+    raise Exception("Please use python3, not {}!".format(sys.version))
+
 import os
 import glob
 import pickle
