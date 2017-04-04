@@ -1,3 +1,5 @@
+"""Functions to set up models."""
+
 import glob
 from os.path import exists,basename
 from itertools import product
@@ -16,8 +18,6 @@ from . import config as cfg
 
 c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
 
-"""Helper functions to set up models"""
-
 def setup_all():
     """Rederive all models."""
     setup_spec()
@@ -30,21 +30,35 @@ def setup_spec():
     kurucz_spectra()
     phoenix_spectra()
 
-def setup_phot(overwrite=False):
-    """Rederive convolved models.
-        
-    Run this when new filters have been added in sdf.filter_info.
-        
-    This needs to be run to propagate ZPOs into colours/indices.
+def setup_phot(overwrite_filters=False,overwrite_model=True):
+    """Rederive convolved models and write combined PhotModel to disk.
+    
+    Parameters
+    ----------
+    overwrite_filters : bool, optional
+        Set to True to overwrite files for each bandpass.
+    overwrite_model : bool, optional
+        Set to True to overwrite the PhotModel that was generated.
+
+    See Also
+    --------
+    model_setup.specmodel2phot : Function called for each model.
+    model_setup.convolve_specmodel : Function that does the heavy lifting.
+    filter_info : Where filters are set up.
+
+    Notes
+    -----
+    This function needs to be run to propagate zero point offsets into
+    colours/indices.
     """
-    specmodel2phot(mname='kurucz-0.0',overwrite=overwrite)
-    specmodel2phot(mname='kurucz_m',overwrite=overwrite)
-    specmodel2phot(mname='phoenix-0.0',overwrite=overwrite)
-    specmodel2phot(mname='phoenix_m',overwrite=overwrite)
-    specmodel2phot(mname='bb_disk_r',overwrite=overwrite)
-    specmodel2phot(mname='bb_star',overwrite=overwrite)
-    specmodel2phot(mname='modbb_disk_r',overwrite=overwrite)
-    specmodel2phot(mname='amsil_r',overwrite=overwrite)
+    specmodel2phot('kurucz-0.0',overwrite=overwrite)
+    specmodel2phot('kurucz_m',overwrite=overwrite)
+    specmodel2phot('phoenix-0.0',overwrite=overwrite)
+    specmodel2phot('phoenix_m',overwrite=overwrite)
+    specmodel2phot('bb_disk_r',overwrite=overwrite)
+    specmodel2phot('bb_star',overwrite=overwrite)
+    specmodel2phot('modbb_disk_r',overwrite=overwrite)
+    specmodel2phot('amsil_r',overwrite=overwrite)
 
 
 def bb_spectra():
@@ -64,23 +78,39 @@ def modbb_spectra():
                                          write=True,overwrite=True)
 
 
-def specmodel2phot(mname='kurucz-0.0',overwrite=False):
+def specmodel2phot(mname,overwrite_filters=False,overwrite_model=False):
     """Generate a PhotModel grid from SpecModel models."""
     
-    convolve_specmodel(mname=mname,overwrite=overwrite)
+    convolve_specmodel(mname,overwrite=overwrite_filters)
     m = model.PhotModel.read_convolved_models(mname)
-    m.write_model(m.name,overwrite=True)
+    m.write_model(m.name,overwrite=overwrite_model)
 
 
-def convolve_specmodel(mname='kurucz-0.0',overwrite=False):
-    """Convolve a set of SpecModel models.
+def convolve_specmodel(mname,overwrite=False):
+    """
+    Convolve a set of SpecModel models.
+
+    Parameters
+    ----------
+    mname : string
+        Name of the model to convolve. A SpecModel that is equal to or
+        wider than the wavelength range required by the filters must
+        exist in config['model_root'].
+    overwrite : bool, optional
+        Overwrite files for each filter. If they exist already they will
+        simply be skipped. Thus, if set to False only convolved models
+        that do not exist will be written, which would be the desired
+        behaviour when new filters have been added (in sdf.filter_info).
+
+    See Also
+    --------
+    config : Where paths to models are specified.
+    filter_info : Where new filters are added.
     
-    Write files containing convolved fluxes for each filter. The source
-    spectra are in the SpecModels as these are saved with high enough
-    wavelength resolution.
-
-    Range of parameters is the same as the spectra.
-    
+    Notes
+    -----
+    The range of parameters in the ConvolvedModels is the same as in the
+    SpecModel used.
     """
 
     m = model.SpecModel.read_model(mname)
@@ -163,26 +193,44 @@ def kurucz_spectra():
     m.write_model('kurucz_m',overwrite=True)
 
 
-def phoenix_spectra():
-    """Combine PHOENIX spectra with a range of [M/H]."""
+def phoenix_spectra(in_name_postfix='',name='phoenix_m',overwrite=True):
+    """
+    Combine PHOENIX spectra with a range of [M/H] and write to disk.
 
-    s00 = model.SpecModel.read_model('phoenix-0.0')
+    Parameters
+    ----------
+    name: string, optional
+        The name of the combined model.
+
+    in_name_postfix: string, optional
+        String that may appear on the end of the phoenix models we want
+        to combine, in addition to "phoenix-X.X". These models must have
+        already been created by phoenix_mh_spectra using name_postfix.
+        
+    overwrite: bool, optional
+        Write the combined model to disk. This option would only need to
+        be set to False for testing whether some models will actually
+        combine OK.
+    """
+
+    s00 = model.SpecModel.read_model('phoenix-0.0'+in_name_postfix)
     s00 = model.append_parameter(s00,'MH',0.0)
 
     for m in ['+0.5',-0.5,-1.0,-1.5,-2.0,-2.5,-3.0,-3.5,-4.0]:
 
-        s = model.SpecModel.read_model('phoenix'+str(m))
+        s = model.SpecModel.read_model('phoenix'+str(m)+in_name_postfix)
         s = model.append_parameter(s,'MH',float(m))
         s00 = model.concat(s00,s)
 
-    s00.write_model('phoenix_m',overwrite=True)
+    s00.write_model(name,overwrite=overwrite)
 
 
 def resample_phoenix_spectra(resolution=2000,name_postfix=''):
     """Resample all phoenix spectra to common wavelength grid.
         
-    This will take about a week for R=2000 with 8 cores on a 5k iMac, so
-    it's practically about the same to do each metallicity individually.
+    This will take about a week for R=2000 with 8 cores on a 5k iMac, or
+    about 1-2 days for R=500. For high resolution it's practically about
+    the same to do each metallicity individually.
     """
 
     for m in [0.5,0.0,-0.5,-1.0,-1.5,-2.0,-2.5,-3.0,-3.5,-4.0]:
@@ -204,9 +252,16 @@ def phoenix_mh_spectra(resolution=2000,mh=0.0,overwrite=False,
                        processes=cfg.calc['cpu'],name_postfix=''):
     """Generate a SpecModel at some metallicity from phoenix spectra.
 
-    Teff and logg range is hardcoded to 2600-29,000K and 2-4.5. This is
-    a range where the grid is rectangular over all metallicities and
-    covers a wide range.
+    For the BT-Settl-AGS2009 models Teff and logg range is hardcoded to
+    2600-29,000K and 2-4.5. This is a range where the grid is
+    rectangular over metallicities and covers a wide range (+0.5 to -4 
+    at 0.5 steps) .
+    
+    For these models there is also a much smaller set of "cool" models,
+    which go from 2600K down to 400K, with a restricted and non-square
+    range of logg and at Solar metallicity (most metallicities are
+    present above 2000K, but -1.0 is missing). Most realistic set of
+    models is probably logg=3.5.
     """
 
     # models from 2600-29000K, logg 2-4.5, at [M/H]=0.0,
@@ -224,7 +279,7 @@ def phoenix_mh_spectra(resolution=2000,mh=0.0,overwrite=False,
             raise utils.SdfError("{} exists, will not overwrite".
                            format(cfg.model_loc[name]+name+'.fits'))
 
-    # the files
+    # the files for the main set of models
     fs = glob.glob(cfg.file['phoenix_models']
                    +'lte[0-2][0-9][0-9]-[2-4].?'+mhstr
                    +'a?[0-9].[0-9].BT-Settl.7.bz2')
