@@ -69,13 +69,20 @@ class Result(object):
                         + '+'.join(self.model_comps)        \
                         + cfg.fitting['pmn_model_suffix']
 
+        # plot names, files may not exist yet
+        self.corner_plot = self.pmn_base+'corner.png'
+        self.distributions_plot = self.pmn_base+'distributions.png'
+
         # pickle file, may not exist yet
         self.pickle = self.pmn_base + '.pkl'
+
+        # json basic results file, may not exist yet
+        self.json = self.pmn_base + '.json'
 
 
     @lru_cache(maxsize=128)
     def get(rawphot,model_comps,update_mn=False,update_an=False,
-            nospec=False):
+            update_pl=False,nospec=False):
         """Take photometry file and model_name, and fill the rest."""
 
         self = Result(rawphot,model_comps)
@@ -92,7 +99,26 @@ class Result(object):
                 
                 # update object with local file info before returning
                 self.file_info(rawphot,model_comps)
+
+                # update plots if necessary
+                self.make_plots(update_pl=update_pl)
+
                 return self
+
+        # otherwise do everything
+        self.fill_data_models(nospec=nospec)
+        self.run_multinest(update_mn=update_mn)
+        self.run_analysis(update_an=update_an)
+        self.make_plots(update_pl=update_pl)
+
+        # and always update the pickle and json files
+        self.save_output()
+
+        return self
+
+
+    def fill_data_models(self,nospec=False):
+        """Get photometry/spectra and the models needed to fit these."""
 
         # observations; keywords, tuples of photometry and spectra. if
         # there is nothing in the photometry file then don't fill
@@ -118,6 +144,10 @@ class Result(object):
         self.pl_models = plmod
         self.model_info = model.models_info(self.models)
 
+
+    def run_multinest(self,update_mn=False):
+        """Run multinest."""
+
         # if we want to re-run multinest, delete previous output first
         run_mn = update_mn
         if os.path.exists(self.pmn_base+'phys_live.points'):
@@ -136,23 +166,12 @@ class Result(object):
                          n_params=self.model_info['ndim'])
         self.analyzer = a
 
-        # when the multinest results were finished
-        self.mtime = os.path.getmtime(self.pmn_base + 'phys_live.points')
+        # update mtime to now
+        self.mtime = time.time()
 
-        # parameter corner plot if needed
-        self.corner_plot = self.pmn_base+'corner.png'
-        plot = update_an
-        if not os.path.exists(self.corner_plot):
-            plot = True
-        else:
-            if os.path.getmtime(self.corner_plot) < self.mtime:
-                plot = True
-            
-        if plot:
-            d = self.analyzer.get_data()
-            fig = corner.corner(d[:,2:],labels=self.model_info['parameters'])
-            fig.savefig(self.corner_plot)
-            plt.close(fig) # not doing this causes an epic memory leak
+
+    def run_analysis(self,update_an=False):
+        """Run analysis of the results."""
 
         # parameter names and best fit
         self.evidence = self.analyzer.get_stats()['global evidence']
@@ -379,7 +398,32 @@ class Result(object):
         self.disk_r,self.disk_r_distributions = self.disk_r_results()
         self.main_results = self.star + self.disk_r
         
-        # corner plot of distributions
+        # delete the models to save space, we don't need them again
+        self.models = ''
+        self.pl_models = ''
+
+        # update mtime to now
+        self.mtime = time.time()
+
+
+    def make_plots(self,update_pl=False):
+        """Generate plots if necessary."""
+
+        # parameter fitting corner plot
+        plot = update_pl
+        if not os.path.exists(self.corner_plot):
+            plot = True
+        else:
+            if os.path.getmtime(self.corner_plot) < self.mtime:
+                plot = True
+            
+        if plot:
+            d = self.analyzer.get_data()
+            fig = corner.corner(d[:,2:],labels=self.model_info['parameters'])
+            fig.savefig(self.corner_plot)
+            plt.close(fig) # not doing this causes an epic memory leak
+
+        # corner plot of distributions, join them together first
         samples = np.zeros(cfg.fitting['n_samples'])
         labels = []
         if 'parallax' in self.distributions.keys():
@@ -395,9 +439,7 @@ class Result(object):
                 labels.append(key)
         samples = samples[1:]
 
-        # corner plot if needed
-        self.distributions_plot = self.pmn_base+'distributions.png'
-        plot = update_an
+        plot = update_pl
         if not os.path.exists(self.distributions_plot):
             plot = True
         else:
@@ -409,13 +451,12 @@ class Result(object):
             fig.savefig(self.distributions_plot)
             plt.close(fig)
 
-        # delete the models to save space, we don't need them again
-        self.models = ''
-        self.pl_models = ''
+
+    def save_output(self):
+        """Write output."""
 
         # write results that don't rely on any of the sdf classes, which
         # can be used elsewhere for plotting or whatever
-        self.json = self.pmn_base + '.json'
         with open(self.json,'w') as f:
             json.dump(self.basic_results(),f)
 
@@ -424,8 +465,6 @@ class Result(object):
         with open(self.pickle,'wb') as f:
             pickle.dump(self,f)
 
-        return self
-            
 
     def star_results(self):
         """Return tuple of dicts of star-specifics, if result has star."""
