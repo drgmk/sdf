@@ -51,14 +51,9 @@ def setup_phot(overwrite_filters=False,overwrite_model=True):
     This function needs to be run to propagate zero point offsets into
     colours/indices.
     """
-    specmodel2phot('kurucz-0.0',overwrite=overwrite)
-    specmodel2phot('kurucz_m',overwrite=overwrite)
-    specmodel2phot('phoenix-0.0',overwrite=overwrite)
-    specmodel2phot('phoenix_m',overwrite=overwrite)
-    specmodel2phot('bb_disk_r',overwrite=overwrite)
-    specmodel2phot('bb_star',overwrite=overwrite)
-    specmodel2phot('modbb_disk_r',overwrite=overwrite)
-    specmodel2phot('amsil_r',overwrite=overwrite)
+    for name in cfg.models['names']:
+        specmodel2phot(name,overwrite_filters=overwrite_filters,
+                       overwrite_model=overwrite_model)
 
 
 def bb_spectra():
