@@ -72,6 +72,7 @@ for n in model_names:
             disk_r.append(n)
 
 models = {
+    'names': model_names,
     'loc': model_loc,
     'default_wave': 10**np.arange(np.log10(cfg['models'].getfloat('min_wave_micron')),
                                   np.log10(cfg['models'].getfloat('max_wave_micron')),
