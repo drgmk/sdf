@@ -487,9 +487,11 @@ class PhotModel(Model):
     
         if len(keep) != len(filternames):
             raise utils.SdfError("filters has {} elements ({}) but {} were found\
-                           (from {}) in PhotModel".
-                           format(len(filternames),filternames,len(keep),
-                                  self.filters))
+                                 (from {}) in PhotModel. This probably means the\
+                                 PhotModel needs to be updated \
+                                 [using model_setup.setup_phot()].".
+                                 format(len(filternames),filternames,len(keep),
+                                        self.filters))
         
         # now add the base filters
         if len(extras) > 0 and colour_bases:
