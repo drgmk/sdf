@@ -303,10 +303,7 @@ def hardcopy_sed(r,file='sed.pdf'):
 
 
 def sed_limits(results):
-    """Figure out plotting limits given observations
-        
-    For now just using photometry.
-    """
+    """Figure out plotting limits given observations."""
 
     pad = 1.5
     padlg = 2.
@@ -333,6 +330,10 @@ def sed_limits(results):
                     ylims[0] = ylim[0]
                 if ylim[1] > ylims[1] or ylims[1] == -1:
                     ylims[1] = ylim[1]
+
+        for comp in r.comp_spectra:
+            if ylims[1] < np.max(comp.fnujy) or ylims[1] == -1:
+                ylims[1] = np.max(comp.fnujy)
 
     xlims = [xlims[0]/pad,  xlims[1]*pad]
     ylims = [ylims[0]/padlg,ylims[1]*pad]
