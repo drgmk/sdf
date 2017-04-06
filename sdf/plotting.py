@@ -733,29 +733,7 @@ def filter_plot(file=cfg.file['www_root']+'filters.html'):
     cols = bokeh.palettes.Category10[10]
 
     # groups in which to split the filters
-    groups = [['GALFUV','GALNUV','UJ'],
-              ['US','VS','BS','YS','D51'],
-              ['BJ','VJ',
-               'BAPASS','VAPASS',
-               'BT','VT'],
-              ['HP','KP',
-               'RC','IC'],
-              ['USDSS','GSDSS','RSDSS','ISDSS','ZSDSS'],
-              ['2MH','2MJ','2MKS',
-               'IDENIS','JDENIS','KSDENIS'],
-              ['WISE3P4','WISE4P6',
-               'IRAC3P6','IRAC4P5'],
-              ['IRAC5P8','IRAC8','NOMICN',
-#               'MSX8','MSX12',
-               'AKARI9','WISE12','IRAS12'],
-              ['AKARI18','WISE22',
-#               'MSX15','MSX21',
-               'IRSPUB','IRSPUR','MIPS24','IRAS25'],
-              ['PACS70','PACS100','PACS160',
-               'MIPS70','MIPS160',
-               'IRAS60','IRAS100'],
-              ['SPIRE250','SPIRE350','SPIRE500']]
-              
+    groups = cfg.filter_plot['groups']
 
     hover = HoverTool(tooltips=[('',"@filter")])
     tools = ['wheel_zoom,pan,save,reset']

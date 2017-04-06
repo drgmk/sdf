@@ -185,6 +185,13 @@ pl = {
     'hr_e_dot': {'line_alpha':0.4,'line_width':line_thin}
 }
 
+# filters for filter plot
+filter_plot = {
+                'groups': [cfg['filter_plot'].get(k).split(',')
+                           for k in cfg['filter_plot'].keys()]
+}
+
+
 # for convenience
 tiny = 1e-99
 huge = 1e99
