@@ -292,12 +292,14 @@ filters['VJ'] = {'svo_name': 'GCPD/Johnson.V',
                  'response_type': 'energy'}
 
 # APASS, uses Landolt standards
-filters['BAPASS'] = {'svo_name': 'GCPD/Johnson.B_Landolt',
+filters['BL'] = {'svo_name': 'GCPD/Johnson.B_Landolt',
                      'zero_point_offset': 0.058,
                      'response_type': 'energy'}
-filters['VAPASS'] = {'svo_name': 'GCPD/Johnson.V_Landolt',
+filters['VL'] = {'svo_name': 'GCPD/Johnson.V_Landolt',
                      'zero_point_offset': 0.017,
                      'response_type': 'energy'}
+filters['BAPASS'] = filters['BL']
+filters['VAPASS'] = filters['VL']
 
 # zero point offsets from Bessel & Murphy 2012 are 0.027,0.028
 # from MvB are 0.0212, 0.0091. Note that their R bandpasses look a bit
