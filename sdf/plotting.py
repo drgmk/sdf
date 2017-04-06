@@ -29,10 +29,14 @@ from . import config as cfg
 
 
 def sed_components(results,tab_order=None):
-    """Make an SED with observations and models.
+    """Return bokeh script/div components for an sed.
         
-    If multiple models and parameters are passed (i.e. the length of the
-    results list is more than 1 then these are placed in tabs.
+    Parameters
+    ----------
+    results : list of sdf.result.Result
+        List of Results
+    tab_order : list, optional
+        Order in which the list of Results should appear in tabs
     """
 
     # results should be list so we can loop
@@ -97,6 +101,9 @@ def sed_components(results,tab_order=None):
         tabs.append( Panel(child=grid, title=r.model_info['name']) )
     
     if tab_order is not None:
+        if len(tab_order) != len(results):
+         raise SdfError("tab_order {} not the same length as results ({})".
+                        format(tab_order,len(results)))
         tabs = [tabs[i] for i in tab_order]
     tab = Tabs(tabs=tabs)
 
@@ -104,10 +111,22 @@ def sed_components(results,tab_order=None):
 
 
 def add_obs_phot(fig,r):
-    """Add observed photometry to an SED plot
+    """Add observed photometry to an SED plot.
+        
+    Parameters
+    ----------
+    fig : bokeh.plotting.figure
+        Figure in which to plot.
+    r : sdf.result.Result
+        Result to plot data from.
+        
+    Notes
+    -----
+    Only data in photometry.Photometry objects is plotted.
     
-    If the object passed is not photometry.Photometry,
-    don't do anything
+    See Also
+    --------
+    sdf.plotting.sed_components
     """
     
     for p in r.obs:
@@ -152,10 +171,22 @@ def add_obs_phot(fig,r):
 
 
 def add_obs_spec(fig,r):
-    """Add observed spectra to an SED plot
+    """Add observed spectra to an SED plot.
         
-    If the object passed is not spectrum.ObsSpectrum,
-    don't do anything
+    Parameters
+    ----------
+    fig : bokeh.plotting.figure
+        Figure in which to plot.
+    r : sdf.result.Result
+        Result to plot data from.
+        
+    Notes
+    -----
+    Only data in spectrum.ObsSpectrum objects is plotted.
+    
+    See Also
+    --------
+    sdf.plotting.sed_components
     """
     ispec = -1
     for s in r.obs:
@@ -175,8 +206,20 @@ def add_obs_spec(fig,r):
 
 
 def add_model_phot(fig,r):
-    """Add model photometry to an SED plot."""
-    
+    """Add model photometry to an SED plot.
+
+    Parameters
+    ----------
+    fig : bokeh.plotting.figure
+        Figure in which to plot.
+    r : sdf.result.Result
+        Result to plot data from.
+        
+    See Also
+    --------
+    sdf.plotting.sed_components
+    """
+
     # filters and colours (spectra have None for filter)
     filt = np.array([isinstance(f,(str,np.str_)) for f in r.filters])
     
@@ -210,8 +253,20 @@ def add_model_phot(fig,r):
 
 
 def add_model_spec(fig,r):
-    """Add model spectra to an SED plot."""
-    
+    """Add model spectra to an SED plot.
+        
+    Parameters
+    ----------
+    fig : bokeh.plotting.figure
+        Figure in which to plot.
+    r : sdf.result.Result
+        Result to plot data from.
+        
+    See Also
+    --------
+    sdf.plotting.sed_components
+    """
+
     if len(r.comp_spectra) == 0:
         return
     
@@ -247,7 +302,19 @@ def add_model_spec(fig,r):
 
 
 def add_res(fig,r):
-    """Add residuals to a plot."""
+    """Add residuals to a plot.
+        
+    Parameters
+    ----------
+    fig : bokeh.plotting.figure
+        Figure in which to plot.
+    r : sdf.result.Result
+        Result to plot data from.
+        
+    See Also
+    --------
+    sdf.plotting.sed_components
+    """
 
     # used photometry
     data = {}
@@ -341,10 +408,14 @@ def sed_limits(results):
 
 
 def sample_plot(cursor,sample):
-    """Generate HTML sample plot.
+    """Return bokeh componenets for HR diagram + f vs. r sample plots.
 
-    Extract the necessary information from the database and plot
-    using bokeh.
+    Parameters
+    ----------
+    cursor : mysql.connector.connect.cursor
+        Connection to database
+    sample : string
+        Name of sample in config.mysql['db_samples'] to plot
     """
 
     # get data, ensure primary axes are not nans else bokeh will
@@ -451,7 +522,15 @@ def sample_plot(cursor,sample):
 
 
 def flux_size_plot(cursor,sample):
-    """Show disk fluxes at various bands vs. their size."""
+    """Return bokeh components for flux vs. size sample plots.
+
+    Parameters
+    ----------
+    cursor : mysql.connector.connect.cursor
+        Connection to database
+    sample : string
+        Name of sample in config.mysql['db_samples'] to plot
+    """
     # TODO: multiple compoments are plotted at the total disk flux =bad
 
     # bands to show disk fluxes at
@@ -543,7 +622,7 @@ def flux_size_plot(cursor,sample):
 
 
 def colours_for_list(values_in,palette,log=False):
-    """Return colours for an array of values."""
+    """Return plotting colours for an array of values."""
     
     values = np.array(values_in)
     nval = len(values)
@@ -579,7 +658,15 @@ def colours_for_list(values_in,palette,log=False):
 
 def calibration(sample='zpo_cal_',
                 fileroot=cfg.file['www_root']+'calibration/'):
-    """Diagnostic plot showing quality of photometric calibration."""
+    """Diagnostic plot showing quality of photometric calibration.
+
+    Parameters
+    ----------
+    sample : string
+        Name of sample in config.mysql['db_samples'] to plot.
+    fileroot : string, optional
+        Location of directory in which to place plots.
+    """
 
     try:
         cnx = mysql.connector.connect(user=cfg.mysql['user'],
@@ -728,7 +815,13 @@ def calibration(sample='zpo_cal_',
 
 
 def filter_plot(file=cfg.file['www_root']+'filters.html'):
-    """Plot all filters."""
+    """Plot all filters.
+        
+    Parameters
+    ----------
+    file : string, optional
+        File to write plot to.
+    """
 
     c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
     cols = bokeh.palettes.Category10[10]
