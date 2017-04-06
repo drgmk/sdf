@@ -119,8 +119,6 @@ class Photometry(object):
 
             self.addto(p)
 
-            print(self.filters)
-
         self.fill_fnujy()
         self.sort()
         return self
