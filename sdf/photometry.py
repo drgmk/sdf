@@ -119,6 +119,8 @@ class Photometry(object):
 
             self.addto(p)
 
+            print(self.filters)
+
         self.fill_fnujy()
         self.sort()
         return self
@@ -218,7 +220,7 @@ class Photometry(object):
     def sort(self):
         """Sort arrays in increasing wavelength order."""
         
-        _,srt = np.unique( self.mean_wavelength(), return_index=True )
+        srt = np.argsort( self.mean_wavelength() )
         self.filters = self.filters[srt]
         self.measurement = self.measurement[srt]
         self.e_measurement = self.e_measurement[srt]
