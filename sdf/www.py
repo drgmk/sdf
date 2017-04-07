@@ -1,3 +1,5 @@
+"""Generate www material for results from a single target.""" 
+
 import io
 import os
 from datetime import datetime
@@ -15,7 +17,15 @@ from . import config as cfg
 
 
 def www_all(results,update=False):
-    """Generate www material."""
+    """Generate www material, for now this is just an html SED.
+    
+    Parameters
+    ----------
+    results : list of sdf.result.Result
+        List of Result objects.
+    update : bool, optional
+        Force update of html output.
+    """
 
     print(" Web")
 
@@ -38,16 +48,28 @@ def www_all(results,update=False):
     index(results,file=index_file)
 
 
-def index(results,file='index.html'):
-    """Make index.html - landing page with an SED and other info."""
+def index(results,file='index.html',cdn=True):
+    """Make html page with an SED and other info.
+        
+    Parameters
+    ----------
+    results : list of sdf.result.Result
+        List of Result objects.
+    file : str, optional
+        File to write html to.
+    """
 
     script,div = plotting.sed_components(results)
 
     template = Template(templates.index)
-    bokeh_js = CDN.render_js()
-    bokeh_css = CDN.render_css()
-#    bokeh_js = INLINE.render_js()
-#    bokeh_css = INLINE.render_css()
+
+    if cdn:
+        bokeh_js = CDN.render_js()
+        bokeh_css = CDN.render_css()
+    else:
+        bokeh_js = INLINE.render_js()
+        bokeh_css = INLINE.render_css()
+
     html = template.render(bokeh_js=bokeh_js,
                            bokeh_css=bokeh_css,
                            css=templates.css,
@@ -66,7 +88,7 @@ def index(results,file='index.html'):
                            par_dist=os.path.basename(results[0].pmn_dir)+'/'+\
                                     os.path.basename(results[0].corner_plot),
                            derived_dist=os.path.basename(results[0].pmn_dir)+'/'+\
-                                        os.path.basename(results[0].distributions_plot),
+                                    os.path.basename(results[0].distributions_plot),
                            creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
                            )
 
