@@ -442,32 +442,46 @@ class PhotModel(Model):
     def fill_colour_bases(self):
         """Fill in colour_bases info.
 
-        Fill a dict pointing to where base filters for colours/indices
-        are. The indices are relative to the colour locations.
-
+        Fill an attribute called colour_bases which is a dict pointing
+        to where base filters for colours/indices are. The indices are
+        relative to the colour locations.
+        
+        See Also
+        --------
+        model.PhotModel.keep_filters
         """
     
-#        print(self.filters)
         self.colour_bases = [[] for i in self.filters]
         for k,f in enumerate(self.filters):
             if filter.iscolour(f):
                 col = filter.Colour.get(f)
                 filteri = []
                 for i,cf in enumerate(col.filters):
-#                    print(k,i,cf)
                     fi = np.where( cf == self.filters )[0][0]
-#                    print(fi)
                     filteri.append( fi - k )
                 self.colour_bases[k] = {'filteri':filteri,
                                         'filterw':col.weights}
 
 
     def keep_filters(self,filternames,colour_bases=False):
-        """Keep only desired filters from a model.
+        """Keep only desired filters from a PhotModel.
+            
+        Parameters
+        ----------
+        filternames : list
+            A list of the filter names to keep from the model. Duplicate
+            filters are kept, as is the order, as each slice in the
+            model must line up with the corresponding one from the
+            Photometry that was read in.
         
-        Optionally keep the base filters that are used to compute
-        colours/indices. Avoid duplicates.
-
+        colour_bases : bool, optional
+            Keep the base filters that are used to compute
+            colours/indices. These are added to the end of the model,
+            beyond the filters that were asked for.
+            
+        See Also
+        --------
+        model.PhotModel.fill_colour_bases
         """
         
         keep = np.array([],dtype=bool)
@@ -477,22 +491,17 @@ class PhotModel(Model):
             # grab base filters for colours
             if filter.iscolour(f):
                 col = filter.Colour.get(f)
-#                print(extras,col.filters)
                 extras = np.append(extras,col.filters)
             
             if f in self.filters:
                 fi = np.where(f == self.filters)[0]
-                if fi not in keep:
-                    keep = np.append( keep, fi )
-    
-        if len(keep) != len(filternames):
-            raise utils.SdfError("filters has {} elements ({}) but {} were found\
-                                 (from {}) in PhotModel. This probably means the\
-                                 PhotModel needs to be updated \
-                                 [using model_setup.setup_phot()].".
-                                 format(len(filternames),filternames,len(keep),
-                                        self.filters))
-        
+                keep = np.append( keep, fi )
+            else:
+                raise utils.SdfError("filter {} not found in PhotModel.\
+                                     This probably means the PhotModel \
+                                     needs to be updated [using \
+                                     model_setup.setup_phot()].".format(f))
+
         # now add the base filters
         if len(extras) > 0 and colour_bases:
             for f in extras:
