@@ -203,6 +203,36 @@ def write_disk_r(cursor,r):
                                                      r.id,i) )
 
 
+def get_samples():
+    """Get a list of samples.
+    
+    Get a list of samples from the database. Add "everything" and
+    "public" samples, "public" might not show everything in the list,
+    but "everything" will (but may not be visible to anyone).
+    
+    Samples with no sdbid column, i.e. those that haven't been imported
+    yet, will be excluded.
+    """
+    
+    cnx = mysql.connector.connect(user=cfg.mysql['user'],
+                                  password=cfg.mysql['passwd'],
+                                  host=cfg.mysql['host'],
+                                  database=cfg.mysql['db_samples'])
+    cursor = cnx.cursor(buffered=True)
+    cursor.execute("SHOW TABLES;")
+    samples_tmp = cursor.fetchall() # a list of tuples
+    samples = []
+    for s_tuple in samples_tmp:
+        s = s_tuple[0]
+        cursor.execute("SHOW COLUMNS FROM {} LIKE 'sdbid'".format(s))
+        if cursor.rowcount == 1:
+            samples.append(s)
+#    samples = [i[0] for i in samples]
+    cursor.close()
+    cnx.close()
+    return( samples + ['public','everything'] )
+
+
 def sample_targets(sample,db='sdb_samples'):
     """Return list of sdbids of targets in some sample."""
 
