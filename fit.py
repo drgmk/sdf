@@ -14,73 +14,11 @@ import pymultinest as pmn
 import filelock
 import binarytree as bt
 
-from sdf import result
+from sdf import fitting
 from sdf import plotting
 from sdf import db
 from sdf import www
 from sdf import config as cfg
-
-
-def fit_results(file,update_mn=False,update_an=False,
-                sort=True,nospec=False):
-    """Return a list of fitting results.
-        
-    If necessary, the fitting will be done, otherwise the results are
-    just loaded and returned.
-    
-    By default sort the list by evidence.
-    """
-
-    print(" Fitting")
-
-    # binary tree-based fitting
-    t = cfg.fitting['tree']
-    results = []
-
-    while t.left is not None and t.right is not None:
-
-        print("  ",t.left.value,"vs.",t.right.value)
-
-        r1 = result.Result.get(file,t.left.value,update_mn=update_mn,
-                               update_an=update_an,nospec=nospec)
-        r2 = result.Result.get(file,t.right.value,update_mn=update_mn,
-                               update_an=update_an,nospec=nospec)
-
-        # check for files with no photometry
-        if not hasattr(r1,'obs'):
-            print("  no photometry = no results")
-            return None
-
-        # append results, only append left result at start
-        if t.value == 'start':
-            results.append(r1)
-        results.append(r2)
-
-        # move on down the tree
-        if r2.evidence > r1.evidence + cfg.fitting['ev_threshold']:
-            t = t.right
-        else:
-            t = t.left
-
-    # fit specific models
-    for m in cfg.fitting['models']:
-
-        print("  ",m)
-        r = result.Result.get(file,m,update_mn=update_mn,
-                              update_an=update_an,nospec=nospec)
-
-        # check for files with no photometry
-        if not hasattr(r,'obs'):
-            print("  no photometry = no results")
-            return None
-
-        results.append(r)
-
-    # sort list of results by evidence
-    if sort:
-        results = [results[i] for i in result.sort_results(results)]
-
-    return results
 
 
 # command line
@@ -172,10 +110,10 @@ if __name__ == '__main__':
                         print("   index.html out of date, continuing")
             
                 # evidence-sorted list of results
-                results = fit_results(os.path.abspath(f),
-                                      update_mn=args.update_all,
-                                      update_an=args.update_analysis,
-                                      nospec=args.no_spectra)
+                results = fitting.fit_results(os.path.abspath(f),
+                                              update_mn=args.update_all,
+                                              update_an=args.update_analysis,
+                                              nospec=args.no_spectra)
                 if results is None:
                     continue
 

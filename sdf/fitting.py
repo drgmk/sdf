@@ -10,12 +10,83 @@ from . import photometry
 from . import spectrum
 from . import filter
 from . import utils
+from . import result
 from . import config as cfg
 
 # these are for getting info to pymultinest
 global_obs = ()
 global_mod = ()
 global_p_rng = ()
+
+
+def fit_results(file,update_mn=False,update_an=False,
+                sort=True,nospec=False):
+    """Return a list of fitting results.
+        
+    Parameters
+    ----------
+    file : str
+        The raw photometry file to use as input.
+    update_mn : bool, optional
+        Force update of multinest fitting.
+    update_an : bool, optional
+        Force update of post-multinest fitting analysis.
+    sort : bool, optional
+        Sort results by decreasing evidence.
+    nospec : bool, optional
+        Exclude observed specta from fitting (for speed).
+    """
+
+    print(" Fitting")
+
+    # binary tree-based fitting
+    t = cfg.fitting['tree']
+    results = []
+
+    while t.left is not None and t.right is not None:
+
+        print("  ",t.left.value,"vs.",t.right.value)
+
+        r1 = result.Result.get(file,t.left.value,update_mn=update_mn,
+                               update_an=update_an,nospec=nospec)
+        r2 = result.Result.get(file,t.right.value,update_mn=update_mn,
+                               update_an=update_an,nospec=nospec)
+
+        # check for files with no photometry
+        if not hasattr(r1,'obs'):
+            print("  no photometry = no results")
+            return None
+
+        # append results, only append left result at start
+        if t.value == 'start':
+            results.append(r1)
+        results.append(r2)
+
+        # move on down the tree
+        if r2.evidence > r1.evidence + cfg.fitting['ev_threshold']:
+            t = t.right
+        else:
+            t = t.left
+
+    # fit specific models
+    for m in cfg.fitting['models']:
+
+        print("  ",m)
+        r = result.Result.get(file,m,update_mn=update_mn,
+                              update_an=update_an,nospec=nospec)
+
+        # check for files with no photometry
+        if not hasattr(r,'obs'):
+            print("  no photometry = no results")
+            return None
+
+        results.append(r)
+
+    # sort list of results by evidence
+    if sort:
+        results = [results[i] for i in result.sort_results(results)]
+
+    return results
 
 
 @lru_cache(maxsize=2)
