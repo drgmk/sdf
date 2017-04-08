@@ -95,3 +95,22 @@ def index(results,file='index.html',cdn=True):
     with io.open(file, mode='w', encoding='utf-8') as f:
         f.write(html)
 
+
+def create_dir(wwwroot,sample):
+    """Create sample directories and .htaccess if necessary."""
+
+    # make dir and .htaccess if dir doesn't exist
+    if not os.path.isdir(wwwroot+sample):
+        mkdir(wwwroot+sample)
+
+    # make .htaccess if needed, don't put one in "public" or those
+    # ending with "_" so stuff in those directories remains visible
+    # to those not logged in
+    if  sample[-1] != '_' and sample != 'public':
+        fd = open(wwwroot+sample+'/.htaccess','w')
+        fd.write('AuthName "Must login"\n')
+        fd.write('AuthType Basic\n')
+        fd.write('AuthUserFile '+cfg.file['www_root']+'.htpasswd\n')
+        fd.write('AuthGroupFile '+cfg.file['www_root']+'.htgroup\n')
+        fd.write('require group admin '+sample+'\n')
+        fd.close()

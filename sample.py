@@ -29,6 +29,7 @@ from sdf import db
 from sdf import plotting
 from sdf import tables
 from sdf import templates
+from sdf import www
 from sdf import utils
 from sdf import config as cfg
 
@@ -106,7 +107,7 @@ def sample_plots():
         wwwroot = cfg.file['www_root']+'samples/'
 
         # create dir and .htaccess if neeeded
-        create_dir(wwwroot,sample)
+        www.create_dir(wwwroot,sample)
         file = wwwroot+sample+"/hr.html"
         script,div = plotting.sample_plot(cursor,sample)
 
@@ -148,7 +149,7 @@ def flux_size_plots():
         wwwroot = cfg.file['www_root']+'samples/'
 
         # create dir and .htaccess if neeeded
-        create_dir(wwwroot,sample)
+        www.create_dir(wwwroot,sample)
         file = wwwroot+sample+"/fnuvsr.html"
         out = plotting.flux_size_plot(cursor,sample)
         if out is not None:

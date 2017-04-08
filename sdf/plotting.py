@@ -28,7 +28,8 @@ from . import utils
 from . import config as cfg
 
 
-def sed_components(results,tab_order=None):
+def sed_components(results,tab_order=None,
+                   extra_func=None,extra_kwargs=None):
     """Return bokeh script/div components for an sed.
         
     Parameters
@@ -37,6 +38,11 @@ def sed_components(results,tab_order=None):
         List of Results
     tab_order : list, optional
         Order in which the list of Results should appear in tabs
+    extra_func : function, optional
+        Function that takes a figure instance, a list of results, and
+        optionally arbitrary extra keywords. Used to add to the plot.
+    extra_kwargs : dict, optional
+        Dict of keywords to be used by extra_func
     """
 
     # results should be list so we can loop
@@ -77,6 +83,10 @@ def sed_components(results,tab_order=None):
         # add obs
         add_obs_phot(sed[i],r)
         add_obs_spec(sed[i],r)
+
+        # optional extra function to add other stuff
+        if extra_func:
+            extra_func(sed[i],r,**extra_kwargs)
 
         # residuals
         hover = HoverTool(names=['resid'],tooltips=[('band',"@filter"),

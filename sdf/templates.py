@@ -56,13 +56,13 @@ index=('''<!DOCTYPE html>
             
             <div class="links">
             <table>
-            <tr><td>
-                {% if phot_file %}
+            <tr>
+            {% if phot_file %}
+            <td>
                 I/O:
                 <a href="{{ phot_file }}" title="Input photometry file">data</a>
                 |
                 <a href="{{ json_file }}" title="Best-fit results in json format">model</a>
-                {% endif %}
             </td>
             <td>
                 Posteriors:
@@ -70,7 +70,8 @@ index=('''<!DOCTYPE html>
                 |
                 <a href="{{ derived_dist }}" title="Derived parameters" target="_blank">derived</a>
             </td>
-            
+            {% endif %}
+
             <td>
             
             External:

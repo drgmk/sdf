@@ -13,31 +13,13 @@ import mysql.connector
 from jinja2 import Template
 import bokeh.resources
 
+from sdf import www
 from sdf import templates
 from sdf import config as cfg
 
 
-def create_dir(wwwroot,sample):
-    """Create sample directories and .htaccess if necessary."""
-
-    # make dir and .htaccess if dir doesn't exist
-    if not isdir(wwwroot+sample):
-        mkdir(wwwroot+sample)
-
-    # make .htaccess if needed, don't put one in "public" or those
-    # ending with "_" so stuff in those directories remains visible
-    # to those not logged in
-    if  sample[-1] != '_' and sample != 'public':
-        fd = open(wwwroot+sample+'/.htaccess','w')
-        fd.write('AuthName "Must login"\n')
-        fd.write('AuthType Basic\n')
-        fd.write('AuthUserFile '+cfg.file['www_root']+'.htpasswd\n')
-        fd.write('AuthGroupFile '+cfg.file['www_root']+'.htgroup\n')
-        fd.write('require group admin '+sample+'\n')
-        fd.close()
-
-
-def sample_table_www(cursor,sample,absolute_sed_url=True):
+def sample_table_www(cursor,sample,file='index.html',
+                     absolute_paths=True):
     """Generate an HTML page with a sample table.
 
     Extract the necessary information from the database and create HTML
@@ -49,15 +31,16 @@ def sample_table_www(cursor,sample,absolute_sed_url=True):
     wwwroot = cfg.www['site_root']
     sample_root = cfg.file['www_root']+'samples/'
 
-    # create dir and .htaccess if neeeded
-    create_dir(sample_root,sample)
-
     # create temporary tables we want to join on
     sample_table_temp_tables(cursor)
 
-    # get link for sed
-    if absolute_sed_url:
+    # get link for sed and create dir and .htaccess if
+    # needed, absolute is used for main sample pages, otherwise these
+    # are for special cases
+    if absolute_paths:
+        www.create_dir(sample_root,sample)
         url_str = wwwroot+"seds/masters/',sdbid,'/public"
+        file = sample_root+sample+'/'+file
     else:
         url_str = "',sdbid,'.html"
 
@@ -132,8 +115,7 @@ def sample_table_www(cursor,sample,absolute_sed_url=True):
     html = template.render(css=templates.css,name=sample,table=s.getvalue(),
                            creation_time=datetime.utcnow().strftime("%d/%m/%y %X"))
 
-    with io.open(sample_root+sample+'/index.html',
-                 mode='w', encoding='utf-8') as f:
+    with io.open(file, mode='w', encoding='utf-8') as f:
         f.write(html)
 
 
@@ -143,7 +125,7 @@ def sample_table_votable(cursor,sample):
     wwwroot = cfg.file['www_root']+'samples/'
 
     # create dir and .htaccess if neeeded
-    create_dir(wwwroot,sample)
+    www.create_dir(wwwroot,sample)
 
     # generate the mysql statement
     sel = "SELECT *"

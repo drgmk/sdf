@@ -23,6 +23,7 @@ import glob
 import configparser
 
 import numpy as np
+import bokeh.palettes
 import binarytree as bt
 
 from . import utils
@@ -98,6 +99,7 @@ t.right.right = bt.Node( star_type+('amsil_r','amsil_r') )
 # details for fitting
 fitting = {
     'models':(
+              ('kurucz_m',),
 #        ('phoenix_m','amsil_r'),
 #        ('phoenix_m','bb_disk_r'),
     ),
@@ -116,6 +118,7 @@ fitting = {
 
 # www stuff
 www = {
+    'site_root': cfg['www']['site_root'],
     'tablemax': cfg['www'].getint('tablemax'),
     'votmax': cfg['www'].getint('votmax'),
     'plotmax': cfg['www'].getint('plotmax'),
@@ -123,11 +126,12 @@ www = {
 }
 
 # some numbers to be used in the plotting dict below
+# TODO: tidy and move to sdf.conf
 
 # colours for each model, first is total model
-model_colours = ['navy','firebrick','green','red']
-phot_alpha = [0.5,0.3,0.3,0.3]
-line_alpha = [0.3,0.3,0.3,0.3]
+model_colours = ['navy','firebrick','green','red','gray']
+phot_alpha = [0.5,0.3,0.3,0.3,0.3]
+line_alpha = [0.3,0.3,0.3,0.3,0.3]
 
 line_thin = 2
 line_thick = 4
@@ -168,6 +172,9 @@ pl = {
                'line_width':line_thin},
               {'size':ph_sz,'line_color':model_colours[3],
                'line_alpha':phot_alpha[3],'fill_alpha':fill_alpha,
+               'line_width':line_thin},
+              {'size':ph_sz,'line_color':model_colours[4],
+               'line_alpha':phot_alpha[4],'fill_alpha':fill_alpha,
                'line_width':line_thin}],
     
     'mod_sp':[{'line_color':model_colours[0],'line_alpha':line_alpha[0],
@@ -177,6 +184,8 @@ pl = {
               {'line_color':model_colours[2],'line_alpha':line_alpha[2],
                     'line_width':line_thin},
               {'line_color':model_colours[3],'line_alpha':line_alpha[3],
+                    'line_width':line_thin},
+              {'line_color':model_colours[4],'line_alpha':line_alpha[4],
                     'line_width':line_thin}],
 
     # HR diagram #

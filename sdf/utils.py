@@ -1,6 +1,7 @@
 from functools import lru_cache
 from contextlib import contextmanager
 import os
+import glob
 from hashlib import sha1
 
 from scipy import sparse
@@ -209,6 +210,30 @@ def get_sdb_keywords(file):
             kw[key] = t.meta['keywords'][key]['value']
 
     return kw
+
+
+def rawphot_path(sdbid,allow_private=False):
+    """Resolve the path of an sdbid's raw photometry file.
+        
+    Parameters
+    ----------
+    sdbid : str
+        The sdbid for which the file path is desired.
+    allow_private : bool, optional
+        Allow a path with private photometry to be returned.
+    """
+
+    root = cfg.file['sdb_root']+'masters/'+sdbid+'/'
+
+    # see if a public directory exists
+    loc = root+'public/'+sdbid+'-rawphot.txt'
+    if os.path.exists(loc):
+        return loc
+
+    if allow_private:
+        locs = glob.glob(root+'*/'+sdbid+'-rawphot.txt')
+        if locs:
+            return locs[0]
 
 
 def uvby_convert(by,m1,c1):
