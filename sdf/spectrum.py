@@ -247,6 +247,44 @@ class Spectrum(object):
             raise utils.SdfError("Cannot fill gaps in spectrum with uncertainties!")
 
 
+    def resample(self,wav,kernel=None):
+        """Resample a model spectrum to a different resolution.
+            
+        Parameters
+        ----------
+        wav : numpy.ndarray
+            Wavelength grid to resample to.
+        kernel : 2d numpy.ndarray, optional
+            Pre-computed kernel for convolution.
+            
+        Returns
+        -------
+        kernel : 2d numpy ndarray
+            The kernel that was generated for this convolution.
+
+        See Also
+        --------
+        utils.resample_matrix
+        """
+    
+        # get the convolution/resampling matrix (unless we got it)
+        self.sort('wave')
+        if kernel is None:
+            kernel = utils.resample_matrix(self.wavelength,wav)
+
+        self.wavelength = wav
+        self.fill_wave2hz()
+        if hasattr(self,'fnujy'):
+            self.fnujy = self.fnujy * kernel
+        if hasattr(self,'e_fnujy'):
+            if self.e_fnujy is not None:
+                self.e_fnujy = self.e_fnujy * kernel
+        if hasattr(self,'fnujy_sr'):
+            self.fnujy_sr = self.fnujy_sr * kernel
+
+        return kernel
+    
+
     @property
     def wavelength(self):
         return self._wavelength
@@ -515,25 +553,6 @@ class ModelSpectrum(Spectrum):
         if self.nu_hz is None and self.wavelength is not None:
             self.fill_wave2hz()
 
-
-    def resample(self,wav,resolution=100,kernel=None):
-        """Resample a model spectrum to a different resolution.
-            
-        Return the kernel that was used in case we want to use it again.
-        """
-    
-        # get the convolution/resampling matrix (unless we got it)
-        self.sort('wave')
-        if kernel is None:
-            kernel = utils.resample_matrix(self.wavelength,wav,
-                                           new_R=resolution)
-
-        self.wavelength = wav
-        self.fill_wave2hz()
-        self.fnujy_sr = self.fnujy_sr * kernel
-
-        return kernel
-    
 
     @classmethod
     def bnu_wave_micron(cls,wave_um,temp,lam0=None,beta=None):

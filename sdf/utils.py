@@ -146,17 +146,50 @@ def validate_quantity(value):
         raise TypeError("should be an astropy units Quantity")
 
 
-def resample_matrix(wave_in,new_wave,new_R,old_R=np.inf,
-                    kern_width=5):
+def resample_matrix(wave_in,new_wave,old_R=np.inf,kern_width=5):
     """Return a resampling/convolution kernel.
         
-    Copied from Casey's sick, modified to ensure the range of indices
-    included near each resampled wavelength are appropriate (rather
-    than a single value for the whole spectrum).
+    Copied from Andy Casey's sick code, modified to ensure the range of
+    indices included near each resampled wavelength are appropriate
+    (rather than a single value for the whole spectrum).
+    
+    The new wavelength grid is assumed (and checked) to be at least
+    close to uniform in resolution over the whole range.
+    
+    Parameters
+    ----------
+    wave_in : numpy.ndarray
+        Wavelengths of the spectrum to be resampled.
+    new_wave : numpy.ndarray
+        Wavelengths to resample to.
+    old_R : int, optional
+        Resolution of the spectrum to be resampled.
+    kern_width : int, optional
+        Width (units of sigma) of convolution kernel at each point.
+        
+    Returns
+    -------
+    kernel : 2d numpy.ndarray (or equivalent)
+        Convolution kernel, multiply the spectrum by this to convolve.
+        
+    See Also
+    --------
+    spectrum.resample
     """
 
     # this will be the shape of the convolution matrix
     N, M = (new_wave.size, wave_in.size)
+
+    # figure out what the desired median resolution is, checking the
+    # range isn't too large (excluding the edges)
+    dlambda = np.diff(new_wave)
+    lambdas = (new_wave[1:] + new_wave[:-1])/2.0
+    new_Rs = lambdas / dlambda
+    if 2 * np.min(new_Rs) < np.max(new_Rs):
+        raise SdfError("wavelength grid has too wide a range of resolutions "
+                       " to be resampled this way ({} to {}) {}".
+                       format(np.min(new_Rs),np.max(new_Rs),new_Rs))
+    new_R = np.median(new_Rs)
 
     # width of the kernel (dlambda=lambda/R) at each point
     fwhms = new_wave / float(new_R)

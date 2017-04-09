@@ -376,10 +376,11 @@ class Result(object):
         self.all_phot_1sig_lo = self.all_phot - lo
         self.all_phot_1sig_hi = hi - self.all_phot
 
-        # ObsSpectrum for each component, all the same wavelengths
+        # ObsSpectrum for each component, at original resolution
         wave = cfg.models['default_wave']
         star_spec = np.zeros(len(wave))
         disk_spec = np.zeros(len(wave))
+        total_spec = np.zeros(len(wave))
         self.comp_spectra = ()
         for i,comp in enumerate(self.pl_models):
             for mtmp in comp:
@@ -387,19 +388,22 @@ class Result(object):
                     continue
                 
                 m = mtmp.copy()
-                m.interp_to_wavelengths(wave)
 
                 s = spectrum.ObsSpectrum(wavelength=m.wavelength,
                                          fnujy=m.fnujy(self.comp_best_params[i]))
                 s.fill_irradiance()
                 self.comp_spectra += (s,)
-    
+
+                # TODO: resample spectrum rather than interpolate model
+                m.interp_to_wavelengths(wave)
+                total_spec += m.fnujy(self.comp_best_params[i])
                 if self.star_or_disk[i] == 'star':
                     star_spec += m.fnujy(self.comp_best_params[i])
                 elif self.star_or_disk[i] == 'disk':
                     disk_spec += m.fnujy(self.comp_best_params[i])
 
-        # and star/disk spectra
+        # and total/star/disk spectra, at common wavelengths
+        self.total_spec = spectrum.ObsSpectrum(wavelength=wave,fnujy=total_spec)
         if np.max(star_spec) > 0:
             self.star_spec = spectrum.ObsSpectrum(wavelength=wave,fnujy=star_spec)
         else:
