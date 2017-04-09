@@ -262,7 +262,7 @@ def add_model_phot(fig,r):
     fig.circle('wave','flux',source=pldata, **cfg.pl['mod_ph'][0])
 
 
-def add_model_spec(fig,r):
+def add_model_spec(fig,r,plot_wave=cfg.models['default_wave']):
     """Add model spectra to an SED plot.
         
     Parameters
@@ -271,7 +271,9 @@ def add_model_spec(fig,r):
         Figure in which to plot.
     r : sdf.result.Result
         Result to plot data from.
-        
+    plot_wave : numpy.ndarray, optional
+        Wavelengths to use for plot, spectra are not resampled if None.
+    
     See Also
     --------
     sdf.plotting.sed_components
@@ -283,8 +285,12 @@ def add_model_spec(fig,r):
     # one thick line if one model
     elif len(r.comp_spectra) == 1:
         
-        data = {'wave':r.comp_spectra[0].wavelength,
-                'flux':r.comp_spectra[0].fnujy}
+        s = r.comp_spectra[0].copy()
+        if plot_wave is not None:
+            s.resample(plot_wave)
+        
+        data = {'wave':s.wavelength,
+                'flux':s.fnujy}
         pldata = ColumnDataSource(data=data)
         fig.line('wave','flux',source=pldata,**cfg.pl['mod_sp'][0])
 
@@ -293,20 +299,19 @@ def add_model_spec(fig,r):
         for i,s in enumerate(r.comp_spectra):
 
             data = {}
+            if plot_wave is not None:
+                s.resample(plot_wave)
             data['wave'] = s.wavelength
             data['flux'] = s.fnujy
-
-            try:
-                totflux += data['flux']
-            except NameError:
-                totflux = np.zeros(len(data['flux']))
-                totflux += data['flux']
             pldata = ColumnDataSource(data=data)
             
             fig.line('wave','flux',source=pldata,**cfg.pl['mod_sp'][i+1])
 
         # sum of all models
-        data = {'wave':data['wave'],'flux':totflux}
+        s = r.total_spec.copy()
+        if plot_wave is not None:
+            s.resample(plot_wave)
+        data = {'wave':s.wavelength,'flux':s.fnujy}
         pldata = ColumnDataSource(data=data)
         fig.line('wave','flux',source=pldata,**cfg.pl['mod_sp'][0])
 
