@@ -359,6 +359,8 @@ class hashable(object):
     not to modify it).
         
     From https://gist.github.com/marquisthunder/9ef974477e1aef9dbb41
+    
+    Modified to compare hashes, rather than the whole array for __eq__.
     """
     
     def __init__(self, wrapped, tight=False):
@@ -375,7 +377,8 @@ class hashable(object):
         self.__hash = int(sha1(wrapped.view(np.uint8)).hexdigest(), 16)
 
     def __eq__(self, other):
-        return np.all(self.__wrapped == other.__wrapped)
+        return self.__hash__() == other.__hash__()
+#        return np.all(self.__wrapped == other.__wrapped)
 
     def __hash__(self):
         return self.__hash
