@@ -419,10 +419,6 @@ class Result(object):
         self.disk_r,self.disk_r_distributions = self.disk_r_results()
         self.main_results = self.star + self.disk_r
         
-        # delete the models to save space, we don't need them again
-        self.models = ''
-        self.pl_models = ''
-
         # set analysis finish time
         self.analysis_time = time.time()
 
@@ -450,6 +446,10 @@ class Result(object):
 
     def save_output(self):
         """Write output."""
+
+        # delete the models to save space, we don't need them again
+        self.models = ''
+        self.pl_models = ''
 
         # write results that don't rely on any of the sdf classes, which
         # can be used elsewhere for plotting or whatever
