@@ -154,12 +154,11 @@ def add_obs_phot(fig,r):
         data['flux'] = p.fnujy[ok]
         data['err'] = p.e_fnujy[ok]
         pldata = ColumnDataSource(data=data)
-
-        # plot detections
         xs,_,_,err_ys = utils.plot_err(data['wave'],data['wave'],
                                        data['flux'],data['err'])
         fig.multi_line(xs,err_ys,**cfg.pl['obs_e_ph'])
-        fig.circle('wave','flux',source=pldata,name='phot',**cfg.pl['obs_ph'])
+        fig.circle('wave','flux',source=pldata,name='phot',
+                   **cfg.pl['obs_ph'])
 
         # ignored photometry
         ok = np.logical_and(p.ignore,np.invert(p.upperlim))
@@ -171,16 +170,28 @@ def add_obs_phot(fig,r):
         xs,_,_,err_ys = utils.plot_err(data['wave'],data['wave'],
                                        data['flux'],data['err'])
         fig.multi_line(xs,err_ys,**cfg.pl['obs_e_ig_ph'])
-        fig.circle('wave','flux',source=pldata,name='phot',**cfg.pl['obs_ig_ph'])
+        fig.circle('wave','flux',source=pldata,name='phot',
+                   **cfg.pl['obs_ig_ph'])
 
         # upper limits
-        data['filter'] = p.filters[p.upperlim]
-        data['wave'] = p.mean_wavelength()[p.upperlim]
-        data['flux'] = p.fnujy[p.upperlim]
-        data['err'] = p.e_fnujy[p.upperlim]
+        ok = np.logical_and(p.upperlim,np.invert(p.ignore))
+        data['filter'] = p.filters[ok]
+        data['wave'] = p.mean_wavelength()[ok]
+        data['flux'] = p.fnujy[ok]
+        data['err'] = p.e_fnujy[ok]
         pldata = ColumnDataSource(data=data)
         fig.inverted_triangle('wave','flux',source=pldata,name='phot',
                               **cfg.pl['obs_ph'])
+
+        # ignored upper limits
+        ok = np.logical_and(p.upperlim,p.ignore)
+        data['filter'] = p.filters[ok]
+        data['wave'] = p.mean_wavelength()[ok]
+        data['flux'] = p.fnujy[ok]
+        data['err'] = p.e_fnujy[ok]
+        pldata = ColumnDataSource(data=data)
+        fig.inverted_triangle('wave','flux',source=pldata,name='phot',
+                              **cfg.pl['obs_ig_ph'])
 
 
 def add_obs_spec(fig,r):
