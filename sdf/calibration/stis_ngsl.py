@@ -83,7 +83,8 @@ def generate_cal_seds(out_dir=cfg.file['www_root']+'calibration/stis_ngsl/',
 
         fits = cfg.file['spectra']+'stis_ngsl/'+fits_name
         script, div = plotting.sed_components(results,extra_func=add_obs_spec_fits,
-                                              extra_kwargs={'fits':fits})
+                                              extra_kwargs={'fits':fits},
+                                              model_spec_kwargs={'plot_wave':None})
 
         template = Template(templates.index)
 

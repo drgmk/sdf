@@ -29,20 +29,23 @@ from . import config as cfg
 
 
 def sed_components(results,tab_order=None,
-                   extra_func=None,extra_kwargs=None):
+                   extra_func=None,extra_kwargs={},
+                   model_spec_kwargs={}):
     """Return bokeh script/div components for an sed.
         
     Parameters
     ----------
     results : list of sdf.result.Result
-        List of Results
+        List of Results.
     tab_order : list, optional
-        Order in which the list of Results should appear in tabs
+        Order in which the list of Results should appear in tabs.
     extra_func : function, optional
         Function that takes a figure instance, a list of results, and
         optionally arbitrary extra keywords. Used to add to the plot.
     extra_kwargs : dict, optional
-        Dict of keywords to be used by extra_func
+        Dict of keywords to be passed extra_func.
+    model_spec_kwargs : dict, optional
+        Dict of keywords to be passed to add_model_spec.
     """
 
     # results should be list so we can loop
@@ -78,7 +81,7 @@ def sed_components(results,tab_order=None,
 
         # add models
         add_model_phot(sed[i],r)
-        add_model_spec(sed[i],r)
+        add_model_spec(sed[i],r,**model_spec_kwargs)
 
         # add obs
         add_obs_phot(sed[i],r)
