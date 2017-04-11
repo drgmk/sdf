@@ -29,7 +29,8 @@ from . import config as cfg
 
 
 def sed_components(results,tab_order=None,
-                   extra_func=None,extra_kwargs={},
+                   main_extra_func=None,main_extra_kwargs={},
+                   res_extra_func=None,res_extra_kwargs={},
                    model_spec_kwargs={}):
     """Return bokeh script/div components for an sed.
         
@@ -39,11 +40,16 @@ def sed_components(results,tab_order=None,
         List of Results.
     tab_order : list, optional
         Order in which the list of Results should appear in tabs.
-    extra_func : function, optional
+    main_extra_func : function, optional
         Function that takes a figure instance, a list of results, and
-        optionally arbitrary extra keywords. Used to add to the plot.
-    extra_kwargs : dict, optional
-        Dict of keywords to be passed extra_func.
+        optionally arbitrary extra keywords. Adds to the main plot.
+    main_extra_kwargs : dict, optional
+        Dict of keywords to be passed to main_extra_func.
+    res_extra_func : function, optional
+        Function that takes a figure instance, a list of results, and
+        optionally arbitrary extra keywords. Adds to the residuals plot.
+    res_extra_kwargs : dict, optional
+        Dict of keywords to be passed to res_extra_func.
     model_spec_kwargs : dict, optional
         Dict of keywords to be passed to add_model_spec.
     """
@@ -88,8 +94,8 @@ def sed_components(results,tab_order=None,
         add_obs_spec(sed[i],r)
 
         # optional extra function to add other stuff
-        if extra_func:
-            extra_func(sed[i],r,**extra_kwargs)
+        if main_extra_func:
+            main_extra_func(sed[i],r,**main_extra_kwargs)
 
         # residuals
         hover = HoverTool(names=['resid'],tooltips=[('band',"@filter"),
@@ -108,6 +114,9 @@ def sed_components(results,tab_order=None,
         res[i].line(x=xlim,y=[-3,-3],**cfg.pl['guide_dash'])
         res[i].line(x=xlim,y=[3 , 3],**cfg.pl['guide_dash'])
         add_res(res[i],r)
+
+        if res_extra_func:
+            res_extra_func(res[i],r,**res_extra_kwargs)
 
         grid = gridplot([[sed[i]],[res[i]]],toolbar_location='below')
 
@@ -436,15 +445,17 @@ def sed_limits(results):
     return xlims,ylims
 
 
-def sample_plot(cursor,sample):
+def sample_plot(cursor,sample,absolute_paths=True):
     """Return bokeh componenets for HR diagram + f vs. r sample plots.
 
     Parameters
     ----------
     cursor : mysql.connector.connect.cursor
-        Connection to database
+        Connection to database.
     sample : string
-        Name of sample in config.mysql['db_samples'] to plot
+        Name of sample in config.mysql['db_samples'] to plot.
+    absolute_paths : bool, optional
+        Use absolute urls, otherwise relative to this plot.
     """
 
     # get data, ensure primary axes are not nans else bokeh will
@@ -541,7 +552,10 @@ def sample_plot(cursor,sample):
     p = gridplot([[hr,ft]],sizing_mode='scale_width',toolbar_location='above')
 
     # taptool callback
-    url = "/~grant/sdb/seds/masters/@sdbid/public"
+    if absolute_paths:
+        url = "/~grant/sdb/seds/masters/@sdbid/public"
+    else:
+        url = "@sdbid.html"
     taptool = hr.select(type=TapTool)
     taptool.callback = OpenURL(url=url)
     taptool = ft.select(type=TapTool)
@@ -563,7 +577,8 @@ def flux_size_plot(cursor,sample):
     # TODO: multiple compoments are plotted at the total disk flux =bad
 
     # bands to show disk fluxes at
-    filters = ['WISE3P4','AKARI9','WISE12','AKARI18','WISE22','PACS70']
+    filters = ['WISE3P4','AKARI9','WISE12','AKARI18','WISE22',
+               'PACS70','WAV880']
 
     # sensitivities from Smith & Wyatt 2010
     miri_10_sens = np.array([[1000.,0.15],[100,0.15],[1,0.2],[0.01,0.3],
@@ -572,7 +587,8 @@ def flux_size_plot(cursor,sample):
                              [0.5,1],[0.1,2],[0.05,4],[0.05,10],[0.05,40]])
     miri_25_sens = np.array([[1000.,0.3],[100,0.3],[10,0.4],[3,0.5],[2,1],
                              [1,1.5],[0.5,2],[0.2,4],[0.2,10],[0.2,40]])
-    sens = [None,miri_10_sens,miri_10_sens,miri_18_sens,miri_25_sens,None]
+    sens = [None,miri_10_sens,miri_10_sens,miri_18_sens,miri_25_sens,
+            None,None]
 
     tabs = []
     for i,f in enumerate(filters):
