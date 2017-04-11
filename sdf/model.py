@@ -725,7 +725,8 @@ def model_fluxes(m,param,obs_nel,phot_only=False):
     """Get model fluxes and put in arrays.
     
     all_fnu is everything added up, with colours/indices added properly,
-    comp_fnu[i] contains fluxes from the i-th model component.
+    comp_fnu[i] contains fluxes from the i-th model component and
+    comp_fnu_col[i] contains these with colours computed.
     """
     
     comp_fnu = []
@@ -756,14 +757,13 @@ def model_fluxes(m,param,obs_nel,phot_only=False):
             comp_fnu = np.vstack( (comp_fnu,flux) )
         i0 += nparam
     
-    # fill colours
+    # fill colours, for total and components
     mod_fnu = fill_colours(m[0],all_fnu,obs_nel)
+    comp_fnu_col = np.zeros((len(comp_fnu),len(mod_fnu)))
+    for i,fnu in enumerate(comp_fnu):
+        comp_fnu_col[i] = fill_colours(m[0],fnu,obs_nel)
 
-    # remove unused filters that were used to compute colours/indices
-    # by truncating comp_fnu to same length as mod_fnu
-    comp_fnu = comp_fnu[:,:len(mod_fnu)]
-
-    return mod_fnu,comp_fnu
+    return mod_fnu,comp_fnu_col
 
 
 def crop(self,param,range):
