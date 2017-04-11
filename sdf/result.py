@@ -262,17 +262,31 @@ class Result(object):
         self.obs_fnujy = self.obs_fnujy * spec_norm
         self.obs_e_fnujy = self.obs_e_fnujy * spec_norm
 
-        # model photometry and residuals, including colours/indices
+        # model fluxes, including colours/indices
         model_dist = np.zeros((len(self.filters),cfg.fitting['n_samples']))
         model_comp_dist = np.zeros((self.n_comps,len(self.filters),
                                     cfg.fitting['n_samples']))
-                                    
+
+        # all fluxes, including colours/indices
+        p_all = photometry.Photometry(filters=filter.Filter.all)
+        self.all_filters = p_all.filters
+        p_all_mod,_ = model.get_models((p_all,),self.model_comps)
+        all_dist = np.zeros((p_all.nphot,cfg.fitting['n_samples']))
+        all_comp_dist = np.zeros((self.n_comps,p_all.nphot,
+                                    cfg.fitting['n_samples']))
+
         for i,par in enumerate(self.param_samples):
+
+            # TODO: compute once, grab model fluxes from all fluxes...
             model_fnujy,model_comp_fnujy = \
                 model.model_fluxes(self.models,par,obs_nel)
-        
             model_dist[:,i] = model_fnujy
             model_comp_dist[:,:,i] = model_comp_fnujy
+
+            all_fnujy,all_comp_fnujy = \
+                model.model_fluxes(p_all_mod,par,[p_all.nphot])
+            all_dist[:,i] = all_fnujy
+            all_comp_dist[:,:,i] = all_comp_fnujy
 
         # summed model fluxes
         self.distributions['model_fnujy'] = model_dist
@@ -290,88 +304,55 @@ class Result(object):
         self.model_comp_fnujy_1sig_lo = self.model_comp_fnujy - lo
         self.model_comp_fnujy_1sig_hi = hi - self.model_comp_fnujy
 
-        # fitting results
+        # residuals and fitting results
         self.residuals,_,_ = fitting.residual(self.best_params,
                                               self.obs,self.models)
         self.chisq = np.sum( np.square( self.residuals ) )
         self.dof = len(self.wavelengths)-len(self.parameters)-1
 
-        # star/disk photometry for all filters
-        star_comps = ()
-        star_params = []
-        star_param_samples = [[] for i in range(cfg.fitting['n_samples'])]
-        disk_comps = ()
-        disk_params = []
-        disk_param_samples = [[] for i in range(cfg.fitting['n_samples'])]
-
-        # first create star/disk component arrays
+        # star and disk photometry for all filters
+        star_phot_dist = np.zeros((p_all.nphot,cfg.fitting['n_samples']))
+        disk_phot_dist = np.zeros((p_all.nphot,cfg.fitting['n_samples']))
         for i,comp in enumerate(self.model_comps):
             if self.star_or_disk[i] == 'star':
-                star_comps += (comp,)
-                star_params += self.comp_best_params[i]
-                for j in range(cfg.fitting['n_samples']):
-                    star_param_samples[j] = np.append(star_param_samples[j],
-                                                      self.comp_param_samples[i][j])
+                star_phot_dist += all_comp_dist[i,:,:]
             elif self.star_or_disk[i] == 'disk':
-                disk_comps += (comp,)
-                disk_params += self.comp_best_params[i]
-                for j in range(cfg.fitting['n_samples']):
-                    disk_param_samples[j] = np.append(disk_param_samples[j],
-                                                      self.comp_param_samples[i][j])
+                disk_phot_dist += all_comp_dist[i,:,:]
 
-        # compute all star photometry for each parameter sample
-        p_all = photometry.Photometry(filters=filter.Filter.all)
-        if len(star_comps) > 0:
-            star_mod,_ = model.get_models((p_all,),star_comps)
-            
-            star_phot_dist = np.zeros((p_all.nphot,cfg.fitting['n_samples']))
-            for i,par in enumerate(star_param_samples):
-                tmp,_ = model.model_fluxes(star_mod,par,[p_all.nphot])
-                star_phot_dist[:,i] = tmp
+        # star photometry in all filters
+        self.distributions['star_phot'] = star_phot_dist
+        lo,self.all_star_phot,hi = fitting.pmn_pc(self.param_sample_probs,
+                                              star_phot_dist,[16.0,50.0,84.0],
+                                              axis=1)
+        self.all_star_phot_1sig_lo = self.all_star_phot - lo
+        self.all_star_phot_1sig_hi = hi - self.all_star_phot
 
-            self.distributions['star_phot'] = star_phot_dist
-            lo,self.star_phot,hi = fitting.pmn_pc(self.param_sample_probs,
-                                                  star_phot_dist,[16.0,50.0,84.0],
-                                                  axis=1)
-            self.star_phot_1sig_lo = self.star_phot - lo
-            self.star_phot_1sig_hi = hi - self.star_phot
+        if np.sum(self.all_star_phot) == 0:
+            self.all_star_phot = None
 
-        else:
-            self.star_phot = None
+        # disk photometry in all filters
+        self.distributions['disk_phot'] = disk_phot_dist
+        lo,self.all_disk_phot,hi = fitting.pmn_pc(self.param_sample_probs,
+                                              disk_phot_dist,[16.0,50.0,84.0],
+                                              axis=1)
+        self.all_disk_phot_1sig_lo = self.all_disk_phot - lo
+        self.all_disk_phot_1sig_hi = hi - self.all_disk_phot
 
-        # repeat for disk photometry
-        if len(disk_comps) > 0:
-            disk_mod,_ = model.get_models((p_all,),disk_comps)
+        if np.sum(self.all_disk_phot) == 0:
+            self.all_disk_phot = None
 
-            disk_phot_dist = np.zeros((p_all.nphot,cfg.fitting['n_samples']))
-            for i,par in enumerate(disk_param_samples):
-                tmp,_ = model.model_fluxes(disk_mod,par,[p_all.nphot])
-                disk_phot_dist[:,i] = tmp
+        # component photometry in all filters
+        self.distributions['all_comp_phot'] = all_comp_dist
+        lo,self.all_comp_phot,hi = fitting.pmn_pc(self.param_sample_probs,
+                                                  all_comp_dist,[16.0,50.0,84.0],
+                                                  axis=2)
+        self.all_comp_phot_1sig_lo = self.all_comp_phot - lo
+        self.all_comp_phot_1sig_hi = hi - self.all_comp_phot
 
-            self.distributions['disk_phot'] = disk_phot_dist
-            lo,self.disk_phot,hi = fitting.pmn_pc(self.param_sample_probs,
-                                                  disk_phot_dist,[16.0,50.0,84.0],
-                                                  axis=1)
-            self.disk_phot_1sig_lo = self.disk_phot - lo
-            self.disk_phot_1sig_hi = hi - self.disk_phot
-
-        else:
-            self.disk_phot = None
-        
-        self.all_filters = p_all.filters
-        
-        # total photometry
-        mod,_ = model.get_models((p_all,),self.model_comps)
-        all_phot_dist = np.zeros((p_all.nphot,cfg.fitting['n_samples']))
-        for i,par in enumerate(self.param_samples):
-            tmp,_ = model.model_fluxes(mod,par,[p_all.nphot])
-            all_phot_dist[:,i] = tmp
-        
-        self.all_phot_dist = all_phot_dist
-
-        self.distributions['all_phot'] = all_phot_dist
+        # total photometry in all filters
+        self.distributions['all_phot'] = all_dist
         lo,self.all_phot,hi = fitting.pmn_pc(self.param_sample_probs,
-                                             all_phot_dist,[16.0,50.0,84.0],
+                                             all_dist,[16.0,50.0,84.0],
                                              axis=1)
         self.all_phot_1sig_lo = self.all_phot - lo
         self.all_phot_1sig_hi = hi - self.all_phot
@@ -419,9 +400,6 @@ class Result(object):
         self.disk_r,self.disk_r_distributions = self.disk_r_results()
         self.main_results = self.star + self.disk_r
         
-        # set analysis finish time
-        self.analysis_time = time.time()
-
         # corner plot of distributions, join them together first
         if not os.path.exists(self.distributions_plot):
             samples = np.zeros(cfg.fitting['n_samples'])
@@ -442,6 +420,9 @@ class Result(object):
             fig = corner.corner(samples.transpose(),labels=labels)
             fig.savefig(self.distributions_plot)
             plt.close(fig)
+
+        # set analysis finish time
+        self.analysis_time = time.time()
 
 
     def save_output(self):
@@ -480,6 +461,7 @@ class Result(object):
         """Return dict of star-specifics for ith model component."""
 
         star = {}
+        star['comp_no'] = i
         distributions = {}
         for j,par in enumerate(self.comp_parameters[i]):
             star[par] = self.best_params[j]
@@ -556,6 +538,7 @@ class Result(object):
         """Return dict of disk_r-specifics for ith model component."""
 
         disk_r = {}
+        disk_r['comp_no'] = i
         distributions = {}
         for j,par in enumerate(self.comp_parameters[i]):
             if 'log_' in par:
