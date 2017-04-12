@@ -48,8 +48,8 @@ def setup_phot(overwrite_filters=False,overwrite_model=True):
 
     Notes
     -----
-    This function needs to be run to propagate zero point offsets into
-    colours/indices.
+    This function needs to be run to incorporate new filters and/or 
+    propagate zero point offsets into colours/indices.
     """
     for name in cfg.models['names']:
         specmodel2phot(name,overwrite_filters=overwrite_filters,
