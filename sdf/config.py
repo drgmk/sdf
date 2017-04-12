@@ -95,11 +95,15 @@ t.left = bt.Node( star_type )
 t.right = bt.Node( (star_type+('amsil_r',) ) )
 t.right.left = bt.Node( star_type+('amsil_r',) )
 t.right.right = bt.Node( star_type+('amsil_r','amsil_r') )
+t.right.left.left = bt.Node( star_type+('amsil_r',) )
+t.right.left.right = bt.Node( star_type+('modbb_disk_r',) )
+t.right.right.left = bt.Node( star_type+('amsil_r','amsil_r') )
+t.right.right.right = bt.Node( star_type+('modbb_disk_r','modbb_disk_r') )
 
 # details for fitting
 fitting = {
     'models':(
-              ('kurucz_m',),
+#              ('kurucz_m',),
 #        ('phoenix_m','amsil_r'),
 #        ('phoenix_m','bb_disk_r'),
     ),
@@ -113,7 +117,13 @@ fitting = {
     'n_live': cfg['fitting'].getint('n_live'),
     'n_update': cfg['fitting'].getint('n_update'),
     'verb': cfg['fitting'].getboolean('verb'),
-    'n_samples': cfg['fitting'].getint('n_samples')
+    'n_samples': cfg['fitting'].getint('n_samples'),
+    'model_om_range': (cfg['fitting'].getfloat('model_om_lo'),
+                       cfg['fitting'].getfloat('model_om_hi')),
+    'spectra_norm_range': (cfg['fitting'].getfloat('spectra_norm_lo'),
+                           cfg['fitting'].getfloat('spectra_norm_hi')),
+    'mn_oldest': cfg['fitting'].getfloat('mn_oldest'),
+    'an_oldest': cfg['fitting'].getfloat('an_oldest')
 }
 
 # www stuff
@@ -129,9 +139,9 @@ www = {
 # TODO: tidy and move to sdf.conf
 
 # colours for each model, first is total model
-model_colours = ['navy','firebrick','green','red','gray']
+model_colours = ['navy','firebrick','green','red','darkslategray']
 phot_alpha = [0.5,0.3,0.3,0.3,0.3]
-line_alpha = [0.3,0.3,0.3,0.3,0.3]
+line_alpha = [0.3,0.3,0.3,0.3,0.5]
 
 line_thin = 2
 line_thick = 4

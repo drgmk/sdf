@@ -1001,9 +1001,8 @@ def models_info(m):
             info['p_rng'].append( (comp[0].param_values[par][0],
                                    comp[0].param_values[par][-1]) )
             info['parameters'].append( par )
-        # this is the range of allowed solid angles, in log units, and
-        # zero is a Solar disk at 1pc
-        info['p_rng'].append( (-10,10) )
+        # this is the range of allowed solid angles
+        info['p_rng'].append( cfg.fitting['model_om_range'] )
         info['parameters'].append('norm')
         for mod in comp:
             if isinstance(mod,SpecModel):
@@ -1014,7 +1013,7 @@ def models_info(m):
 
     # spectra normalisations last (nspec same for each comp)
     for i in range(nspec):
-        info['p_rng'].append( (0.7,1.4) )
+        info['p_rng'].append( cfg.fitting['spectra_norm_range'] )
         info['parameters'].append('spec_norm')
 
     # check structure looks OK
