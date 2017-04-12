@@ -75,56 +75,92 @@ class Result(object):
         self.pickle = self.pmn_base + '.pkl'
         self.json = self.pmn_base + '.json'
 
-        # modification times
+        # rawphot modification time
         self.rawphot_time = os.path.getmtime(self.rawphot)
-
-        if os.path.exists(self.pmn_base+'phys_live.points'):
-            self.mn_time = os.path.getmtime(self.pmn_base+'phys_live.points')
-        else:
-            self.mn_time = 0
-
-        if os.path.exists(self.pickle):
-            self.pickle_time = os.path.getmtime(self.pickle)
-        else:
-            self.pickle_time = 0
-
 
 
     @lru_cache(maxsize=128)
     def get(rawphot,model_comps,update_mn=False,
             update_an=False,nospec=False):
-        """Take photometry file and model_name, and fill the rest."""
+        """Take photometry file and model_name, and fill the rest.
+        
+        The process works on a heirarchy of update times, each of which
+        must be more recent than the previous, or a redo will be forced.
+
+        rawphot_time < mn_time < mn_a_time < analysis_time < pickle_time
+        
+        Each step can be called, and based on these the code will be
+        (re)run or not. fill_data_models will always be run because the
+        models are not saved in the pickle to save space.
+        
+        Parameters
+        ----------
+        rawphot : str
+            Rawphot file from sdb.
+        model_comps : tuple of str
+            Tuple of model names to fit.
+        udpate_mn : bool, optional
+            Force update of mutinest fitting.
+        udpate_an : bool, optional
+            Force update of post-multinest analysis.
+        nospec : bool, optional
+            Exclude and spectra when observations are read in.
+            
+        See Also
+        --------
+        result.fill_data_models
+        result.run_multinest
+        result.run_analysis
+        """
 
         self = Result(rawphot,model_comps)
 
-        # see if we have a pickle of results to return, checking that
-        # it's more recent than the multinest output and the phot file
-        if not update_mn and not update_an and             \
-                os.path.exists(self.pickle) and            \
-                self.pickle_time > self.rawphot_time and   \
-                self.pickle_time > self.mn_time:
+        # see if we have a pickle of results already
+        if os.path.exists(self.pickle):
             with open(self.pickle,'rb') as f:
                 self = pickle.load(f)
 
-            # update object with local file info before returning
-            # since processing may have been done elsewhere
-            self.file_info(rawphot,model_comps)
+        # update object with local file info since processing may have
+        # been done elsewhere
+        self.file_info(rawphot,model_comps)
 
-            return self
+        # see if we can skip everything
+        if hasattr(self,'rawphot_time') and hasattr(self,'mn_time') and \
+            hasattr(self,'mn_a_time') and hasattr(self,'mn_time') and   \
+            hasattr(self,'rawphot_time') and hasattr(self,'pickle_time'):
+            if not update_an and not update_mn and \
+                    self.exclude_spectra == nospec and \
+                    self.pickle_time > self.analysis_time > self.mn_a_time > \
+                    self.mn_time > self.rawphot_time:
+                return self
 
-        # otherwise do everything
+        mn_up = update_mn
+        if hasattr(self,'exclude_spectra'):
+            mn_up = (self.exclude_spectra != nospec or mn_up)
+
+        # run everything, these will check if anything needs to be done
         self.fill_data_models(nospec=nospec)
-        self.run_multinest(update_mn=update_mn)
-        self.run_analysis()
-
-        # and always update the pickle and json files
+        # stop if no photometry
+        if not hasattr(self,'obs'):
+            return self
+        self.run_multinest(update_mn=mn_up)
+        self.run_analysis(update_an=update_an)
         self.save_output()
 
         return self
 
 
     def fill_data_models(self,nospec=False):
-        """Get photometry/spectra and the models needed to fit these."""
+        """Get photometry/spectra and the models needed to fit these.
+        
+        Read in the observations and corresponding models. We must do
+        this since models are not saved in the pickle to save space.
+
+        Parameters
+        ----------
+        nospec : bool, optional
+            Don't include any spectra when reading in the observations.
+        """
 
         # observations; keywords, tuples of photometry and spectra. if
         # there is nothing in the photometry file then don't fill
@@ -137,6 +173,7 @@ class Result(object):
 
         self.obs = (p,)
         self.obs_keywords = utils.get_sdb_keywords(self.rawphot)
+        self.exclude_spectra = nospec
         if not nospec:
             s = spectrum.ObsSpectrum.read_sdb_file(self.rawphot,
                                                    module_split=True,
@@ -152,32 +189,66 @@ class Result(object):
 
 
     def run_multinest(self,update_mn=False):
-        """Run multinest."""
+        """Run multinest.
+        
+        Run multinest fitting, get the results as a pymultinest
+        analyzer object, and make a corner plot of the points. The
+        fitting will be run if it has never been run (no files or no
+        mn_time attribute), is older than the read time of the 
+        photometry file, or is older than the mn_oldest time in
+        config.fitting.
+        
+        All multinest files are updated, even if a previous run was
+        used, so the file modification times are not useful for testing
+        for whether an update is needed.
+
+        Parameters
+        ----------
+        update_mn : bool, optional
+             Force update of multinest fitting.
+        """
 
         # if we want to re-run multinest, delete previous output first
         run_mn = update_mn
         if os.path.exists(self.pmn_base+'phys_live.points'):
-            if self.rawphot_time > self.mn_time:
+            if hasattr(self,'mn_time'):
+                if self.rawphot_time > self.mn_time:
+                    run_mn = True
+                if cfg.fitting['mn_oldest'] > self.mn_time:
+                    run_mn = True
+            else:
                 run_mn = True
 
+        # multinest does checkpointing, so we can force a re-run by
+        # deleting the files
         if run_mn:
             self.delete_multinest()
         
-        # go there, multinest only takes 100 char paths
+        # we must go there, multinest only takes 100 char paths
         with utils.pushd(self.pmn_dir):
             fitting.multinest( self.obs,self.models,'.' )
-            self.mn_time = time.time()
+            self.mn_time = os.path.getmtime(self.pmn_base+'phys_live.points')
 
-        a = pmn.Analyzer(outputfiles_basename=self.pmn_base,
-                         n_params=self.model_info['ndim'])
-        self.analyzer = a
+        # update the analyzer if necessary
+        get_a = False
+        if hasattr(self,'mn_a_time'):
+            if self.mn_time > self.mn_a_time:
+                get_a = True
+        else:
+            get_a = True
+
+        if get_a:
+            a = pmn.Analyzer(outputfiles_basename=self.pmn_base,
+                             n_params=self.model_info['ndim'])
+            self.analyzer = a
+            self.mn_a_time = time.time()
 
         # parameter fitting corner plot
         plot = False
         if not os.path.exists(self.corner_plot):
             plot = True
         else:
-            if os.path.getmtime(self.corner_plot) < self.mn_time:
+            if os.path.getmtime(self.corner_plot) < self.mn_a_time:
                 plot = True
             
         if plot:
@@ -187,8 +258,28 @@ class Result(object):
             plt.close(fig) # not doing this causes an epic memory leak
 
 
-    def run_analysis(self):
-        """Run analysis of the results."""
+    def run_analysis(self,update_an=False):
+        """Run analysis of the multinest results.
+        
+        Run post-multinest fitting analysis. Will be run if forced to,
+        or if the multinest analyzer time is more recent than the
+        previous analysis time.
+        
+        Parameters
+        ----------
+        update_an : bool, optional
+            Force update of analysis
+        """
+
+        # see if we have anything to do
+        run_an = update_an
+        if hasattr(self,'analysis_time'):
+            if self.mn_a_time > self.analysis_time:
+                run_an = True
+        else:
+            run_an = True
+        if not run_an:
+            return
 
         # parameter names and best fit
         self.evidence = self.analyzer.get_stats()['global evidence']
@@ -427,6 +518,11 @@ class Result(object):
 
     def save_output(self):
         """Write output."""
+
+        # see if we need to write
+        if hasattr(self,'pickle_time'):
+            if self.analysis_time < self.pickle_time:
+                return
 
         # delete the models to save space, we don't need them again
         self.models = ''
