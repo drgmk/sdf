@@ -101,7 +101,7 @@ def create_dir(wwwroot,sample):
 
     # make dir and .htaccess if dir doesn't exist
     if not os.path.isdir(wwwroot+sample):
-        mkdir(wwwroot+sample)
+        os.mkdir(wwwroot+sample)
 
     # make .htaccess if needed, don't put one in "public" or those
     # ending with "_" so stuff in those directories remains visible
