@@ -426,7 +426,7 @@ def sed_limits(results):
                 if xlim[1] > xlims[1] or xlims[1] == -1:
                     xlims[1] = xlim[1]
                 
-                ok = np.invert(o.upperlim)
+                ok = np.ones(o.nphot,dtype=bool)
                 ylim = [np.min(o.fnujy[ok]),np.max(o.fnujy[ok])]
                 # set lower y limit to uncertainty if negative or zero fluxes
                 if ylim[0] <= 0:
@@ -594,18 +594,20 @@ def flux_size_plot(cursor,sample):
     for i,f in enumerate(filters):
 
         # get the results
-        stmt = "SELECT coalesce(main_id,id),sdbid,chisq,1e3*disk_jy,rdisk_bb*plx_arcsec "
+        stmt = ("SELECT coalesce(main_id,sdbid),sdbid,chisq, "
+                "1e3*model_jy,rdisk_bb*plx_arcsec ")
         if sample == 'everything' or sample == 'public':
             stmt += "FROM sdb_pm "
         else:
             stmt += "FROM "+cfg.mysql['db_samples']+"."+sample+" "
          
         stmt += ("LEFT JOIN "+cfg.mysql['db_results']+".model ON sdbid=id "
-                 "LEFT JOIN "+cfg.mysql['db_results']+".phot USING (id) "
-                 "LEFT JOIN "+cfg.mysql['db_results']+".star USING (id) "
                  "LEFT JOIN "+cfg.mysql['db_results']+".disk_r USING (id) "
+                 "LEFT JOIN "+cfg.mysql['db_results']+".star USING (id) "
+                 "LEFT JOIN "+cfg.mysql['db_results']+".phot "
+                 "ON (model.id=phot.id AND disk_r.disk_r_comp_no=phot.comp_no) "
                  "LEFT JOIN "+cfg.mysql['db_sdb']+".simbad USING (sdbid) "
-                 "WHERE filter = %s AND id IS NOT NULL")
+                 "WHERE filter = %s AND phot.id IS NOT NULL")
         # limit table sizes
         if sample != 'everything':
             stmt += " LIMIT "+str(cfg.www['tablemax'])+";"
