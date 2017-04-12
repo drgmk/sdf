@@ -175,13 +175,11 @@ def write_star(cursor,r):
     """
 
     # loop over tuple of dicts of star results
-    for star in r.star:
+    for i,star in enumerate(r.star):
 
         # start a row
-        cursor.execute("INSERT INTO {} (id,teff,e_teff) VALUES "
-                       "('{}',{:e},{:e})".format(cfg.mysql['star_table'],
-                                                 r.id,star['Teff'],
-                                                 star['e_Teff']))
+        cursor.execute("INSERT INTO {} (id,star_comp_no) VALUES "
+                       "('{}',{:d})".format(cfg.mysql['star_table'],r.id,i))
 
         # and add the rest of the results, only keys starting 'e_' and
         # without _lo or _hi on the end
@@ -206,8 +204,8 @@ def write_disk_r(cursor,r):
     # loop over tuple of dicts of disk_r results
     for i,disk_r in enumerate(r.disk_r):
         
-        cursor.execute("INSERT INTO {} (id,comp_no) VALUES "
-                       "('{}',{})".format(cfg.mysql['disk_r_table'],r.id,i) )
+        cursor.execute("INSERT INTO {} (id,disk_r_comp_no) VALUES "
+                       "('{}',{:d})".format(cfg.mysql['disk_r_table'],r.id,i))
 
         # and add the rest of the results, only keys starting 'e_' and
         # without _lo or _hi on the end
@@ -217,7 +215,7 @@ def write_disk_r(cursor,r):
             if key[-3:] == '_hi' or key[-3:] == '_lo':
                 continue
             cursor.execute("UPDATE {} SET {} = {:e}, {} = {:e} WHERE id = '{}' "
-                           "AND comp_no = {}".format(cfg.mysql['disk_r_table'],
+                           "AND disk_r_comp_no = {}".format(cfg.mysql['disk_r_table'],
                                                      key[2:],disk_r[key[2:]],
                                                      key,disk_r[key],
                                                      r.id,i) )
