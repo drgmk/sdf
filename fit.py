@@ -6,16 +6,10 @@ import os
 import glob
 import pickle
 import argparse
-from multiprocessing import Pool
 
-import numpy as np
-import corner
-import pymultinest as pmn
 import filelock
-import binarytree as bt
 
 from sdf import fitting
-from sdf import plotting
 from sdf import db
 from sdf import www
 from sdf import config as cfg
@@ -58,9 +52,6 @@ if __name__ == '__main__':
     parser1.add_argument('--update-analysis','-a',action='store_true',
                          help='Force udpate of post-multinest analysis')
 
-    parser1.add_argument('--quick-update-check','-q',action='store_true',
-                         help='Skip if index.html most recent file')
-
     args = parser1.parse_args()
     
     # collect the files
@@ -94,21 +85,6 @@ if __name__ == '__main__':
                 
                 print(f)
 
-                # quick check if ANY files are more recently modified
-                # than index.html
-                if args.quick_update_check and \
-                    os.path.exists(os.path.dirname(f)+'/index.html'):
-                    print(" Quick check")
-                    t_index = os.path.getmtime(os.path.dirname(f)+'/index.html')
-                    t_max = np.max([os.path.getmtime(i) for i in \
-                                    glob.glob(os.path.dirname(f)+'**/*',
-                                              recursive=True)])
-                    if t_index >= t_max:
-                        print("   no files more recent than {}".format(os.path.dirname(f)+'/index.html'))
-                        continue
-                    else:
-                        print("   index.html out of date, continuing")
-            
                 # evidence-sorted list of results
                 results = fitting.fit_results(os.path.abspath(f),
                                               update_mn=args.update_all,
