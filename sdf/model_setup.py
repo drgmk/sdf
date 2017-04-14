@@ -18,17 +18,6 @@ from . import config as cfg
 
 c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
 
-def setup_all():
-    """Rederive all models."""
-    setup_spec()
-    setup_phot()
-
-def setup_spec():
-    """Rederive spectrum models."""
-    bb_spectra()
-    modbb_spectra()
-    kurucz_spectra()
-    phoenix_spectra()
 
 def setup_phot(overwrite_filters=False,overwrite_model=True):
     """Rederive convolved models and write combined PhotModel to disk.
@@ -82,8 +71,7 @@ def specmodel2phot(mname,overwrite_filters=False,overwrite_model=False):
 
 
 def convolve_specmodel(mname,overwrite=False):
-    """
-    Convolve a set of SpecModel models.
+    """Convolve a SpecModel to generate a set of ConvolvedModels.
 
     Parameters
     ----------
@@ -99,8 +87,9 @@ def convolve_specmodel(mname,overwrite=False):
 
     See Also
     --------
-    config : Where paths to models are specified.
+    convolve : ConvolvedModel class
     filter_info : Where new filters are added.
+    config : Where paths to models are specified.
     
     Notes
     -----
@@ -151,11 +140,7 @@ def convolve_specmodel(mname,overwrite=False):
 
 
 def kurucz_spectra():
-    """Generate a SpecModel grid of Castelli & Kurucz models.
-        
-    The models are called 'kurucz'.
-    
-    """
+    """Generate a SpecModel grid of Castelli & Kurucz models."""
     
     # ranges, keep all [M/H]
     trange = [3499,26001]
@@ -189,8 +174,7 @@ def kurucz_spectra():
 
 
 def phoenix_spectra(in_name_postfix='',name='phoenix_m',overwrite=True):
-    """
-    Combine PHOENIX spectra with a range of [M/H] and write to disk.
+    """Combine PHOENIX spectra with a range of [M/H] and write to disk.
 
     Parameters
     ----------
@@ -224,8 +208,13 @@ def resample_phoenix_spectra(resolution=2000,name_postfix=''):
     """Resample all phoenix spectra to common wavelength grid.
         
     This will take about a week for R=2000 with 8 cores on a 5k iMac, or
-    about 1-2 days for R=500. For high resolution it's practically about
-    the same to do each metallicity individually.
+    about 1-2 days for R=500.
+    
+    For reference, Spitzer's IRS instrument has low resolution and high
+    resolution modules at R=60-130 and R=600. JSWT MIRI has low and
+    medium resolution at R~100 and R~1550-3250. For IRS the low 
+    resolution mode was by far the most common. Thus, for spectra that
+    will be resampled for these instruments R~100 is most sensible.
     """
 
     for m in [0.5,0.0,-0.5,-1.0,-1.5,-2.0,-2.5,-3.0,-3.5,-4.0]:
@@ -234,7 +223,15 @@ def resample_phoenix_spectra(resolution=2000,name_postfix=''):
 
 
 def phoenix_mh_spectra_one(par):
-    """Read in and convolve one phoenix spectrum."""
+    """Read in and convolve one phoenix spectrum.
+    
+    This is a helper function so that phoenix_mh_spectra can process a
+    set of phoenix spectra more quickly.
+    
+    See Also
+    --------
+    phoenix_mh_spectra
+    """
     
     wave,f,resolution = par
     print("{}".format(f))
@@ -328,7 +325,8 @@ def real_grain_spectra(file,overwrite=False):
     
     Files are made by sdf/dust_spectra.pro, saving a grid of P(r)
     with dimensions [wav,temp,dmin,q]. When restored the dimensions are
-    reversed."""
+    reversed.
+    """
 
     pr = readsav(file)
 
