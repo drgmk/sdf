@@ -1,5 +1,5 @@
 from functools import lru_cache
-from os.path import exists
+import os
 import glob
 import copy
 from itertools import product
@@ -21,7 +21,7 @@ from . import utils
 from . import config as cfg
 
 class Model(object):
-    """Basic model class
+    """Basic model class.
         
     PhotModel and SpecModel are derived from this, the only real
     difference is that the former has convolved flux data for an array
@@ -35,8 +35,7 @@ class Model(object):
     
     @lru_cache(maxsize=32)
     def read_file(file):
-        """Read a model file
-        """
+        """Read a model file."""
 
         # parameter names
         fh = fits.open(file)
@@ -362,10 +361,25 @@ class PhotModel(Model):
 
 
     def write_model(self,name,overwrite=False):
-        """Write a named model, location given in config"""
+        """Write PhotModel as a FITS file.
+            
+        The location to write to is given by config. Directory is 
+        created if it doesn't exist.
         
-        self.write_file(cfg.model_loc[name]+name+'_PhotModel.fits',
-                        overwrite=overwrite)
+        Parameters
+        ----------
+        name : str
+            The name of the model to write, this dictates location and
+            name of the file as [name]_PhotModel.fits.
+        overwrite : bool, optional
+            Force overwrite of extant file.
+        """
+        
+        dir = cfg.file['model_root']+'/'+name+'/'
+        if not os.path.exists(dir):
+            os.mkdir(dir)
+        
+        self.write_file(dir+name+'_PhotModel.fits',overwrite=overwrite)
 
         
     @lru_cache(maxsize=32)
@@ -544,10 +558,25 @@ class SpecModel(Model):
 
 
     def write_model(self,name,overwrite=False):
-        """Write a named model, location given in config"""
+        """Write SpecModel as a FITS file.
+            
+        The location to write to is given by config. Directory is 
+        created if it doesn't exist.
         
-        self.write_file(cfg.model_loc[name]+name+'_SpecModel.fits',
-                        overwrite=overwrite)
+        Parameters
+        ----------
+        name : str
+            The name of the model to write, this dictates location and
+            name of the file as [name]_PhotModel.fits.
+        overwrite : bool, optional
+            Force overwrite of extant file.
+        """
+        
+        dir = cfg.file['model_root']+'/'+name+'/'
+        if not os.path.exists(dir):
+            os.mkdir(dir)
+        
+        self.write_file(dir+name+'_SpecModel.fits',overwrite=overwrite)
 
         
     @lru_cache(maxsize=32)
@@ -604,7 +633,7 @@ class SpecModel(Model):
         
         # don't do the calculation if there will be a write error
         if write and overwrite == False:
-            if exists(cfg.model_loc[name]+name+'.fits'):
+            if os.path.exists(cfg.model_loc[name]+name+'.fits'):
                 raise utils.SdfError("{} exists, will not overwrite".
                                format(cfg.model_loc[name]+name+'.fits'))
     
@@ -645,7 +674,7 @@ class SpecModel(Model):
         
         # don't do the calculation if there will be a write error
         if write and overwrite == False:
-            if exists(cfg.model_loc[name]+name+'.fits'):
+            if os.path.exists(cfg.model_loc[name]+name+'.fits'):
                 raise utils.SdfError("{} exists, will not overwrite".
                                format(cfg.model_loc[name]+name+'.fits'))
     
