@@ -228,15 +228,20 @@ def phoenix_mh_spectra_one(par):
     This is a helper function so that phoenix_mh_spectra can process a
     set of phoenix spectra more quickly.
     
+    Parameters
+    ----------
+    par : tuple
+        Tuple of wavelengths to resample to, and phoenix file name.
+    
     See Also
     --------
     phoenix_mh_spectra
     """
     
-    wave,f,resolution = par
+    wave,f = par
     print("{}".format(f))
     s = spectrum.ModelSpectrum.read_phoenix(f)
-    kern = s.resample(wave,resolution=resolution)
+    kern = s.resample(wave)
     return s
 
 
@@ -267,9 +272,10 @@ def phoenix_mh_spectra(resolution=2000,mh=0.0,overwrite=False,
     
     # don't do the calculation if there will be a write error
     if overwrite == False:
-        if exists(cfg.model_loc[name]+name+'_SpecModel.fits'):
-            raise utils.SdfError("{} exists, will not overwrite".
-                           format(cfg.model_loc[name]+name+'.fits'))
+        if name in cfg.model_loc.keys():
+            if exists(cfg.model_loc[name]+name+'_SpecModel.fits'):
+                raise utils.SdfError("{} exists, will not overwrite".
+                               format(cfg.model_loc[name]+name+'.fits'))
 
     # the files for the main set of models
     fs = glob.glob(cfg.file['phoenix_models']
@@ -286,7 +292,7 @@ def phoenix_mh_spectra(resolution=2000,mh=0.0,overwrite=False,
 
     # read in and resample, in parallel
     pool = Pool(processes=processes)
-    par = zip([wave for i in range(len(fs))],fs,[resolution for i in range(len(fs))])
+    par = zip([wave for i in range(len(fs))],fs)
     spec = pool.map(phoenix_mh_spectra_one,par)
     pool.close()
 
