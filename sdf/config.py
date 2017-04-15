@@ -77,7 +77,7 @@ models = {
     'loc': model_loc,
     'default_wave': 10**np.arange(np.log10(cfg['models'].getfloat('min_wave_micron')),
                                   np.log10(cfg['models'].getfloat('max_wave_micron')),
-                                  cfg['models'].getfloat('default_wave_log_step')),
+                    np.log10(1+1/float(cfg['models'].getfloat('default_resolution')))),
     'min_wav_micron': cfg['models'].getfloat('min_wave_micron'),
     'max_wav_micron': cfg['models'].getfloat('max_wave_micron'),
     'star': star,

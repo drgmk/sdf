@@ -1,4 +1,28 @@
-"""Functions to set up models."""
+"""Functions to set up models.
+
+Any model can in principle be used and fit to photometry and spectra
+using sdf, the models just need to be set up correctly. For the default
+models most of that is done here.
+
+For generic details of how models are structured and how they work, see
+model.
+
+Models
+------
+
+phoenix
+    bla
+    
+blackbodies
+    bla
+    
+real grain
+    bla
+
+See Also
+--------
+model
+"""
 
 import glob
 from os.path import exists,basename
@@ -17,6 +41,22 @@ from . import utils
 from . import config as cfg
 
 c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
+
+
+def setup_default_phoenix():
+    """Setup default phoenix models - T_{eff}, logg, and [M/H] grid.
+        
+    PhotModel is derived from high resolution spectra, and SpecModel is
+    lower resolution because high resolution isn't necessary, and saves
+    memory while running.
+    """
+
+    # create the high resolution SpecModel
+    phoenix_spectra(in_name_postfix='-r2000',name='phoenix_m',overwrite=True)
+    # compute convolved photometry in all filters and write PhotModel
+    specmodel2phot('phoenix_m',overwrite_filters=True,overwrite_model=True)
+    # create the low resolution SpecModel
+    phoenix_spectra(in_name_postfix='-r500',name='phoenix_m',overwrite=True)
 
 
 def setup_phot(overwrite_filters=False,overwrite_model=True):
@@ -45,23 +85,6 @@ def setup_phot(overwrite_filters=False,overwrite_model=True):
                        overwrite_model=overwrite_model)
 
 
-def bb_spectra():
-    """Generate SpecModel grid of blackbody models."""
-    
-    model.SpecModel.generate_bb_model(name='bb_disk_r',
-                                      write=True,overwrite=True)
-    model.SpecModel.generate_bb_model(name='bb_star',
-                                      temperatures=10**np.arange(2.7,3.5,0.1),
-                                      write=True,overwrite=True)
-
-
-def modbb_spectra():
-    """Generate SpecModel grid of modified blackbody models."""
-    
-    model.SpecModel.generate_modbb_model(name='modbb_disk_r',
-                                         write=True,overwrite=True)
-
-
 def specmodel2phot(mname,overwrite_filters=False,overwrite_model=False):
     """Generate a PhotModel grid from SpecModel models."""
     
@@ -79,6 +102,7 @@ def convolve_specmodel(mname,overwrite=False):
         Name of the model to convolve. A SpecModel that is equal to or
         wider than the wavelength range required by the filters must
         exist in config['model_root'].
+        
     overwrite : bool, optional
         Overwrite files for each filter. If they exist already they will
         simply be skipped. Thus, if set to False only convolved models
@@ -286,7 +310,7 @@ def phoenix_mh_spectra(resolution=2000,mh=0.0,overwrite=False,
     # get the new wavelength grid, and ensure it goes to the max
     wave = np.power(10,np.arange(np.log10(cfg.models['min_wav_micron']),
                                 np.log10(cfg.models['max_wav_micron']),
-                                1.0/float(resolution)) )
+                                np.log10(1+1/float(resolution))))
     if np.max(wave) != cfg.models['max_wav_micron']:
         wave = np.append(wave,cfg.models['max_wav_micron'])
 
@@ -324,6 +348,23 @@ def phoenix_mh_spectra(resolution=2000,mh=0.0,overwrite=False,
     s.write_model(name,overwrite=overwrite)
 
     return s
+
+
+def bb_spectra():
+    """Generate SpecModel grid of blackbody models."""
+    
+    model.SpecModel.generate_bb_model(name='bb_disk_r',
+                                      write=True,overwrite=True)
+    model.SpecModel.generate_bb_model(name='bb_star',
+                                      temperatures=10**np.arange(2.7,3.5,0.1),
+                                      write=True,overwrite=True)
+
+
+def modbb_spectra():
+    """Generate SpecModel grid of modified blackbody models."""
+    
+    model.SpecModel.generate_modbb_model(name='modbb_disk_r',
+                                         write=True,overwrite=True)
 
 
 def real_grain_spectra(file,overwrite=False):
