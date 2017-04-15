@@ -181,11 +181,11 @@ def resample_matrix(wave_in,new_wave,old_R=np.inf,kern_width=5):
     N, M = (new_wave.size, wave_in.size)
 
     # figure out what the desired median resolution is, checking the
-    # range isn't too large (excluding the edges)
+    # range isn't too large (excluding the last point)
     dlambda = np.diff(new_wave)
     lambdas = (new_wave[1:] + new_wave[:-1])/2.0
     new_Rs = lambdas / dlambda
-    if 2 * np.min(new_Rs) < np.max(new_Rs):
+    if 2 * np.min(new_Rs[:-1]) < np.max(new_Rs[:-1]):
         raise SdfError("wavelength grid has too wide a range of resolutions "
                        " to be resampled this way ({} to {}) {}".
                        format(np.min(new_Rs),np.max(new_Rs),new_Rs))
