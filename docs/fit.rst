@@ -1,5 +1,0 @@
-Fit.py
-======
-
-.. autodata:: fit
-

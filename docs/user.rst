@@ -1,7 +1,17 @@
-User codes
-==========
+User scripts
+============
 
-.. toctree::
-	:maxdepth: 2
+sdf-fit
+-------
 
-	fit
+.. autofunction:: sdf.scripts.sdf_fit
+
+sdf-sample
+----------
+
+.. autofunction:: sdf.scripts.sdf_sample
+
+sdf-cleanup
+-----------
+
+.. autofunction:: sdf.scripts.sdf_cleanup
