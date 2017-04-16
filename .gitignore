@@ -5,6 +5,7 @@ __pycache__
 .DS_Store
 *.html
 *.pyc
-doc/_build/
-doc/_templates/
-doc/_static/
+docs/_build/
+docs/_templates/
+docs/_static/
+sdf.egg-info/
