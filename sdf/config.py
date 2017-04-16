@@ -72,12 +72,17 @@ for n in model_names:
         if m in n:
             disk_r.append(n)
 
+# default wavelengths
+default_wave = 10**np.arange(np.log10(cfg['models'].getfloat('min_wave_micron')),
+                             np.log10(cfg['models'].getfloat('max_wave_micron')),
+                np.log10(1+1/float(cfg['models'].getfloat('default_resolution'))))
+if np.max(default_wave) != cfg['models'].getfloat('max_wave_micron'):
+    default_wave = np.append(default_wave,cfg['models'].getfloat('max_wave_micron'))
+
 models = {
     'names': model_names,
     'loc': model_loc,
-    'default_wave': 10**np.arange(np.log10(cfg['models'].getfloat('min_wave_micron')),
-                                  np.log10(cfg['models'].getfloat('max_wave_micron')),
-                    np.log10(1+1/float(cfg['models'].getfloat('default_resolution')))),
+    'default_wave': default_wave,
     'min_wav_micron': cfg['models'].getfloat('min_wave_micron'),
     'max_wav_micron': cfg['models'].getfloat('max_wave_micron'),
     'star': star,
