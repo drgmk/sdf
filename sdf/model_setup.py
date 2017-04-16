@@ -5,7 +5,7 @@ using sdf, the models just need to be set up correctly. For the default
 models most of that is done here.
 
 For generic details of how models are structured and how they work, see
-model.
+:py:mod:`sdf.model`.
 
 Models
 ------
@@ -18,10 +18,6 @@ blackbodies
     
 real grain
     bla
-
-See Also
---------
-model
 """
 
 import glob
@@ -71,9 +67,9 @@ def setup_phot(overwrite_filters=False,overwrite_model=True):
 
     See Also
     --------
-    model_setup.specmodel2phot : Function called for each model.
-    model_setup.convolve_specmodel : Function that does the heavy lifting.
-    filter_info : Where filters are set up.
+    sdf.model_setup.specmodel2phot : Function called for each model.
+    sdf.model_setup.convolve_specmodel : Function that does the heavy lifting.
+    sdf.filter_info : Where filters are set up.
 
     Notes
     -----
@@ -111,9 +107,9 @@ def convolve_specmodel(mname,overwrite=False):
 
     See Also
     --------
-    convolve : ConvolvedModel class
-    filter_info : Where new filters are added.
-    config : Where paths to models are specified.
+    sdf.convolve : ConvolvedModel class
+    sdf.filter_info : Where new filters are added.
+    sdf.config : Where paths to models are specified.
     
     Notes
     -----

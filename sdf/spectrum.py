@@ -1,3 +1,13 @@
+"""Classes for spectra.
+   
+There are two classes for spectra, `ObsSpectrum` for real spectra, and
+`ModelSpectrum` for models. Both are baed on the basic `Spectrum` class
+so have a number of attributes and methods in common.
+
+One of the most important methods is `synthphot`, which is how all
+synthetic photometry calls are made.
+"""
+
 import gzip
 import re
 import copy
@@ -12,10 +22,9 @@ from . import config as cfg
 c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
 
 class Spectrum(object):
-    """Basic spectral class (ha!).
+    """Basic spectral class.
 
-    This class is used as the basis for ObsSpectrum and
-    ModelSpectrum.
+    Used as the basis for `ObsSpectrum` and `ModelSpectrum`.
     """
     
     def synthphot(self,filters):
@@ -264,7 +273,7 @@ class Spectrum(object):
 
         See Also
         --------
-        utils.resample_matrix
+        sdf.utils.resample_matrix : Where the kernel is computed
         """
     
         # get the convolution/resampling matrix (unless we got it)
@@ -604,8 +613,9 @@ class ModelSpectrum(Spectrum):
         https://phoenix.ens-lyon.fr/Grids/FORMAT suggest that
         (Rstar/d)^2 is the normalisation, so divide spectra by pi here.
         Comparing the results with Kurucz models shows this is correct.
+
+        .. todo:: Can read go faster? BT-Settl files are epic
         """
-        # TODO: Can read go faster? BT-Settl files are epic
 
         self = cls()
 
@@ -649,7 +659,7 @@ class ModelSpectrum(Spectrum):
         three are arrays with the parameters of each model, and models
         is a list of ModelSpectrum objects holding the spectra.
         
-        TODO: not really clear whether this belongs here or in 
+        .. todo:: not really clear whether this belongs here or in 
         SpecModel (or elsewhere). It's only here because it's similar
         to read_phoenix, which deals with single files.
         """

@@ -5,3 +5,6 @@ __pycache__
 .DS_Store
 *.html
 *.pyc
+doc/_build/
+doc/_templates/
+doc/_static/

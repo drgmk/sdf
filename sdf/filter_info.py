@@ -1,15 +1,10 @@
-import astropy.units as u
-from .utils import bnu_nu_hz
-
-c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
-
 """Filter bandpassses, zero points, and offsets.
 
 Overview
-========
+--------
 
 Bandpasses
-----------
+^^^^^^^^^^
 
 Many bandpasses are from Mann & von Braun (2015, MvB,
 2015PASP..127..102M), which sought a self-consistent set of bandpasses
@@ -19,7 +14,7 @@ so are integrated directly (also commonly called relative system
 response, or RSRs).
 
 Synthetic photometry
---------------------
+^^^^^^^^^^^^^^^^^^^^
 
 The Spitzer colour correction tests pass in comparison with those on the
 SSC pages, with precision of a few percent or better (worst for IRAC),
@@ -30,7 +25,7 @@ scipy.integrate.simps give the same results). Anyway, the success of
 these tests suggests that the synthetic photometry works.
 
 Absolute calibration
--------------------
+^^^^^^^^^^^^^^^^^^^^
 
 To ensure a consistent absolute calibration all zero points are re-
 derived using the CALSPEC Vega spectrum, as this has been used by many
@@ -75,7 +70,7 @@ the IR shold be minimal. So while the K magnitude for Vega was found to
 calibration purposes is zero by definition.
 
 Filters
-=======
+-------
 
 This file contains all the information specific to all bandpasses in a
 dictionary called filters. Each entry has the name used by that bandpass
@@ -101,7 +96,7 @@ magnitudes.
 
 These are roughly in order of wavelength.
 
-TODO: all to be updated when ZPOs are sorted
+.. todo:: all to be updated when ZPOs are sorted
 
 GALEX
   Filters are from SVO, and are effective area so can be considered
@@ -200,9 +195,15 @@ Herschel/SPIRE
   Filters from SVO in energy units. Use fluxes as published or in GMK's
   personal catalogue, assume calibration uncertainty much smaller than
   photometric uncertainty.
-  TODO: use HSA SPIRE catalogue.
+  .. todo:: use HSA SPIRE catalogue.
 
 """
+
+import astropy.units as u
+from .utils import bnu_nu_hz
+
+c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
+
 
 filters = {}
 
