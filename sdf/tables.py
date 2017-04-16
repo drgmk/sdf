@@ -13,9 +13,31 @@ import mysql.connector
 from jinja2 import Template
 import bokeh.resources
 
-from sdf import www
-from sdf import templates
-from sdf import config as cfg
+from . import db
+from . import www
+from . import templates
+from . import config as cfg
+
+
+def sample_tables():
+    """Generate tables for all samples."""
+
+    # set up connection
+    cnx = mysql.connector.connect(user=cfg.mysql['user'],
+                                  password=cfg.mysql['passwd'],
+                                  host=cfg.mysql['host'],
+                                  database=cfg.mysql['db_sdb'])
+    cursor = cnx.cursor(buffered=True)
+
+    # get a list of samples and generate their pages
+    samples = db.get_samples()
+    for sample in samples:
+        print("  sample:",sample)
+        sample_table_www(cursor,sample)
+        sample_table_votable(cursor,sample)
+
+    cursor.close()
+    cnx.close()
 
 
 def sample_table_www(cursor,sample,file='index.html',
@@ -24,7 +46,7 @@ def sample_table_www(cursor,sample,file='index.html',
 
     Extract the necessary information from the database and create HTML
     pages with the desired tables, one for each sample. These are 
-    generated using astropy's XMLWriter the jsviewer,which makes tables
+    generated using astropy's XMLWriter the jsviewer, which makes tables
     that are searchable and sortable.
     """
 
@@ -60,13 +82,14 @@ def sample_table_www(cursor,sample,file='index.html',
            "ROUND(log10(SUM(ldisk_lstar)),1) as Log_f,"
            "GROUP_CONCAT(ROUND(temp,1)) as T_disk")
         
-    # here we decide which samples get all targets, for now "everything" and "public"
-    # get everything, but this could be changed so that "public" is some subset of
-    # "everything"
+    # here we decide which samples get all targets, for now "everything"
+    # and "public" get everything, but this could be changed so that
+    # "public" is some subset of "everything"
     if sample == 'everything' or sample == 'public':
         sel += " FROM sdb_pm"
     else:
-        sel += " FROM "+cfg.mysql['db_samples']+"."+sample+" LEFT JOIN sdb_pm USING (sdbid)"
+        sel += (" FROM "+cfg.mysql['db_samples']+"."+sample+" "
+                "LEFT JOIN sdb_pm USING (sdbid)")
         
     sel += (" LEFT JOIN simbad USING (sdbid)"
             " LEFT JOIN sdb_results.star on sdbid=star.id"
@@ -113,7 +136,7 @@ def sample_table_www(cursor,sample,file='index.html',
     # write the table out to html
     template = Template(templates.datatable)
     html = template.render(css=templates.css,name=sample,table=s.getvalue(),
-                           creation_time=datetime.utcnow().strftime("%d/%m/%y %X"))
+                     creation_time=datetime.utcnow().strftime("%d/%m/%y %X"))
 
     with io.open(file, mode='w', encoding='utf-8') as f:
         f.write(html)
@@ -133,7 +156,8 @@ def sample_table_votable(cursor,sample):
     if sample == 'everything' or sample == 'public':
         sel += " FROM sdb_pm"
     else:
-        sel += " FROM "+cfg.mysql['db_samples']+"."+sample+" LEFT JOIN sdb_pm USING (sdbid)"
+        sel += (" FROM "+cfg.mysql['db_samples']+"."+sample+" "
+                "LEFT JOIN sdb_pm USING (sdbid)")
         
     sel += (" LEFT JOIN simbad USING (sdbid)"
             " LEFT JOIN sdb_results.star on sdbid=star.id"

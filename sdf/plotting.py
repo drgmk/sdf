@@ -24,6 +24,7 @@ from . import filter
 from . import fitting
 from . import db
 from . import templates
+from . import www
 from . import utils
 from . import config as cfg
 
@@ -445,6 +446,47 @@ def sed_limits(results):
     return xlims,ylims
 
 
+def sample_plots():
+
+    # set up connection
+    cnx = mysql.connector.connect(user=cfg.mysql['user'],
+                                  password=cfg.mysql['passwd'],
+                                  host=cfg.mysql['host'],
+                                  database=cfg.mysql['db_sdb'])
+    cursor = cnx.cursor(buffered=True)
+
+    template = Template(templates.sample_plot_wide)
+    bokeh_js = bokeh.resources.CDN.render_js()
+    bokeh_css = bokeh.resources.CDN.render_css()
+
+    # get a list of samples and generate their pages
+    samples = db.get_samples()
+    for sample in samples:
+        
+        print("  sample:",sample)
+        
+        wwwroot = cfg.file['www_root']+'samples/'
+
+        # create dir and .htaccess if neeeded
+        www.create_dir(wwwroot,sample)
+        file = wwwroot+sample+"/hr.html"
+        script,div = sample_plot(cursor,sample)
+
+        html = template.render(bokeh_js=bokeh_js,
+                               bokeh_css=bokeh_css,
+                               css=templates.css,
+                               plot_script=script,
+                               plot_div=div,
+                               title=sample,
+                               creation_time=datetime.utcnow().strftime("%d/%m/%y %X"))
+
+        with io.open(file, mode='w', encoding='utf-8') as f:
+            f.write(html)
+
+    cursor.close()
+    cnx.close()
+
+
 def sample_plot(cursor,sample,absolute_paths=True):
     """Return bokeh componenets for HR diagram + f vs. r sample plots.
 
@@ -562,6 +604,52 @@ def sample_plot(cursor,sample,absolute_paths=True):
     taptool.callback = OpenURL(url=url)
 
     return bokeh.embed.components(p)
+
+
+def flux_size_plots():
+
+    # set up connection
+    cnx = mysql.connector.connect(user=cfg.mysql['user'],
+                                  password=cfg.mysql['passwd'],
+                                  host=cfg.mysql['host'],
+                                  database=cfg.mysql['db_sdb'])
+    cursor = cnx.cursor(buffered=True)
+
+
+    template = Template(templates.sample_plot)
+    bokeh_js = bokeh.resources.CDN.render_js()
+    bokeh_css = bokeh.resources.CDN.render_css()
+
+    # get a list of samples and generate their pages
+    samples = db.get_samples()
+    for sample in samples:
+        
+        print("  sample:",sample)
+        
+        wwwroot = cfg.file['www_root']+'samples/'
+
+        # create dir and .htaccess if neeeded
+        www.create_dir(wwwroot,sample)
+        file = wwwroot+sample+"/fnuvsr.html"
+        out = flux_size_plot(cursor,sample)
+        if out is not None:
+            script,div = out
+        else:
+            continue        
+
+        html = template.render(bokeh_js=bokeh_js,
+                               bokeh_css=bokeh_css,
+                               css=templates.css,
+                               plot_script=script,
+                               plot_div=div,
+                               title=sample,
+                               creation_time=datetime.utcnow().strftime("%d/%m/%y %X"))
+
+        with io.open(file, mode='w', encoding='utf-8') as f:
+            f.write(html)
+            
+    cursor.close()
+    cnx.close()
 
 
 def flux_size_plot(cursor,sample):
