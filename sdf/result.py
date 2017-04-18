@@ -81,7 +81,7 @@ class Result(object):
 
     @lru_cache(maxsize=128)
     def get(rawphot,model_comps,update_mn=False,
-            update_an=False,nospec=False):
+            update_an=False,update_json=False,nospec=False):
         """Take photometry file and model_name, and fill the rest.
         
         The process works on a heirarchy of update times, each of which
@@ -103,6 +103,8 @@ class Result(object):
             Force update of mutinest fitting.
         udpate_an : bool, optional
             Force update of post-multinest analysis.
+        update_json : bool, optional
+            Force update of json file.
         nospec : bool, optional
             Exclude and spectra when observations are read in.
             
@@ -124,7 +126,7 @@ class Result(object):
         # been done elsewhere
         self.file_info(rawphot,model_comps)
 
-        # see if we can skip everything
+        # see if we can skip everything except the json
         if hasattr(self,'rawphot_time') and hasattr(self,'mn_time') and \
             hasattr(self,'mn_a_time') and hasattr(self,'mn_time') and   \
             hasattr(self,'rawphot_time') and hasattr(self,'pickle_time'):
@@ -132,6 +134,8 @@ class Result(object):
                     self.exclude_spectra == nospec and \
                     self.pickle_time > self.analysis_time > self.mn_a_time > \
                     self.mn_time > self.rawphot_time:
+
+                self.write_json(update=update_json)
                 return self
 
         mn_up = update_mn
@@ -145,7 +149,13 @@ class Result(object):
             return self
         self.run_multinest(update_mn=mn_up)
         self.run_analysis(update_an=update_an)
-        self.save_output()
+
+        # delete the models to save space, we don't need them again
+        self.models = ''
+        self.pl_models = ''
+
+        self.pickle_output()
+        self.write_json(update=update_json)
 
         return self
 
@@ -516,27 +526,29 @@ class Result(object):
         self.analysis_time = time.time()
 
 
-    def save_output(self):
-        """Write output."""
+    def pickle_output(self):
+        """Pickle the results for later."""
 
         # see if we need to write
         if hasattr(self,'pickle_time'):
             if self.analysis_time < self.pickle_time:
                 return
 
-        # delete the models to save space, we don't need them again
-        self.models = ''
-        self.pl_models = ''
-
-        # write results that don't rely on any of the sdf classes, which
-        # can be used elsewhere for plotting or whatever
-        with open(self.json,'w') as f:
-            json.dump(self.basic_results(),f)
-
         # save for later in a pickle, updating the pickle_time to now
         self.pickle_time = time.time()
         with open(self.pickle,'wb') as f:
             pickle.dump(self,f)
+
+
+    def write_json(self,update=False):
+        """Write basic results as a json file."""
+
+        if os.path.exists(self.json) and not update:
+            if os.path.getmtime(self.json) > self.pickle_time:
+                return
+
+        with open(self.json,'w') as f:
+            json.dump(self.basic_results(),f)
 
 
     def star_results(self):
@@ -795,11 +807,10 @@ class Result(object):
             r['spectra'].append(t)
 
         # spectra of each model component
-        r['model_spectra'] = {}
-        r['model_spectra']['wavelength'] = self.comp_spectra[0].wavelength.tolist()
-        r['model_spectra']['fnujy'] = ()
+        r['model_spectra'] = []
         for s in self.comp_spectra:
-            r['model_spectra']['fnujy'] += (s.fnujy.tolist(),)
+            r['model_spectra'].append({'wavelength': s.wavelength.tolist(),
+                                      'fnujy': s.fnujy.tolist()})
 
         # total spectra for "star" and "disk" components
         if self.star_spec is not None:

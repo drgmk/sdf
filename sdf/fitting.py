@@ -19,7 +19,7 @@ global_mod = ()
 global_p_rng = ()
 
 
-def fit_results(file,update_mn=False,update_an=False,
+def fit_results(file,update_mn=False,update_an=False,update_json=False,
                 sort=True,nospec=False):
     """Return a list of fitting results.
         
@@ -48,9 +48,11 @@ def fit_results(file,update_mn=False,update_an=False,
         print("  ",t.left.value,"vs.",t.right.value)
 
         r1 = result.Result.get(file,t.left.value,update_mn=update_mn,
-                               update_an=update_an,nospec=nospec)
+                               update_an=update_an,update_json=update_json,
+                               nospec=nospec)
         r2 = result.Result.get(file,t.right.value,update_mn=update_mn,
-                               update_an=update_an,nospec=nospec)
+                               update_an=update_an,update_json=update_json,
+                               nospec=nospec)
 
         # check for files with no photometry
         if not hasattr(r1,'obs'):
@@ -73,7 +75,8 @@ def fit_results(file,update_mn=False,update_an=False,
 
         print("  ",m)
         r = result.Result.get(file,m,update_mn=update_mn,
-                              update_an=update_an,nospec=nospec)
+                              update_an=update_an,update_json=update_json,
+                              nospec=nospec)
 
         # check for files with no photometry
         if not hasattr(r,'obs'):
