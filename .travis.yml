@@ -1,7 +1,10 @@
 language: python
 python:
+    - "3.4"
+    - "3.5"
     - "3.6"
 
+# need gfortran to buid multinest
 addons:
   apt:
     sources:
@@ -9,13 +12,14 @@ addons:
     packages:
       - gfortran-6
 
-# command to install dependencies
+# command to install dependencies, numpy/scipy binaries
+# are quicker and avoid lapack issues
 install:
     - pip install --only-binary=numpy,scipy numpy scipy
     - pip install mysql-connector==2.1.4
     - pip install .
 
-# command to run tests
+# run pytest tests, build multinest first
 script:
     - export FC=/usr/bin/gfortran-6
     - git clone https://github.com/JohannesBuchner/MultiNest.git
