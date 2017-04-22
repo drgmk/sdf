@@ -5,6 +5,7 @@ python:
 # command to install dependencies
 install:
     - pip install --only-binary=numpy,scipy numpy scipy
+    - pip install mysql-connector==2.1.4
     - pip install .
 
 # command to run tests
