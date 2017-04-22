@@ -99,13 +99,16 @@ ssr = 1.596074069110538e-15 #( np.pi*u.solRad**2 / (u.pc)**2 ).si.value
 star_type = ('phoenix_m',)
 t = bt.Node('start')
 t.left = bt.Node( star_type )
-t.right = bt.Node( (star_type+('amsil_r',) ) )
-t.right.left = bt.Node( star_type+('amsil_r',) )
-t.right.right = bt.Node( star_type+('amsil_r','amsil_r') )
-t.right.left.left = bt.Node( star_type+('amsil_r',) )
-t.right.left.right = bt.Node( star_type+('modbb_disk_r',) )
-t.right.right.left = bt.Node( star_type+('amsil_r','amsil_r') )
-t.right.right.right = bt.Node( star_type+('modbb_disk_r','modbb_disk_r') )
+t.right = bt.Node( (star_type+('modbb_disk_r',) ) )
+t.right.left = bt.Node( star_type+('modbb_disk_r',) )
+t.right.right = bt.Node( star_type+('modbb_disk_r','modbb_disk_r') )
+#t.right = bt.Node( (star_type+('amsil_r',) ) )
+#t.right.left = bt.Node( star_type+('amsil_r',) )
+#t.right.right = bt.Node( star_type+('amsil_r','amsil_r') )
+#t.right.left.left = bt.Node( star_type+('amsil_r',) )
+#t.right.left.right = bt.Node( star_type+('modbb_disk_r',) )
+#t.right.right.left = bt.Node( star_type+('amsil_r','amsil_r') )
+#t.right.right.right = bt.Node( star_type+('modbb_disk_r','modbb_disk_r') )
 
 # details for fitting
 fitting = {

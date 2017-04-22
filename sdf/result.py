@@ -579,20 +579,14 @@ class Result(object):
             star[par] = self.best_params[j]
             star['e_'+par] = self.best_params_1sig[j]
         
-        # stellar luminosity at 1pc, uncertainty is normalisation
+        # rstar and lstar if star were at 1pc
+        rstar_1pc_dist = np.zeros(cfg.fitting['n_samples'])
         lstar_1pc_dist = np.zeros(cfg.fitting['n_samples'])
         for j,par in enumerate(self.comp_param_samples[i]):
-            
-            # there will only be one SpecModel in the ith component
-            for m in self.pl_models[i]:
-                if not isinstance(m,model.SpecModel):
-                    continue
-                s = spectrum.ObsSpectrum(wavelength=m.wavelength,
-                                         fnujy=m.fnujy(par))
-                s.fill_irradiance()
-
-            lstar_1pc_dist[j] = s.irradiance \
-                        * 4 * np.pi * (u.pc.to(u.m))**2 / u.L_sun.to(u.W)
+            rstar_1pc_dist[j] = np.sqrt(cfg.ssr * 10**par[-1]/np.pi) \
+                                * u.pc.to(u.m)
+            lstar_1pc_dist[j] = 4 * np.pi * rstar_1pc_dist[j]**2 \
+                                * par[0]**4 * 5.670373e-08 / u.L_sun.to(u.W)
         
         distributions['lstar_1pc'] = lstar_1pc_dist
         self.distributions['lstar_1pc_tot'] += lstar_1pc_dist
@@ -616,12 +610,8 @@ class Result(object):
             star['e_lstar_lo'] = star['lstar'] - lo
             star['e_lstar_hi'] = hi - star['lstar']
             star['e_lstar'] = (star['e_lstar_lo']+star['e_lstar_hi'])/2.0
-            
-            rstar_dist = np.zeros(cfg.fitting['n_samples'])
-            for j,par in enumerate(self.comp_param_samples[i]):
-                rstar_dist[j] = np.sqrt(cfg.ssr * 10**par[-1]/np.pi) \
-                    * u.pc.to(u.m) / self.distributions['parallax'][j] / u.R_sun.to(u.m)
-            
+     
+            rstar_dist = rstar_1pc_dist / self.distributions['parallax'] / u.R_sun.to(u.m)
             distributions['rstar'] = rstar_dist
             lo,star['rstar'],hi = fitting.pmn_pc(self.param_sample_probs,
                                                  rstar_dist,[16.0,50.0,84.0])
