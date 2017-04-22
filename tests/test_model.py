@@ -4,7 +4,8 @@ import astropy.units as u
 
 from .context import sdf
 
-def test_model_keep_filters():
+def test_read_model_keep_filters():
+    m = sdf.model.SpecModel.read_model('kurucz-0.0')
     m = sdf.model.PhotModel.read_model('kurucz-0.0')
     fs = ['BS_YS','MIPS24']
     m1 = m.copy()
@@ -12,10 +13,3 @@ def test_model_keep_filters():
     assert( np.all( np.equal(m1.filters,['BS_YS','MIPS24','BS','YS']) ) )
     m.keep_filters(fs,colour_bases=False)
     assert( np.all( np.equal(m1.filters,['BS_YS','MIPS24']) ) )
-
-def test_read_kurucz():
-    ms,ts,ls,mhs = sdf.spectrum.ModelSpectrum.read_kurucz(sdf.config.file['kurucz_models']+'fp00k2odfnew.pck')
-    for i,m in enumerate(ms):
-        assert(m.param_values['Teff']==ts[i])
-        assert(m.param_values['MH']==mhs[i])
-        assert(m.param_values['logg']==ls[i])
