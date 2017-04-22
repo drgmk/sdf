@@ -11,7 +11,7 @@ setup(
     packages=['sdf'],
     classifiers=['Programming Language :: Python :: 3'],
     install_requires = [
-        'astropy','bokeh','corner','filelock',
+        'astropy','binarytree','bokeh','corner','filelock',
         'jinja2','matplotlib','mysql-connector','numpy',
         'pymultinest','scipy'
         ],
