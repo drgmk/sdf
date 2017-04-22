@@ -2,6 +2,7 @@
 
 import io
 import os
+import glob
 from datetime import datetime
 
 import numpy as np
@@ -102,26 +103,27 @@ def cleanup_sample_dirs():
     dirs = glob.glob(cfg.file['www_root']+'samples/*/')
     samp = db.get_samples()
     for d in dirs:
-        dname = basename(d.rstrip('/'))
+        dname = os.path.basename(d.rstrip('/'))
         if dname not in samp:
             fs = glob.glob(d+'/*')
             fs += glob.glob(d+'/.*')
             print("  {} removed (and files {})".format(d,fs))
-            [remove(f) for f in fs]
+            [os.remove(f) for f in fs]
             rmdir(d)
         else:
             print("  {} ok".format(d))
 
 
 def cleanup_calibration_dirs():
-    """Remove dirs for calibrations that are no longer required."""
+    """Remove plots for calibrations that are no longer required."""
     
     fs = glob.glob(cfg.file['www_root']+'calibration/*')
     for f in fs:
-        fname = basename(f.rstrip('.html'))
+        fname = os.path.basename(f.rstrip('.html'))
         if fname not in cfg.www['cal_samples']:
-            print("  {} removed ".format(f))
-            remove(f)
+            if not os.path.isdir(f):
+                print("  {} removed ".format(f))
+                os.remove(f)
         else:
             print("  {} ok".format(f))
 
