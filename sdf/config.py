@@ -20,6 +20,7 @@ would look something like:
 
 import os
 import glob
+import ast
 import configparser
 
 import numpy as np
@@ -83,6 +84,7 @@ models = {
     'names': model_names,
     'loc': model_loc,
     'default_wave': default_wave,
+    'default_resolution': cfg['models'].getfloat('default_resolution'),
     'min_wav_micron': cfg['models'].getfloat('min_wave_micron'),
     'max_wav_micron': cfg['models'].getfloat('max_wave_micron'),
     'star': star,
@@ -107,11 +109,7 @@ t.right.right.right = bt.Node( star_type+('modbb_disk_r','modbb_disk_r') )
 
 # details for fitting
 fitting = {
-    'models':(
-#              ('kurucz_m',),
-#        ('phoenix_m','amsil_r'),
-#        ('phoenix_m','bb_disk_r'),
-    ),
+    'models': ast.literal_eval(cfg['fitting']['models']),
     'tree': t,
     'exclude_filters': cfg['fitting']['exclude_filters'].split(','),
     'upperlim_filters': cfg['fitting']['upperlim_filters'].split(','),
