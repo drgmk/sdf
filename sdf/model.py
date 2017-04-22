@@ -625,10 +625,10 @@ class SpecModel(Model):
     
     
     @classmethod
-    def generate_bb_model(cls,name='bb_disk_r',
-                          wavelengths=cfg.models['default_wave'],
-                          temperatures=10**np.arange(0,3,0.1),
-                          write=False,overwrite=False):
+    def bb_disk_r(cls,name='bb_disk_r',
+                  wavelengths=cfg.models['default_wave'],
+                  temperatures=10**np.arange(0,3,0.1),
+                  write=False,overwrite=False):
         """Generate a set of blackbody spectra."""
         
         # don't do the calculation if there will be a write error
@@ -664,12 +664,12 @@ class SpecModel(Model):
 
 
     @classmethod
-    def generate_modbb_model(cls,name='modbb_disk_r',
-                             wavelengths=cfg.models['default_wave'],
-                             temperatures=10**np.arange(0,3,0.1),
-                             lam0=10**np.arange(1,3,0.1),
-                             beta=np.arange(0,3,0.1),
-                             write=False,overwrite=False):
+    def modbb_disk_r(cls,name='modbb_disk_r',
+                     wavelengths=cfg.models['default_wave'],
+                     temperatures=10**np.arange(0,3,0.1),
+                     lam0=10**np.arange(1,3,0.1),
+                     beta=np.arange(0,3,0.1),
+                     write=False,overwrite=False):
         """Generate a set of modified blackbody spectra"""
         
         # don't do the calculation if there will be a write error
@@ -696,6 +696,88 @@ class SpecModel(Model):
         self.parameters = ['log_Temp','log_lam0','beta']
         self.param_values = {'log_Temp':np.log10(temperatures)}
         self.param_values['log_lam0'] = np.log10(lam0)
+        self.param_values['beta'] = beta
+
+        if write:
+            self.write_model(name,overwrite=overwrite)
+
+        return self
+
+
+    @classmethod
+    def modbb_disk_dr(cls,name='modbb_disk_dr',
+                      wavelengths=cfg.models['default_wave'],
+                      t_in_min=2000.0,t_in_max=200.0,
+                      t_out_min=10.0,t_out_max=100.0,
+                      alpha=np.arange(-2,1,0.25),
+                      beta=np.arange(0,3,0.5),
+                      write=False,overwrite=False):
+        """Generate a set of wide-disk modified blackbody spectra.
+
+        Parameters to fix...
+        ----------
+        t_in : float, optional
+            Temperature at inner disk edge.
+        t_out : float, optional
+            Temperature at outer disk edge.
+        alpha : float, optional
+            Power law index for optical depth.
+        """
+            
+        # don't do the calculation if there will be a write error
+        if write and overwrite == False:
+            if os.path.exists(cfg.model_loc[name]+name+'.fits'):
+                raise utils.SdfError("{} exists, will not overwrite".
+                               format(cfg.model_loc[name]+name+'.fits'))
+    
+        self = cls()
+
+        # set up temperature arrays
+        n_t_in = 20
+        n_t_out = 10
+        t_in = np.linspace(t_in_min,t_in_max,n_t_in)
+        t_out = np.linspace(t_out_min,t_out_max,n_t_out)
+
+        self.fnujy_sr = np.zeros((len(wavelengths),
+                                  n_t_in,n_t_out,len(alpha),
+                                  len(beta)),dtype=float)
+
+        # loop to fill model
+        n_r = 100
+        for i,t1 in enumerate(t_in):
+            for j,t2 in enumerate(t_out):
+                for k,a in enumerate(alpha):
+                    for l,b in enumerate(beta):
+                    
+                        tau_tot = 0.0
+                        # generate temps and a range of pseudo radii
+                        t_edges = np.linspace(t1,t2,n_r+1,dtype=float)
+                        temps = (t_edges[1:]+t_edges[:-1])/2.
+                        r = 280.0/temps**2
+                        dr = np.diff(1.0/t_edges**2)
+                        tau = r**a
+                        
+                        for x in range(n_r):
+                            m = spectrum.ModelSpectrum.bnu_wave_micron(
+                                                      wavelengths,
+                                                      temps[x],
+                                                      lam0=3*2900.0/temps[x],
+                                                      beta=b
+                                                      )
+                            annulus_area = tau[x] * 2.0*np.pi*r[x]*dr[x]
+                            spec = m.fnujy_sr * annulus_area
+                            self.fnujy_sr[:,i,j,k,l] += spec
+                            tau_tot += annulus_area
+                        
+                        # normalise area for all models
+                        self.fnujy_sr[:,i,j,k,l] /= tau_tot
+
+        self.name = m.name
+        self.wavelength = m.wavelength
+        self.parameters = ['log_T_in','log_T_out','alpha','beta']
+        self.param_values = {'log_T_in':np.log10(t_in)}
+        self.param_values['log_T_out'] = np.log10(t_out)
+        self.param_values['alpha'] = alpha
         self.param_values['beta'] = beta
 
         if write:

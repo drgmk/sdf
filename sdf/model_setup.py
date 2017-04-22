@@ -48,11 +48,11 @@ def setup_default_phoenix():
     """
 
     # create the high resolution SpecModel
-    phoenix_spectra(in_name_postfix='-r2000',name='phoenix_m',overwrite=True)
+    phoenix_spectra(in_name_postfix='',name='phoenix_m',overwrite=True)
     # compute convolved photometry in all filters and write PhotModel
     specmodel2phot('phoenix_m',overwrite_filters=True,overwrite_model=True)
     # create the low resolution SpecModel
-    phoenix_spectra(in_name_postfix='-r500',name='phoenix_m',overwrite=True)
+    phoenix_spectra(in_name_postfix='-r100',name='phoenix_m',overwrite=True)
 
 
 def setup_phot(overwrite_filters=False,overwrite_model=True):
@@ -224,11 +224,11 @@ def phoenix_spectra(in_name_postfix='',name='phoenix_m',overwrite=True):
     s00.write_model(name,overwrite=overwrite)
 
 
-def resample_phoenix_spectra(resolution=2000,name_postfix=''):
+def resample_phoenix_spectra(resolution=100,name_postfix=''):
     """Resample all phoenix spectra to common wavelength grid.
         
-    This will take about a week for R=2000 with 8 cores on a 5k iMac, or
-    about 1-2 days for R=500.
+    This will take about 2.5h per metallicity for R=100 with 8 cores on
+    a 5k iMac, or about 20h for R=1000.
     
     For reference, Spitzer's IRS instrument has low resolution and high
     resolution modules at R=60-130 and R=600. JSWT MIRI has low and
@@ -265,7 +265,7 @@ def phoenix_mh_spectra_one(par):
     return s
 
 
-def phoenix_mh_spectra(resolution=2000,mh=0.0,overwrite=False,
+def phoenix_mh_spectra(resolution=100,mh=0.0,overwrite=False,
                        processes=cfg.calc['cpu'],name_postfix=''):
     """Generate a SpecModel at some metallicity from phoenix spectra.
 
@@ -349,18 +349,18 @@ def phoenix_mh_spectra(resolution=2000,mh=0.0,overwrite=False,
 def bb_spectra():
     """Generate SpecModel grid of blackbody models."""
     
-    model.SpecModel.generate_bb_model(name='bb_disk_r',
-                                      write=True,overwrite=True)
-    model.SpecModel.generate_bb_model(name='bb_star',
-                                      temperatures=10**np.arange(2.7,3.5,0.1),
-                                      write=True,overwrite=True)
+    model.SpecModel.bb_disk_r(name='bb_disk_r',
+                              write=True,overwrite=True)
+    model.SpecModel.bb_disk_r(name='bb_star',
+                              temperatures=10**np.arange(2.7,3.5,0.1),
+                              write=True,overwrite=True)
 
 
 def modbb_spectra():
     """Generate SpecModel grid of modified blackbody models."""
     
-    model.SpecModel.generate_modbb_model(name='modbb_disk_r',
-                                         write=True,overwrite=True)
+    model.SpecModel.modbb_disk_r(name='modbb_disk_r',
+                                 write=True,overwrite=True)
 
 
 def real_grain_spectra(file,overwrite=False):
