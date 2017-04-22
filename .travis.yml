@@ -17,6 +17,7 @@ install:
 
 # command to run tests
 script:
+    - export FC=/usr/bin/gfortran-6
     - git clone https://github.com/JohannesBuchner/MultiNest.git
     - cd MultiNest/build
     - cmake ..
