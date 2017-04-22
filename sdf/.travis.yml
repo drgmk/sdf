@@ -1,0 +1,23 @@
+language: python
+python:
+    - "3.2"
+    - "3.3"
+    - "3.4"
+    - "3.5"
+    - "3.6"
+
+# command to install dependencies
+install:
+    - pip install .
+
+# command to run tests
+script:
+    - git clone https://github.com/JohannesBuchner/MultiNest.git
+    - cd MultiNest/build
+    - cmake ..
+    - make
+    - cd ../../
+    - export LD_LIBRARY_PATH=MultiNest/lib
+    - export DYLD_LIBRARY_PATH=MultiNest/lib
+    - cd test
+    - pytest
