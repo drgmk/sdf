@@ -709,7 +709,7 @@ class SpecModel(Model):
                       wavelengths=cfg.models['default_wave'],
                       t_in_min=2000.0,t_in_max=200.0,
                       t_out_min=10.0,t_out_max=100.0,
-                      alpha=np.arange(-2,1,0.25),
+                      alpha=np.arange(-2,2,0.25),
                       beta=np.arange(0,3,0.5),
                       write=False,overwrite=False):
         """Generate a set of wide-disk modified blackbody spectra.

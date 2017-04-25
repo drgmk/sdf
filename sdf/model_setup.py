@@ -361,6 +361,8 @@ def modbb_spectra():
     
     model.SpecModel.modbb_disk_r(name='modbb_disk_r',
                                  write=True,overwrite=True)
+    model.SpecModel.modbb_disk_dr(name='modbb_disk_dr',
+                                 write=True,overwrite=True)
 
 
 def real_grain_spectra(file,overwrite=False):
