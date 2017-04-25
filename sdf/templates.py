@@ -230,6 +230,18 @@ datatable=('''<!DOCTYPE html>
     <link href="https://cdn.datatables.net/1.10.13/css/dataTables.bootstrap.min.css" rel="stylesheet" type="text/css">
 -->
 
+    <script>
+    $(document).ready(function() {
+        $('#{{ name }}').dataTable({
+            "order": [],
+            "scrollX": true,
+            "iDisplayLength": 20,
+            "aLengthMenu": [[10, 20, 50, 100, 500, 1000, -1], [10, 20, 50, 100, 500, 1000, 'All']],
+        "pagingType": "full_numbers"
+        });
+    } );
+    </script>
+    
     {{ css }}
     
     </head>
@@ -254,18 +266,6 @@ datatable=('''<!DOCTYPE html>
     </div>
     
     </div>
-    
-    <script>
-    $(document).ready(function() {
-        $('#{{ name }}').dataTable({
-            "order": [],
-            "scrollX": true,
-            "iDisplayLength": 20,
-            "aLengthMenu": [[10, 20, 50, 100, 500, 1000, -1], [10, 20, 50, 100, 500, 1000, 'All']],
-        "pagingType": "full_numbers"
-        });
-    } );
-    </script>
     
     {{ table }}
     

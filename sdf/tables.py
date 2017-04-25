@@ -68,7 +68,8 @@ def sample_table_www(cursor,sample,file='index.html',
 
     sel = ("SELECT "
            "CONCAT('<a target=\"_blank\" href=\""+url_str+"\">',"
-              "COALESCE(main_id,hd.xid,hip.xid,gj.xid,tmass.xid),'</a>') as id,"
+              "COALESCE(main_id,hd.xid,hip.xid,gj.xid,tmass.xid),"
+              "'<span><img src=\""+url_str+"/',sdbid,'_thumb.png\"></span></a>') as id,"
            "hd.xid as HD,"
            "hip.xid as HIP,"
            "gj.xid as GJ,"
@@ -122,7 +123,8 @@ def sample_table_www(cursor,sample,file='index.html',
     # get the table as xml
     s = io.StringIO()
     w = xml.writer.XMLWriter(s)
-    with w.xml_cleaning_method('bleach_clean'):
+    with w.xml_cleaning_method('bleach_clean',tags=['a','img','span'],
+                               attributes=['src','href','target']):
         with w.tag('table',attrib={'class':'display compact','id':sample}):
             with w.tag('thead',attrib={'class':'datatable_header'}):
                 with w.tag('tr'):
@@ -130,8 +132,12 @@ def sample_table_www(cursor,sample,file='index.html',
                         w.element('td',text=col)
             for i in range(len(tsamp)):
                 with w.tag('tr'):
-                    for txt in tsamp[i]:
-                        w.element('td',text=txt.decode())
+                    for j,txt in enumerate(tsamp[i]):
+                        if j == 0:
+                            w.element('td',text=txt.decode(),
+                                      attrib={'class':'td_img_hover'})
+                        else:
+                            w.element('td',text=txt.decode())
 
     # write the table out to html
     template = Template(templates.datatable)
