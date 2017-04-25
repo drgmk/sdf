@@ -373,38 +373,44 @@ def add_res(fig,r):
     fig.circle('wave','res',source=pldata,name='resid',**cfg.pl['obs_ig_ph'])
 
 
-def hardcopy_sed(r,file='sed.pdf'):
-    """Make a hardcopy SED for a specific result object."""
-    # TODO: this is very simple, needs work
+def hardcopy_sed(r,file='sed.pdf',xsize=8,ysize=6,dpi=100,
+                 axis_labels=True):
+    """Make a hardcopy SED for a specific result object.
 
-    fig,ax = plt.subplots(figsize=(8,6))
+    .. todo: this is very simple, needs work.
+    """
 
-    # model spectra, using star and disk means multiple components will
-    # be added together
-    if r.star_spec is not None:
-        ax.loglog(r.star_spec.wavelength,r.star_spec.fnujy)
-    if r.disk_spec is not None:
-        ax.loglog(r.disk_spec.wavelength,r.disk_spec.fnujy)
+    fig,ax = plt.subplots(figsize=(xsize,ysize))
+
+    # model spectra
+    for s in r.comp_spectra:
+        ax.loglog(s.wavelength,s.fnujy)
+
+    ax.loglog(r.total_spec.wavelength,r.total_spec.fnujy)
+
 
     # photometry
     for p in r.obs:
         if not isinstance(p,photometry.Photometry):
             continue
 
-        ok = np.invert(p.upperlim)
+        ok = np.invert(np.logical_or(p.upperlim,p.ignore))
         ax.errorbar(p.mean_wavelength()[ok],p.fnujy[ok],yerr=p.e_fnujy[ok],
                     fmt='o')
-        ok = p.upperlim
-        ax.plot(p.mean_wavelength()[ok],p.fnujy[ok],'v')
 
     # cosmetics
     xl,yl = sed_limits((r,))
     ax.set_xlim(xl)
     ax.set_ylim(yl)
-    ax.set_xlabel('Wavelength / $\mu$m')
-    ax.set_ylabel('Flux density / Jy')
+    if axis_labels:
+        ax.set_xlabel('Wavelength / $\mu$m')
+        ax.set_ylabel('Flux density / Jy')
+    else:
+        ax.xaxis.set_ticklabels([])
+        ax.yaxis.set_ticklabels([])
 
-    fig.savefig(file)
+    fig.tight_layout()
+    fig.savefig(file,dpi=dpi)
     plt.close(fig)
 
 

@@ -50,6 +50,9 @@ def sdf_fit():
     parser1.add_argument('--update-json','-j',action='store_true',
                          help='Force udpate of json file')
 
+    parser1.add_argument('--update-thumb','-t',action='store_true',
+                         help='Force udpate of SED thumbnail image')
+
     args = parser1.parse_args()
     
     # collect the files
@@ -88,6 +91,7 @@ def sdf_fit():
                                               update_mn=args.update_all,
                                               update_an=args.update_analysis,
                                               update_json=args.update_json,
+                                              update_thumb=args.update_thumb,
                                               nospec=args.no_spectra)
                 if results is None:
                     continue

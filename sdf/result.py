@@ -17,6 +17,7 @@ from . import spectrum
 from . import model
 from . import filter
 from . import fitting
+from . import plotting
 from . import utils
 from . import config as cfg
 
@@ -72,6 +73,7 @@ class Result(object):
         # plot names, pickle, and json, files may not exist yet
         self.corner_plot = self.pmn_base+'corner.png'
         self.distributions_plot = self.pmn_base+'distributions.png'
+        self.sed_thumb = self.pmn_base + 'sed_thumb.png'
         self.pickle = self.pmn_base + '.pkl'
         self.json = self.pmn_base + '.json'
 
@@ -81,7 +83,8 @@ class Result(object):
 
     @lru_cache(maxsize=128)
     def get(rawphot,model_comps,update_mn=False,
-            update_an=False,update_json=False,nospec=False):
+            update_an=False,update_json=False,update_thumb=False,
+            nospec=False):
         """Take photometry file and model_name, and fill the rest.
         
         The process works on a heirarchy of update times, each of which
@@ -103,6 +106,8 @@ class Result(object):
             Force update of mutinest fitting.
         udpate_an : bool, optional
             Force update of post-multinest analysis.
+        update_thumb : bool, optional
+            Force update of thumbnail plot.
         update_json : bool, optional
             Force update of json file.
         nospec : bool, optional
@@ -135,6 +140,7 @@ class Result(object):
                     self.pickle_time > self.analysis_time > self.mn_a_time > \
                     self.mn_time > self.rawphot_time:
 
+                self.sed_thumbnail(update=update_thumb)
                 self.write_json(update=update_json)
                 return self
 
@@ -155,6 +161,7 @@ class Result(object):
         self.pl_models = ''
 
         self.pickle_output()
+        self.sed_thumbnail(update=update_thumb)
         self.write_json(update=update_json)
 
         return self
@@ -538,6 +545,19 @@ class Result(object):
         self.pickle_time = time.time()
         with open(self.pickle,'wb') as f:
             pickle.dump(self,f)
+
+
+    def sed_thumbnail(self,file=None,update=False):
+        """Generate a thumbnail of the SED."""
+    
+        if file is None:
+            file = self.sed_thumb
+    
+        if os.path.exists(file) and not update:
+            if os.path.getmtime(file) > self.pickle_time:
+                return
+
+        plotting.hardcopy_sed(self,file,axis_labels=False,dpi=40)
 
 
     def write_json(self,update=False):
