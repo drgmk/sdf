@@ -784,10 +784,14 @@ def colours_for_list(values_in,palette,log=False):
         if log:
             range = np.array([np.min(np.log(values[ok])),
                               np.max(np.log(values[ok]))])
+            if range[0] == range[1]:
+                range = np.array([range[0]-0.3,range[0]+0.3])
             ci = 0.999*(np.log(values[ok])-range[0])/(range[1]-range[0])
             range = np.exp(range)
         else:
             range = np.array([np.min(values[ok]),np.max(values[ok])])
+            if range[0] == range[1]:
+                range = np.array([range[0]/2.,range[0]*2])
             ci = 0.999*(values[ok]-range[0])/(range[1]-range[0])
     
         # assign colours, don't use the whole range since the top end
