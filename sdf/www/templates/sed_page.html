@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}{{ main_id }}{% endblock %}
+
+{% block body_class %}class="sed"{% endblock %}
+{% block body %}
+
+{% block content %}
+<div id="target_head">
+
+    {% block search %}{{ super() }}{% endblock %}
+
+    <div class="target_info">
+        <h1>{{ main_id }}</h1>
+        [
+        
+        {% if ra %}
+        &alpha;={{ (ra/15.0)|round(1) }}h, &delta;={{ dec|round(1) }}&deg;
+        {% endif %}
+        
+        {% if spty %}
+        | {{ spty }}
+        {% endif %}
+        
+        {% if plx %}
+        | d={{ (1000.0/plx)|round(1) }} pc
+        {% endif %}
+        
+        ]
+    </div>
+    
+    {% if xids %}
+    <div class="xids">
+        {% for id in xids %}
+        {% if loop.index is greaterthan 1 %}
+        ,
+        {% endif %}
+        {{ id }}
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <div class="links">
+        <table>
+            <tr>
+                {% if phot_file %}
+                <td>
+                    I/O:
+                    <a href="{{ phot_file }}" title="Input photometry file">data</a>
+                    |
+                    <a href="{{ json_file }}" title="Best-fit results in json format">model</a>
+                </td>
+                <td>
+                    Posteriors:
+                    <a href="{{ par_dist }}" title="Fitting posteriors" target="_blank">fitting</a>
+                    |
+                    <a href="{{ derived_dist }}" title="Derived parameters" target="_blank">derived</a>
+                </td>
+                {% endif %}
+                
+                <td>
+                    
+                    External:
+                    <a href="http://simbad.u-strasbg.fr/simbad/sim-basic?submit=SIMBAD+search&Ident={{ main_id|urlencode }}" target="_blank" title="Simbad">simbad</a>
+                    
+                    {% if ra %}
+                    | <a href="http://cassis.sirtf.com/atlas/cgi/radec.py?ra={{ ra }}&dec={{ dec }}&radius=20" target="_blank" title="Cornell IRS Spectra">cassis</a>
+                    
+                    | <a href="http://irsa.ipac.caltech.edu/applications/finderchart/#id=Hydra_finderchart_finder_chart&RequestClass=ServerRequest&DoSearch=true&subsize=0.083&thumbnail_size=medium&sources=DSS,SDSS,twomass,WISE,IRIS&overlay_catalog=true&catalog_by_radius=true&iras_radius=240&sdss_radius=5&twomass_radius=5&wise_radius=5&one_to_one=_none_&dss_bands=poss1_blue,poss1_red,poss2ukstu_blue,poss2ukstu_red,poss2ukstu_ir&SDSS_bands=u,g,r,i,z&twomass_bands=j,h,k&wise_bands=1,2,3,4&UserTargetWorldPt={{ ra }};{{ dec }};EQ_J2000&projectId=finderchart&searchName=finder_chart&shortDesc=Finder%20Chart&isBookmarkAble=true&isDrillDownRoot=true&isSearchResult=true" target="_blank" title="IRSA Finder Chart query">finder</a>
+                    
+                    | <a href="http://sha.ipac.caltech.edu/applications/Spitzer/SHA/#id=SearchByPosition&RequestClass=ServerRequest&DoSearch=true&SearchByPosition.field.radius=0.13888889000000001&UserTargetWorldPt={{ ra }};{{ dec }};EQ_J2000&SimpleTargetPanel.field.resolvedBy=nedthensimbad&MoreOptions.field.prodtype=aor,pbcd&shortDesc=Position&isBookmarkAble=true&isDrillDownRoot=true&isSearchResult=true" target="_blank" title="Spitzer Heritage Archive query">spitzer</a>
+                    
+                    | <a href="https://mast.stsci.edu/portal/Mashup/Clients/Mast/Portal.html?searchQuery={{ ra }},{{ dec }}" target="_blank" title="MAST Archive">mast</a>
+                    
+                    {% endif %}
+                </td></tr>
+        </table>
+    </div>
+    
+    {% if best_fit %}
+    <div class="best_fit">
+        <div class="best_fit_title">Best fit:</div>
+        {% for m in best_fit %}
+        <div class="best_fit_line">{{ m }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+</div><!-- end header section -->
+
+{{ plot_script|indent(8) }}
+{{ plot_div|indent(8) }}
+
+{% endblock content %}
+
+{% block footer %}
+{{ super() }}
+{% endblock %}
+
+{% endblock body %}

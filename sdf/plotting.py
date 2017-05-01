@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import mysql.connector
 import astropy.units as u
 
-from jinja2 import Template
+import jinja2
 import bokeh.resources
 from bokeh.plotting import figure,ColumnDataSource
 from bokeh.models.widgets import Panel,Tabs
@@ -23,7 +23,6 @@ from . import photometry
 from . import filter
 from . import fitting
 from . import db
-from . import templates
 from . import www
 from . import utils
 from . import config as cfg
@@ -461,7 +460,10 @@ def sample_plots():
                                   database=cfg.mysql['db_sdb'])
     cursor = cnx.cursor(buffered=True)
 
-    template = Template(templates.sample_plot_wide)
+    env = jinja2.Environment(autoescape=False,
+         loader=jinja2.PackageLoader('sdf',package_path='www/templates'))
+    template = env.get_template("sample_plot.html")
+
     bokeh_js = bokeh.resources.CDN.render_js()
     bokeh_css = bokeh.resources.CDN.render_css()
 
@@ -478,13 +480,15 @@ def sample_plots():
         file = wwwroot+sample+"/hr.html"
         script,div = sample_plot(cursor,sample)
 
-        html = template.render(bokeh_js=bokeh_js,
-                               bokeh_css=bokeh_css,
-                               css=templates.css,
-                               plot_script=script,
-                               plot_div=div,
-                               title=sample,
-                               creation_time=datetime.utcnow().strftime("%d/%m/%y %X"))
+        html = template.render(
+                   js=[bokeh_js],
+                   css=[bokeh_css],
+                   body_class='wide',
+                   plot_script=script,
+                   plot_div=div,
+                   title=sample,
+                   creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
+                               )
 
         with io.open(file, mode='w', encoding='utf-8') as f:
             f.write(html)
@@ -621,8 +625,10 @@ def flux_size_plots():
                                   database=cfg.mysql['db_sdb'])
     cursor = cnx.cursor(buffered=True)
 
+    env = jinja2.Environment(autoescape=False,
+         loader=jinja2.PackageLoader('sdf',package_path='www/templates'))
+    template = env.get_template("sample_plot.html")
 
-    template = Template(templates.sample_plot)
     bokeh_js = bokeh.resources.CDN.render_js()
     bokeh_css = bokeh.resources.CDN.render_css()
 
@@ -643,13 +649,14 @@ def flux_size_plots():
         else:
             continue        
 
-        html = template.render(bokeh_js=bokeh_js,
-                               bokeh_css=bokeh_css,
-                               css=templates.css,
-                               plot_script=script,
-                               plot_div=div,
-                               title=sample,
-                               creation_time=datetime.utcnow().strftime("%d/%m/%y %X"))
+        html = template.render(
+                   js=[bokeh_js],
+                   css=[bokeh_css],
+                   plot_script=script,
+                   plot_div=div,
+                   title=sample,
+                   creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
+                               )
 
         with io.open(file, mode='w', encoding='utf-8') as f:
             f.write(html)
@@ -942,17 +949,22 @@ def calibration(sample='zpo_cal_',
     script,div = bokeh.embed.components(grid)
 
     # now write the html
-    template = Template(templates.sample_plot_wide)
+    env = jinja2.Environment(autoescape=False,
+         loader=jinja2.PackageLoader('sdf',package_path='www/templates'))
+    template = env.get_template("sample_plot.html")
+
     bokeh_js = bokeh.resources.CDN.render_js()
     bokeh_css = bokeh.resources.CDN.render_css()
 
-    html = template.render(bokeh_js=bokeh_js,
-                           bokeh_css=bokeh_css,
-                           css=templates.css,
-                           plot_script=script,
-                           plot_div=div,
-                           title=sample,
-                           creation_time=datetime.utcnow().strftime("%d/%m/%y %X"))
+    html = template.render(
+                   js=[bokeh_js],
+                   css=[bokeh_css],
+                   body_class='wide',
+                   plot_script=script,
+                   plot_div=div,
+                   title=sample,
+                   creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
+                           )
 
     file = fileroot + sample + '.html'
     with io.open(file, mode='w', encoding='utf-8') as f:
@@ -1005,17 +1017,22 @@ def filter_plot(file=cfg.file['www_root']+'filters.html'):
     script,div = bokeh.embed.components(grid)
 
     # now write the html
-    template = Template(templates.sample_plot_wide)
+    env = jinja2.Environment(autoescape=False,
+         loader=jinja2.PackageLoader('sdf',package_path='www/templates'))
+    template = env.get_template("sample_plot.html")
+
     bokeh_js = bokeh.resources.CDN.render_js()
     bokeh_css = bokeh.resources.CDN.render_css()
 
-    html = template.render(bokeh_js=bokeh_js,
-                           bokeh_css=bokeh_css,
-                           css=templates.css,
-                           plot_script=script,
-                           plot_div=div,
-                           title='filters',
-                           creation_time=datetime.utcnow().strftime("%d/%m/%y %X"))
+    html = template.render(
+                   js=[bokeh_js],
+                   css=[bokeh_css],
+                   body_class='wide',
+                   plot_script=script,
+                   plot_div=div,
+                   title='filters',
+                   creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
+                           )
 
     with io.open(file, mode='w', encoding='utf-8') as f:
         f.write(html)

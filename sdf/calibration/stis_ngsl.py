@@ -5,7 +5,7 @@ import io
 from datetime import datetime
 
 import numpy as np
-from jinja2 import Template
+import jinja2
 from bokeh.plotting import ColumnDataSource
 import bokeh.resources
 import bokeh.palettes
@@ -20,7 +20,6 @@ from .. import filter
 from .. import fitting
 from .. import plotting
 from .. import tables
-from .. import templates
 from .. import config as cfg
 
 
@@ -140,7 +139,9 @@ def generate_cal_seds(out_dir=cfg.file['www_root']+'calibration/stis_ngsl/',
                                               res_extra_func=add_filters,
                                               model_spec_kwargs={'plot_wave':None})
 
-        template = Template(templates.index)
+        env = jinja2.Environment(autoescape=False,
+             loader=jinja2.PackageLoader('sdf',package_path='www/templates'))
+        template = env.get_template("sed_page.html")
 
         if cdn:
             bokeh_js = bokeh.resources.CDN.render_js()
@@ -149,9 +150,8 @@ def generate_cal_seds(out_dir=cfg.file['www_root']+'calibration/stis_ngsl/',
             bokeh_js = bokeh.resources.INLINE.render_js()
             bokeh_css = bokeh.resources.INLINE.render_css()
 
-        html = template.render(bokeh_js=bokeh_js,
-                               bokeh_css=bokeh_css,
-                               css=templates.css,
+        html = template.render(js=[bokeh_js],
+                               css=[bokeh_css],
                                plot_script=script,
                                plot_div=div,
                                main_id=results[0].obs_keywords['main_id'],
@@ -169,7 +169,10 @@ def generate_cal_seds(out_dir=cfg.file['www_root']+'calibration/stis_ngsl/',
 
 
 def generate_cal_table():
-    """Generate a table that helps browse calibration SEDs."""
+    """Generate a table that helps browse calibration SEDs.
+    
+    .. todo: fix broken www links.
+    """
 
     print("STIS NGSL calibration table")
 
@@ -191,7 +194,11 @@ def generate_cal_table():
 
 
 def generate_cal_hr_diag(cdn=True):
-    """Generate HR diagram and f-r plot to help browse calibration SEDs."""
+    """Generate HR diagram and f-r plot to help browse calibration SEDs.
+    
+    .. todo: fix www so link goes back to calibration table.
+    .. todo: fix thumbs
+    """
 
     print("STIS NGSL HR diagram")
 
@@ -212,7 +219,9 @@ def generate_cal_hr_diag(cdn=True):
     script,div = plotting.sample_plot(cursor,'stis_ngsl_',
                                       absolute_paths=False)
 
-    template = Template(templates.sample_plot_wide)
+    env = jinja2.Environment(autoescape=False,
+         loader=jinja2.PackageLoader('sdf',package_path='www/templates'))
+    template = env.get_template("sample_plot.html")
 
     if cdn:
         bokeh_js = bokeh.resources.CDN.render_js()
@@ -221,9 +230,9 @@ def generate_cal_hr_diag(cdn=True):
         bokeh_js = bokeh.resources.INLINE.render_js()
         bokeh_css = bokeh.resources.INLINE.render_css()
 
-    html = template.render(bokeh_js=bokeh_js,
-                           bokeh_css=bokeh_css,
-                           css=templates.css,
+    html = template.render(js=[bokeh_js],
+                           css=[bokeh_css],
+                           body_class='wide',
                            plot_script=script,
                            plot_div=div,
                            title='stis_ngsl_',

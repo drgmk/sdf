@@ -10,12 +10,11 @@ from astropy.table import Table
 from astropy.utils import xml
 import mysql.connector
 
-from jinja2 import Template
+import jinja2
 import bokeh.resources
 
 from . import db
 from . import www
-from . import templates
 from . import config as cfg
 
 
@@ -140,9 +139,12 @@ def sample_table_www(cursor,sample,file='index.html',
                             w.element('td',text=txt.decode())
 
     # write the table out to html
-    template = Template(templates.datatable)
-    html = template.render(css=templates.css,name=sample,table=s.getvalue(),
-                     creation_time=datetime.utcnow().strftime("%d/%m/%y %X"))
+    env = jinja2.Environment(autoescape=False,
+         loader=jinja2.PackageLoader('sdf',package_path='www/templates'))
+    template = env.get_template("sample_table.html")
+
+    html = template.render(title=sample,table=s.getvalue(),
+                 creation_time=datetime.utcnow().strftime("%d/%m/%y %X"))
 
     with io.open(file, mode='w', encoding='utf-8') as f:
         f.write(html)

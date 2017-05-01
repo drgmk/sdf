@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block body %}
+
+{% block content %}
+<div id="target_head">
+
+{% block search %}{{ super() }}{% endblock %}
+
+<div>
+<h1>{{ title }}</h1>
+[ <a href="/~grant/sdb/samples/{{ title }}">table</a> ]
+</div>
+
+</div>
+
+{{ plot_script|indent(8) }}
+{{ plot_div|indent(8) }}
+
+</div>
+{% endblock content %}
+
+{% block footer %}
+{{ super() }}
+{% endblock %}
+
+{% endblock body %}

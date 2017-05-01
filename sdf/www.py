@@ -7,12 +7,11 @@ from datetime import datetime
 
 import numpy as np
 
-from jinja2 import Template
+import jinja2
 from bokeh.resources import CDN,INLINE
 
 from . import plotting
 from . import db
-from . import templates
 from . import utils
 from . import config as cfg
 
@@ -46,10 +45,10 @@ def www_all(results,update=False):
     else:
         print("   generating")
 
-    index(results,file=index_file)
+    sed_page(results,file=index_file)
 
 
-def index(results,file='index.html',cdn=True):
+def sed_page(results,file='index.html',cdn=True):
     """Make html page with an SED and other info.
         
     Parameters
@@ -58,11 +57,15 @@ def index(results,file='index.html',cdn=True):
         List of Result objects.
     file : str, optional
         File to write html to.
+    cdn : bool, optional
+        Use CDN for bokeh javascript, otherwise inline.
     """
 
     script,div = plotting.sed_components(results)
 
-    template = Template(templates.index)
+    env = jinja2.Environment(autoescape=False,
+         loader=jinja2.PackageLoader('sdf',package_path='www/templates'))
+    template = env.get_template("sed_page.html")
 
     if cdn:
         bokeh_js = CDN.render_js()
@@ -71,26 +74,26 @@ def index(results,file='index.html',cdn=True):
         bokeh_js = INLINE.render_js()
         bokeh_css = INLINE.render_css()
 
-    html = template.render(bokeh_js=bokeh_js,
-                           bokeh_css=bokeh_css,
-                           css=templates.css,
-                           plot_script=script,
-                           plot_div=div,
-                           phot_file=os.path.basename(results[0].rawphot),
-                           json_file=os.path.basename(results[0].pmn_dir)+'/'+\
-                                     os.path.basename(results[0].json),
-                           main_id=results[0].obs_keywords['main_id'],
-                           spty=results[0].obs_keywords['sp_type'],
-                           ra=results[0].obs_keywords['raj2000'],
-                           dec=results[0].obs_keywords['dej2000'],
-                           plx=results[0].obs_keywords['plx_value'],
-                           xids=db.sdb_xids(results[0].obs_keywords['id']),
-                           best_fit=results[0].main_results_text(),
-                           par_dist=os.path.basename(results[0].pmn_dir)+'/'+\
-                                    os.path.basename(results[0].corner_plot),
-                           derived_dist=os.path.basename(results[0].pmn_dir)+'/'+\
-                                    os.path.basename(results[0].distributions_plot),
-                           creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
+    html = template.render(
+               js=[bokeh_js],
+               css=[bokeh_css],
+               plot_script=script,
+               plot_div=div,
+               phot_file=os.path.basename(results[0].rawphot),
+               json_file=os.path.basename(results[0].pmn_dir)+'/'+\
+                         os.path.basename(results[0].json),
+               main_id=results[0].obs_keywords['main_id'],
+               spty=results[0].obs_keywords['sp_type'],
+               ra=results[0].obs_keywords['raj2000'],
+               dec=results[0].obs_keywords['dej2000'],
+               plx=results[0].obs_keywords['plx_value'],
+               xids=db.sdb_xids(results[0].obs_keywords['id']),
+               best_fit=results[0].main_results_text(),
+               par_dist=os.path.basename(results[0].pmn_dir)+'/'+\
+                        os.path.basename(results[0].corner_plot),
+               derived_dist=os.path.basename(results[0].pmn_dir)+'/'+\
+                        os.path.basename(results[0].distributions_plot),
+               creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
                            )
 
     with io.open(file, mode='w', encoding='utf-8') as f:

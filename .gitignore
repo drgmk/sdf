@@ -3,7 +3,6 @@ sdf.xcodeproj/
 __pycache__
 .cache
 .DS_Store
-*.html
 *.pyc
 docs/_build/
 docs/_templates/

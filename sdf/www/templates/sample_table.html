@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block head %}
+
+<link href="https://cdn.datatables.net/1.10.9/css/jquery.dataTables.css" rel="stylesheet" type="text/css"/>
+
+<script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>
+<script src="https://cdn.datatables.net/1.10.9/js/jquery.dataTables.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    $('#{{ title }}').dataTable({
+        "order": [],
+        "scrollX": true,
+        "iDisplayLength": 20,
+        "aLengthMenu": [[10, 20, 50, 100, 500, 1000, -1], [10, 20, 50, 100, 500, 1000, 'All']],
+    "pagingType": "full_numbers"
+    });
+} );
+</script>
+
+{{ super() }}
+{% endblock head %}
+
+{% block body_class %}class="sample_table"{% endblock %}
+{% block body %}
+
+{% block content %}
+
+<div id="target_head">
+    
+{% block search %}{{ super() }}{% endblock %}
+
+<div class="target_info">
+    <h1>{{ title }}</h1>
+    [ <a href="hr.html">HR diagram</a>
+    | <a href="fnuvsr.html">Flux/radius</a>
+    | <a href="{{ name }}.xml">votable</a>
+    ]
+</div>
+    
+</div>
+    
+{{ table }}
+    
+{% endblock content %}
+
+{% block footer %}
+{{ super() }}
+{% endblock %}
+
+{% endblock body %}

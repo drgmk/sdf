@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% block head %}
+    <meta charset="utf-8">
+        <title>{% block title %}{{ title }}{% endblock %}</title>
+
+    {% block js %}
+    {% for s in js %}
+    {{ s }}
+    {% endfor %}
+    {% endblock %}
+
+
+    {% block css %}
+    {% for s in css %}
+    {{ s }}
+    {% endfor %}
+    {% endblock %}
+
+    <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Lato">
+    <link rel="stylesheet" type="text/css" href="http://camd21.ast.cam.ac.uk/~grant/sdb/style.css">
+        
+    {% endblock head %}
+</head>
+
+<body {% block body_class %}{% if body_class %}class="{{ body_class }}"{% endif %}{% endblock %}>
+    {% block body %}
+
+    {% block content %}
+    
+    {% block search %}
+    <div class="search">
+    <form style="display:inline-block;" action="/~grant/sdb/search/search.php" method="GET">
+        <input type = "text" name = "id"/>
+        <input type = "submit" value = "Search" />
+    </form>
+    </div>
+    {% endblock search %}
+    
+    {% endblock content %}
+
+    {% block footer %}
+    <div class="footer">
+        <hr>
+        <div class="footer_home"><a href="/~grant/sdb">home</a></div>
+        {% if creation_time %}
+        <div class="footer_gen">generated {{ creation_time }} UTC</div>
+        {% endif %}
+    </div>
+    {% endblock footer %}
+    
+    {% endblock body %}
+</body>
+</html>
