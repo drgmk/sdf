@@ -48,6 +48,25 @@ def www_all(results,update=False):
     sed_page(results,file=index_file)
 
 
+def home_page(file=cfg.file['www_root']+'index.html'):
+    """Make the home page.
+    
+    Parameters
+    ----------
+    file : str, optional
+        File name.
+    """
+
+    env = jinja2.Environment(autoescape=False,
+         loader=jinja2.PackageLoader('sdf',package_path='www/templates'))
+    template = env.get_template("home.html")
+
+    html = template.render()
+
+    with io.open(file, mode='w', encoding='utf-8') as f:
+        f.write(html)
+
+
 def sed_page(results,file='index.html',cdn=True):
     """Make html page with an SED and other info.
         

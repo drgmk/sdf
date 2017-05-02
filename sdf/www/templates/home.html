@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}sdb{% endblock %}
+
+{% block body_class %}class="narrow"{% endblock %}
+
+{% block content %}
+
+<div id="target_head">
+    
+{% block search %}{{ super() }}{% endblock %}
+
+<h1>sdb</h1>
+
+<div>star database + sed models</div>
+
+</div>
+
+<p><div>Access to the database is either via search or samples. You must be logged in to search.</div></p>
+
+<p>
+<a href="login">login</a>
+|
+<a href="samples">samples</a>
+|
+<a href="calibration">calibration</a>
+|
+<a href="filters.html">filters</a>
+|
+<a href="https://github.com/drgmk/sdb" target="_blank">github</a>
+</p>
+
+{% endblock content %}
