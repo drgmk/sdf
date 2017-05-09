@@ -367,6 +367,7 @@ class ObsSpectrum(Spectrum):
         # optionally split into modules
         modules = np.unique(t['module']).data
         if module_split and len(modules) > 1:
+            mod_sort = []
             s = [ObsSpectrum() for i in range(len(modules))]
             for i,mod in enumerate(modules):
                 ok = (t['module'] == mod) & (np.isfinite(t['error (RMS+SYS)']))
@@ -377,6 +378,8 @@ class ObsSpectrum(Spectrum):
                 s[i].e_fnujy = t['error (RMS+SYS)'].data[ok]
                 s[i].bibcode = '2011ApJS..196....8L'
                 s[i].sort('wave')
+                mod_sort.append(np.min(s[i].wavelength))
+            s = [s[i] for i in np.argsort(mod_sort)]
             return tuple(s)
 
         else:
