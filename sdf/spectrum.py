@@ -316,13 +316,14 @@ class ObsSpectrum(Spectrum):
     """
     def __init__(self,wavelength=None,nu_hz=None,fnujy=None,
                  e_fnujy=None,e_absolute=None,bibcode=None,
-                 irradiance=None):
+                 instrument=None,irradiance=None):
         self.wavelength = wavelength
         self.nu_hz = nu_hz
         self.fnujy = fnujy
         self.e_fnujy = e_fnujy
         self.e_absolute = e_absolute
         self.bibcode = bibcode
+        self.instrument = instrument
         self.irradiance = irradiance
     
         # fill wavelength/frequency if possible
@@ -366,11 +367,14 @@ class ObsSpectrum(Spectrum):
 
         # optionally split into modules
         modules = np.unique(t['module']).data
+        names = np.array(['SL1','SL2','LL1','LL2'])
+        module_names = names[modules.astype(int)]
         if module_split and len(modules) > 1:
             mod_sort = []
             s = [ObsSpectrum() for i in range(len(modules))]
             for i,mod in enumerate(modules):
                 ok = (t['module'] == mod) & (np.isfinite(t['error (RMS+SYS)']))
+                s[i].instrument = 'Spitzer IRS '+module_names[i]
                 s[i].wavelength = t['wavelength'].data[ok]
                 s[i].nu_hz = c_micron / t['wavelength'].data[ok]
                 s[i].fnujy = t['flux'].data[ok] \
@@ -390,6 +394,7 @@ class ObsSpectrum(Spectrum):
             self.fnujy = t['flux'].data[ok] * u.Unit(fh[0].header['BUNIT']).to('Jy')
             self.e_fnujy = t['error (RMS+SYS)'].data[ok]
             self.bibcode = '2011ApJS..196....8L'
+            self.instrument = 'Spitzer IRS'
             self.sort('wave')
             return (self,)
 
