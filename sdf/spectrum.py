@@ -630,7 +630,15 @@ class ModelSpectrum(Spectrum):
         self.name = 'phoenix'
         self.parameters = ['Teff','logg','MH']
         if 'BT-Settl' in file:
-            par = re.search('lte([0-9]+)-([0-9.]+)([+-][0-9.]+)[a]([+-][0-9.]+).BT-Settl.7.bz2',file)
+            # first for 'normal' phoenix files, second for compatibility
+            # with files without alpha enh and decimal temperatures
+            par = re.search("lte([0-9]+)-([0-9.]+)([+-][0-9.]+)"
+                            "[a]([+-][0-9.]+).BT-Settl.7.bz2",file)
+            if par is None:
+                par = re.search("lte([0-9.]+)-([0-9.]+)([+-][0-9.]+)"
+                                ".BT-Settl.7.bz2",file)
+            if par is None:
+                raise utils.SdfError("couldn't re file {}".format(file))
             teff = float(par.groups()[0])*100.0
             logg = float(par.groups()[1])
             mh = float(par.groups()[2])
