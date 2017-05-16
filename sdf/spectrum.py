@@ -8,7 +8,7 @@ One of the most important methods is `synthphot`, which is how all
 synthetic photometry calls are made.
 """
 
-import gzip
+import os
 import re
 import copy
 import numpy as np
@@ -452,15 +452,26 @@ class ObsSpectrum(Spectrum):
                 
 
     @classmethod
-    def vega_stis(cls,file='alpha_lyr_stis_008.fits'):
+    def vega_stis(cls,file='alpha_lyr_stis_008.fits',file_loc=None):
         """Return the CALSPEC Vega spectrum.
         
         The FITS file contains improper units, it was easier to just
         set these blank and fill them in below.
+        
+        Parameters
+        ----------
+        file : str, optional
+            Name of the Vega spectrum file.
+        file_loc : str, optional
+            Location of the file.
         """
     
         self = cls()
-        t=Table.read(cfg.file['model_root']+file)
+        if file_loc is None:
+            file_loc = os.path.dirname(os.path.abspath(__file__))+ \
+                                                '/data/calibration/'
+    
+        t=Table.read(file_loc+file)
         t['WAVELENGTH'].unit = u.AA
         t['FLUX'].unit = u.Unit('erg/(s*cm*cm*AA)')
 
@@ -477,7 +488,7 @@ class ObsSpectrum(Spectrum):
 
 
     @classmethod
-    def vega_rieke(cls):
+    def vega_rieke(cls,file='rieke08-vega-sun.txt',file_loc=None):
         """Return the "Vega" spectrum from Rieke et al. (2008)
             
         This spectrum has slightly lower fluxes than stated in the
@@ -487,11 +498,21 @@ class ObsSpectrum(Spectrum):
         reason for the discrepancy is the F_lambda to F_nu conversion,
         as there is also a small difference in the 10.6um values in
         Table 1 of that paper.
+
+        Parameters
+        ----------
+        file : str, optional
+            Name of the Vega spectrum file.
+        file_loc : str, optional
+            Location of the file.
         """
         
         self = cls()
-        t = Table.read(cfg.file['model_root']+'rieke08-vega-sun.txt',
-                       format='ascii.cds')
+        if file_loc is None:
+            file_loc = os.path.dirname(os.path.abspath(__file__))+ \
+                                                '/data/calibration/'
+    
+        t = Table.read(file_loc+'rieke08-vega-sun.txt',format='ascii.cds')
         wave_um = t['Wave'].to(u.micron).value
         _,srt = np.unique(wave_um,return_index=True)
         srt = np.flipud(srt)
