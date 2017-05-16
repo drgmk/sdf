@@ -48,14 +48,15 @@ def setup_default_phoenix():
     """
 
     # create the high resolution SpecModel
-    phoenix_spectra(in_name_postfix='',name='phoenix_m',overwrite=True)
+    phoenix_spectra(in_name_postfix='-r1000',name='phoenix_m',overwrite=True)
     # compute convolved photometry in all filters and write PhotModel
     specmodel2phot('phoenix_m',overwrite_filters=True,overwrite_model=True)
     # create the low resolution SpecModel
     phoenix_spectra(in_name_postfix='-r100',name='phoenix_m',overwrite=True)
 
 
-def setup_phot(overwrite_filters=False,overwrite_model=True):
+def setup_phot(overwrite_filters=False,overwrite_model=True,
+               model_ignore=['phoenix-','phoenix+']):
     """Rederive convolved models and write combined PhotModel to disk.
     
     Parameters
@@ -64,6 +65,8 @@ def setup_phot(overwrite_filters=False,overwrite_model=True):
         Set to True to overwrite files for each bandpass.
     overwrite_model : bool, optional
         Set to True to overwrite the PhotModel that was generated.
+    model_ignore : list of str, optional
+        Skip models that include these strings.
 
     See Also
     --------
@@ -77,8 +80,14 @@ def setup_phot(overwrite_filters=False,overwrite_model=True):
     propagate zero point offsets into colours/indices.
     """
     for name in cfg.models['names']:
-        specmodel2phot(name,overwrite_filters=overwrite_filters,
-                       overwrite_model=overwrite_model)
+        do_it = True
+        for ig in model_ignore:
+            if ig in name:
+                print("skipping {}".format(name))
+                do_it = False
+        if do_it:
+            specmodel2phot(name,overwrite_filters=overwrite_filters,
+                           overwrite_model=overwrite_model)
 
 
 def specmodel2phot(mname,overwrite_filters=False,overwrite_model=False):

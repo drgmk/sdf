@@ -199,6 +199,9 @@ Herschel/SPIRE
 
 """
 
+import os
+import glob
+import numpy as np
 import astropy.units as u
 from .utils import bnu_nu_hz
 
@@ -582,6 +585,37 @@ filters['MIPS160'] = {'svo_name': 'Spitzer/MIPS.160mu',
                       'response_type': 'energy',
                       'ref_wavelength': 155.9,
                       'ref_spectrum': lambda nu: bnu_nu_hz(nu,10000.0)}
+
+# JWST NIRCAM, units of electrons/photon
+nrc_filt_loc = os.path.dirname(os.path.abspath(__file__))+ \
+                                    '/data/filters/nircam/'
+for file in glob.glob(nrc_filt_loc+'*.txt'):
+    filt_name = 'NIRCAM.'+os.path.basename(file).split('_')[0]
+    filters[filt_name] = {
+        'magnitude_system': 'Vega',
+        'response_type':'photon',
+        'ref_wavelength': None,
+        'ref_spectrum': None,
+        'response_ref': 'https://jwst-docs.stsci.edu/display/JTI/NIRCam+Filters',
+        'wav_micron': np.loadtxt(file,skiprows=1,usecols=0),
+        'response': np.loadtxt(file,skiprows=1,usecols=1)
+                          }
+
+# JWST MIRI, units of electrons/photon
+miri_file = os.path.dirname(os.path.abspath(__file__))+ \
+                        '/data/filters/ImPCE_TN-00072-ATC-Iss2.csv'
+for i,filt in enumerate(['F560W','F770W','F1000W','F1280W','F1130W',
+                         'F1500W','F1800W','F2100W','F2550W']):
+    filt_name = 'MIRI.'+filt
+    filters[filt_name] = {
+        'magnitude_system': 'Vega',
+        'response_type':'photon',
+        'ref_wavelength': None,
+        'ref_spectrum': None,
+        'response_ref': 'https://jwst-docs.stsci.edu/display/JTI/MIRI+Filters+and+Dispersers',
+        'wav_micron': np.loadtxt(miri_file,delimiter=',',skiprows=2,usecols=0),
+        'response': np.loadtxt(miri_file,delimiter=',',skiprows=2,usecols=i+1)
+                          }
 
 # IRAS, RSRs,
 filters['IRAS12'] = {'svo_name': 'IRAS/IRAS.12mu',
