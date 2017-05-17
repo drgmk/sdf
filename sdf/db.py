@@ -179,7 +179,8 @@ def write_star(cursor,r):
 
         # start a row
         cursor.execute("INSERT INTO {} (id,star_comp_no) VALUES "
-                       "('{}',{:d})".format(cfg.mysql['star_table'],r.id,i))
+                       "('{}',{:d})".format(cfg.mysql['star_table'],
+                                            r.id,star['comp_no']))
 
         # and add the rest of the results, only keys starting 'e_' and
         # without _lo or _hi on the end
@@ -188,11 +189,13 @@ def write_star(cursor,r):
                 continue
             if key[-3:] == '_hi' or key[-3:] == '_lo':
                 continue
-            cursor.execute("UPDATE {} SET {} = {:e}, {} = {:e} WHERE "
-                           "id = '{}'".format(cfg.mysql['star_table'],
+            cursor.execute(
+               "UPDATE {} SET {} = {:e}, {} = {:e} WHERE id = '{}' "
+               "AND star_comp_no = {}".format(cfg.mysql['star_table'],
                                               key[2:],star[key[2:]],
                                               key,star[key],
-                                              r.id) )
+                                              r.id,star['comp_no'])
+                           )
 
 
 def write_disk_r(cursor,r):
@@ -205,7 +208,8 @@ def write_disk_r(cursor,r):
     for i,disk_r in enumerate(r.disk_r):
         
         cursor.execute("INSERT INTO {} (id,disk_r_comp_no) VALUES "
-                       "('{}',{:d})".format(cfg.mysql['disk_r_table'],r.id,i))
+                       "('{}',{:d})".format(cfg.mysql['disk_r_table'],
+                                            r.id,disk_r['comp_no']))
 
         # and add the rest of the results, only keys starting 'e_' and
         # without _lo or _hi on the end
@@ -214,11 +218,13 @@ def write_disk_r(cursor,r):
                 continue
             if key[-3:] == '_hi' or key[-3:] == '_lo':
                 continue
-            cursor.execute("UPDATE {} SET {} = {:e}, {} = {:e} WHERE id = '{}' "
-                           "AND disk_r_comp_no = {}".format(cfg.mysql['disk_r_table'],
-                                                     key[2:],disk_r[key[2:]],
-                                                     key,disk_r[key],
-                                                     r.id,i) )
+            cursor.execute(
+               "UPDATE {} SET {} = {:e}, {} = {:e} WHERE id = '{}' "
+               "AND disk_r_comp_no = {}".format(cfg.mysql['disk_r_table'],
+                                         key[2:],disk_r[key[2:]],
+                                         key,disk_r[key],
+                                         r.id,disk_r['comp_no'])
+                           )
 
 
 def get_samples():

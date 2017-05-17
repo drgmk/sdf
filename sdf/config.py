@@ -188,9 +188,10 @@ pl = {
                     'line_width':line_thin}],
 
     # HR diagram #
-
     'hr_dot':   {'size':10,'fill_alpha':0.6,'line_alpha':1},
-    'hr_e_dot': {'line_alpha':0.4,'line_width':line_thin}
+    'hr_e_dot': {'line_alpha':0.4,'line_width':line_thin},
+    'fvsr_join':{'line_color':'darkslategray','line_dash':'dashed',
+                 'line_alpha':0.2,'line_width':line_thin}
 }
 
 # filters for filter plot

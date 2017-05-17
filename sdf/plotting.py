@@ -513,14 +513,14 @@ def sample_plot(cursor,sample,absolute_paths=True):
     # get data, ensure primary axes are not nans else bokeh will
     # complain about the data
     if sample == 'everything' or sample == 'public':
-        sel = " FROM sdb_pm"
+        sel1 = " FROM "+cfg.mysql['db_sdb']+".sdb_pm"
     else:
-        sel = (" FROM "+cfg.mysql['db_samples']+"."+sample+
-               " LEFT JOIN sdb_pm USING (sdbid)")
+        sel1 = (" FROM "+cfg.mysql['db_samples']+"."+sample+
+                " LEFT JOIN "+cfg.mysql['db_sdb']+".sdb_pm USING (sdbid)")
 
-    sel += (" LEFT JOIN simbad USING (sdbid)"
-            " LEFT JOIN sdb_results.star ON sdbid=star.id"
-            " LEFT JOIN sdb_results.disk_r ON sdbid=disk_r.id")
+    sel = sel1 + (" LEFT JOIN "+cfg.mysql['db_sdb']+".simbad USING (sdbid)"
+                  " LEFT JOIN "+cfg.mysql['db_results']+".star ON sdbid=star.id"
+                  " LEFT JOIN "+cfg.mysql['db_results']+".disk_r ON sdbid=disk_r.id")
 
     # statement for selecting stuff to plot
     sel += " WHERE teff IS NOT NULL AND lstar IS NOT NULL"
@@ -535,8 +535,8 @@ def sample_plot(cursor,sample,absolute_paths=True):
     if sample != 'everything':
         selall += " LIMIT "+str(cfg.www['plotmax'])+";"
 
-    # number we could have plotted (more if some were nan)
-    selnum = "SELECT COUNT(*)" + sel
+    # number we could have plotted if we knew their distances
+    selnum = "SELECT COUNT(*)" + sel1
     cursor.execute(selnum)
     ntot = cursor.fetchall()[0][0]
 
@@ -545,6 +545,8 @@ def sample_plot(cursor,sample,absolute_paths=True):
     allsql = cursor.fetchall()
     ngot = len(allsql)
     print("    got ",ngot," rows for plot")
+
+    # organise these into a dict of ndarrays
     l = list(zip(*allsql))
     keys = cursor.column_names
     dtypes = [None,None,float,float,float,float,
@@ -592,6 +594,10 @@ def sample_plot(cursor,sample,absolute_paths=True):
                     x_axis_type="log",x_range=(0.5*tr[0],2*tr[1]),
                     width=750,height=800)
                     
+        xs,ys = utils.plot_join_line(t,'sdbid','tdisk','ldisklstar')
+        if xs is not None:
+            ft.multi_line(xs,ys,**cfg.pl['fvsr_join'])
+        
         xs,err_xs,ys,err_ys = utils.plot_err(t['tdisk'],t['e_tdisk'],
                                              t['ldisklstar'], t['e_ldisklstar'])
         ft.multi_line(xs,err_ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
@@ -695,43 +701,49 @@ def flux_size_plot(cursor,sample):
     for i,f in enumerate(filters):
 
         # get the results
-        stmt = ("SELECT coalesce(main_id,sdbid),sdbid,chisq, "
-                "1e3*model_jy,rdisk_bb*plx_arcsec ")
         if sample == 'everything' or sample == 'public':
-            stmt += "FROM sdb_pm "
+            sel1 = "FROM "+cfg.mysql['db_sdb']+".sdb_pm "
         else:
-            stmt += "FROM "+cfg.mysql['db_samples']+"."+sample+" "
+            sel1 = "FROM "+cfg.mysql['db_samples']+"."+sample+" "
          
-        stmt += ("LEFT JOIN "+cfg.mysql['db_results']+".model ON sdbid=id "
-                 "LEFT JOIN "+cfg.mysql['db_results']+".disk_r USING (id) "
-                 "LEFT JOIN "+cfg.mysql['db_results']+".star USING (id) "
-                 "LEFT JOIN "+cfg.mysql['db_results']+".phot "
-                 "ON (model.id=phot.id AND disk_r.disk_r_comp_no=phot.comp_no) "
-                 "LEFT JOIN "+cfg.mysql['db_sdb']+".simbad USING (sdbid) "
-                 "WHERE filter = %s AND phot.id IS NOT NULL")
+        sel = sel1 + ("LEFT JOIN "+cfg.mysql['db_results']+".model ON sdbid=id "
+                      "LEFT JOIN "+cfg.mysql['db_results']+".disk_r USING (id) "
+                      "LEFT JOIN "+cfg.mysql['db_results']+".star USING (id) "
+                      "LEFT JOIN "+cfg.mysql['db_results']+".phot "
+                      "ON (model.id=phot.id AND disk_r.disk_r_comp_no=phot.comp_no) "
+                      "LEFT JOIN "+cfg.mysql['db_sdb']+".simbad USING (sdbid) "
+                      "WHERE filter = %s AND phot.id IS NOT NULL "
+                      "AND model_jy IS NOT NULL AND rdisk_bb IS NOT NULL "
+                      "AND plx_arcsec IS NOT NULL ")
         # limit table sizes
         if sample != 'everything':
-            stmt += " LIMIT "+str(cfg.www['tablemax'])+";"
+            sel += " LIMIT "+str(cfg.www['tablemax'])+";"
 
-        cursor.execute(stmt,(str(f),))
+        selall = ("SELECT coalesce(main_id,sdbid) as id,sdbid,chisq, "
+                "1e3*model_jy as flux,rdisk_bb*plx_arcsec as rdisk ") + sel
+
+        # number in sample
+        selnum = "SELECT COUNT(*)" + sel1
+        cursor.execute(selnum)
+        ntot = cursor.fetchall()[0][0]
 
         # fill a table with fluxes
-        t = {'id':[],'sdbid':[],'chisq':[],'flux':[],'rdisk':[]}
-        ntot = 0
-        for (id,sdbid,chisq,flux,rdisk) in cursor:
-            ntot += 1
-            if flux is not None and rdisk is not None:
-                if flux > 0:
-                    t['id'].append(id)
-                    t['sdbid'].append(sdbid)
-                    t['chisq'].append(chisq)
-                    t['flux'].append(flux)
-                    t['rdisk'].append(rdisk)
+        cursor.execute(selall,(str(f),))
+        allsql = cursor.fetchall()
+        l = list(zip(*allsql))
+        keys = cursor.column_names
+        dtypes = [None,None,float,float,float]
+        t = {}
+        for j in range(len(keys)):
+            col = np.array(l[j],dtype=dtypes[j])
+            t[keys[j]] = col
 
         ngot = len(t['id'])
-        if ntot == 0 or ngot == 0:
+        if ngot == 0:
             print("    flux vs r: nothing to plot")
-            return
+            pl = figure()
+            tabs.append( Panel(child=pl, title=f) )
+            continue
         else:
             print("    got ",ngot," rows for filter ",f)
 
@@ -741,7 +753,7 @@ def flux_size_plot(cursor,sample):
 
         data = ColumnDataSource(data=t)
 
-        hover = HoverTool(tooltips=[("name","@id")])
+        hover = HoverTool(names=['dot'],tooltips=[("name","@id")])
         tools = ['wheel_zoom,box_zoom,box_select,tap,save,reset',hover]
 
         pl = figure(title="disk flux vs radius ("+str(ngot)+" of "+str(ntot)+")",
@@ -756,8 +768,12 @@ def flux_size_plot(cursor,sample):
             pl.line(sens[i][:,1],sens[i][:,0],
                     line_color='red',line_alpha=0.3,line_width=4)
 
+        xs,ys = utils.plot_join_line(t,'sdbid','rdisk','flux')
+        if xs is not None:
+            pl.multi_line(xs,ys,**cfg.pl['fvsr_join'])
+        
         pl.circle('rdisk','flux',source=data,size=10,fill_color='col',
-                  fill_alpha=0.6,line_color='col',line_alpha=1)
+                  name='dot',fill_alpha=0.6,line_color='col',line_alpha=1)
 
         url = "/~grant/sdb/seds/masters/@sdbid/public"
         taptool = pl.select(type=TapTool)

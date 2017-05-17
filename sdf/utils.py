@@ -314,6 +314,37 @@ def plot_err(a,e_a,b,e_b):
     return c,err_c,d,err_d
 
 
+def plot_join_line(data,dup_col,x_col,y_col):
+    """Return x,y arrays to join duplicates in a data dictionary.
+    
+    Parameters
+    ----------
+    data : dict
+        Data dictionary.
+    dup_col : str
+        Name of key to find duplicates in.
+    x_col : str
+        Name of column to extract x data from.
+    y_col : str
+        Name of column to extract y data from.
+    """
+
+    uniq_id = np.unique(data[dup_col])
+    xs = []
+    ys = []
+    
+    if len(uniq_id) == len(data[dup_col]):
+        return None,None
+
+    for id in uniq_id:
+        dup = np.where(data[dup_col] == id)[0]
+        if len(dup) > 1:
+            xs.append(data[x_col][dup].tolist())
+            ys.append(data[y_col][dup].tolist())
+
+    return xs,ys
+
+
 def linterp(newx,x,y):
     """Linear interpolation."""
 
