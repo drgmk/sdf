@@ -25,7 +25,6 @@ import configparser
 
 import numpy as np
 import bokeh.palettes
-import binarytree as bt
 
 from . import utils
 
@@ -95,25 +94,9 @@ models = {
 # Solar radius at 1pc as base unit for emitting area in sr
 ssr = 1.596074069110538e-15 #( np.pi*u.solRad**2 / (u.pc)**2 ).si.value
 
-# binary tree for model execution and selection
-star_type = ('phoenix_m',)
-t = bt.Node('start')
-t.left = bt.Node( star_type )
-t.right = bt.Node( (star_type+('modbb_disk_r',) ) )
-t.right.left = bt.Node( star_type+('modbb_disk_r',) )
-t.right.right = bt.Node( star_type+('modbb_disk_r','modbb_disk_r') )
-#t.right = bt.Node( (star_type+('amsil_r',) ) )
-#t.right.left = bt.Node( star_type+('amsil_r',) )
-#t.right.right = bt.Node( star_type+('amsil_r','amsil_r') )
-#t.right.left.left = bt.Node( star_type+('amsil_r',) )
-#t.right.left.right = bt.Node( star_type+('modbb_disk_r',) )
-#t.right.right.left = bt.Node( star_type+('amsil_r','amsil_r') )
-#t.right.right.right = bt.Node( star_type+('modbb_disk_r','modbb_disk_r') )
-
 # details for fitting
 fitting = {
     'models': ast.literal_eval(cfg['fitting']['models']),
-    'tree': t,
     'exclude_filters': cfg['fitting']['exclude_filters'].split(','),
     'upperlim_filters': cfg['fitting']['upperlim_filters'].split(','),
     'model_join': cfg['fitting']['model_join'],

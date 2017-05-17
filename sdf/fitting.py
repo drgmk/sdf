@@ -2,6 +2,7 @@ from functools import lru_cache
 import os
 import glob
 
+import binarytree as bt
 import numpy as np
 import pymultinest as pmn
 
@@ -41,7 +42,7 @@ def fit_results(file,update_mn=False,update_an=False,
     print(" Fitting")
 
     # binary tree-based fitting
-    t = cfg.fitting['tree']
+    t = model_director(file)
     results = []
 
     while t.left is not None and t.right is not None:
@@ -60,8 +61,9 @@ def fit_results(file,update_mn=False,update_an=False,
             print("  no photometry = no results")
             return None
 
-        # append results, only append left result at start
-        if t.value == 'start':
+        # append results, only append left result at start since where
+        # on lower branches the left model has already been done
+        if len(results) == 0:
             results.append(r1)
         results.append(r2)
 
@@ -95,6 +97,62 @@ def fit_results(file,update_mn=False,update_an=False,
                              update=update_thumb)
 
     return results
+
+
+def model_director(file):
+    """Make a simple educated guess about which models to fit.
+        
+    Parameters
+    ----------
+    file : str
+        Name of the photometry file we are fitting.
+    """
+
+    # get some trees, t_star is the default
+    t_star = model_tree(ndisk_is_2=True)
+    t_cool = model_tree(star='phoenix_cool')
+    tree = t_star
+
+    kw = utils.get_sdb_keywords(file)
+
+    # look for spectral type, LTY types get cool models, other types
+    # default to star models, and M6-9 get both
+    if 'sp_type' in kw.keys():
+        if kw['sp_type'] is None:
+            pass
+        elif kw['sp_type'][0] in 'LTY':
+            tree = t_cool
+        elif kw['sp_type'][0] == 'M' and kw['sp_type'][1] in '6789':
+            tree = bt.Node('start')
+            tree.left = t_cool
+            tree.right = t_star
+
+    return tree
+
+
+def model_tree(star='phoenix_m',disk='modbb_disk_r',ndisk_is_2=False):
+    """Return a binary tree for star and (multiple) disk models.
+        
+    Parameters
+    ----------
+    star : str, optional
+        Name of the stellar model.
+    disk : str, optional
+        Name of the disk model.
+    ndisk_is 2 : bool, optional
+        Include two disk component branch.
+    """
+
+    # the top node doesn't matter unless this tree becomes a branch
+    # of a bigger tree
+    t = bt.Node( (star,) )
+    t.left = bt.Node( (star,) )
+    t.right = bt.Node( ((star,)+(disk,)) )
+    if ndisk_is_2:
+        t.right.left = bt.Node( (star,)+(disk,) )
+        t.right.right = bt.Node( (star,)+(disk,disk) )
+
+    return t
 
 
 @lru_cache(maxsize=2)
