@@ -611,7 +611,7 @@ def sample_plot(cursor,sample,absolute_paths=True):
 
     # taptool callback
     if absolute_paths:
-        url = "/~grant/sdb/seds/masters/@sdbid/public"
+        url = "/sdb/seds/masters/@sdbid/public"
     else:
         url = "@sdbid.html"
     taptool = hr.select(type=TapTool)
@@ -775,7 +775,7 @@ def flux_size_plot(cursor,sample):
         pl.circle('rdisk','flux',source=data,size=10,fill_color='col',
                   name='dot',fill_alpha=0.6,line_color='col',line_alpha=1)
 
-        url = "/~grant/sdb/seds/masters/@sdbid/public"
+        url = "/sdb/seds/masters/@sdbid/public"
         taptool = pl.select(type=TapTool)
         taptool.callback = OpenURL(url=url)
 
@@ -946,7 +946,7 @@ def calibration(sample='zpo_cal_',
             chist.append( figure(width=200,height=200) )
 
         # taptool callback
-        url = "/~grant/sdb/seds/masters/@sdbid/public"
+        url = "/sdb/seds/masters/@sdbid/public"
         taptool = flux[-1].select(type=TapTool)
         taptool.callback = OpenURL(url=url)
 
