@@ -75,6 +75,11 @@
                     | <a href="https://mast.stsci.edu/portal/Mashup/Clients/Mast/Portal.html?searchQuery={{ ra }},{{ dec }}" target="_blank" title="MAST Archive">mast</a>
                     
                     {% endif %}
+                    
+                    {% if iau_coord %}
+                    | <a href="http://sky.esa.int/?action=goto&hips=AllWISE%20color&target={{ iau_coord }} "target="_blank" title="ESA Sky">esasky</a>
+                    {% endif %}
+                    
                 </td></tr>
         </table>
     </div>

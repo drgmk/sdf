@@ -9,6 +9,7 @@ import numpy as np
 from scipy.integrate import simps
 from scipy.ndimage import spline_filter
 from astropy.table import Table
+from astropy.coordinates import ICRS
 import astropy.units as u
 
 # do this first, since SdfError called in config
@@ -363,6 +364,24 @@ def rnd1sf(x):
         return np.zeros(len(x))
     else:
         return np.round(x, -np.int(np.floor(np.log10(np.abs(x[0])))))
+
+
+def iau_coord(ra,dec):
+    """Return an IAU-style coordinate string.
+    
+    Parameters
+    ----------
+    ra : float
+        Right ascension in degrees.
+    dec : float
+        Declination in degrees.
+    """
+
+    c = ICRS(ra*u.degree, dec*u.degree)
+    return 'J{0}{1}'.format(c.ra.to_string(unit=u.hourangle, sep='',
+                                           precision=2, pad=True),
+                            c.dec.to_string(sep='', precision=2,
+                                            alwayssign=True, pad=True))
 
 
 @lru_cache(maxsize=16)
