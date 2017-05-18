@@ -111,18 +111,21 @@ def model_director(file):
     # get some trees, t_star is the default
     t_star = model_tree(ndisk_is_2=True)
     t_cool = model_tree(star='phoenix_cool')
-    tree = t_star
 
     kw = utils.get_sdb_keywords(file)
 
     # look for spectral type, LTY types get cool models, other types
-    # default to star models, and M6-9 get both
+    # default to star models, and M5-9 (or just M) get both
     if 'sp_type' in kw.keys():
         if kw['sp_type'] is None:
-            pass
+            return t_star
         elif kw['sp_type'][0] in 'LTY':
-            tree = t_cool
-        elif kw['sp_type'][0] == 'M' and kw['sp_type'][1] in '6789':
+            return t_cool
+        elif kw['sp_type'][0] == 'M':
+            if len(kw['sp_type']) > 1:
+                if kw['sp_type'][1] not in '56789':
+                    return t_star
+
             tree = bt.Node('start')
             tree.left = t_cool
             tree.right = t_star
