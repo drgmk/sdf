@@ -997,7 +997,7 @@ def filter_plot(file=cfg.file['www_root']+'filters.html'):
     """
 
     c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
-    cols = bokeh.palettes.Category10[10]
+    cols = bokeh.palettes.Category20_12
 
     # groups in which to split the filters
     groups = cfg.filter_plot['groups']

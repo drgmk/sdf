@@ -196,7 +196,7 @@ pl = {
 
 # filters for filter plot
 filter_plot = {
-                'groups': [cfg['filter_plot'].get(k).split(',')
+                'groups': [cfg['filter_plot'].get(k).replace('\n','').split(',')
                            for k in cfg['filter_plot'].keys()]
 }
 
