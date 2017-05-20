@@ -129,8 +129,9 @@ def model_director(file):
             tree = bt.Node('start')
             tree.left = t_cool
             tree.right = t_star
+            return tree
 
-    return tree
+    return t_star
 
 
 def model_tree(star='phoenix_m',disk='modbb_disk_r',ndisk_is_2=False):
