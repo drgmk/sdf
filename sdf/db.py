@@ -307,3 +307,41 @@ def sdb_xids(id):
         return
     else:
         return xids
+
+
+def get_sdbids(ids):
+    """Return a list of sdbids given a list of ids.
+
+    Parameters
+    ----------
+    ids : list
+        List of target ids.
+    """
+
+    if not isinstance(ids,list):
+        raise utils.SdfError('please pass a list, not {}'.format(type(ids)))
+
+    # set up connection
+    try:
+        cnx = mysql.connector.connect(user=cfg.mysql['user'],
+                                      password=cfg.mysql['passwd'],
+                                      host=cfg.mysql['host'],
+                                      database=cfg.mysql['db_sdb'])
+        cursor = cnx.cursor(buffered=True)
+
+    except mysql.connector.InterfaceError:
+        print("Can't connect to {} at {}".format(cfg.mysql['db_sdb'],
+                                                 cfg.mysql['host']) )
+        return
+
+    sdbids = []
+    for id in ids:
+
+        cursor.execute("SELECT sdbid FROM xids WHERE xid = '{}';".format(id))
+        if cursor.rowcount == 0:
+            sdbids.append( None )
+        else:
+            for (sdbid,) in cursor:
+                sdbids.append( sdbid )
+
+    return sdbids
