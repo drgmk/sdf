@@ -544,7 +544,13 @@ def sample_plot(cursor,sample,absolute_paths=True):
     t = {}
     allsql = cursor.fetchall()
     ngot = len(allsql)
-    print("    got ",ngot," rows for plot")
+
+    if ngot == 0:
+        print("    HR + f vs. r: nothing to plot")
+        p = gridplot([[figure(),figure()]],sizing_mode='scale_width',toolbar_location='above')
+        return bokeh.embed.components(p)
+    else:
+        print("    got ",ngot," rows for plot")
 
     # organise these into a dict of ndarrays
     l = list(zip(*allsql))
@@ -731,6 +737,13 @@ def flux_size_plot(cursor,sample):
         cursor.execute(selall,(str(f),))
         allsql = cursor.fetchall()
         l = list(zip(*allsql))
+
+        if len(l) == 0:
+            print("    flux vs r: nothing to plot")
+            pl = figure()
+            tabs.append( Panel(child=pl, title=f) )
+            continue
+
         keys = cursor.column_names
         dtypes = [None,None,float,float,float]
         t = {}
@@ -739,13 +752,7 @@ def flux_size_plot(cursor,sample):
             t[keys[j]] = col
 
         ngot = len(t['id'])
-        if ngot == 0:
-            print("    flux vs r: nothing to plot")
-            pl = figure()
-            tabs.append( Panel(child=pl, title=f) )
-            continue
-        else:
-            print("    got ",ngot," rows for filter ",f)
+        print("    got ",ngot," rows for filter ",f)
 
         # colour scale
         col,cr = colours_for_list(t['chisq'],bokeh.palettes.plasma,log=True)
