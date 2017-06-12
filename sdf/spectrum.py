@@ -365,30 +365,40 @@ class ObsSpectrum(Spectrum):
             t[t.colnames[-1]].name = 'flag4'
         fh.close()
 
-        # optionally split into modules
+        # optionally split into modules and sort by wavelength
         modules = np.unique(t['module']).data
         names = np.array(['SL1','SL2','LL1','LL2'])
         module_names = names[modules.astype(int)]
         if module_split and len(modules) > 1:
             mod_sort = []
-            s = [ObsSpectrum() for i in range(len(modules))]
+            s_list = []
             for i,mod in enumerate(modules):
                 ok = (t['module'] == mod) & (np.isfinite(t['error (RMS+SYS)']))
-                s[i].instrument = 'Spitzer IRS '+module_names[i]
-                s[i].wavelength = t['wavelength'].data[ok]
-                s[i].nu_hz = c_micron / t['wavelength'].data[ok]
-                s[i].fnujy = t['flux'].data[ok] \
-                             * u.Unit(fh[0].header['BUNIT']).to('Jy')
-                s[i].e_fnujy = t['error (RMS+SYS)'].data[ok]
-                s[i].bibcode = '2011ApJS..196....8L'
-                s[i].sort('wave')
-                mod_sort.append(np.min(s[i].wavelength))
-            s = [s[i] for i in np.argsort(mod_sort)]
-            return tuple(s)
+                # there might be all nan errors for a module
+                if np.any(ok) > 0:
+                    s = ObsSpectrum()
+                    s.instrument = 'Spitzer IRS '+module_names[i]
+                    s.wavelength = t['wavelength'].data[ok]
+                    s.nu_hz = c_micron / t['wavelength'].data[ok]
+                    s.fnujy = t['flux'].data[ok] \
+                              * u.Unit(fh[0].header['BUNIT']).to('Jy')
+                    s.e_fnujy = t['error (RMS+SYS)'].data[ok]
+                    s.bibcode = '2011ApJS..196....8L'
+                    s.sort('wave')
+                    s_list.append(s)
+                    mod_sort.append(np.min(s.wavelength))
+
+            if len(s_list) == 0:
+                raise utils.SdfError('No usable data in {}'.format(file))
+
+            s_list = [s_list[i] for i in np.argsort(mod_sort)]
+            return tuple(s_list)
 
         else:
             self = cls()
             ok = np.isfinite(t['error (RMS+SYS)'])
+            if np.any(ok) == 0:
+                raise utils.SdfError('No usable data in {}'.format(file))
             self.wavelength = t['wavelength'].data[ok]
             self.nu_hz = c_micron / t['wavelength'].data[ok]
             self.fnujy = t['flux'].data[ok] * u.Unit(fh[0].header['BUNIT']).to('Jy')
