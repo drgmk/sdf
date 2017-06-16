@@ -373,7 +373,10 @@ class ObsSpectrum(Spectrum):
             mod_sort = []
             s_list = []
             for i,mod in enumerate(modules):
-                ok = (t['module'] == mod) & (np.isfinite(t['error (RMS+SYS)']))
+                ok = ( (t['module'] == mod) &
+                       (np.isfinite(t['flux'])) &
+                       (np.isfinite(t['error (RMS+SYS)'])) )
+
                 # there might be all nan errors for a module
                 if np.any(ok) > 0:
                     s = ObsSpectrum()
