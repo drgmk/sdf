@@ -424,23 +424,27 @@ def sed_limits(results):
     for r in results:
         obs = r.obs
         for o in obs:
+
             if isinstance(o,photometry.Photometry):
-                
                 xlim = [np.min(o.mean_wavelength()),np.max(o.mean_wavelength())]
-                if xlim[0] < xlims[0] or xlims[0] == -1:
-                    xlims[0] = xlim[0]
-                if xlim[1] > xlims[1] or xlims[1] == -1:
-                    xlims[1] = xlim[1]
-                
-                ok = np.ones(o.nphot,dtype=bool)
-                ylim = [np.min(o.fnujy[ok]),np.max(o.fnujy[ok])]
-                # set lower y limit to uncertainty if negative or zero fluxes
-                if ylim[0] <= 0:
-                    ylim[0] = np.min(o.e_fnujy[ok])
-                if ylim[0] < ylims[0] or ylims[0] == -1:
-                    ylims[0] = ylim[0]
-                if ylim[1] > ylims[1] or ylims[1] == -1:
-                    ylims[1] = ylim[1]
+            elif isinstance(o,spectrum.ObsSpectrum):
+                xlim = [np.min(o.wavelength),np.max(o.wavelength)]
+
+            if xlim[0] < xlims[0] or xlims[0] == -1:
+                xlims[0] = xlim[0]
+            if xlim[1] > xlims[1] or xlims[1] == -1:
+                xlims[1] = xlim[1]
+
+            ylim = [np.min(o.fnujy),np.max(o.fnujy)]
+
+            # set lower y limit to uncertainty if negative or zero fluxes
+            if ylim[0] <= 0:
+                ylim[0] = np.min(o.e_fnujy)
+
+            if ylim[0] < ylims[0] or ylims[0] == -1:
+                ylims[0] = ylim[0]
+            if ylim[1] > ylims[1] or ylims[1] == -1:
+                ylims[1] = ylim[1]
 
         for comp in r.comp_spectra:
             if ylims[1] < np.max(comp.fnujy) or ylims[1] == -1:
