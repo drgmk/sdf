@@ -399,7 +399,7 @@ def hardcopy_sed(r,file='sed.pdf',xsize=8,ysize=6,dpi=100,
 
     # cosmetics
     xl,yl = sed_limits((r,))
-    ax.set_xlim(xl)
+    ax.set_xlim(0.4,2e3)
     ax.set_ylim(yl)
     if axis_labels:
         ax.set_xlabel('Wavelength / $\mu$m')
