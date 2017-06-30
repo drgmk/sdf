@@ -110,8 +110,11 @@ def write_phot(cursor,r):
             if r.all_star_phot is not None:
                 ratio = r.obs_fnujy[j]/r.all_star_phot[i]
                 chi = (r.obs_fnujy[j] - r.all_star_phot[i]) / \
-                    np.sqrt(r.obs_e_fnujy[j]**2 + \
+                            np.sqrt(r.obs_e_fnujy[j]**2 + \
                 np.mean([r.all_star_phot_1sig_lo[i],r.all_star_phot_1sig_hi[i]])**2)
+
+                if filter.iscolour(r.filters[j]):
+                    ratio = r.obs_fnujy[j] - r.all_star_phot[i]
 
                 cursor.execute("UPDATE {} "
                                "SET R_star = {:e}, chi_star = {:e}"
