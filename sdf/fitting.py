@@ -5,6 +5,7 @@ import glob
 import binarytree as bt
 import numpy as np
 import pymultinest as pmn
+import emcee
 
 from . import model
 from . import photometry
@@ -485,3 +486,34 @@ def sort_evidence(ev_in,ndim):
 
 #    print(order)
     return order
+
+
+def emcee_prior(param,m):
+    """Prior to keep parameters in range allowed by model."""
+
+    m_info = model.models_info(m)
+    p_rng = m_info['p_rng']
+    for p,rng in zip(param,p_rng):
+        if p < rng[0] or p > rng[1]:
+            return -np.inf
+
+    return 0.0
+
+
+def run_emcee(r,nwalkers=8,nstep=100,start_pos=None):
+    """Run emcee MCMC fitting."""
+
+    if start_pos is None:
+        start_pos = [r.best_params + \
+                     r.best_params_1sig*np.random.normal(size=r.model_info['ndim'])
+                     for i in range(nwalkers)]
+
+    def emcee_lnlike(param,*args):
+        o,m = args
+        return emcee_prior(param,m) + lnlike(param,*args)
+
+    sampler = emcee.EnsembleSampler(nwalkers,r.model_info['ndim'],
+                                    emcee_lnlike,args=(r.obs,r.models))
+    pos,lnprob,rstate = sampler.run_mcmc(start_pos, nstep)
+
+    return pos,sampler
