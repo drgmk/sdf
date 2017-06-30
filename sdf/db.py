@@ -97,7 +97,7 @@ def write_phot(cursor,r):
             
             cursor.execute("INSERT INTO {} "
                     "(id,comp_no,filter,obs_jy,e_obs_jy,obs_upperlim,bibcode,"
-                    "model_jy,e_model_jy_lo,e_model_jy_hi,chi,R) "
+                    "model_jy,e_model_jy_lo,e_model_jy_hi,residual,R) "
                     "VALUES ('{}',{:d},'{}',{:e}, "
                     "{:e},{},'{}',{:e},{:e},{:e}, "
                     "{:e},{:e})".format(cfg.mysql['phot_table'],
@@ -106,7 +106,19 @@ def write_phot(cursor,r):
                                         r.obs_bibcode[j],r.model_fnujy[j],
                                         r.model_fnujy_1sig_lo[j],r.model_fnujy_1sig_hi[j],
                                         r.residuals[j],ratio))
-                    
+
+            if r.all_star_phot is not None:
+                ratio = r.obs_fnujy[j]/r.all_star_phot[j]
+                chi = (r.obs_fnujy[j] - r.all_star_phot[j]) / \
+                    np.sqrt(r.obs_e_fnujy[j]**2 + \
+                np.mean([r.model_fnujy_1sig_lo[j],r.model_fnujy_1sig_hi[j]])**2)
+
+                cursor.execute("UPDATE {} "
+                               "SET R_star = {:e}, chi_star = {:e}"
+                               "WHERE id = '{}' AND comp_no = {:d} "
+                               "AND filter = '{}'".format(cfg.mysql['phot_table'],
+                                                          ratio,chi,r.id,-1,filt) )
+
         # the other filters
         else:
             cursor.execute("INSERT INTO {} "

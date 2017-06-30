@@ -887,8 +887,9 @@ def calibration(sample='zpo_cal_',
         # grab the data for this filter
         data = {'name':[],'sdbid':[],'chi':[],'R':[],'Teff':[]}
         col = np.array([])
-        stmt = ("SELECT name,sdbid,chi,IF(R BETWEEN -100 and 100,R,100),parameters, "
-                "chisq/IF(dof<1,1,dof) as cdof FROM "
+        stmt = ("SELECT name, sdbid, chi_star,"
+                "IF(R_star BETWEEN -100 and 100,R_star,100),"
+                "parameters, chisq/IF(dof<1,1,dof) as cdof FROM "
                 +cfg.mysql['model_table']+" ""LEFT JOIN "
                 +cfg.mysql['phot_table']+" USING (id) "
                 "LEFT JOIN "+cfg.mysql['db_samples']+'.'+sample+" ON id=sdbid "
