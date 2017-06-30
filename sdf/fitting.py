@@ -41,53 +41,55 @@ def fit_results(file,update_mn=False,update_an=False,
     """
 
     print(" Fitting")
-
-    # binary tree-based fitting
-    t = model_director(file)
     results = []
 
-    while t.left is not None and t.right is not None:
+    # fit specific models if defined by conf, overrides default
+    if len(cfg.fitting['models']) > 0:
+        for m in cfg.fitting['models']:
 
-        print("  ",t.left.value,"vs.",t.right.value)
+            print("  ",m)
+            r = result.Result.get(file,m,update_mn=update_mn,
+                                  update_an=update_an,update_json=update_json,
+                                  update_thumb=update_thumb,nospec=nospec)
 
-        r1 = result.Result.get(file,t.left.value,update_mn=update_mn,
-                               update_an=update_an,update_json=update_json,
-                               update_thumb=update_thumb,nospec=nospec)
-        r2 = result.Result.get(file,t.right.value,update_mn=update_mn,
-                               update_an=update_an,update_json=update_json,
-                               update_thumb=update_thumb,nospec=nospec)
+            # check for files with no photometry
+            if not hasattr(r,'obs'):
+                print("  no photometry = no results")
+                return None
 
-        # check for files with no photometry
-        if not hasattr(r1,'obs'):
-            print("  no photometry = no results")
-            return None
+            results.append(r)
 
-        # append results, only append left result at start since where
-        # on lower branches the left model has already been done
-        if len(results) == 0:
-            results.append(r1)
-        results.append(r2)
+    else:
+        # binary tree-based fitting
+        t = model_director(file)
 
-        # move on down the tree
-        if r2.evidence > r1.evidence + cfg.fitting['ev_threshold']:
-            t = t.right
-        else:
-            t = t.left
+        while t.left is not None and t.right is not None:
 
-    # fit specific models
-    for m in cfg.fitting['models']:
+            print("  ",t.left.value,"vs.",t.right.value)
 
-        print("  ",m)
-        r = result.Result.get(file,m,update_mn=update_mn,
-                              update_an=update_an,update_json=update_json,
-                              update_thumb=update_thumb,nospec=nospec)
+            r1 = result.Result.get(file,t.left.value,update_mn=update_mn,
+                                   update_an=update_an,update_json=update_json,
+                                   update_thumb=update_thumb,nospec=nospec)
+            r2 = result.Result.get(file,t.right.value,update_mn=update_mn,
+                                   update_an=update_an,update_json=update_json,
+                                   update_thumb=update_thumb,nospec=nospec)
 
-        # check for files with no photometry
-        if not hasattr(r,'obs'):
-            print("  no photometry = no results")
-            return None
+            # check for files with no photometry
+            if not hasattr(r1,'obs'):
+                print("  no photometry = no results")
+                return None
 
-        results.append(r)
+            # append results, only append left result at start since where
+            # on lower branches the left model has already been done
+            if len(results) == 0:
+                results.append(r1)
+            results.append(r2)
+
+            # move on down the tree
+            if r2.evidence > r1.evidence + cfg.fitting['ev_threshold']:
+                t = t.right
+            else:
+                t = t.left
 
     # sort list of results by evidence
     if sort:
