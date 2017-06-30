@@ -108,10 +108,10 @@ def write_phot(cursor,r):
                                         r.residuals[j],ratio))
 
             if r.all_star_phot is not None:
-                ratio = r.obs_fnujy[j]/r.all_star_phot[j]
-                chi = (r.obs_fnujy[j] - r.all_star_phot[j]) / \
+                ratio = r.obs_fnujy[j]/r.all_star_phot[i]
+                chi = (r.obs_fnujy[j] - r.all_star_phot[i]) / \
                     np.sqrt(r.obs_e_fnujy[j]**2 + \
-                np.mean([r.model_fnujy_1sig_lo[j],r.model_fnujy_1sig_hi[j]])**2)
+                np.mean([r.all_star_phot_1sig_lo[i],r.all_star_phot_1sig_hi[i]])**2)
 
                 cursor.execute("UPDATE {} "
                                "SET R_star = {:e}, chi_star = {:e}"
