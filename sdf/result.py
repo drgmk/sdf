@@ -92,6 +92,9 @@ class Result(object):
 
         rawphot_time < mn_time < mn_a_time < analysis_time < pickle_time
         
+        These must also be more recent than the configuration variables
+        for the oldest allowed analysis and multinest times.
+
         Each step can be called, and based on these the code will be
         (re)run or not. fill_data_models will always be run because the
         models are not saved in the pickle to save space.
@@ -137,6 +140,8 @@ class Result(object):
             hasattr(self,'rawphot_time') and hasattr(self,'pickle_time'):
             if not update_an and not update_mn and \
                     self.exclude_spectra == nospec and \
+                    self.mn_time > cfg.fitting['mn_oldest'] and \
+                    self.mn_a_time > cfg.fitting['an_oldest'] and \
                     self.pickle_time > self.analysis_time > self.mn_a_time > \
                     self.mn_time > self.rawphot_time:
 
