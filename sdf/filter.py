@@ -74,6 +74,7 @@ class Filter(object):
     def __init__(self,name=None,system=None,nu_hz=None,fileloc=None,
                  response=None,response_type=None,
                  zero_point=None,zero_point_offset=None,
+                 measurement_calibration=None,
                  magnitude_system=None,ref_wavelength=None,ref_nu_hz=None,
                  ref_spectrum=None,cc_denom=None,Af_Av=None):
         self.name = name
@@ -83,6 +84,7 @@ class Filter(object):
         self.magnitude_system = magnitude_system
         self.zero_point = zero_point
         self.zero_point_offset = zero_point_offset
+        self.measurement_calibration = measurement_calibration
         self.ref_wavelength = ref_wavelength
         self.ref_nu_hz = ref_nu_hz
         self.ref_spectrum = ref_spectrum
@@ -186,6 +188,9 @@ class Filter(object):
             if 'zero_point_offset' in f[name]:
                 if f[name]['zero_point_offset'] is not None:
                     self.zero_point_offset = f[name]['zero_point_offset']
+            if 'measurement_calibration' in f[name]:
+                if f[name]['measurement_calibration'] is not None:
+                    self.measurement_calibration = f[name]['measurement_calibration']
             if 'ref_wavelength' in f[name]:
                 if f[name]['ref_wavelength'] is not None:
                     self.ref_wavelength = f[name]['ref_wavelength']
@@ -271,6 +276,18 @@ class Filter(object):
                            format(self.name))
         return self.zero_point_offset                               \
                - 2.5 * np.log10( flux / self.zero_point )
+
+
+    def measflux2flux(self,flux):
+        """Convert a measured flux to an actual flux.
+        
+        Use flux calibration function given for this filter.
+        """
+
+        if self.measurement_calibration is not None:
+            return self.measurement_calibration(flux)
+        else:
+            return flux
 
 
     def sort(self):
@@ -415,6 +432,13 @@ class Filter(object):
     def zero_point_offset(self, value):
         self._zero_point_offset = utils.validate_float(value)
     
+    @property
+    def measurement_calibration(self):
+        return self._measurement_calibration
+    @measurement_calibration.setter
+    def measurement_calibration(self, value):
+        self._measurement_calibration = utils.validate_function(value)
+
     @property
     def ref_spectrum(self):
         return self._ref_spectrum

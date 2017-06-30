@@ -160,9 +160,16 @@ class Photometry(object):
                 print("WARNING no uncertainties given, assuming 10%")
                 etot = np.nan
 
+            # get calibrated measurement (if exists)
+            if not filter.iscolour(self.filters[i]):
+                filt = filter.Filter.get(self.filters[i])
+                cal_meas = filt.measflux2flux(self.measurement[i])
+            else:
+                cal_meas = self.measurement[i]
+
             # convert flux and uncertainty
             if self.unit[i] != 'mag':
-                fnu[i] = (self.measurement[i]*self.unit[i]).to('Jy').value
+                fnu[i] = (cal_meas*self.unit[i]).to('Jy').value
                 if np.isfinite(etot) and etot > 0.:
                     efnu[i] = (etot * self.unit[i]).to('Jy').value
                 else:
@@ -171,14 +178,14 @@ class Photometry(object):
                 # use zero point to convert
                 if not filter.iscolour(self.filters[i]):
                     filt = filter.Filter.get(self.filters[i])
-                    fnu[i] = filt.mag2flux(self.measurement[i])
+                    fnu[i] = filt.mag2flux(cal_meas)
                     if np.isfinite(etot) and etot > 0.:
                         efnu[i] = fnu[i] * etot / 1.09 # small uncertainties trick
                     else:
                         efnu[i] = 0.1 * fnu[i] # assume 10%
                 # leave colours/indices as is
                 else:
-                    fnu[i] = self.measurement[i]
+                    fnu[i] = cal_meas
                     if np.isfinite(etot) and etot > 0.:
                         efnu[i] = etot
                     else:

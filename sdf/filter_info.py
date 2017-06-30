@@ -431,6 +431,7 @@ filters['KSDENIS'] = {'svo_name': 'DENIS/DENIS.Ks',
 # is F_nu oc 1/nu^2. residuals from seds suggest small changes
 # in zero point offsets, perhaps because "Vega" is fainter than Vega
 # Patel+2014 find Ks-W1=0.031
+# empirically find W3 needs to go up a bit
 # 3.3% shift in W4 bandpass recommended by 2014PASA...31...49B
 filters['WISE3P4'] = {'svo_name': 'WISE/WISE.W1',
                       'response_type': 'energy',
@@ -444,7 +445,7 @@ filters['WISE4P6'] = {'svo_name': 'WISE/WISE.W2',
                       'ref_spectrum': lambda nu: 1.0/nu/nu}
 filters['WISE12'] = {'svo_name': 'WISE/WISE.W3',
                      'response_type': 'energy',
-                     'zero_point_offset': 0.0,
+                     'zero_point_offset': 0.05,
                      'ref_wavelength': 11.5608,
                      'ref_spectrum': lambda nu: 1.0/nu/nu}
 filters['WISE22'] = {'svo_name': 'WISE/WISE.W4',
@@ -464,6 +465,7 @@ filters['AKARI9'] = {'svo_name': 'AKARI/IRC.S9W',
 filters['AKARI18'] = {'svo_name': 'AKARI/IRC.L18W',
                       'response_type': 'energy',
                       'ref_wavelength': 18.0,
+                      'measurement_calibration': lambda x: 0.98*x,
                       'ref_spectrum': lambda nu: 1.0/nu}
 
 # Spitzer, IRAC/IRS PUI is photon counting, MIPS energy
