@@ -894,7 +894,7 @@ def calibration(sample='zpo_cal_',
                 +cfg.mysql['phot_table']+" USING (id) "
                 "LEFT JOIN "+cfg.mysql['db_samples']+'.'+sample+" ON id=sdbid "
                 "WHERE sdbid IS NOT NULL AND filter='"+f+"' "
-                "AND obs_upperlim=0 and chi != 0")
+                "AND obs_upperlim=0 and chi_star != 0")
         cursor.execute(stmt)
         for (name,sdbid,chi,R,par,cdof) in cursor.fetchall():
             data['name'].append(name)
@@ -928,7 +928,7 @@ def calibration(sample='zpo_cal_',
                             tools=tools+[hover,tap],active_scroll='wheel_zoom',
                             width=1100,height=200) )
 
-        center = (1 if std[0] > 0.0 else 0)
+        center = (0 if filter.iscolour(f) else 1)
         flux[-1].line(x=[ np.min(data['Teff']) , np.max(data['Teff']) ],
                     y=[center,center],**cfg.pl['guide_dash'])
         flux[-1].circle('Teff','R',source=pldata,name='pl',
