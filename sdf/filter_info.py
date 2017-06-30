@@ -430,17 +430,35 @@ filters['KSDENIS'] = {'svo_name': 'DENIS/DENIS.Ks',
 # WISE, RSRs already converted to energy, ref spectrum
 # is F_nu oc 1/nu^2. residuals from seds suggest small changes
 # in zero point offsets, perhaps because "Vega" is fainter than Vega
-# Patel+2014 find Ks-W1=0.031
+# Patel+2014 find Ks-W1=0.031, and give saturated calibrations for W1/2
 # empirically find W3 needs to go up a bit
 # 3.3% shift in W4 bandpass recommended by 2014PASA...31...49B
+def w1_cal_func(x):
+    """Calibration fit for W1 from Patel+2014."""
+    if x < 8.0:
+        return -0.1359+0.0396*x-0.0023*x**2
+    else:
+        return 0.0
+
+def w2_cal_func(x):
+    """Calibration fit for W2 from Patel+2014."""
+    if x < 5.3:
+        return 1.5777 - 0.3495 * x + 0.016 * x**2
+    elif 5.3 <= x < 6.7:
+        return -0.353 + 0.8826 * x - 0.238 * x**2 + 0.017 * x**3
+    else:
+        return 0.0
+
 filters['WISE3P4'] = {'svo_name': 'WISE/WISE.W1',
                       'response_type': 'energy',
                       'zero_point_offset': -0.015,
+                      'measurement_calibration': lambda x: x + w1_cal_func(x),
                       'ref_wavelength': 3.3526,
                       'ref_spectrum': lambda nu: 1.0/nu/nu}
 filters['WISE4P6'] = {'svo_name': 'WISE/WISE.W2',
                       'response_type': 'energy',
                       'zero_point_offset': 0.01,
+                      'measurement_calibration': lambda x: x + w2_cal_func(x),
                       'ref_wavelength': 4.6028,
                       'ref_spectrum': lambda nu: 1.0/nu/nu}
 filters['WISE12'] = {'svo_name': 'WISE/WISE.W3',
@@ -619,14 +637,16 @@ for i,filt in enumerate(['F560W','F770W','F1000W','F1280W','F1130W',
         'response': np.loadtxt(miri_file,delimiter=',',skiprows=2,usecols=i+1)
                           }
 
-# IRAS, RSRs,
+# IRAS, RSRs, calibrations empirical, and see Rieke+2008
 filters['IRAS12'] = {'svo_name': 'IRAS/IRAS.12mu',
                      'response_type': 'energy',
                      'ref_wavelength': 12.0,
+                     'measurement_calibration': lambda x: 0.976*x,
                      'ref_spectrum': lambda nu: 1.0/nu}
 filters['IRAS25'] = {'svo_name': 'IRAS/IRAS.25mu',
                      'response_type': 'energy',
                      'ref_wavelength': 25.0,
+                     'measurement_calibration': lambda x: 0.94*x,
                      'ref_spectrum': lambda nu: 1.0/nu}
 filters['IRAS60'] = {'svo_name': 'IRAS/IRAS.60mu',
                      'response_type': 'energy',
