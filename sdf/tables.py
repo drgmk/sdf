@@ -40,13 +40,30 @@ def sample_tables():
 
 
 def sample_table_www(cursor,sample,file='index.html',
-                     absolute_paths=True):
+                     absolute_paths=True,rel_loc=None):
     """Generate an HTML page with a sample table.
 
     Extract the necessary information from the database and create HTML
     pages with the desired tables, one for each sample. These are 
     generated using astropy's XMLWriter the jsviewer, which makes tables
     that are searchable and sortable.
+    
+    Parameters
+    ----------
+    cursor : mysql.connector.connect.cursor
+        Cursor used to execute database query
+    file : str, optional
+        File name of html table
+    absolute_paths : bool, optional
+        Use absolute paths to sdf files, set by cfg.www and structure
+        set by sdb_getphot.py. Otherwise files are in relative location
+        set by rel_loc keyword.
+    rel_loc : str, optional
+        Relative location of sdf files to the created table, used only
+        if absolute_paths is False. This string goes in the middle of an
+        sql CONCAT statement, so could have sql in it, in which case
+        double and single-quotes must be used
+        (e.g. "folder1/',sql_column,'/file.html")
     """
 
     wwwroot = cfg.www['site_root']
@@ -63,7 +80,10 @@ def sample_table_www(cursor,sample,file='index.html',
         url_str = wwwroot+"seds/masters/',sdbid,'/public"
         file = sample_root+sample+'/'+file
     else:
-        url_str = "',sdbid,'.html"
+        if rel_loc is None:
+            url_str = "',sdbid,'.html"
+        else:
+            url_str = rel_loc
 
     sel = ("SELECT "
            "CONCAT('<a target=\"_blank\" href=\""+url_str+"\">',"
