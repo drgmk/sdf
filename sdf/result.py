@@ -552,6 +552,18 @@ class Result(object):
             pickle.dump(self,f)
 
 
+    def load(file):
+        """Load a previously save result pickle."""
+
+        with open(file,'rb') as f:
+            r = pickle.load(f)
+
+        # reload the necessary models (that weren't saved)
+        r.models,r.pl_models = model.get_models(r.obs,r.model_comps)
+
+        return r
+
+
     def sed_thumbnail(self,file=None,update=False):
         """Generate a thumbnail of the SED."""
     
