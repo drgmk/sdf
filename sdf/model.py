@@ -707,21 +707,43 @@ class SpecModel(Model):
     @classmethod
     def modbb_disk_dr(cls,name='modbb_disk_dr',
                       wavelengths=cfg.models['default_wave'],
-                      t_in_min=2000.0,t_in_max=200.0,
-                      t_out_min=10.0,t_out_max=100.0,
+                      t_in_min=2000.0,t_in_max=200.0,n_t_in=20,
+                      t_out_min=10.0,t_out_max=100.0,n_t_out=10,
                       alpha=np.arange(-2,2,0.25),
                       beta=np.arange(0,3,0.5),
                       write=False,overwrite=False):
         """Generate a set of wide-disk modified blackbody spectra.
 
-        Parameters to fix...
+        The disk area is normalised so that the full area is one. Thus
+        very wide disks (those with cool outer edges) are much fainter
+        in terms of model flux than smaller ones. 
+
+        Parameters
         ----------
-        t_in : float, optional
-            Temperature at inner disk edge.
-        t_out : float, optional
-            Temperature at outer disk edge.
-        alpha : float, optional
-            Power law index for optical depth.
+        name : str, optional
+            Name of the model.
+        wavelengths : array, optional
+            Array of wavelengths for the model.
+        t_in_min : float, optional
+            Minimum inner edge temperature.
+        t_in_max : float, optional
+            Maximum inner edge temperature.
+        n_t_in : int, optional
+            Number of inner temperatures.
+        t_out_min : float, optional
+            Minimum outer edge temperature.
+        t_out_max : float, optional
+            Maximum inner edge temperature.
+        n_t_out : int, optional
+            Number of outer temperatures.
+        alpha : array, optional
+            Array of power law indices for optical depth.
+        beta : array, optional
+            Array of betas, lambda_0's fixed near blackbody peak.
+        write : bool, optional
+            Write the model to disk.
+        overwrite : bool, optional
+            Overwrite any existing model.
         """
             
         # don't do the calculation if there will be a write error
@@ -733,8 +755,6 @@ class SpecModel(Model):
         self = cls()
 
         # set up temperature arrays
-        n_t_in = 20
-        n_t_out = 10
         t_in = np.linspace(t_in_min,t_in_max,n_t_in)
         t_out = np.linspace(t_out_min,t_out_max,n_t_out)
 
@@ -751,10 +771,14 @@ class SpecModel(Model):
                     
                         tau_tot = 0.0
                         # generate temps and a range of pseudo radii
-                        t_edges = np.linspace(t1,t2,n_r+1,dtype=float)
+                        t_edges = 10**np.linspace(np.log10(t1),
+                                                  np.log10(t2),
+                                                  n_r+1, dtype=float)
                         temps = (t_edges[1:]+t_edges[:-1])/2.
-                        r = 280.0/temps**2
-                        dr = np.diff(1.0/t_edges**2)
+                        radius = lambda x: (278.3/x)**2
+                        r = radius(temps)
+                        r_edges = radius(t_edges)
+                        dr = np.diff(r_edges)
                         tau = r**a
                         
                         for x in range(n_r):
@@ -768,7 +792,7 @@ class SpecModel(Model):
                             spec = m.fnujy_sr * annulus_area
                             self.fnujy_sr[:,i,j,k,l] += spec
                             tau_tot += annulus_area
-                        
+
                         # normalise area for all models
                         self.fnujy_sr[:,i,j,k,l] /= tau_tot
 
