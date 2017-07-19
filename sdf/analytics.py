@@ -64,25 +64,28 @@ class BB_Disk(object):
 
 
     def f_limits(self,lim_waves,flux_limits=None,r_limits=None,
-                 stellar_flux=None):
+                 stellar_flux=None,fwhm=None):
         '''Return fractional luminosity limits.
             
         This routine implements Wyatt (2008) equations 8 and 11.
         
         Parameters
         ----------
-        lim_waves: numpy.ndarray
+        lim_waves : numpy.ndarray
             Array of wavelengths at which limits apply.
-        flux_limits: numpy.ndarray, optional
+        flux_limits : numpy.ndarray, optional
             Array of flux limits.
-        r_limits: numpy.ndarray, optional
+        r_limits : numpy.ndarray, optional
             Array of calibration limits (F_disk/F_star).
-        stellar_flux: numpy.ndarray, optional
+        stellar_flux : numpy.ndarray, optional
             Array of stellar fluxes at lim_waves.
-        
+        fwhm : numpy.ndarray, optional
+            Array of spatial resolutions at lim_waves, affects flux
+            limited observations if disk is resolved.
+
         One of flux_limits or r_limits must be given. If both, they must
         have the same length, and correspond to the wavelengths given.
-        Likewise for stellar_flux.
+        Likewise for stellar_flux and fwhm.
         '''
 
         if flux_limits is not None and r_limits is not None:
@@ -94,11 +97,19 @@ class BB_Disk(object):
         if flux_limits is not None:
             
             slims = np.zeros((len(self.temperatures),len(flux_limits)))
-            
+
             for i,temp in enumerate(self.temperatures):
+
                 slims[i,:] = 3.4e9 * flux_limits * self.distance**2 / \
                             self.blackbody_radii()[i]**2 / \
                             utils.bnu_wav_micron(lim_waves,temp)
+
+                # apply correction for resolved disks
+                if fwhm is not None:
+                    fwhm_fact = 2 * self.blackbody_radii()[i] / self.distance / fwhm
+                    resolved = fwhm_fact > 1.0
+                    slims[i,resolved] *= fwhm_fact[resolved]
+
         
         # calibration limit, use actual stellar flux if given
         if r_limits is not None:
