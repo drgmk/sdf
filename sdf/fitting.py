@@ -7,6 +7,8 @@ import numpy as np
 import pymultinest as pmn
 import emcee
 
+import classifier.photometry
+
 from . import model
 from . import photometry
 from . import spectrum
@@ -104,15 +106,29 @@ def fit_results(file,update_mn=False,update_an=False,
 
 def model_director(file):
     """Make a simple educated guess about which models to fit.
-        
+    
+    Use the machine learning classification from classifier.photometry,
+    doing wide disks for primordial types, fitting only one disk
+    component for star types, and two for kuiper types.
+
     Parameters
     ----------
     file : str
         Name of the photometry file we are fitting.
     """
 
-    # get some trees, t_star is the default
-    t_star = model_tree(ndisk_is_2=True)
+    # get estimated classification, return dr if primordial type
+    label = classifier.photometry.predict_phot(file)
+
+    if label in ['class i','class ii','transition']:
+        return model_tree(star='phoenix_m',disk='modbb_disk_dr')
+
+    elif label == 'star':
+        return model_tree(star='phoenix_m',disk='modbb_disk_r')
+
+    # only type left now is kuiper, for which we try two components
+    # unless a cool star
+    t_star = model_tree(star='phoenix_m',disk='modbb_disk_r',ndisk_is_2=True)
     t_cool = model_tree(star='phoenix_cool')
 
     kw = utils.get_sdb_keywords(file)
