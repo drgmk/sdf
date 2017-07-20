@@ -707,10 +707,10 @@ class SpecModel(Model):
     @classmethod
     def modbb_disk_dr(cls,name='modbb_disk_dr',
                       wavelengths=cfg.models['default_wave'],
-                      t_in_min=2000.0,t_in_max=200.0,n_t_in=20,
-                      t_out_min=10.0,t_out_max=100.0,n_t_out=10,
-                      alpha=np.arange(-2,2,0.25),
-                      beta=np.arange(0,3,0.5),
+                      t_in_min=200.0, t_in_max=2000.0, n_t_in=20,
+                      t_out_min=10.0, t_out_max=100.0, n_t_out=10,
+                      alpha=np.linspace(-2,2,17),
+                      beta=np.linspace(0,2,9),
                       write=False,overwrite=False):
         """Generate a set of wide-disk modified blackbody spectra.
 
@@ -755,8 +755,10 @@ class SpecModel(Model):
         self = cls()
 
         # set up temperature arrays
-        t_in = np.linspace(t_in_min,t_in_max,n_t_in)
-        t_out = np.linspace(t_out_min,t_out_max,n_t_out)
+        log_t_in = np.linspace(np.log10(t_in_min),np.log10(t_in_max),n_t_in)
+        t_in = 10**log_t_in
+        log_t_out = np.linspace(np.log10(t_out_min),np.log10(t_out_max),n_t_out)
+        t_out = 10**log_t_out
 
         self.fnujy_sr = np.zeros((len(wavelengths),
                                   n_t_in,n_t_out,len(alpha),
@@ -799,8 +801,8 @@ class SpecModel(Model):
         self.name = m.name
         self.wavelength = m.wavelength
         self.parameters = ['log_T_in','log_T_out','alpha','beta']
-        self.param_values = {'log_T_in':np.log10(t_in)}
-        self.param_values['log_T_out'] = np.log10(t_out)
+        self.param_values = {'log_T_in': log_t_in}
+        self.param_values['log_T_out'] = log_t_out
         self.param_values['alpha'] = alpha
         self.param_values['beta'] = beta
 
