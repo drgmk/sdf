@@ -7,7 +7,12 @@ import numpy as np
 import pymultinest as pmn
 import emcee
 
-import classifier.photometry
+# in case we don't have this module
+try:
+    import classifier.photometry
+    classifier_module = True
+except ModuleNotFoundError:
+    classifier_module = False
 
 from . import model
 from . import photometry
@@ -118,13 +123,15 @@ def model_director(file):
     """
 
     # get estimated classification, return dr if primordial type
-    label = classifier.photometry.predict_phot(file)
+    if classifier_module == True:
 
-    if label in ['class i','class ii','transition']:
-        return model_tree(star='phoenix_m',disk='modbb_disk_dr')
+        label = classifier.photometry.predict_phot(file)
 
-    elif label == 'star':
-        return model_tree(star='phoenix_m',disk='modbb_disk_r')
+        if label in ['class i','class ii','transition']:
+            return model_tree(star='phoenix_m',disk='modbb_disk_dr')
+
+        elif label == 'star':
+            return model_tree(star='phoenix_m',disk='modbb_disk_r')
 
     # only type left now is kuiper, for which we try two components
     # unless a cool star
