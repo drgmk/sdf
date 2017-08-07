@@ -570,6 +570,7 @@ def sample_plot(cursor,sample,absolute_paths=True):
     _,tr = colours_for_list(t['tdisk'],bokeh.palettes.plasma,log=True)
 
     t['col'] = col
+    n_unique = len(np.unique(t['sdbid']))
     data = ColumnDataSource(data=t)
 
     # set up hover/tap tools
@@ -582,7 +583,7 @@ def sample_plot(cursor,sample,absolute_paths=True):
     tools2 = ['wheel_zoom,box_zoom,box_select,save,reset',hover2,tap2]
 
     # hr diagram
-    hr = figure(title="HR diagram ("+str(ngot)+" of "+str(ntot)+")",
+    hr = figure(title="HR diagram ("+str(n_unique)+" of "+str(ntot)+")",
                 tools=tools1,active_scroll='wheel_zoom',
                 x_axis_label='Effective temperature / K',y_axis_label='Stellar luminosity / Solar',
                 y_axis_type="log",y_range=(0.5*min(t['lstar']),max(t['lstar'])*2),
