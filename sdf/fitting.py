@@ -10,6 +10,7 @@ import emcee
 # in case we don't have this module
 try:
     import classifier.photometry
+    import classifier.spectra
     classifier_module = True
 except ModuleNotFoundError:
     classifier_module = False
@@ -122,20 +123,27 @@ def model_director(file):
         Name of the photometry file we are fitting.
     """
 
-    # get estimated classification, return dr if primordial type
+    # default model tries star + up to two bb components
+    t_star = model_tree(star='phoenix_m',disk='modbb_disk_r',ndisk_is_2=True)
+
+    # get estimated classification, return dr if primordial type, or set
+    # default to one component if classified a star
     if classifier_module == True:
 
-        label = classifier.photometry.predict_phot(file)
+        phot_label = classifier.photometry.predict_phot(file)
+        spec_label = classifier.spectra.predict_spectra_rawphot(file)
+        print(' classifier: phot; {}, spectra; {}'.format(phot_label,spec_label))
 
-        if label in ['class i','class ii','transition']:
+        if (phot_label in ['class i','class ii','transition'] or
+                spec_label in ['class i','class ii','transition']):
             return model_tree(star='phoenix_m',disk='modbb_disk_dr')
 
-        elif label == 'star':
-            return model_tree(star='phoenix_m',disk='modbb_disk_r')
+        elif (phot_label == 'star' or
+                spec_label in ['star','be star']):
+            t_star = model_tree(star='phoenix_m',disk='modbb_disk_r')
 
     # only type left now is kuiper, for which we try two components
     # unless a cool star
-    t_star = model_tree(star='phoenix_m',disk='modbb_disk_r',ndisk_is_2=True)
     t_cool = model_tree(star='phoenix_cool')
 
     kw = utils.get_sdb_keywords(file)
