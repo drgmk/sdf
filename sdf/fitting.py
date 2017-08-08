@@ -12,7 +12,7 @@ try:
     import classifier.photometry
     import classifier.spectra
     classifier_module = True
-except ModuleNotFoundError:
+except ImportError:
     classifier_module = False
 
 from . import model
@@ -126,15 +126,16 @@ def model_director(file):
     # default model tries star + up to two bb components
     t_star = model_tree(star='phoenix_m',disk='modbb_disk_r',ndisk_is_2=True)
 
-    # get estimated classification, return dr if primordial type, or set
-    # default to one component if classified a star
+    # get estimated classification, return dr if primordial type for
+    # both photometry and spectra, or set default to one component if
+    # classified a star
     if classifier_module == True:
 
         phot_label = classifier.photometry.predict_phot(file)
         spec_label = classifier.spectra.predict_spectra_rawphot(file)
         print(' classifier: phot; {}, spectra; {}'.format(phot_label,spec_label))
 
-        if (phot_label in ['class i','class ii','transition'] or
+        if (phot_label in ['class i','class ii','transition'] and
                 spec_label in ['class i','class ii','transition']):
             return model_tree(star='phoenix_m',disk='modbb_disk_dr')
 
