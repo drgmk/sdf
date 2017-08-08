@@ -372,14 +372,34 @@ def add_res(fig,r):
     fig.circle('wave','res',source=pldata,name='resid',**cfg.pl['obs_ig_ph'])
 
 
-def hardcopy_sed(r,file='sed.pdf',xsize=8,ysize=6,dpi=100,
+def hardcopy_sed(r,file=None,fig=None,xsize=8,ysize=6,dpi=100,
                  axis_labels=True):
     """Make a hardcopy SED for a specific result object.
+
+    Parameters
+    ----------
+    r : sdf.result.Result object
+        Result object with details to be plotted.
+    file : str, optional
+        Name of file to write plot to.
+    fig : matplotlib.pyplot.Figure object
+        Overplot on this figure.
+    xsize : float, optional
+        X size of plot.
+    ysize : float, optional
+        Y size of plot.
+    dpi : int, optional
+        DPI of output figure.
+    axis_labels : bool, optional
+        Show axis labels or not.
 
     .. todo: this is very simple, needs work.
     """
 
-    fig,ax = plt.subplots(figsize=(xsize,ysize))
+    if fig is None:
+        fig,ax = plt.subplots(figsize=(xsize,ysize))
+    else:
+        ax = fig.axes[0]
 
     # model spectra
     for s in r.comp_spectra:
@@ -408,9 +428,12 @@ def hardcopy_sed(r,file='sed.pdf',xsize=8,ysize=6,dpi=100,
         ax.xaxis.set_ticklabels([])
         ax.yaxis.set_ticklabels([])
 
-    fig.tight_layout()
-    fig.savefig(file,dpi=dpi)
-    plt.close(fig)
+    if file is not None:
+        fig.tight_layout()
+        fig.savefig(file,dpi=dpi)
+        plt.close(fig)
+
+    return fig
 
 
 def sed_limits(results):

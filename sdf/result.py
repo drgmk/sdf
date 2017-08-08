@@ -574,7 +574,7 @@ class Result(object):
             if os.path.getmtime(file) > self.pickle_time:
                 return
 
-        plotting.hardcopy_sed(self,file,axis_labels=False,dpi=40)
+        plotting.hardcopy_sed(self,file=file,axis_labels=False,dpi=40)
 
 
     def write_json(self,update=False):
