@@ -554,9 +554,9 @@ def sample_plot(cursor,sample,absolute_paths=True):
 
     selall = ("SELECT sdbid,main_id,teff,e_teff,lstar,e_lstar,"
               " IFNULL(ldisk_lstar,-1) as ldisklstar,"
-              " e_ldisk_lstar as e_ldisklstar,"
+              " IFNULL(e_ldisk_lstar,-1) as e_ldisklstar,"
               " IFNULL(temp,-1) as tdisk,"
-              " e_temp as e_tdisk") + sel
+              " IFNULL(e_temp,-1) as e_tdisk") + sel
 
     # limit table sizes
     if sample != 'everything':
@@ -1059,8 +1059,10 @@ def filter_plot(file=cfg.file['www_root']+'filters.html'):
 
             pl[-1].line('wave','response',
                         line_color=cols[i],line_width=2,
-                        source=pldata,legend=fname)
+                        source=pldata,
+                        legend=fname,muted_alpha=0.2,)
 
+            pl[-1].legend.click_policy="mute"
             pl[-1].legend.label_text_font_size = '8pt'
 
     grid = gridplot(pl,ncols=1,sizing_mode='scale_width',
