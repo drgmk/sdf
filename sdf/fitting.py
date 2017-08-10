@@ -113,9 +113,10 @@ def fit_results(file,update_mn=False,update_an=False,
 def model_director(file):
     """Make a simple educated guess about which models to fit.
     
-    Use the machine learning classification from classifier.photometry,
-    doing wide disks for primordial types, fitting only one disk
-    component for star types, and two for kuiper types.
+    Use the machine learning classification from classifier.photometry
+    and classifier.spectra, doing wide disks for primordial types, 
+    fitting only one disk component for star types, and two for debris
+    types. Cool debris types only have one disk component fitted.
 
     Parameters
     ----------
@@ -126,6 +127,29 @@ def model_director(file):
     # default model tries star + up to two bb components
     t_star = model_tree(star='phoenix_m',disk='modbb_disk_r',ndisk_is_2=True)
 
+    # cool star model
+    t_cool = model_tree(star='phoenix_cool')
+
+    # look for spectral type, LTY types get cool models, other types
+    # default to star models, and M5-9 (or just M) get both
+    tree = t_star
+    cool = 0
+    kw = utils.get_sdb_keywords(file)
+    if 'sp_type' in kw.keys():
+        if kw['sp_type'][0] in 'LTY':
+            tree = t_cool
+            cool = 2
+        elif kw['sp_type'][0] == 'M':
+            if len(kw['sp_type']) > 1:
+                if kw['sp_type'][1] not in '56789':
+                    pass
+
+            cool = 1
+            tree = bt.Node('start')
+            tree.left = t_cool
+            tree.right = t_star
+
+
     # get estimated classification, return dr if primordial type for
     # both photometry and spectra, or set default to one component if
     # classified a star
@@ -135,38 +159,24 @@ def model_director(file):
         spec_label = classifier.spectra.predict_spectra_rawphot(file)
         print(' classifier: phot; {}, spectra; {}'.format(phot_label,spec_label))
 
-        if (phot_label in ['class i','class ii','transition'] and
-                spec_label in ['class i','class ii','transition']):
-            return model_tree(star='phoenix_m',disk='modbb_disk_dr')
+        if phot_label in ['class i','class ii','transition']:
+            if (spec_label in ['class i','class ii','transition'] or
+                    spec_label is None):
+                if cool == 1:
+                    tree = bt.Node('start')
+                    tree.left = model_tree(star='phoenix_cool',disk='modbb_disk_dr')
+                    tree.right = model_tree(star='phoenix_m',disk='modbb_disk_dr')
+                elif cool == 2:
+                    tree = model_tree(star='phoenix_cool',disk='modbb_disk_dr')
+                else:
+                    tree = model_tree(star='phoenix_m',disk='modbb_disk_dr')
 
         elif (phot_label == 'star' or
                 spec_label in ['star','be star']):
-            t_star = model_tree(star='phoenix_m',disk='modbb_disk_r')
+            if cool == 0:
+                tree = model_tree(star='phoenix_m',disk='modbb_disk_r')
 
-    # only type left now is kuiper, for which we try two components
-    # unless a cool star
-    t_cool = model_tree(star='phoenix_cool')
-
-    kw = utils.get_sdb_keywords(file)
-
-    # look for spectral type, LTY types get cool models, other types
-    # default to star models, and M5-9 (or just M) get both
-    if 'sp_type' in kw.keys():
-        if kw['sp_type'] is None:
-            return t_star
-        elif kw['sp_type'][0] in 'LTY':
-            return t_cool
-        elif kw['sp_type'][0] == 'M':
-            if len(kw['sp_type']) > 1:
-                if kw['sp_type'][1] not in '56789':
-                    return t_star
-
-            tree = bt.Node('start')
-            tree.left = t_cool
-            tree.right = t_star
-            return tree
-
-    return t_star
+    return tree
 
 
 def model_tree(star='phoenix_m',disk='modbb_disk_r',ndisk_is_2=False):
