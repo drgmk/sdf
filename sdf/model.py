@@ -96,7 +96,7 @@ class Model(object):
         self.n_i = len(self.i)
 
         # create the hashed version
-        self.fill_fnujy_sr_hashed()
+        self.fill_log_fnujy_sr_hashed()
         
         return self
 
@@ -152,10 +152,17 @@ class Model(object):
         hdulist.writeto(file, overwrite=overwrite)
     
 
-    def fill_fnujy_sr_hashed(self):
-        """Get a hashed copy of fnujy_sr."""
+    def fill_log_fnujy_sr_hashed(self):
+        """Get a hashed copy of log10 fnujy_sr."""
 
-        self.fnujy_sr_hashed = utils.hashable(self.fnujy_sr)
+        # log10 just the positive values
+        pos = self.fnujy_sr > 0.0
+        tmp = np.log10(self.fnujy_sr,where=pos)
+
+        # setting others to a small number
+        tmp[np.invert(pos)] = np.log10(cfg.tiny)
+
+        self.log_fnujy_sr_hashed = utils.hashable(tmp)
 
 
     @lru_cache(maxsize=8)
@@ -237,10 +244,11 @@ class Model(object):
 
         # interpolation, sped up by doing spline_filter first and
         # memoizing the result, order must be the same in both calls
-        # TODO: this method causes ringing in the interpolated spectra
-        ff = utils.spline_filter_mem(self.fnujy_sr_hashed,order=2)
+        ff = utils.spline_filter_mem(self.log_fnujy_sr_hashed,order=2)
         fluxes = map_coordinates(ff,pargrid.T,order=2,prefilter=False)
-        
+        # convert back to real fluxes
+        fluxes = 10**fluxes
+
         # hack to avoid negative fluxes arising from ringing
         fluxes[fluxes<cfg.tiny] = cfg.tiny
 
@@ -535,7 +543,7 @@ class PhotModel(Model):
         self.n_i = len(self.i)
 
         # and update the hashed version
-        self.fill_fnujy_sr_hashed()
+        self.fill_log_fnujy_sr_hashed()
             
 
 class SpecModel(Model):
@@ -855,7 +863,7 @@ class SpecModel(Model):
         self.n_i = len(self.i)
 
         # and update the hashed version
-        self.fill_fnujy_sr_hashed()
+        self.fill_log_fnujy_sr_hashed()
 
 
 def model_fluxes(m,param,obs_nel,phot_only=False):
