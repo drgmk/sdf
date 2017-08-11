@@ -136,7 +136,9 @@ def model_director(file):
     cool = 0
     kw = utils.get_sdb_keywords(file)
     if 'sp_type' in kw.keys():
-        if kw['sp_type'][0] in 'LTY':
+        if kw['sp_type'] is None:
+            pass
+        elif kw['sp_type'][0] in 'LTY':
             tree = t_cool
             cool = 2
         elif kw['sp_type'][0] == 'M':
