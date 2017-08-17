@@ -40,10 +40,10 @@ def sed_components(results,tab_order=None,
         List of Results.
     tab_order : list, optional
         Order in which the list of Results should appear in tabs.
-    main_extra_func : function, optional
+    main_extra_func : tuple of functions, optional
         Function that takes a figure instance, a list of results, and
         optionally arbitrary extra keywords. Adds to the main plot.
-    main_extra_kwargs : dict, optional
+    main_extra_kwargs : tuple of dicts, optional
         Dict of keywords to be passed to main_extra_func.
     res_extra_func : function, optional
         Function that takes a figure instance, a list of results, and
@@ -95,7 +95,8 @@ def sed_components(results,tab_order=None,
 
         # optional extra function to add other stuff
         if main_extra_func:
-            main_extra_func(sed[i],r,**main_extra_kwargs)
+            for func,kw in zip(main_extra_func,main_extra_kwargs):
+                func(sed[i],r,**kw)
 
         # residuals
         hover = HoverTool(names=['resid'],tooltips=[('band',"@filter"),

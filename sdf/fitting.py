@@ -56,9 +56,11 @@ def fit_results(file,update_mn=False,update_an=False,
         for m in cfg.fitting['models']:
 
             print("  ",m)
-            r = result.Result.get(file,m,update_mn=update_mn,
-                                  update_an=update_an,update_json=update_json,
-                                  update_thumb=update_thumb,nospec=nospec)
+            r = result.Result.get(
+                            file,m,update_mn=update_mn,
+                            update_an=update_an,update_json=update_json,
+                            update_thumb=update_thumb,nospec=nospec
+                                           )
 
             # check for files with no photometry
             if not hasattr(r,'obs'):
@@ -75,12 +77,16 @@ def fit_results(file,update_mn=False,update_an=False,
 
             print("  ",t.left.value,"vs.",t.right.value)
 
-            r1 = result.Result.get(file,t.left.value,update_mn=update_mn,
-                                   update_an=update_an,update_json=update_json,
-                                   update_thumb=update_thumb,nospec=nospec)
-            r2 = result.Result.get(file,t.right.value,update_mn=update_mn,
-                                   update_an=update_an,update_json=update_json,
-                                   update_thumb=update_thumb,nospec=nospec)
+            r1 = result.Result.get(
+                        file,t.left.value,update_mn=update_mn,
+                        update_an=update_an,update_json=update_json,
+                        update_thumb=update_thumb,nospec=nospec
+                                            )
+            r2 = result.Result.get(
+                        file,t.right.value,update_mn=update_mn,
+                        update_an=update_an,update_json=update_json,
+                        update_thumb=update_thumb,nospec=nospec
+                                            )
 
             # check for files with no photometry
             if not hasattr(r1,'obs'):
@@ -317,7 +323,7 @@ def residual(param,*args):
 def residual_phot(param,*args):
     """Return residuals for a model compared to observation.
     
-    This is an unused version for only photometry.
+    This is a version for only photometry.
     """
 
     p,m = args # photometry and model

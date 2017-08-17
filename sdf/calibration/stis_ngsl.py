@@ -20,6 +20,7 @@ from .. import filter
 from .. import fitting
 from .. import plotting
 from .. import tables
+from .. import result
 from .. import config as cfg
 
 
@@ -48,6 +49,26 @@ def add_obs_spec_fits(fig,r,fits=None):
                            equivalencies=u.spectral_density(wave*u.micron))
 
     fig.line(wave,flux,legend='ngsl',**cfg.pl['mod_sp'][-1])
+
+
+def add_fixed_model(fig,r,model,parameters=None):
+    """Add a model with specific parameters.
+
+    Parameters
+    ----------
+    fig : bokeh.plotting.figure
+        Figure in which to plot.
+    r : sdf.result.Result
+        A result object, used for info.
+    model : tuple
+        Model to plot.
+    parameters : list
+        Model paramters.
+    """
+
+    if parameters is not None:
+        rf = result.FixedResult(r.rawphot,model,parameters)
+        plotting.add_model_spec(fig,rf)
 
 
 def add_filters(fig,r):
@@ -121,23 +142,39 @@ def generate_cal_seds(out_dir=cfg.file['www_root']+'calibration/stis_ngsl/',
         return
 
     # get the ids and spectra names
-    cursor.execute("SELECT sdbid,spec_file FROM stis_ngsl_ "
-                   "WHERE sdbid IS NOT NULL")
+    cursor.execute("SELECT sdbid,spec_file,IFNULL(Teff,0),logg,logz "
+                   "FROM stis_ngsl_ WHERE sdbid IS NOT NULL")
 
-    for (sdbid,fits_name) in cursor:
+    for (sdbid,fits_name,teff,logg,logz) in cursor:
 
         print("{}".format(sdbid))
 
         results = fitting.fit_results(utils.rawphot_path(sdbid))
 
         print(" Plotting")
+        
+        # parameters for fixed model, assume the first result has a
+        # star in it
+        par = None
+        if teff > 0:
+            i0 = 0
+            for i,comp in enumerate(results[0].model_comps):
+                nparam = len(results[0].model_info['parameters'][i])
+                if comp == 'phoenix_m':
+                    par = [teff,logg,logz,results[0].best_params[i0+nparam-1]]
+                i0 += nparam
 
         fits = cfg.file['spectra']+'stis_ngsl/'+fits_name
-        script, div = plotting.sed_components(results,
-                                              main_extra_func=add_obs_spec_fits,
-                                              main_extra_kwargs={'fits':fits},
-                                              res_extra_func=add_filters,
-                                              model_spec_kwargs={'plot_wave':None})
+        script, div = plotting.sed_components(
+                  results,
+                  main_extra_func=(add_obs_spec_fits,
+                                   add_fixed_model),
+                  main_extra_kwargs=({'fits':fits},
+                                     {'model':('phoenix_m',),
+                                     'parameters':par}),
+                  res_extra_func=add_filters,
+                  model_spec_kwargs={'plot_wave':None}
+                                              )
 
         env = jinja2.Environment(autoescape=False,
              loader=jinja2.PackageLoader('sdf',package_path='www/templates'))
