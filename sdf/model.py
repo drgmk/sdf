@@ -911,10 +911,10 @@ def model_fluxes(m,param,obs_nel,phot_only=False):
     return mod_fnu,comp_fnu_col
 
 
-def crop(self,param,range):
+def crop(model,param,range):
     """Crop a model to ranges specificed by supplied dict."""
 
-    out = self.copy()
+    out = model.copy()
     
     if param not in out.parameters:
         raise utils.SdfError("parameter {} not in model (has {})".
@@ -938,20 +938,20 @@ def crop(self,param,range):
     return out
 
 
-def append_parameter(self,name,value):
+def append_parameter(model,name,value):
     """Append a single parameter to a model.
         
     Purpose is to prepare a model for addition models via concat.
     
     """
-    out = self.copy()
+    out = model.copy()
     out.parameters = np.append(out.parameters,name)
     out.param_values[name] = np.array([value])
     out.fnujy_sr = np.reshape(out.fnujy_sr,out.fnujy_sr.shape+(1,))
     return out
 
 
-def concat(self,m):
+def concat(model,m):
     """Add a model to the one we have.
         
     So far can only add models when both have the same sets of
@@ -960,7 +960,7 @@ def concat(self,m):
         
     """
 
-    out = self.copy()
+    out = model.copy()
 
     # check types, parameters, wavelengths, filters are the same, allow
     # for small differences in wavelengths, which can apparently occur
