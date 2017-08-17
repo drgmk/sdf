@@ -657,6 +657,9 @@ class ModelSpectrum(Spectrum):
         Comparing the results with Kurucz models shows this is correct.
 
         .. todo:: Can read go faster? BT-Settl files are epic
+        
+        .. todo:: Add fix for wavelengths in air (not vacuum), see 
+                  http://osubdd.ens-lyon.fr/phoenix/doc/spectra.html
         """
 
         self = cls()
