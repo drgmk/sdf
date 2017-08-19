@@ -62,8 +62,8 @@ def add_fixed_model(fig,r,model,parameters=None):
         A result object, used for info.
     model : tuple
         Model to plot.
-    parameters : list
-        Model paramters.
+    parameters : tuple of lists
+        Model paramters, excluding normalisations.
     """
 
     if parameters is not None:
@@ -142,8 +142,8 @@ def generate_cal_seds(out_dir=cfg.file['www_root']+'calibration/stis_ngsl/',
         return
 
     # get the ids and spectra names
-    cursor.execute("SELECT sdbid,spec_file,IFNULL(Teff,0),logg,logz "
-                   "FROM stis_ngsl_ WHERE sdbid IS NOT NULL")
+    cursor.execute("SELECT sdbid,spec_file,IFNULL(stis_Teff,0), "
+                   "stis_logg,stis_logz FROM stis_ngsl_ WHERE sdbid IS NOT NULL")
 
     for (sdbid,fits_name,teff,logg,logz) in cursor:
 
@@ -153,28 +153,38 @@ def generate_cal_seds(out_dir=cfg.file['www_root']+'calibration/stis_ngsl/',
 
         print(" Plotting")
         
-        # parameters for fixed model, assume the first result has a
-        # star in it
-        par = None
+        # parameters for fixed model
         if teff > 0:
-            i0 = 0
-            for i,comp in enumerate(results[0].model_comps):
-                nparam = len(results[0].model_info['parameters'][i])
-                if comp == 'phoenix_m':
-                    par = [teff,logg,logz,results[0].best_params[i0+nparam-1]]
-                i0 += nparam
+            mod = ('phoenix_m',)
+            par = ([teff,logg,logz],)
+            rf = result.FixedResult(results[0].rawphot,mod,par)
+        else:
+            par = None
+
+        print(par)
 
         fits = cfg.file['spectra']+'stis_ngsl/'+fits_name
+
+        # plot both best-fit and 'true' parameter models
         script, div = plotting.sed_components(
-                  results,
-                  main_extra_func=(add_obs_spec_fits,
-                                   add_fixed_model),
-                  main_extra_kwargs=({'fits':fits},
-                                     {'model':('phoenix_m',),
-                                     'parameters':par}),
-                  res_extra_func=add_filters,
-                  model_spec_kwargs={'plot_wave':None}
+                      results,
+                      main_extra_func=(add_obs_spec_fits,
+                                       add_fixed_model),
+                      main_extra_kwargs=({'fits':fits},
+                                         {'model':mod,
+                                         'parameters':par}),
+                      res_extra_func=add_filters,
+                      model_spec_kwargs={'plot_wave':None}
                                               )
+
+        # plot only the model with the 'true' parameters
+#        script, div = plotting.sed_components(
+#                        [rf],
+#                        main_extra_func=(add_obs_spec_fits,),
+#                        main_extra_kwargs=({'fits':fits},),
+#                        res_extra_func=add_filters,
+#                        model_spec_kwargs={'plot_wave':None}
+#                                              )
 
         env = jinja2.Environment(autoescape=False,
              loader=jinja2.PackageLoader('sdf',package_path='www/templates'))
