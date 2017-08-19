@@ -83,7 +83,7 @@ def validate_1d(value,expected_len,dtype=float):
     elif isinstance(value, np.ndarray) and value.ndim == 1:
         if expected_len is not None:
             if len(value) != expected_len:
-                raise utils.SdfError("incorrect length (expected {0} but found {1})".format(expected_len, len(value)))
+                raise SdfError("incorrect length (expected {0} but found {1})".format(expected_len, len(value)))
         if value.dtype != dtype:
                 value = np.array(value,dtype=dtype)
     else:
@@ -98,7 +98,7 @@ def validate_nd(value,expected_dim,dtype=float):
     elif isinstance(value, np.ndarray):
         if expected_dim is not None:
             if value.ndim != expected_dim:
-                raise utils.SdfError("incorrect dimension (expected {0} but found {1})".format(expected_dim, value.ndim))
+                raise SdfError("incorrect dimension (expected {0} but found {1})".format(expected_dim, value.ndim))
         if value.dtype != dtype:
             value = np.array(value,dtype=dtype)
     else:
