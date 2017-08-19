@@ -7,6 +7,7 @@ import json
 
 import numpy as np
 from scipy.stats import truncnorm
+from scipy.optimize import minimize
 import pymultinest as pmn
 import matplotlib.pyplot as plt
 import corner
@@ -67,7 +68,7 @@ class BaseResult(object):
         
         # the base name for multinest files
         self.pmn_base = self.pmn_dir + '/'                  \
-                        + '+'.join(self.model_comps)        \
+                        + cfg.fitting['model_join'].join(self.model_comps) \
                         + cfg.fitting['pmn_model_suffix']
 
         # plot names, pickle, and json, files may not exist yet
@@ -337,25 +338,62 @@ class FixedResult(BaseResult):
 
     def __init__(self,rawphot,model_comps,parameters,
                  nospec=False):
-        """Fill the object everything at initialisation."""
+        """Do everything at initialisation.
+        
+        Parameters
+        ----------
+        rawphot : string
+            Name of rawphot file.
+        model_comps : tuple of strings
+            Models to use.
+        parameters : tuple of lists
+            Parameters for each model component, excluding normalisation.
+        nospec : bool, optional
+            Exclude spectra from fitting.
+        """
         
         self.file_info(rawphot,model_comps)
         self.fill_data_models(nospec=nospec)
         
-        # fill model parameters
-        self.best_params = parameters
-        self.comp_best_params = ()
-        i0 = 0
-        for comp in self.models:
-            nparam = len(comp[0].parameters)+1
-            self.comp_best_params += (self.best_params[i0:i0+nparam],)
-            i0 += nparam
+        # reorganise models for zero dimensions
+        mod = ()
+        for mod1,param in zip(self.models,parameters):
+            mod_tmp = ()
+            for mod_comp in mod1:
+                mod_tmp += (model.reduce_zerod(mod_comp,param),)
+            mod += (mod_tmp,)
 
+        pl_mod = ()
+        for pl1,param in zip(self.pl_models,parameters):
+            pl_tmp = ()
+            for pl_comp in pl1:
+                pl_tmp += (model.reduce_zerod(pl_comp,param),)
+            pl_mod += (pl_tmp,)
+
+        self.models = mod
+        self.pl_models = pl_mod
+        self.model_info = model.models_info(self.models)
+
+        # find best fit normalisation
+        res = minimize(fitting.chisq,
+                       np.ones(self.model_info['ndim']),
+                       args=(self.obs,self.models))
+        
+        # fill model parameters
+        self.parameters = self.model_info['parameters']
+        self.best_params = res['x']
+        self.comp_best_params = ()
+        for param in self.best_params:
+            self.comp_best_params += ([param],)
+
+        # fill with post-processing steps
         obs_nel = self.fill_observations()
     
         # get model fluxes and spectra
         self.model_fnujy,model_comp_fnujy = \
-            model.model_fluxes(self.models,parameters,obs_nel)
+            model.model_fluxes(self.models,self.best_params,obs_nel)
+        self.residuals,_,_ = fitting.residual(self.best_params,
+                                              self.obs,self.models)
         self.fill_best_fit_spectra()
 
 
