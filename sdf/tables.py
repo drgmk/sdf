@@ -1,6 +1,7 @@
 """Generate www tables."""
 
 import io
+import ast
 from datetime import datetime
 from os.path import isdir,isfile,basename
 from os import mkdir,remove,write,rmdir
@@ -15,6 +16,7 @@ import bokeh.resources
 
 from . import db
 from . import www
+from . import utils
 from . import config as cfg
 
 
@@ -96,7 +98,7 @@ def sample_table_www(cursor,sample,file='index.html',
            "ROUND(raj2000/15.,1) as `RA/h`,"
            "ROUND(dej2000,1) as `Dec`,"
            "sp_type as SpType,"
-           "ROUND(teff,0) as Teff,"
+           "ROUND(sdb_results.star.teff,0) as Teff,"
            "ROUND(log10(lstar),2) as `LogL*`,"
            "ROUND(1/COALESCE(star.plx_arcsec),1) AS Dist,"
            "ROUND(log10(SUM(ldisk_lstar)),1) as Log_f,"
@@ -188,8 +190,9 @@ def sample_table_votable(cursor,sample):
                 "LEFT JOIN sdb_pm USING (sdbid)")
         
     sel += (" LEFT JOIN simbad USING (sdbid)"
-            " LEFT JOIN sdb_results.star on sdbid=star.id"
-            " LEFT JOIN sdb_results.disk_r using (id)"
+            " LEFT JOIN sdb_results.star ON sdbid=star.id"
+            " LEFT JOIN sdb_results.disk_r USING (id)"
+            " LEFT JOIN sdb_results.model USING (id)"
             " WHERE sdb_pm.sdbid IS NOT NULL"
             " ORDER by raj2000")
     # limit table sizes
@@ -199,6 +202,35 @@ def sample_table_votable(cursor,sample):
     cursor.execute(sel)
     rows = cursor.fetchall()
     tsamp = Table(rows=rows,names=cursor.column_names)
+
+    # add some url columns with links
+    tsamp['url'] = np.core.defchararray.add(
+                     np.core.defchararray.add(
+        np.repeat(cfg.www['site_url']+'seds/masters/',len(tsamp)),tsamp['sdbid']
+                                              ),
+                        np.repeat('/public/',len(tsamp))
+                                             )
+    # to photometry file
+    tsamp['phot_url'] = np.core.defchararray.add(
+                         np.core.defchararray.add(
+                            tsamp['url'],tsamp['sdbid']
+                                                  ),
+                    np.repeat('-rawphot.txt',len(tsamp))
+                                                 )
+    # to best fit model json
+    tsamp['model_url'] = np.empty(len(tsamp),dtype='U150')
+    for i,comps in enumerate(tsamp['model_comps']):
+        if comps is not None:
+            try:
+                tsamp['model_url'][i] = (
+                     cfg.www['site_url'] + 'seds/masters/' +
+                     tsamp['sdbid'][i] + '/public/' +
+                     tsamp['sdbid'][i] + cfg.fitting['pmn_dir_suffix'] + '/' +
+                     cfg.fitting['model_join'].join(ast.literal_eval(comps)) +
+                     cfg.fitting['pmn_model_suffix'] + '.json'
+                                         )
+            except ValueError:
+                raise utils.SdfError("{}".format(comps))
 
     print("    got ",len(tsamp)," rows for votable")
 
