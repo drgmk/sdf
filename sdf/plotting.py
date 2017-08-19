@@ -67,7 +67,11 @@ def sed_components(results,tab_order=None,
     tabs = []
     for i,r in enumerate(results):
 
-        title = "Evidence: {:.2f} | ".format(r.evidence)
+        if hasattr(r,'evidence'):
+            title = "Evidence: {:.2f} | ".format(r.evidence)
+        else:
+            title = ''
+
         for j,par in enumerate(r.parameters):
             if 'norm' not in par:
                 title += "{}:{:.1f}, ".format(par,r.best_params[j])
