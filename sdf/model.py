@@ -911,10 +911,10 @@ def model_fluxes(m,param,obs_nel,phot_only=False):
     return mod_fnu,comp_fnu_col
 
 
-def crop(model,param,range):
-    """Crop a model to ranges specificed by supplied dict."""
+def crop(m,param,range):
+    """Crop a model to ranges specified for a parameter."""
 
-    out = model.copy()
+    out = m.copy()
     
     if param not in out.parameters:
         raise utils.SdfError("parameter {} not in model (has {})".
@@ -938,20 +938,44 @@ def crop(model,param,range):
     return out
 
 
-def append_parameter(model,name,value):
+def reduce_zerod(m,parameters):
+    """Reduce a model to zero dimensions (i.e. a spectrum).
+        
+    Parameters
+    ----------
+    model : model object
+        The model to reduce.
+    parameters : list
+        Parameter values, excluding the last (normalisation) parameter.
+    """
+
+    out = m.copy()
+
+    # modify the attributes
+    out.parameters = []
+    out.param_values = {}
+
+    # get the new spectrum and update the hashed version
+    out.fnujy_sr = m.fnujy(np.append(parameters,-np.log10(cfg.ssr)))
+    out.fill_log_fnujy_sr_hashed()
+    
+    return out
+
+
+def append_parameter(m,name,value):
     """Append a single parameter to a model.
         
     Purpose is to prepare a model for addition models via concat.
     
     """
-    out = model.copy()
+    out = m.copy()
     out.parameters = np.append(out.parameters,name)
     out.param_values[name] = np.array([value])
     out.fnujy_sr = np.reshape(out.fnujy_sr,out.fnujy_sr.shape+(1,))
     return out
 
 
-def concat(model,m):
+def concat(m0,m):
     """Add a model to the one we have.
         
     So far can only add models when both have the same sets of
@@ -960,7 +984,7 @@ def concat(model,m):
         
     """
 
-    out = model.copy()
+    out = m0.copy()
 
     # check types, parameters, wavelengths, filters are the same, allow
     # for small differences in wavelengths, which can apparently occur
