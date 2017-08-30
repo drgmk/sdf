@@ -155,12 +155,11 @@ class Model(object):
     def fill_log_fnujy_sr_hashed(self):
         """Get a hashed copy of log10 fnujy_sr."""
 
-        # log10 just the positive values
+        # log10 just the positive values, others have tiny value
+        # using the out keyword avoids a bug in numpy 1.13.0
         pos = self.fnujy_sr > 0.0
-        tmp = np.log10(self.fnujy_sr,where=pos)
-
-        # setting others to a small number
-        tmp[np.invert(pos)] = np.log10(cfg.tiny)
+        tmp = np.log10(self.fnujy_sr,where=pos,
+                       out=np.zeros(self.fnujy_sr.shape)+np.log10(cfg.tiny))
 
         self.log_fnujy_sr_hashed = utils.hashable(tmp)
 
