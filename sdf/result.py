@@ -229,6 +229,7 @@ class BaseResult(object):
 
         # some info
         r['id'] = self.id
+        r['write_time'] = time.time()
         r['model_comps'] = self.model_comps
         r['main_results'] = self.main_results
         r['parameters'] = self.parameters
@@ -237,6 +238,7 @@ class BaseResult(object):
         r['chisq'] = self.chisq
 
         # observed photometry
+        r['phot_band'] = []
         r['phot_wavelength'] = []
         r['phot_fnujy'] = []
         r['phot_e_fnujy'] = []
@@ -245,11 +247,28 @@ class BaseResult(object):
         for p in self.obs:
             if not isinstance(p,photometry.Photometry):
                 continue
+            r['phot_band'].append(p.filters.tolist())
             r['phot_wavelength'].append(p.mean_wavelength().tolist())
             r['phot_fnujy'].append(p.fnujy.tolist())
             r['phot_e_fnujy'].append(p.e_fnujy.tolist())
             r['phot_upperlim'].append(p.upperlim.tolist())
             r['phot_ignore'].append(p.ignore.tolist())
+
+        # model photometry at observed wavelengths
+        # first select filters and colours (spectra have None for filter)
+        filt = np.array([isinstance(f,(str,np.str_)) for f in self.filters])
+
+        # per-component fluxes and errors
+        r['model_comp_fnujy'] = self.model_comp_fnujy[:,filt].tolist()
+        avg_err = ( self.model_comp_fnujy_1sig_lo[:,filt] +
+                    self.model_comp_fnujy_1sig_hi[:,filt]  ) / 2.0
+        r['model_comp_fnujy_1sig'] = avg_err.tolist()
+
+        # full models
+        r['model_total_fnujy'] = self.model_fnujy[filt].tolist()
+        avg_err = ( self.model_fnujy_1sig_lo[filt] +
+                    self.model_fnujy_1sig_hi[filt]  ) / 2.0
+        r['model_total_fnujy_1sig'] = avg_err.tolist()
 
         # observed spectra
         ispec = -1
@@ -938,6 +957,9 @@ class Result(SampledResult):
             fig = corner.corner(samples.transpose(),labels=labels)
             fig.savefig(self.distributions_plot)
             plt.close(fig)
+
+        # best fit spectra
+        self.fill_best_fit_spectra()
 
         # set analysis finish time
         self.analysis_time = time.time()
