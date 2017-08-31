@@ -646,7 +646,7 @@ class Result(SampledResult):
             if not update_an and not update_mn and \
                     self.exclude_spectra == nospec and \
                     self.mn_time > cfg.fitting['mn_oldest'] and \
-                    self.mn_a_time > cfg.fitting['an_oldest'] and \
+                    self.analysis_time > cfg.fitting['an_oldest'] and \
                     self.pickle_time > self.analysis_time > self.mn_a_time > \
                     self.mn_time > self.rawphot_time:
 
@@ -806,6 +806,8 @@ class Result(SampledResult):
         run_an = update_an
         if hasattr(self,'analysis_time'):
             if self.mn_a_time > self.analysis_time:
+                run_an = True
+            if cfg.fitting['an_oldest'] > self.analysis_time:
                 run_an = True
         else:
             run_an = True
