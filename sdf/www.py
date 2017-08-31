@@ -133,7 +133,7 @@ def cleanup_sample_dirs():
             fs += glob.glob(d+'/.*')
             print("  {} removed (and files {})".format(d,fs))
             [os.remove(f) for f in fs]
-            rmdir(d)
+            os.rmdir(d)
         else:
             print("  {} ok".format(d))
 
