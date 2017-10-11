@@ -116,7 +116,7 @@ def fit_results(file,update_mn=False,update_an=False,
     return results
 
 
-def model_director(file):
+def model_director(file,use_classifier=False):
     """Make a simple educated guess about which models to fit.
     
     Use the machine learning classification from classifier.photometry
@@ -161,7 +161,7 @@ def model_director(file):
     # get estimated classification, return dr if primordial type for
     # both photometry and spectra, or set default to one component if
     # classified a star
-    if classifier_module == True:
+    if use_classifier and classifier_module:
 
         phot_label = classifier.photometry.predict_phot(file)
         spec_label = classifier.spectra.predict_spectra_rawphot(file)
