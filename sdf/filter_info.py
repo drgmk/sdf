@@ -195,7 +195,6 @@ Herschel/SPIRE
   Filters from SVO in energy units. Use fluxes as published or in GMK's
   personal catalogue, assume calibration uncertainty much smaller than
   photometric uncertainty.
-  .. todo:: use HSA SPIRE catalogue.
 
 """
 
@@ -216,7 +215,8 @@ extras = ['BS_YS','STROMM1','STROMC1',
           'UJ_BJ','BJ_VJ','VJ_IC','VJ_RC','RC_IC',
           'WAV350','WAV450','WAV610',
           'WAV800','WAV850','WAV870','WAV880',
-          'WAV1100','WAV1200','WAV1240','WAV1250','WAV1300','WAV1350',
+          'WAV1100','WAV1200','WAV1240','WAV1250',
+          'WAV1300','WAV1330','WAV1350',
           'WAV2000','WAV2700',
           'WAV3000','WAV3190','WAV3300',
           'WAV6800',
