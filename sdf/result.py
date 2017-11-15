@@ -708,9 +708,15 @@ class Result(SampledResult):
             else:
                 run_mn = True
 
+        # check the number of live points in the previous run
+        npt = 0
+        if os.path.exists(self.pmn_base+'phys_live.points'):
+            with open(self.pmn_base+'phys_live.points') as f:
+                for l in f: npt += 1
+
         # multinest does checkpointing, so we can force a re-run by
         # deleting the files
-        if run_mn:
+        if run_mn or npt != cfg.fitting['n_live']:
             self.delete_multinest()
         
         # we must go there, multinest only takes 100 char paths
