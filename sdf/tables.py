@@ -136,7 +136,7 @@ def sample_table_www(cursor,sample,file='index.html',
         tsamp.add_row(row)
 
     for n in tsamp.colnames:
-        none = np.where(tsamp[n] == b'None')
+        none = np.where(tsamp[n] == 'None')
         tsamp[n][none] = '-'
 
     print("    got ",len(tsamp)," rows for html table")
