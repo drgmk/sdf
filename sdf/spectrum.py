@@ -491,7 +491,7 @@ class ObsSpectrum(Spectrum):
         self.wavelength = t['WAVELENGTH'].to(u.micron).value
         self.nu_hz = c_micron / self.wavelength
         self.fnujy = t['FLUX'].to(u.jansky,equivalencies=           \
-                                  u.spectral_density(t['WAVELENGTH'])).value
+                                  u.spectral_density(self.wavelength*u.micron)).value
 
         neg = self.fnujy <= 0.0
         self.fnujy[neg] = cfg.tiny

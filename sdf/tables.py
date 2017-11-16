@@ -155,10 +155,10 @@ def sample_table_www(cursor,sample,file='index.html',
                 with w.tag('tr'):
                     for j,txt in enumerate(tsamp[i]):
                         if j == 0:
-                            w.element('td',text=txt.decode(),
+                            w.element('td',text=txt,
                                       attrib={'class':'td_img_hover'})
                         else:
-                            w.element('td',text=txt.decode())
+                            w.element('td',text=txt)
 
     # write the table out to html
     env = jinja2.Environment(autoescape=False,
