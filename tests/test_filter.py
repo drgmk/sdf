@@ -131,10 +131,11 @@ def test_iscolour():
 
 def test_colour_get():
     fs = sdf.filter.Filter.all
-    for f1 in fs:
+    ntry = 10
+    for f1 in [fs[i] for i in np.random.randint(len(fs),size=ntry)]:
         if sdf.filter.iscolour(f1):
             continue
-        for f2 in fs:
+        for f2 in [fs[i] for i in np.random.randint(len(fs),size=ntry)]:
             if sdf.filter.iscolour(f2):
                 continue
             name = f1+'_'+f2
