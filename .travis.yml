@@ -11,8 +11,8 @@ addons:
       - ubuntu-toolchain-r-test
     packages:
       - gfortran-6
-      - libblas
-      - liblapack
+      - libblas-dev
+      - liblapack-dev
 
 # command to install dependencies, numpy/scipy binaries
 # are quicker and avoid lapack issues
