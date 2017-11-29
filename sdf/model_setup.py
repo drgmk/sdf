@@ -28,6 +28,7 @@ from multiprocessing import Pool
 from scipy.io import readsav
 import numpy as np
 import astropy.units as u
+import extinction as ext
 
 from . import convolve
 from . import model
@@ -372,6 +373,30 @@ def phoenix_mh_spectra(resolution=100,mh=0.0,overwrite=False,
     s.write_model(name,overwrite=overwrite)
 
     return s
+
+
+def phoenix_reddened_spectra(name='phoenix_m',overwrite=True):
+    """Generate a SpecModel of phoenix spectra, with reddening."""
+
+    m = model.SpecModel.read_model(name)
+    m0 = model.append_parameter(m,'A_V',0.0)
+
+    for av in [0.3,0.6,0.9,1.2,1.5,1.8,2.1,2.4,2.7,3.0]:
+
+        mx = m.copy()
+        mx = model.append_parameter(m,'A_V',av)
+
+        red = ext.apply(ext.odonnell94(m.wavelength*1e4,av,3.1),1)
+
+        dim_array = np.ones((1,mx.fnujy_sr.ndim),int).ravel()
+        dim_array[0] = -1
+        red_reshaped = red.reshape(dim_array)
+        
+        mx.fnujy_sr *= red_reshaped
+        
+        m0 = model.concat(m0,mx)
+
+    m0.write_model(name+'_av',overwrite=overwrite)
 
 
 def phoenix_cool_spectra(resolution=100,overwrite=False,
