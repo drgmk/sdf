@@ -45,22 +45,28 @@
             <tr>
                 {% if phot_file %}
                 <td>
+                    Figs:
+                    <a href="./" title="sed">sed</a>
+                    |
+                    <a href="f_limits.html" title="f limits">limits</a>
+                </td>
+                <td>
                     I/O:
                     <a href="{{ phot_file }}" title="Input photometry file">data</a>
                     |
                     <a href="{{ json_file }}" title="Best-fit results in json format">model</a>
                 </td>
                 <td>
-                    Posteriors:
-                    <a href="{{ par_dist }}" title="Fitting posteriors" target="_blank">fitting</a>
+                    Post:
+                    <a href="{{ par_dist }}" title="Fitting posteriors" target="_blank">fit</a>
                     |
-                    <a href="{{ derived_dist }}" title="Derived parameters" target="_blank">derived</a>
+                    <a href="{{ derived_dist }}" title="Derived parameters" target="_blank">extra</a>
                 </td>
                 {% endif %}
                 
                 <td>
                     
-                    External:
+                    Ext:
                     <a href="http://simbad.u-strasbg.fr/simbad/sim-basic?submit=SIMBAD+search&Ident={{ main_id|urlencode }}" target="_blank" title="Simbad">simbad</a>
                     
                     {% if ra %}

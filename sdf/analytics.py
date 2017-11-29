@@ -64,7 +64,7 @@ class BB_Disk(object):
 
 
     def f_limits(self,lim_waves,flux_limits=None,r_limits=None,
-                 stellar_flux=None,fwhm=None):
+                 stellar_flux=None,fwhm=None,lstar_1pc=None):
         '''Return fractional luminosity limits.
             
         This routine implements Wyatt (2008) equations 8 and 11.
@@ -82,6 +82,8 @@ class BB_Disk(object):
         fwhm : numpy.ndarray, optional
             Array of spatial resolutions at lim_waves, affects flux
             limited observations if disk is resolved.
+        lstar_1pc : float
+            L_star at 1pc, used for flux limits when distance unknown.
 
         One of flux_limits or r_limits must be given. If both, they must
         have the same length, and correspond to the wavelengths given.
@@ -100,9 +102,16 @@ class BB_Disk(object):
 
             for i,temp in enumerate(self.temperatures):
 
-                slims[i,:] = 3.4e9 * flux_limits * self.distance**2 / \
-                            self.blackbody_radii()[i]**2 / \
-                            utils.bnu_wav_micron(lim_waves,temp)
+                if self.distance is not None:
+                    slims[i,:] = 3.4e9 * flux_limits * self.distance**2 / \
+                                self.blackbody_radii()[i]**2 / \
+                                utils.bnu_wav_micron(lim_waves,temp)
+                else:
+                    # distance independent calculation, 2487305. is
+                    # pc^2/Lsun, haven't tracked down the 4 yet
+                    ldisk_1pc = 4 * 5.6704e-8 * flux_limits * 2487305. * \
+                        temp**4 / utils.bnu_wav_micron(lim_waves,temp)
+                    slims[i,:] = ldisk_1pc / lstar_1pc
 
                 # apply correction for resolved disks
                 if fwhm is not None:
@@ -169,6 +178,17 @@ class BB_Disk(object):
         filters = np.array([])
         f_lim = np.array([])
         f_star = np.array([])
+
+        # get stellar luminosity at 1pc if no distance
+        lstar = None
+        if self.distance is None:
+            lstar = 0.0
+            if hasattr(r,'star'):
+                for s in r.star:
+                    lstar += s['lstar_1pc']
+    
+            if lstar == 0.0:
+                raise utilts.SdfError('dont have lstar_1pc or distance')
         
         for p in r.obs:
             if not isinstance(p,photometry.Photometry):
@@ -203,6 +223,7 @@ class BB_Disk(object):
                                   )
                     f_lim = np.append(f_lim,3*unc)
 
-        lims = self.f_limits(waves,flux_limits=f_lim,stellar_flux=f_star)
+        lims = self.f_limits(waves,flux_limits=f_lim,
+                             stellar_flux=f_star,lstar_1pc=lstar)
         return lims,filters
 

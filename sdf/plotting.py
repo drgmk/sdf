@@ -17,6 +17,7 @@ from bokeh.layouts import gridplot,layout
 import bokeh.palettes
 import bokeh.embed
 
+from . import analytics
 from . import model
 from . import spectrum
 from . import photometry
@@ -481,6 +482,93 @@ def sed_limits(results):
     xlims = [xlims[0]/pad,  xlims[1]*pad]
     ylims = [ylims[0]/padlg,ylims[1]*pad]
     return xlims,ylims
+
+
+def f_limits(r):
+    '''Make a plot of what could have been detected.'''
+
+    cols = bokeh.palettes.Category20_20
+
+    # check we have a star
+    if hasattr(r,'star'):
+
+        # and a distance
+        if 'plx_arcsec' in r.star[0].keys():
+            dist = 1/r.star[0]['plx_arcsec']
+            lstar = np.sum( [s['lstar'] for s in r.star] )
+            bb = analytics.BB_Disk(lstar=lstar, distance=dist)
+        else:
+            bb = analytics.BB_Disk()
+
+        lim,fname = bb.f_limits_from_result(r)
+        yrange = [2e-7,0.1]
+
+        hover = HoverTool(names=['lim'],tooltips=[('band',"@filter")])
+        tools = ['wheel_zoom,box_zoom,save,reset',hover]
+
+        # vs disk temperature
+        fig = figure(title='detection limits',
+                     x_axis_label='Temperature / Kelvin',x_axis_type='log',
+                     x_range=[0.99*np.min(bb.temperatures),
+                              1.01*np.max(bb.temperatures)],
+                     y_range=yrange,
+                     y_axis_label='Fractional luminosity',y_axis_type='log',
+                     tools=tools,active_scroll='wheel_zoom',
+                     width=cfg.pl['x_size'],height=cfg.pl['y_top_size'] )
+
+        for i in range(lim.shape[1]):
+            data = {'temp':bb.temperatures,'f':lim[:,i],
+                    'filter':np.repeat(fname[i],len(lim[:,i]))}
+            pldata = ColumnDataSource(data=data)
+            fig.line('temp','f',source=pldata,color=cols[i % 20],
+                     line_width=3,muted_alpha=0.2,
+                     name='lim',legend=fname[i])
+
+        fig.legend.click_policy="mute"
+        fig.legend.location = 'top_left'
+        fig.legend.label_text_font_size = '10pt'
+
+        tab1 = Panel(child=fig, title='vs. temperature')
+
+        # vs disk radius, need a stellar luminosity for this
+        if bb.lstar is not None:
+            fig = figure(title='detection limits',
+                         x_axis_label='Blackbody radius / au',x_axis_type='log',
+                         x_range=[np.min(bb.blackbody_radii()),
+                                  np.max(bb.blackbody_radii())],
+                         y_range=yrange,
+                         y_axis_label='Fractional luminosity',y_axis_type='log',
+                         tools=tools,active_scroll='wheel_zoom',
+                         width=cfg.pl['x_size'],height=cfg.pl['y_top_size'] )
+
+            for i in range(lim.shape[1]):
+                data = {'rad':bb.blackbody_radii(),'f':lim[:,i],
+                        'filter':np.repeat(fname[i],len(lim[:,i]))}
+                pldata = ColumnDataSource(data=data)
+                fig.line('rad','f',source=pldata,color=cols[i % 20],
+                         line_width=3,muted_alpha=0.2,
+                         name='lim',legend=fname[i])
+
+            fig.legend.click_policy="mute"
+            fig.legend.location = 'top_left'
+            fig.legend.label_text_font_size = '10pt'
+
+            tab2 = Panel(child=fig, title='vs. radius')
+        else:
+            fig = figure(title='L_star unknown, radius limits not available',
+                         width=cfg.pl['x_size'],height=cfg.pl['y_top_size'])
+            tab2 = Panel(child=fig, title='vs. blackbody radius')
+
+        if bb.lstar:
+            tab = Tabs(tabs=[tab2,tab1])
+        else:
+            tab = Tabs(tabs=[tab1,tab2])
+
+        return bokeh.embed.components(tab)
+
+    else:
+        fig = figure(title='limits could not be derived')
+        return bokeh.embed.components(fig)
 
 
 def sample_plots():
@@ -1065,7 +1153,7 @@ def filter_plot(file=cfg.file['www_root']+'filters.html'):
             pl[-1].line('wave','response',
                         line_color=cols[i],line_width=2,
                         source=pldata,
-                        legend=fname,muted_alpha=0.2,)
+                        legend=fname,muted_alpha=0.2)
 
             pl[-1].legend.click_policy="mute"
             pl[-1].legend.label_text_font_size = '8pt'
