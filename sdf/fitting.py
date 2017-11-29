@@ -116,25 +116,38 @@ def fit_results(file,update_mn=False,update_an=False,
     return results
 
 
-def model_director(file,use_classifier=False):
-    """Make a simple educated guess about which models to fit.
-    
-    Use the machine learning classification from classifier.photometry
-    and classifier.spectra, doing wide disks for primordial types, 
-    fitting only one disk component for star types, and two for debris
-    types. Cool debris types only have one disk component fitted.
+def model_director(file,reddening=False,use_classifier=False):
+    """Workflow for model fitting.
 
     Parameters
     ----------
     file : str
         Name of the photometry file we are fitting.
+    reddening : bool, optional
+        Use models with reddening.
+    use_classifier : bool, optional
+        Use classifier.
     """
 
     # default model tries star + up to two bb components
-    t_star = model_tree(star='phoenix_m',disk='modbb_disk_r',ndisk_is_2=True)
+    t_star_ = model_tree(star='phoenix_m',disk='modbb_disk_r',ndisk_is_2=True)
+    if reddening:
+        t_star_av = model_tree(star='phoenix_m_av',disk='modbb_disk_r',ndisk_is_2=True)
+        t_star = bt.Node('start')
+        t_star.left = t_star_
+        t_star.right = t_star_av
+    else:
+        t_star = t_star_
 
     # cool star model
-    t_cool = model_tree(star='phoenix_cool')
+    t_cool_ = model_tree(star='phoenix_cool',disk='modbb_disk_r')
+    if reddening:
+        t_cool_av = model_tree(star='phoenix_cool_av',disk='modbb_disk_r')
+        t_cool = bt.Node('start')
+        t_cool.left = t_cool_
+        t_cool.right = t_cool_av
+    else:
+        t_cool = t_cool_
 
     # look for spectral type, LTY types get cool models, other types
     # default to star models, and M5-9 (or just M) get both
