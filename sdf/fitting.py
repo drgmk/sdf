@@ -72,6 +72,7 @@ def fit_results(file,update_mn=False,update_an=False,
     else:
         # binary tree-based fitting
         t = model_director(file)
+        print_model_tree(t)
 
         while t.left is not None and t.right is not None:
 
@@ -116,7 +117,7 @@ def fit_results(file,update_mn=False,update_an=False,
     return results
 
 
-def model_director(file,reddening=False,use_classifier=False):
+def model_director(file,reddening=True,use_classifier=False):
     """Workflow for model fitting.
 
     Parameters
@@ -130,24 +131,20 @@ def model_director(file,reddening=False,use_classifier=False):
     """
 
     # default model tries star + up to two bb components
-    t_star_ = model_tree(star='phoenix_m',disk='modbb_disk_r',ndisk_is_2=True)
     if reddening:
-        t_star_av = model_tree(star='phoenix_m_av',disk='modbb_disk_r',ndisk_is_2=True)
-        t_star = bt.Node('start')
-        t_star.left = t_star_
-        t_star.right = t_star_av
+        star = 'phoenix_m_av'
     else:
-        t_star = t_star_
+        star = 'phoenix_m'
+
+    t_star = model_tree(top=(star,), extra='modbb_disk_r',n_extra=2)
 
     # cool star model
-    t_cool_ = model_tree(star='phoenix_cool',disk='modbb_disk_r')
     if reddening:
-        t_cool_av = model_tree(star='phoenix_cool_av',disk='modbb_disk_r')
-        t_cool = bt.Node('start')
-        t_cool.left = t_cool_
-        t_cool.right = t_cool_av
+        cool = 'phoenix_cool_av'
     else:
-        t_cool = t_cool_
+        cool = 'phoenix_cool'
+
+    t_cool = model_tree(top=(cool,), extra='modbb_disk_r')
 
     # look for spectral type, LTY types get cool models, other types
     # default to star models, and M5-9 (or just M) get both
@@ -166,63 +163,67 @@ def model_director(file,reddening=False,use_classifier=False):
                     pass
 
             cool = 1
-            tree = bt.Node('start')
+            tree = bt.Node(('top',))
             tree.left = t_cool
             tree.right = t_star
 
-
-    # get estimated classification, return dr if primordial type for
-    # both photometry and spectra, or set default to one component if
-    # classified a star
-    if use_classifier and classifier_module:
-
-        phot_label = classifier.photometry.predict_phot(file)
-        spec_label = classifier.spectra.predict_spectra_rawphot(file)
-        print(' classifier: phot; {}, spectra; {}'.format(phot_label,spec_label))
-
-        if phot_label in ['class i','class ii','transition']:
-            if (spec_label in ['class i','class ii','transition'] or
-                    spec_label is None):
-                if cool == 1:
-                    tree = bt.Node('start')
-                    tree.left = model_tree(star='phoenix_cool',disk='modbb_disk_dr')
-                    tree.right = model_tree(star='phoenix_m',disk='modbb_disk_dr')
-                elif cool == 2:
-                    tree = model_tree(star='phoenix_cool',disk='modbb_disk_dr')
-                else:
-                    tree = model_tree(star='phoenix_m',disk='modbb_disk_dr')
-
-        elif (phot_label == 'star' or
-                spec_label in ['star','be star']):
-            if cool == 0:
-                tree = model_tree(star='phoenix_m',disk='modbb_disk_r')
-
+    tree.value = ('top',)
     return tree
 
 
-def model_tree(star='phoenix_m',disk='modbb_disk_r',ndisk_is_2=False):
-    """Return a binary tree for star and (multiple) disk models.
+def model_tree(top=('phoenix_m',),extra='modbb_disk_r',n_extra=1):
+    """Return a binary tree for alternative models.
         
     Parameters
     ----------
-    star : str, optional
-        Name of the stellar model.
-    disk : str, optional
-        Name of the disk model.
-    ndisk_is 2 : bool, optional
-        Include two disk component branch.
+    top : str, optional
+        Name of the first model.
+    extra : str, optional
+        Name of the additional model component.
+    n_extra : int, optional
+        Include two extra component branch.
     """
 
     # the top node doesn't matter unless this tree becomes a branch
     # of a bigger tree
-    t = bt.Node( (star,) )
-    t.left = bt.Node( (star,) )
-    t.right = bt.Node( ((star,)+(disk,)) )
-    if ndisk_is_2:
-        t.right.left = bt.Node( (star,)+(disk,) )
-        t.right.right = bt.Node( (star,)+(disk,disk) )
+    t = bt.Node( top )
+    t.left = bt.Node( top )
+    t.right = bt.Node( top + (extra,) )
+    if n_extra == 2:
+        t.right.left = bt.Node( top + (extra,) )
+        t.right.right = bt.Node( top + (extra, extra) )
 
     return t
+
+
+def print_model_tree(t):
+    """Print a model tree, shortening the model names.
+    
+    Unicode symbols here https://unicode-table.com/en/
+    """
+
+    r = {'top':'\u2602',
+         'phoenix_m':'\u2606',
+         'phoenix_m_av':'\u2605',
+         'phoenix_cool':'\u2733',
+         'phoenix_cool_av':'\u2739',
+         'modbb_disk_r':'\u29b8',
+         'bb_disk_r':'\u25cb'
+         }
+
+    l = bt.convert(t)
+
+    for i in range(len(l)):
+        x = ()
+        if l[i] is not None:
+            for j in range(len(l[i])):
+                if l[i][j] in r.keys():
+                    x += (r[l[i][j]],)
+                else:
+                    x += (l[i][j],)
+            l[i] = x = ''.join(x)
+
+    bt.convert(l).show()
 
 
 @lru_cache(maxsize=2)
