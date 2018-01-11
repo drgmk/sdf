@@ -6,7 +6,7 @@ setup(
     description='all your seds are belong to us',
     url='http://github.com/drgmk/sdf',
     author='Grant M. Kennedy',
-    author_email='gkennedy@ast.cam.ac.uk',
+    author_email='g.kennedy@warwick.ac.uk',
     license='MIT',
     packages=['sdf'],
     classifiers=['Programming Language :: Python :: 3'],
