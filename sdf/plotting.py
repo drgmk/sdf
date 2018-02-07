@@ -500,7 +500,13 @@ def f_limits(r):
         else:
             bb = analytics.BB_Disk()
 
+        # observed limits
         lim,fname = bb.f_limits_from_result(r)
+
+        # "theoretical" photometric limit
+        th_lim = 0.05 * \
+                 bb.temperatures**3 / r.star[0]['Teff']**3
+
         yrange = [2e-7,0.1]
 
         hover = HoverTool(names=['lim'],tooltips=[('band',"@filter")])
@@ -523,6 +529,14 @@ def f_limits(r):
             fig.line('temp','f',source=pldata,color=cols[i % 20],
                      line_width=3,muted_alpha=0.2,
                      name='lim',legend=fname[i])
+
+        # photometric limit
+        data = {'temp':bb.temperatures,'f':th_lim,
+                'filter':np.repeat('limit',len(th_lim))}
+        pldata = ColumnDataSource(data=data)
+        fig.line('temp','f',source=pldata,color='lightgrey',
+                 line_width=3,muted_alpha=0.2, line_dash='dashed',
+                 name='lim',legend='Photometric limit')
 
         fig.legend.click_policy="mute"
         fig.legend.location = 'top_left'
@@ -548,6 +562,14 @@ def f_limits(r):
                 fig.line('rad','f',source=pldata,color=cols[i % 20],
                          line_width=3,muted_alpha=0.2,
                          name='lim',legend=fname[i])
+
+            # photometric limit
+            data = {'rad':bb.blackbody_radii(),'f':th_lim,
+                    'filter':np.repeat('limit',len(th_lim))}
+            pldata = ColumnDataSource(data=data)
+            fig.line('rad','f',source=pldata,color='lightgrey',
+                     line_width=3,muted_alpha=0.2, line_dash='dashed',
+                     name='lim',legend='Photometric limit')
 
             fig.legend.click_policy="mute"
             fig.legend.location = 'top_left'
