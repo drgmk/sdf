@@ -117,7 +117,7 @@ def fit_results(file,update_mn=False,update_an=False,
     return results
 
 
-def model_director(file,reddening=True,use_classifier=False):
+def model_director(file,reddening=False,use_classifier=False):
     """Workflow for model fitting.
 
     Parameters
