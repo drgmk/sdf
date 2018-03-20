@@ -66,7 +66,7 @@ def update_needed(cursor,table,r):
 
     # False if sql up to date
     if db_mtime is not None:
-        if r.pickle_time <= db_mtime:
+        if r.pickle_time == db_mtime:
             return False
 
     return True
