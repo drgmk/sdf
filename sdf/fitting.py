@@ -72,7 +72,10 @@ def fit_results(file,update_mn=False,update_an=False,
     else:
         # binary tree-based fitting
         t = model_director(file)
-        print_model_tree(t)
+        try:
+            print_model_tree(t)
+        except:
+            print_model_tree(t, cute=False)
 
         while t.left is not None and t.right is not None:
 
@@ -196,20 +199,37 @@ def model_tree(top=('phoenix_m',),extra='modbb_disk_r',n_extra=1):
     return t
 
 
-def print_model_tree(t):
+def print_model_tree(t, cute=True):
     """Print a model tree, shortening the model names.
     
     Unicode symbols here https://unicode-table.com/en/
+    
+    Parameters
+    ----------
+    t : binary tree
+        Tree to print.
+    cute : bool, optional
+        Print cute ascii symbols.
     """
 
-    r = {'top':'\u2602',
-         'phoenix_m':'\u2606',
-         'phoenix_m_av':'\u2605',
-         'phoenix_cool':'\u2733',
-         'phoenix_cool_av':'\u2739',
-         'modbb_disk_r':'\u29b8',
-         'bb_disk_r':'\u25cb'
-         }
+    if cute:
+        r = {'top':u'\u2602',
+             'phoenix_m':u'\u2606',
+             'phoenix_m_av':u'\u2605',
+             'phoenix_cool':u'\u2733',
+             'phoenix_cool_av':u'\u2739',
+             'modbb_disk_r':u'\u29b8',
+             'bb_disk_r':u'\u25cb'
+             }
+    else:
+        r = {'top':'t',
+             'phoenix_m':'p',
+             'phoenix_m_av':'pr',
+             'phoenix_cool':'c',
+             'phoenix_cool_av':'cr',
+             'modbb_disk_r':'mb',
+             'bb_disk_r':'b'
+             }
 
     l = bt.convert(t)
 

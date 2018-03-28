@@ -833,7 +833,7 @@ def flux_size_plot(cursor,sample):
     # TODO: multiple compoments are plotted at the total disk flux =bad
 
     # bands to show disk fluxes at
-    filters = ['WISE3P4','AKARI9','WISE12','AKARI18','WISE22',
+    filters = ['MIRI.F1000W','MIRI.F1800W','WISE22','MIRI.F2550W',
                'PACS70','WAV880']
 
     # sensitivities from Smith & Wyatt 2010
@@ -843,7 +843,7 @@ def flux_size_plot(cursor,sample):
                              [0.5,1],[0.1,2],[0.05,4],[0.05,10],[0.05,40]])
     miri_25_sens = np.array([[1000.,0.3],[100,0.3],[10,0.4],[3,0.5],[2,1],
                              [1,1.5],[0.5,2],[0.2,4],[0.2,10],[0.2,40]])
-    sens = [None,miri_10_sens,miri_10_sens,miri_18_sens,miri_25_sens,
+    sens = [miri_10_sens,miri_18_sens,miri_25_sens,miri_25_sens,
             None,None]
 
     tabs = []
