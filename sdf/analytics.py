@@ -114,7 +114,7 @@ class BB_Disk(object):
                     slims[i,:] = ldisk_1pc / lstar_1pc
 
                 # apply correction for resolved disks
-                if fwhm is not None:
+                if self.distance is not None and fwhm is not None:
                     fwhm_fact = 2 * self.blackbody_radii()[i] / self.distance / fwhm
                     resolved = fwhm_fact > 1.0
                     slims[i,resolved] *= fwhm_fact[resolved]
