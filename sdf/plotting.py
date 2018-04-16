@@ -488,6 +488,7 @@ def f_limits(r):
     '''Make a plot of what could have been detected.'''
 
     cols = bokeh.palettes.Category20_20
+    ncols = len(cols)
 
     # check we have a star
     if hasattr(r,'star'):
@@ -506,6 +507,11 @@ def f_limits(r):
         # "theoretical" photometric limit
         th_lim = 0.05 * \
                  bb.temperatures**3 / r.star[0]['Teff']**3
+        
+        # approximate ALMA limit
+        alma_lim = bb.f_limits(np.array([880]),
+                               flux_limits=np.array([20e-6]),
+                               fwhm=np.array([1]))
 
         yrange = [2e-7,0.1]
 
@@ -526,17 +532,18 @@ def f_limits(r):
             data = {'temp':bb.temperatures,'f':lim[:,i],
                     'filter':np.repeat(fname[i],len(lim[:,i]))}
             pldata = ColumnDataSource(data=data)
-            fig.line('temp','f',source=pldata,color=cols[i % 20],
+            fig.line('temp','f',source=pldata,color=cols[i % ncols],
                      line_width=3,muted_alpha=0.2,
                      name='lim',legend=fname[i])
 
-        # photometric limit
-        data = {'temp':bb.temperatures,'f':th_lim,
-                'filter':np.repeat('limit',len(th_lim))}
-        pldata = ColumnDataSource(data=data)
-        fig.line('temp','f',source=pldata,color='lightgrey',
-                 line_width=3,muted_alpha=0.2, line_dash='dashed',
-                 name='lim',legend='Photometric limit')
+        # extra limits
+        for l,n in zip([th_lim,alma_lim],['Phot lim 5%','ALMA/B7 20uJy']):
+            data = {'temp':bb.temperatures,'f':l,
+                    'filter':np.repeat(n, len(l))}
+            pldata = ColumnDataSource(data=data)
+            fig.line('temp','f',source=pldata,color='lightgrey',
+                     line_width=3,muted_alpha=0.2, line_dash='dashed',
+                     name='lim',legend=n)
 
         fig.legend.click_policy="mute"
         fig.legend.location = 'top_left'
@@ -559,17 +566,18 @@ def f_limits(r):
                 data = {'rad':bb.blackbody_radii(),'f':lim[:,i],
                         'filter':np.repeat(fname[i],len(lim[:,i]))}
                 pldata = ColumnDataSource(data=data)
-                fig.line('rad','f',source=pldata,color=cols[i % 20],
+                fig.line('rad','f',source=pldata,color=cols[i % ncols],
                          line_width=3,muted_alpha=0.2,
                          name='lim',legend=fname[i])
 
-            # photometric limit
-            data = {'rad':bb.blackbody_radii(),'f':th_lim,
-                    'filter':np.repeat('limit',len(th_lim))}
-            pldata = ColumnDataSource(data=data)
-            fig.line('rad','f',source=pldata,color='lightgrey',
-                     line_width=3,muted_alpha=0.2, line_dash='dashed',
-                     name='lim',legend='Photometric limit')
+            # extra limits
+            for l,n in zip([th_lim,alma_lim],['Phot lim 5%','ALMA 1mm 20uJy']):
+                data = {'rad':bb.blackbody_radii(),'f':l,
+                        'filter':np.repeat('limit',len(l))}
+                pldata = ColumnDataSource(data=data)
+                fig.line('rad','f',source=pldata,color='lightgrey',
+                         line_width=3,muted_alpha=0.2, line_dash='dashed',
+                         name='lim',legend=n)
 
             fig.legend.click_policy="mute"
             fig.legend.location = 'top_left'
