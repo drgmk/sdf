@@ -635,6 +635,7 @@ class SpecModel(Model):
     def bb_disk_r(cls,name='bb_disk_r',
                   wavelengths=cfg.models['default_wave'],
                   temperatures=10**np.arange(0,3,0.1),
+                  lam0=None, beta=None,
                   write=False,overwrite=False):
         """Generate a set of blackbody spectra."""
         
@@ -646,7 +647,9 @@ class SpecModel(Model):
     
         self = cls()
 
-        m = [spectrum.ModelSpectrum.bnu_wave_micron(wavelengths,t)\
+        m = [spectrum.ModelSpectrum.bnu_wave_micron(wavelengths,t,
+                                                    lam0=lam0,
+                                                    beta=beta)\
              for t in temperatures]
 
         self.name = m[0].name
