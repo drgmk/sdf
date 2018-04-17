@@ -589,6 +589,9 @@ def emcee_prior(param,m):
 def run_emcee(r,nwalkers=8,nstep=100,start_pos=None):
     """Run emcee MCMC fitting."""
 
+    if r.models == '':
+        raise SdfError('result.models empty, use sdf.model.get_models()')
+
     if start_pos is None:
         start_pos = [r.best_params + \
                      r.best_params_1sig*np.random.normal(size=r.model_info['ndim'])
