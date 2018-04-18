@@ -509,9 +509,11 @@ def f_limits(r):
                  bb.temperatures**3 / r.star[0]['Teff']**3
         
         # approximate ALMA limit
+        lstar_1pc = np.sum( [s['lstar_1pc'] for s in r.star] )
         alma_lim = bb.f_limits(np.array([880]),
                                flux_limits=np.array([20e-6]),
-                               fwhm=np.array([1]))
+                               fwhm=np.array([1]),
+                               lstar_1pc=lstar_1pc)
 
         yrange = [2e-7,0.1]
 
@@ -537,12 +539,14 @@ def f_limits(r):
                      name='lim',legend=fname[i])
 
         # extra limits
-        for l,n in zip([th_lim,alma_lim],['Phot lim 5%','ALMA/B7 20uJy']):
+        for l,n,s in zip([th_lim,alma_lim],
+                         ['Phot lim 5%','1mm/1" 20uJy'],
+                         ['solid', 'dashed']):
             data = {'temp':bb.temperatures,'f':l,
                     'filter':np.repeat(n, len(l))}
             pldata = ColumnDataSource(data=data)
             fig.line('temp','f',source=pldata,color='lightgrey',
-                     line_width=3,muted_alpha=0.2, line_dash='dashed',
+                     line_width=3,muted_alpha=0.2, line_dash=s,
                      name='lim',legend=n)
 
         fig.legend.click_policy="mute"
@@ -571,12 +575,14 @@ def f_limits(r):
                          name='lim',legend=fname[i])
 
             # extra limits
-            for l,n in zip([th_lim,alma_lim],['Phot lim 5%','ALMA 1mm 20uJy']):
+            for l,n,s in zip([th_lim,alma_lim],
+                             ['Phot lim 5%','1mm/1" 20uJy'],
+                             ['solid', 'dashed']):
                 data = {'rad':bb.blackbody_radii(),'f':l,
                         'filter':np.repeat('limit',len(l))}
                 pldata = ColumnDataSource(data=data)
                 fig.line('rad','f',source=pldata,color='lightgrey',
-                         line_width=3,muted_alpha=0.2, line_dash='dashed',
+                         line_width=3,muted_alpha=0.2, line_dash=s,
                          name='lim',legend=n)
 
             fig.legend.click_policy="mute"
