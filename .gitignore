@@ -2,6 +2,7 @@ sandbox/
 sdf.xcodeproj/
 __pycache__
 .cache
+.pytest_cache
 .DS_Store
 *.pyc
 docs/_build/
