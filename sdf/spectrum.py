@@ -413,6 +413,38 @@ class ObsSpectrum(Spectrum):
 
 
     @classmethod
+    def read_csv(cls, file):
+        """Read a spectrum in a generic csv file.
+        
+        Assumes columns are wavelength (um), flux density (Jy), and
+        uncertainty (Jy).
+        """
+        self = cls()
+        t = np.genfromtxt(file, delimiter=',', comments='#')
+        if t.shape[1] == 2:
+            w, f = t.T
+            e = 0.1 * np.abs(f)
+            print('sdf.spectrum.ObsSpectrum.read_csv assuming 10% flux '
+                  'error on spectrum {}'.format(file))
+        elif t.shape[1] == 3:
+            w, f, e = t.T
+        else:
+            raise SdfError('file {} has wrong number of columns'.format(file))
+
+        # check for nans that may arise from comment columns
+        ok = np.isfinite(w) & np.isfinite(f) & np.isfinite(e)
+
+        self.wavelength = w[ok]
+        self.nu_hz = c_micron / w[ok]
+        self.fnujy = f[ok]
+        self.e_fnujy = e[ok]
+        self.bibcode = file
+        self.instrument = '?'
+        self.sort('wave')
+        return (self,)
+
+
+    @classmethod
     def read_file_of_type(cls,file,type,module_split=False):
         """Read a spectrum file, sorting out how to do it.
             
@@ -421,9 +453,11 @@ class ObsSpectrum(Spectrum):
         
         if type == 'irsstare':
             return ObsSpectrum.read_cassis(file,module_split=module_split)
+        elif type == 'csv':
+            return ObsSpectrum.read_csv(file)
 
 
-    def read_sdb_file(file,module_split=False,nspec=99):
+    def read_sdb_file(file, module_split=False, nspec=99):
         """Read a sdb rawphot file and return a tuple of spectra.
         
         The file format is set by sdb_getphot.py, and is ascii.ipac.
@@ -445,19 +479,35 @@ class ObsSpectrum(Spectrum):
         kw = p.meta['keywords']
         
         # get spectra that match these names
-        spnames = ['irsstare']
         s = ()
-        for sp in spnames:
-            n = 0
-            for key in kw.keys():
-                if n >= nspec:
-                    continue
-                if sp in key:
-                    s += ObsSpectrum.read_file_of_type(cfg.file['spectra']+
-                                                       kw[key]['value'],type=sp,
-                                                       module_split=module_split)
-                    n += 1
-    
+        n = 0
+        for key in kw.keys():
+            if n >= nspec:
+                continue
+            elif 'irsstare' in key:
+                if kw[key]['value'][0] == '/':
+                    s += ObsSpectrum.read_file_of_type(
+                                    kw[key]['value'],type='irsstare',
+                                    module_split=module_split
+                                    )
+                else:
+                    s += ObsSpectrum.read_file_of_type(
+                                    cfg.file['spectra']+
+                                    kw[key]['value'],type='irsstare',
+                                    module_split=module_split
+                                    )
+                n += 1
+            elif 'csv' in key:
+                if kw[key]['value'][0] == '/':
+                    s += ObsSpectrum.read_file_of_type(
+                                    kw[key]['value'], type='csv'
+                                    )
+                else:
+                    s += ObsSpectrum.read_file_of_type(
+                                    cfg.file['spectra']+kw[key]['value'],
+                                    type='csv')
+                n += 1
+
         if len(s) > 0:
             return s
         else:
