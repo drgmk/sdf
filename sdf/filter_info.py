@@ -124,6 +124,9 @@ Hipparcos/Tycho
   original Hipparcos catalogue, and the Tycho 2 catalogue. Tycho-2 is
   taken to have the "correct" absolute calibration in deriving others.
 
+Gaia
+  Filters are from SVO.
+
 Cousins
   Filters are from MvB. Photometry in this system comes from Bessell.
   Haven't been able to find which system most Gliese (CNS3) RI photmetry
@@ -388,6 +391,17 @@ filters['VT'] = {'svo_name': 'TYCHO/TYCHO.V_MvB',
 filters['HP'] = {'svo_name': 'Hipparcos/Hipparcos.Hp_MvB',
                  'zero_point_offset': 0.032,
                  'response_type': 'energy'}
+
+# Gaia
+filters['GAIAG'] = {'svo_name': 'GAIA/GAIA0.G',
+                    'zero_point_offset': 0.0,
+                    'response_type': 'energy'}
+filters['GAIABP'] = {'svo_name': 'GAIA/GAIA0.Gbp',
+                     'zero_point_offset': 0.0,
+                     'response_type': 'energy'}
+filters['GAIARP'] = {'svo_name': 'GAIA/GAIA0.Grp',
+                     'zero_point_offset': 0.0,
+                     'response_type': 'energy'}
 
 # Kepler, assume photon and same zero point offset as V (0.027)
 filters['KP'] = {'svo_name': 'Kepler/Kepler.K',
