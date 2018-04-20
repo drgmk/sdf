@@ -590,7 +590,7 @@ def run_emcee(r,nwalkers=8,nstep=100,start_pos=None):
     """Run emcee MCMC fitting."""
 
     if r.models == '':
-        raise SdfError('result.models empty, use sdf.model.get_models()')
+        raise utils.SdfError('result.models empty, use sdf.model.get_models()')
 
     if start_pos is None:
         start_pos = [r.best_params + \
