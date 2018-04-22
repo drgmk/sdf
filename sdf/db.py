@@ -266,10 +266,10 @@ def get_samples():
         cursor.execute("SHOW COLUMNS FROM {} LIKE 'sdbid'".format(s))
         if cursor.rowcount == 1:
             samples.append(s)
-#    samples = [i[0] for i in samples]
+
     cursor.close()
     cnx.close()
-    return( samples + ['public','everything'] )
+    return samples #+ ['public','everything']
 
 
 def sample_targets(sample,db='sdb_samples'):

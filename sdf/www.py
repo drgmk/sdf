@@ -205,10 +205,9 @@ def create_dir(wwwroot,sample):
     if not os.path.isdir(wwwroot+sample):
         os.mkdir(wwwroot+sample)
 
-    # make .htaccess if needed, don't put one in "public" or those
-    # ending with "_" so stuff in those directories remains visible
-    # to those not logged in
-    if  sample[-1] != '_' and sample != 'public':
+    # make .htaccess if needed, don't put one in those ending with "_"
+    # so those directories remain visible to those not logged in
+    if  sample[-1] != '_':
         fd = open(wwwroot+sample+'/.htaccess','w')
         fd.write('AuthName "Must login"\n')
         fd.write('AuthType Basic\n')
