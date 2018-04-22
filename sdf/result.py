@@ -514,7 +514,14 @@ class SampledResult(BaseResult):
             if 'log_' in par:
                 par_in = par.replace('log_','')
                 disk_r[par_in] = 10**self.comp_best_params[i][j]
-                disk_r['e_'+par_in] = 10**self.comp_best_params_1sig[i][j]
+                disk_r['e_'+par_in] = (
+                           10**(self.comp_best_params[i][j] + \
+                                self.comp_best_params_1sig[i][j]) \
+                                       - \
+                           10**(self.comp_best_params[i][j] - \
+                                self.comp_best_params_1sig[i][j]) \
+                                       ) / 2.
+            
             else:
                 par_in = par
                 disk_r[par_in] = self.comp_best_params[i][j]
@@ -764,7 +771,8 @@ class Result(SampledResult):
             self.best_params_1sig.append(self.analyzer.get_stats()\
                                          ['marginals'][i]['sigma'])
         
-        # tuple of multinest samples to use for uncertainty estimation
+        # tuple of multinest samples to use for uncertainty estimation.
+        # total probability in samples must be 1
         self.param_samples = ()
         self.param_sample_probs = []
         randi = []
@@ -773,6 +781,8 @@ class Result(SampledResult):
             randi.append(i)
             self.param_samples += (self.analyzer.data[i,2:],)
             self.param_sample_probs.append(self.analyzer.data[i,0])
+                
+        self.param_sample_probs /= np.sum(self.param_sample_probs)
 
         # split the parameters into components
         self.n_parameters = len(self.parameters)
