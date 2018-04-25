@@ -393,15 +393,15 @@ filters['HP'] = {'svo_name': 'Hipparcos/Hipparcos.Hp_MvB',
                  'response_type': 'energy'}
 
 # Gaia
-filters['GAIAG'] = {'svo_name': 'GAIA/GAIA2r.G',
-                    'zero_point_offset': 0.0,
-                    'response_type': 'energy'}
-filters['GAIABP'] = {'svo_name': 'GAIA/GAIA2r.Gbp',
+filters['GAIA.G'] = {'svo_name': 'GAIA/GAIA2r.G',
                      'zero_point_offset': 0.0,
                      'response_type': 'energy'}
-filters['GAIARP'] = {'svo_name': 'GAIA/GAIA2r.Grp',
-                     'zero_point_offset': 0.0,
-                     'response_type': 'energy'}
+filters['GAIA.BP'] = {'svo_name': 'GAIA/GAIA2r.Gbp',
+                      'zero_point_offset': 0.0,
+                      'response_type': 'energy'}
+filters['GAIA.RP'] = {'svo_name': 'GAIA/GAIA2r.Grp',
+                      'zero_point_offset': 0.0,
+                      'response_type': 'energy'}
 
 # Kepler, assume photon and same zero point offset as V (0.027)
 filters['KP'] = {'svo_name': 'Kepler/Kepler.K',
