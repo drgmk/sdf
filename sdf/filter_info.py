@@ -205,7 +205,7 @@ import os
 import glob
 import numpy as np
 import astropy.units as u
-from .utils import bnu_nu_hz
+from . import utils
 
 c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
 
@@ -610,15 +610,15 @@ filters['IRSPUR'] = {
 filters['MIPS24'] = {'svo_name': 'Spitzer/MIPS.24mu',
                      'response_type': 'energy',
                      'ref_wavelength': 23.675,
-                     'ref_spectrum': lambda nu: bnu_nu_hz(nu,10000.0)}
+                     'ref_spectrum': lambda nu: utils.bnu_nu_hz(nu,10000.0)}
 filters['MIPS70'] = {'svo_name': 'Spitzer/MIPS.70mu',
                      'response_type': 'energy',
                      'ref_wavelength': 71.42,
-                     'ref_spectrum': lambda nu: bnu_nu_hz(nu,10000.0)}
+                     'ref_spectrum': lambda nu: utils.bnu_nu_hz(nu,10000.0)}
 filters['MIPS160'] = {'svo_name': 'Spitzer/MIPS.160mu',
                       'response_type': 'energy',
                       'ref_wavelength': 155.9,
-                      'ref_spectrum': lambda nu: bnu_nu_hz(nu,10000.0)}
+                      'ref_spectrum': lambda nu: utils.bnu_nu_hz(nu,10000.0)}
 
 # JWST NIRCAM, units of electrons/photon
 nrc_filt_loc = os.path.dirname(os.path.abspath(__file__))+ \
