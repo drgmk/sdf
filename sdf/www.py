@@ -116,6 +116,7 @@ def sed_page(results,file='index.html',cdn=True):
                         os.path.basename(results[0].corner_plot),
                derived_dist=os.path.basename(results[0].pmn_dir)+'/'+\
                         os.path.basename(results[0].distributions_plot),
+               h_obsid='{}'.format(utils.get_herschel_obsid(results[0].obs)),
                creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
                            )
 
