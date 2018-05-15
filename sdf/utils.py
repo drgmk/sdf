@@ -12,6 +12,8 @@ from astropy.table import Table
 from astropy.coordinates import ICRS
 import astropy.units as u
 
+from . import photometry
+
 # do this first, since SdfError called in config
 # TODO: presumably there is a way to avoid this...
 class SdfError(Exception):
@@ -444,3 +446,15 @@ class hashable(object):
             return np.array(self.__wrapped)
 
         return self.__wrapped
+
+
+def get_herschel_obsid(obs):
+    """Return a Herschel ObdID (if one exists) given a photometry object."""
+    for p in obs:
+        if isinstance(p, photometry.Photometry):
+            for i,f in enumerate(p.filters):
+                if f in ['PACS70','PACS100','PACS160']:
+                        if p.bibcode[i] == 'HSA_GMK':
+                            return p.note[i]
+
+    return None
