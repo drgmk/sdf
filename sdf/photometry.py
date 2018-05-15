@@ -14,7 +14,7 @@ class Photometry(object):
     """
     def __init__(self,filters=None,measurement=None,e_measurement=None,unit=None,
                  s_measurement=None,bibcode=None,upperlim=None,ignore=None,
-                 fnujy=None,e_fnujy=None):
+                 fnujy=None,e_fnujy=None,note=None):
         self.filters = filters
         self.measurement = measurement
         self.e_measurement = e_measurement
@@ -25,6 +25,7 @@ class Photometry(object):
         self.ignore = ignore
         self.fnujy = fnujy
         self.e_fnujy = e_fnujy
+        self.note = note
 
     def addto(self,p):
         """Add Photometry object to another."""
@@ -40,6 +41,7 @@ class Photometry(object):
             self.ignore = p.ignore
             self.fnujy = p.fnujy
             self.e_fnujy = p.e_fnujy
+            self.note = p.note
         elif p.nphot is None:
             pass
         else:
@@ -53,8 +55,9 @@ class Photometry(object):
             self.ignore = np.append( self.ignore, p.ignore)
             self.fnujy = np.append( self.fnujy, p.fnujy)
             self.e_fnujy = np.append( self.e_fnujy, p.e_fnujy)
+            self.note = np.append( self.note, p.note)
 
-                    
+
     @classmethod
     def read_sdb_file(cls,file,keep_filters=None):
         """ Load photometry from a file and return a Photometry object.
@@ -98,7 +101,8 @@ class Photometry(object):
             p.bibcode = np.array([row['bibcode']])
             p.upperlim = np.array([ row['Lim'] == 1 ])
             p.ignore = np.array([ row['exclude'] == 1 ])
-            
+            p.note = np.array([row['Note1']])
+
             # if exclude desired
             if row['Band'] in cfg.fitting['exclude_filters']:
                 p.ignore = np.array([True])
@@ -236,6 +240,7 @@ class Photometry(object):
         self.ignore = self.ignore[srt]
         self.fnujy = self.fnujy[srt]
         self.e_fnujy = self.e_fnujy[srt]
+        self.note = self.note[srt]
 
         
     @property
@@ -272,5 +277,12 @@ class Photometry(object):
     @bibcode.setter
     def bibcode(self, value):
         self._bibcode = utils.validate_1d(value,self.nphot,dtype=str)
+
+    @property
+    def note(self):
+        return self._note
+    @note.setter
+    def note(self, value):
+        self._note = utils.validate_1d(value,self.nphot,dtype=str)
 
 
