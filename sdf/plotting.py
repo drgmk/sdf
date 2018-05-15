@@ -1058,9 +1058,7 @@ def calibration(sample='zpo_cal_',
             data['Teff'].append(pars[0])
             col = np.append(col, cdof )
         
-#        print("  ",f,":",len(col))
-
-        if len(col) == 0:
+        if len(col) <= 1:
             continue
 
         # set colour range, clipped at chisq/dof=10
