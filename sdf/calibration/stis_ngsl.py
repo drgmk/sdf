@@ -24,7 +24,7 @@ from .. import result
 from .. import config as cfg
 
 
-def add_obs_spec_fits(fig,r,fits=None):
+def add_obs_spec_fits(fig,r,fits=None,parameters=None):
     """Add a spectrum contained in a fits file to a figure.
         
     Parameters
@@ -48,7 +48,12 @@ def add_obs_spec_fits(fig,r,fits=None):
     flux = hdu[1].data['FLUX'] * u.Unit('erg/(cm2*s*Angstrom)').to('Jy',
                            equivalencies=u.spectral_density(wave*u.micron))
 
-    fig.line(wave,flux,legend='ngsl',**cfg.pl['mod_sp'][-1])
+    if parameters is not None:
+        label = 'ngsl:'+str(parameters)
+    else:
+        label = 'ngsl'
+
+    fig.line(wave,flux,legend=label,**cfg.pl['mod_sp'][-1])
 
 
 def add_fixed_model(fig,r,model,parameters=None):
@@ -170,7 +175,8 @@ def generate_cal_seds(out_dir=cfg.file['www_root']+'calibration/stis_ngsl/',
                       results,
                       main_extra_func=(add_obs_spec_fits,
                                        add_fixed_model),
-                      main_extra_kwargs=({'fits':fits},
+                      main_extra_kwargs=({'fits':fits,
+                                         'parameters':par},
                                          {'model':mod,
                                          'parameters':par}),
                       res_extra_func=add_filters,
