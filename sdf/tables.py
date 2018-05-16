@@ -98,7 +98,7 @@ def sample_table_www(cursor,sample,file='index.html',
            "ROUND(raj2000/15.,1) as `RA/h`,"
            "ROUND(dej2000,1) as `Dec`,"
            "sp_type as SpType,"
-           "ROUND(sdb_results.star.teff,0) as Teff,"
+           "ROUND("+cfg.mysql['db_samples']+".star.teff,0) as Teff,"
            "ROUND(log10(lstar),2) as `LogL*`,"
            "ROUND(1/COALESCE(star.plx_arcsec),1) AS Dist,"
            "ROUND(log10(SUM(ldisk_lstar)),1) as Log_f,"
@@ -114,8 +114,8 @@ def sample_table_www(cursor,sample,file='index.html',
                 "LEFT JOIN sdb_pm USING (sdbid)")
         
     sel += (" LEFT JOIN simbad USING (sdbid)"
-            " LEFT JOIN sdb_results.star on sdbid=star.id"
-            " LEFT JOIN sdb_results.disk_r on sdbid=disk_r.id"
+            " LEFT JOIN "+cfg.mysql['db_samples']+".star on sdbid=star.id"
+            " LEFT JOIN "+cfg.mysql['db_samples']+".disk_r on sdbid=disk_r.id"
             " LEFT JOIN hd USING (sdbid)"
             " LEFT JOIN hip USING (sdbid)"
             " LEFT JOIN gj USING (sdbid)"
@@ -190,9 +190,9 @@ def sample_table_votable(cursor,sample):
                 "LEFT JOIN sdb_pm USING (sdbid)")
         
     sel += (" LEFT JOIN simbad USING (sdbid)"
-            " LEFT JOIN sdb_results.star ON sdbid=star.id"
-            " LEFT JOIN sdb_results.disk_r USING (id)"
-            " LEFT JOIN sdb_results.model USING (id)"
+            " LEFT JOIN "+cfg.mysql['db_samples']+".star ON sdbid=star.id"
+            " LEFT JOIN "+cfg.mysql['db_samples']+".disk_r USING (id)"
+            " LEFT JOIN "+cfg.mysql['db_samples']+".model USING (id)"
             " WHERE sdb_pm.sdbid IS NOT NULL"
             " ORDER by raj2000")
     # limit table sizes
@@ -264,5 +264,5 @@ def sample_table_temp_tables(cursor):
     cursor.execute("DROP TABLE IF EXISTS phot;")
     cursor.execute("CREATE TEMPORARY TABLE phot SELECT"
                    " id as sdbid,ROUND(-2.5*log10(ANY_VALUE(model_jy)/3882.37),1) as Vmag"
-                   " FROM sdb_results.phot WHERE filter='VJ' GROUP BY id;")
+                   " FROM "+cfg.mysql['db_samples']+".phot WHERE filter='VJ' GROUP BY id;")
     cursor.execute("ALTER TABLE phot ADD INDEX sdbid_phot (sdbid);")

@@ -272,7 +272,7 @@ def get_samples():
     return samples #+ ['public','everything']
 
 
-def sample_targets(sample,db='sdb_samples'):
+def sample_targets(sample,db=cfg.mysql['db_samples']):
     """Return list of sdbids of targets in some sample."""
 
     # set up connection
