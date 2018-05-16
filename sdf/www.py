@@ -16,13 +16,20 @@ from . import utils
 from . import config as cfg
 
 
-def www_all(results,update=False):
-    """Generate www material, for now this is just an html SED.
+def www_all(results, write_path=None, sed_file='index.html',
+            f_limits_file='f_limits.html', update=False):
+    """Generate www material.
     
     Parameters
     ----------
     results : list of sdf.result.Result
         List of Result objects.
+    write_path : str, optional
+        Path to write files to, location of photometry file by default.
+    sed_file : str, optional
+        Name of sed file.
+    f_limits_file : str, optional
+        Name of f_limits file.
     update : bool, optional
         Force update of html output.
     """
@@ -30,15 +37,12 @@ def www_all(results,update=False):
     print(" Web")
 
     # see whether index.html needs updating (unless update enforced)
-    index_file = results[0].path+'/index.html'
-    f_limits_file = results[0].path+'/f_limits.html'
-    
-    if os.path.exists(index_file):
+    if os.path.exists(sed_file):
         mtime = []
         for r in results:
             mtime.append( r.pickle_time )
 
-        if os.path.getmtime(index_file) > np.max(mtime):
+        if os.path.getmtime(sed_file) > np.max(mtime):
             if not update:
                 print("   no update needed")
                 return
@@ -46,8 +50,11 @@ def www_all(results,update=False):
     else:
         print("   generating")
 
-    sed_page(results,file=index_file)
-    f_limits_page(results,file=f_limits_file)
+    if write_path is None:
+        write_path = results[0].path
+
+    sed_page(results, file=write_path+'/'+sed_file)
+    f_limits_page(results, file=write_path+'/'+f_limits_file)
 
 
 def home_page(file=cfg.file['www_root']+'index.html'):
