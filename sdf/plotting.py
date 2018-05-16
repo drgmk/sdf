@@ -607,7 +607,8 @@ def f_limits(r):
         return bokeh.embed.components(fig)
 
 
-def sample_plots():
+def sample_plots(samples=None, file='hr.html', file_path=None,
+                 absolute_paths=False):
 
     # set up connection
     cnx = mysql.connector.connect(user=cfg.mysql['user'],
@@ -624,7 +625,9 @@ def sample_plots():
     bokeh_css = bokeh.resources.CDN.render_css()
 
     # get a list of samples and generate their pages
-    samples = db.get_samples()
+    if samples is None:
+        samples = db.get_samples()
+
     for sample in samples:
         
         print("  sample:",sample)
@@ -632,9 +635,13 @@ def sample_plots():
         wwwroot = cfg.file['www_root']+'samples/'
 
         # create dir and .htaccess if neeeded
-        www.create_dir(wwwroot,sample)
-        file = wwwroot+sample+"/hr.html"
-        script,div = sample_plot(cursor,sample)
+        if file_path is None:
+            www.create_dir(wwwroot,sample)
+            file = wwwroot+sample+file
+        else:
+            file = file_path+file
+
+        script,div = sample_plot(cursor, sample, absolute_paths=absolute_paths)
 
         html = template.render(
                    js=[bokeh_js],
