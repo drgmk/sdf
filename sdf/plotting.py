@@ -637,9 +637,9 @@ def sample_plots(samples=None, file='hr.html', file_path=None,
         # create dir and .htaccess if neeeded
         if file_path is None:
             www.create_dir(wwwroot,sample)
-            file = wwwroot+sample+file
+            file1 = wwwroot+sample+'/'+file
         else:
-            file = file_path+file
+            file1 = file_path+file
 
         script,div = sample_plot(cursor, sample, absolute_paths=absolute_paths)
 
@@ -653,7 +653,7 @@ def sample_plots(samples=None, file='hr.html', file_path=None,
                    creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
                                )
 
-        with io.open(file, mode='w', encoding='utf-8') as f:
+        with io.open(file1, mode='w', encoding='utf-8') as f:
             f.write(html)
 
     cursor.close()
