@@ -388,7 +388,7 @@ def hardcopy_sed(r,file=None,fig=None,xsize=8,ysize=6,dpi=100,
         Result object with details to be plotted.
     file : str, optional
         Name of file to write plot to.
-    fig : matplotlib.pyplot.Figure object
+    fig : matplotlib.pyplot.Figure object with two axes
         Overplot on this figure.
     xsize : float, optional
         X size of plot.
@@ -403,15 +403,16 @@ def hardcopy_sed(r,file=None,fig=None,xsize=8,ysize=6,dpi=100,
     """
 
     if fig is None:
-        fig,ax = plt.subplots(figsize=(xsize,ysize))
+        fig,ax = plt.subplots(2, figsize=(xsize,ysize), sharex=True,
+                              gridspec_kw={'height_ratios':[3,1]})
     else:
-        ax = fig.axes[0]
+        ax = fig.axes
 
     # model spectra
     for s in r.comp_spectra:
-        ax.loglog(s.wavelength,s.fnujy)
+        ax[0].loglog(s.wavelength,s.fnujy)
 
-    ax.loglog(r.total_spec.wavelength,r.total_spec.fnujy)
+    ax[0].loglog(r.total_spec.wavelength,r.total_spec.fnujy)
 
 
     # photometry
@@ -420,22 +421,38 @@ def hardcopy_sed(r,file=None,fig=None,xsize=8,ysize=6,dpi=100,
             continue
 
         ok = np.invert(np.logical_or(p.upperlim,p.ignore))
-        ax.errorbar(p.mean_wavelength()[ok],p.fnujy[ok],yerr=p.e_fnujy[ok],
-                    fmt='o')
+        ax[0].errorbar(p.mean_wavelength()[ok], p.fnujy[ok],
+                       yerr=p.e_fnujy[ok], fmt='o')
+
+    # residuals panel
+    ok = np.invert(r.filters_ignore)
+    ax[1].scatter(r.wavelengths[ok],r.residuals[ok])
+    ok = r.filters_ignore
+    ax[1].scatter(r.wavelengths[ok],r.residuals[ok],alpha=0.5)
+    ax[1].axhline(0, ls=':')
+    ax[1].axhline(-3, ls='--')
+    ax[1].axhline(3, ls='--')
 
     # cosmetics
     xl,yl = sed_limits((r,))
-    ax.set_xlim(0.3,2e3)
-    ax.set_ylim(yl)
+    ax[0].set_xlim(0.3,2e3)
+    ax[0].set_ylim(yl)
+    ax[0].xaxis.set_ticklabels([])
+    ax[1].set_ylim(np.min([ax[1].get_ylim()[0],-4]),
+                   np.max([ax[1].get_ylim()[1],4]))
     if axis_labels:
-        ax.set_xlabel('Wavelength / $\mu$m')
-        ax.set_ylabel('Flux density / Jy')
+        ax[0].set_ylabel('Flux density / Jy')
+        ax[0].xaxis.set_ticklabels([])
+        ax[1].set_xlabel('Wavelength / $\mu$m')
+        ax[1].set_ylabel('Residual')
     else:
-        ax.xaxis.set_ticklabels([])
-        ax.yaxis.set_ticklabels([])
+        ax[0].yaxis.set_ticklabels([])
+        ax[1].xaxis.set_ticklabels([])
+        ax[1].yaxis.set_ticklabels([])
 
     if file is not None:
         fig.tight_layout()
+        fig.subplots_adjust(hspace=0.1)
         fig.savefig(file,dpi=dpi)
         plt.close(fig)
 
