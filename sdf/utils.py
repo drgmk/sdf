@@ -311,8 +311,15 @@ def plot_err(a,e_a,b,e_b):
     for x, xerr, y, yerr in zip(a,e_a,b,e_b):
         c.append((x, x))
         d.append((y, y))
-        err_c.append((x - xerr, x + xerr))
-        err_d.append((y - yerr, y + yerr))
+        if x - xerr > 0:
+            err_c.append((x - xerr, x + xerr))
+        else:
+            err_c.append((cfg.tiny, x + xerr))
+
+        if y - yerr > 0:
+            err_d.append((y - yerr, y + yerr))
+        else:
+            err_d.append((cfg.tiny, y + yerr))
 
     return c,err_c,d,err_d
 
