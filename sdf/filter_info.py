@@ -380,6 +380,27 @@ filters['YS'] = {#'svo_name': 'GCPD/Stromgren.y',
 0.009, 0.004, 0.000]
                  }
 
+# Skymapper
+filters['SkyMapper.u'] = {'svo_name': 'SkyMapper/SkyMapper.u',
+                          'zero_point_offset': 0.0,
+                          'response_type': 'energy'}
+filters['SkyMapper.v'] = {'svo_name': 'SkyMapper/SkyMapper.v',
+                          'zero_point_offset': 0.0,
+                          'response_type': 'energy'}
+filters['SkyMapper.g'] = {'svo_name': 'SkyMapper/SkyMapper.g',
+                          'zero_point_offset': 0.0,
+                          'response_type': 'energy'}
+filters['SkyMapper.r'] = {'svo_name': 'SkyMapper/SkyMapper.r',
+                          'zero_point_offset': 0.0,
+                          'response_type': 'energy'}
+filters['SkyMapper.i'] = {'svo_name': 'SkyMapper/SkyMapper.i',
+                          'zero_point_offset': 0.0,
+                          'response_type': 'energy'}
+filters['SkyMapper.z'] = {'svo_name': 'SkyMapper/SkyMapper.z',
+                          'zero_point_offset': 0.0,
+                          'response_type': 'energy'}
+
+
 # zero point offsets from Bessel & Murphy 2012 (0.03,0.023,0.038)
 # from MvB 0.0232, 0.0118, 0.0196
 filters['BT'] = {'svo_name': 'TYCHO/TYCHO.B_MvB',
