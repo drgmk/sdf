@@ -128,7 +128,7 @@ class Model(object):
             # filter names
             t = Table()
             t.add_column( Table.Column(self.filters,name='FILTERS') )
-            hdu2 = fits.TableHDU(np.array(t),name='FILTERS')
+            hdu2 = fits.BinTableHDU(np.array(t),name='FILTERS')
         
         elif isinstance(self,SpecModel):
         
