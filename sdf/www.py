@@ -36,13 +36,19 @@ def www_all(results, write_path=None, sed_file='index.html',
 
     print(" Web")
 
+    if write_path is None:
+        write_path = results[0].path
+
+    file = write_path+'/'+sed_file
+    f_file = write_path+'/'+f_limits_file
+
     # see whether index.html needs updating (unless update enforced)
-    if os.path.exists(sed_file):
+    if os.path.exists(file):
         mtime = []
         for r in results:
             mtime.append( r.pickle_time )
 
-        if os.path.getmtime(sed_file) > np.max(mtime):
+        if os.path.getmtime(file) > np.max(mtime):
             if not update:
                 print("   no update needed")
                 return
@@ -50,11 +56,8 @@ def www_all(results, write_path=None, sed_file='index.html',
     else:
         print("   generating")
 
-    if write_path is None:
-        write_path = results[0].path
-
-    sed_page(results, file=write_path+'/'+sed_file)
-    f_limits_page(results, file=write_path+'/'+f_limits_file)
+    sed_page(results, file=file)
+    f_limits_page(results, file=f_file)
 
 
 def home_page(file=cfg.file['www_root']+'index.html'):
@@ -123,7 +126,7 @@ def sed_page(results,file='index.html',cdn=True):
                         os.path.basename(results[0].corner_plot),
                derived_dist=os.path.basename(results[0].pmn_dir)+'/'+\
                         os.path.basename(results[0].distributions_plot),
-               h_obsid='{}'.format(utils.get_herschel_obsid(results[0].obs)),
+               h_obsid=','.join(utils.get_herschel_obsid(results[0].obs)),
                creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
                            )
 
