@@ -421,8 +421,13 @@ def hardcopy_sed(r,file=None,fig=None,xsize=8,ysize=6,dpi=100,
             continue
 
         ok = np.invert(np.logical_or(p.upperlim,p.ignore))
+        
+        err_pl = np.vstack((p.e_fnujy,p.e_fnujy))
+        err_fix = err_pl[0,:] > p.fnujy
+        err_pl[0,err_fix] = 0.99 * p.fnujy[err_fix]
+
         ax[0].errorbar(p.mean_wavelength()[ok], p.fnujy[ok],
-                       yerr=p.e_fnujy[ok], fmt='o')
+                       yerr=err_pl[:,ok], fmt='o')
 
     # residuals panel
     ok = np.invert(r.filters_ignore)
@@ -625,7 +630,7 @@ def f_limits(r):
 
 
 def sample_plots(samples=None, file='hr.html', file_path=None,
-                 absolute_paths=False):
+                 absolute_paths=True):
 
     # set up connection
     cnx = mysql.connector.connect(user=cfg.mysql['user'],
