@@ -507,9 +507,9 @@ def real_grain_spectra(file,overwrite=False):
     s = model.SpecModel()
     s.name = 'amsil_r'
     s.wavelength = pr['wavs']
-    s.parameters = ['log_Temp','Dmin','q']
+    s.parameters = ['log_Temp','log_Dmin','q']
     s.param_values = {'log_Temp': np.log10(pr['temps']),
-                      'Dmin': pr['dmins'],
+                      'log_Dmin': np.log10(pr['dmins']),
                       'q': pr['qs']}
 
     s.fnujy_sr = np.rollaxis(np.rollaxis(np.rollaxis(pr['pr'],1),2),3)
