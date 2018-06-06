@@ -86,15 +86,16 @@
                     | <a href="http://sky.esa.int/?action=goto&hips=AllWISE%20color&target={{ ra }}%20{{ dec }}" target="_blank" title="ESA Sky">esasky</a>
                     {% endif %}
                     
-                    {% if h_obsid != '' %}
                     | <span class="dropdown">
                         <button class="dropbtn">...</button>
                         <div class="dropdown-content">
-                        <a href="http://drgmk.com/hdb/find.php?obsid={{ h_obsid }}" target="_blank" title="Herschel PSF fitting">Herschel PSF fit</a>
+                        <div><a href="{{ file_dir }}" title="Fitting files">Files</a></div>
+                    {% if h_obsid != '' %}
+                        <div><a href="http://drgmk.com/hdb/find.php?obsid={{ h_obsid }}" target="_blank" title="Herschel PSF fitting">Herschel PSF fit</a></div>
+                    {% endif %}
                         </div>
                       </span>
-                    {% endif %}
-                    
+
                     
                 </td></tr>
         </table>

@@ -113,6 +113,7 @@ def sed_page(results,file='index.html',cdn=True):
                phot_file=os.path.basename(results[0].rawphot),
                json_file=os.path.basename(results[0].pmn_dir)+'/'+\
                          os.path.basename(results[0].json),
+               file_dir=os.path.basename(results[0].pmn_dir),
                main_id=results[0].obs_keywords['main_id'],
                spty=results[0].obs_keywords['sp_type'],
                ra=results[0].obs_keywords['raj2000'],
