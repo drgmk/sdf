@@ -56,8 +56,8 @@ def www_all(results, write_path=None, sed_file='index.html',
     else:
         print("   generating")
 
-    sed_page(results, file=file)
-    f_limits_page(results, file=f_file)
+    sed_page(results, file=file, f_limits_file=f_file)
+    f_limits_page(results, file=f_file, sed_file=file)
 
 
 def home_page(file=cfg.file['www_root']+'index.html'):
@@ -79,7 +79,8 @@ def home_page(file=cfg.file['www_root']+'index.html'):
         f.write(html)
 
 
-def sed_page(results,file='index.html',cdn=True):
+def sed_page(results,file='index.html',f_limits_file='f_limits.html',
+             cdn=True):
     """Make html page with an SED and other info.
         
     Parameters
@@ -88,6 +89,8 @@ def sed_page(results,file='index.html',cdn=True):
         List of Result objects.
     file : str, optional
         File to write html to.
+    f_limits_file : str, optional
+        Associated f limits file.
     cdn : bool, optional
         Use CDN for bokeh javascript, otherwise inline.
     """
@@ -110,6 +113,8 @@ def sed_page(results,file='index.html',cdn=True):
                css=[bokeh_css],
                plot_script=script,
                plot_div=div,
+               sed_file=os.path.basename(file),
+               f_limits_file=os.path.basename(f_limits_file),
                phot_file=os.path.basename(results[0].rawphot),
                json_file=os.path.basename(results[0].pmn_dir)+'/'+\
                          os.path.basename(results[0].json),
@@ -135,7 +140,8 @@ def sed_page(results,file='index.html',cdn=True):
         f.write(html)
 
 
-def f_limits_page(results,file='f_limits.html',cdn=True):
+def f_limits_page(results,file='f_limits.html',sed_file='index.html',
+                  cdn=True):
 
     script,div = plotting.f_limits(results[0])
 
@@ -155,6 +161,8 @@ def f_limits_page(results,file='f_limits.html',cdn=True):
                css=[bokeh_css],
                plot_script=script,
                plot_div=div,
+               sed_file=os.path.basename(sed_file),
+               f_limits_file=os.path.basename(file),
                phot_file=os.path.basename(results[0].rawphot),
                json_file=os.path.basename(results[0].pmn_dir)+'/'+\
                          os.path.basename(results[0].json),

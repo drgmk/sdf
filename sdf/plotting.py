@@ -630,7 +630,7 @@ def f_limits(r):
 
 
 def sample_plots(samples=None, file='hr.html', file_path=None,
-                 absolute_paths=True):
+                 absolute_paths=True, rel_loc=None):
 
     # set up connection
     cnx = mysql.connector.connect(user=cfg.mysql['user'],
@@ -663,7 +663,8 @@ def sample_plots(samples=None, file='hr.html', file_path=None,
         else:
             file1 = file_path+file
 
-        script,div = sample_plot(cursor, sample, absolute_paths=absolute_paths)
+        script,div = sample_plot(cursor, sample, rel_loc=rel_loc,
+                                 absolute_paths=absolute_paths)
 
         html = template.render(
                    js=[bokeh_js],
@@ -682,7 +683,7 @@ def sample_plots(samples=None, file='hr.html', file_path=None,
     cnx.close()
 
 
-def sample_plot(cursor,sample,absolute_paths=True):
+def sample_plot(cursor,sample,absolute_paths=True, rel_loc=None):
     """Return bokeh componenets for HR diagram + f vs. r sample plots.
 
     Parameters
@@ -693,6 +694,8 @@ def sample_plot(cursor,sample,absolute_paths=True):
         Name of sample in config.mysql['db_samples'] to plot.
     absolute_paths : bool, optional
         Use absolute urls, otherwise relative to this plot.
+    rel_loc : string, optional
+        Path to SED file.
     """
 
     # get data, ensure primary axes are not nans else bokeh will
@@ -805,7 +808,11 @@ def sample_plot(cursor,sample,absolute_paths=True):
     if absolute_paths:
         url = "/sdb/seds/masters/@sdbid/public"
     else:
-        url = "@sdbid.html"
+        if rel_loc is None:
+            url = "@sdbid.html"
+        else:
+            url = rel_loc
+
     taptool = hr.select(type=TapTool)
     taptool.callback = OpenURL(url=url)
     taptool = ft.select(type=TapTool)
