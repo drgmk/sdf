@@ -462,7 +462,7 @@ def get_herschel_obsid(obs):
         if isinstance(p, photometry.Photometry):
             for i,f in enumerate(p.filters):
                 if f in ['PACS70','PACS100','PACS160']:
-                        if p.bibcode[i] == 'HSA_GMK':
+                        if 'HSA_GMK' in p.bibcode[i]:
                             obsids = np.append(obsids, p.note[i])
 
     return np.unique(obsids)
