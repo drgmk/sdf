@@ -85,10 +85,13 @@ def write_phot(cursor,r):
     # write to table
     for i,filt in enumerate(r.all_filters):
 
-        # filters with observations
-        if filt in r.filters:
-            
-            j = np.where(filt == r.filters)[0][0]
+        # see if a non-excluded observation exists
+        j = np.where((filt == r.filters) & (r.filters_ignore == 0))[0]
+
+        if len(j) > 0:
+        
+            # write first non-excluded flux entry for this filter
+            j = j[0]
 
             # compute R properly, / for flux and - for colurs
             ratio = r.obs_fnujy[j] / r.model_fnujy[j]
