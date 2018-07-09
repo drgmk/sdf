@@ -504,7 +504,7 @@ filters['WISE4P6'] = {'svo_name': 'WISE/WISE.W2',
                       'ref_spectrum': lambda nu: 1.0/nu/nu}
 filters['WISE12'] = {'svo_name': 'WISE/WISE.W3',
                      'response_type': 'energy',
-                     'zero_point_offset': 0.05,
+                     'zero_point_offset': 0.03,
                      'ref_wavelength': 11.5608,
                      'ref_spectrum': lambda nu: 1.0/nu/nu}
 filters['WISE22'] = {'svo_name': 'WISE/WISE.W4',
