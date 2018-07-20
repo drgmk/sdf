@@ -346,6 +346,7 @@ def residual(param,*args):
 
     # set residual if any 3sigma upper limits exceeded at the 1sigma
     # level, ignored and otherwise zero as set above
+    # see Johnson+2013, MNRAS 436, 2535 for some discussion
     for i,lim in enumerate(obs_uplim):
         if lim and not obs_ignore[i]:
             if mod_fnu[i] > obs_fnu[i]/3.:
