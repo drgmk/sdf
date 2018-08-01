@@ -50,6 +50,8 @@ def sample_table_www(cursor,sample,file='index.html',
     generated using astropy's XMLWriter the jsviewer, which makes tables
     that are searchable and sortable.
     
+    Change sdf.config.mysql to specify db tables to look in.
+
     Parameters
     ----------
     cursor : mysql.connector.connect.cursor
@@ -172,10 +174,11 @@ def sample_table_www(cursor,sample,file='index.html',
         f.write(html)
 
 
-def sample_table_votable(cursor, sample, file_path=None,
-                         results=cfg.mysql['db_results']):
+def sample_table_votable(cursor, sample, file_path=None):
     """Generate a votable of the results.
-    
+
+    Change sdf.config.mysql to specify db tables to look in.
+
     Parameters
     ----------
     cursor : mysql.connector.connect.cursor
@@ -184,8 +187,6 @@ def sample_table_votable(cursor, sample, file_path=None,
         Name of sample.
     file_path : str, optional
         Where to put the file, defaults set by www config.
-    results : str
-        Name of database table containing results.
     """
 
     # create dir and .htaccess if neeeded
@@ -204,9 +205,9 @@ def sample_table_votable(cursor, sample, file_path=None,
                 "LEFT JOIN sdb_pm USING (sdbid)")
         
     sel += (" LEFT JOIN simbad USING (sdbid)"
-            " LEFT JOIN "+results+".star ON sdbid=star.id"
-            " LEFT JOIN "+results+".disk_r USING (id)"
-            " LEFT JOIN "+results+".model USING (id)"
+            " LEFT JOIN "+cfg.mysql['db_results']+".star ON sdbid=star.id"
+            " LEFT JOIN "+cfg.mysql['db_results']+".disk_r USING (id)"
+            " LEFT JOIN "+cfg.mysql['db_results']+".model USING (id)"
             " WHERE sdb_pm.sdbid IS NOT NULL"
             " ORDER by raj2000")
     # limit table sizes
