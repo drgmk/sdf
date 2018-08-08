@@ -188,7 +188,7 @@ class BB_Disk(object):
                     lstar += s['lstar_1pc']
     
             if lstar == 0.0:
-                raise utilts.SdfError('dont have lstar_1pc or distance')
+                raise utils.SdfError('dont have lstar_1pc or distance')
         
         for p in r.obs:
             if not isinstance(p,photometry.Photometry):
