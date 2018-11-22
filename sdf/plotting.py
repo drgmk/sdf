@@ -1,6 +1,8 @@
 import io
 from datetime import datetime
 from os import path,remove
+import pickle
+import requests
 
 import ast
 import numpy as np
@@ -378,9 +380,9 @@ def add_res(fig,r):
     fig.circle('wave','res',source=pldata,name='resid',**cfg.pl['obs_ig_ph'])
 
 
-def hardcopy_sed(r,file=None,fig=None,xsize=8,ysize=6,dpi=100,
-                 axis_labels=True):
-    """Make a hardcopy SED for a specific result object.
+def quick_sed(r,file=None,fig=None,xsize=8,ysize=6,dpi=100,
+              axis_labels=True):
+    """Make a quick SED for a specific result object.
 
     Parameters
     ----------
@@ -462,6 +464,93 @@ def hardcopy_sed(r,file=None,fig=None,xsize=8,ysize=6,dpi=100,
         plt.close(fig)
 
     return fig
+
+
+def pretty_sed(pkl, file=None, xlim=None, ylim=None, legend=True,
+               lw=3, figsize=(5.5,4)):
+    """Make a pretty SED for publication.
+    
+    Parameters
+    ----------
+    pkl : str
+        Url to pickle
+    xlim : tuple
+        Tuple of numbers for x limits
+    ylim : tuple
+        Tuple of numbers for y limits
+    legend : bool
+        Show legend or not
+    lw : float or integer
+        Line widths
+    figsize : tuple
+        Size of figure
+    file : str
+        Name of file to save plot to
+    """
+    s = requests.get(pkl)
+    r = pickle.loads(s.content)
+
+    # refill models, they're deleted to save space at pickling
+    mod,plmod = model.get_models(r.obs,r.model_comps)
+    r.models = mod
+    r.pl_models = plmod
+
+    # make the plot
+    fig,ax = plt.subplots(figsize=figsize)
+
+    # stellar and total spectra
+    ax.plot(r.total_spec.wavelength, r.total_spec.fnujy,
+            label='$F_{\\nu,total}$', color='C1', linewidth=lw)
+    ax.loglog(r.star_spec.wavelength, r.star_spec.fnujy,
+              label='$F_{\\nu,star}$', color='C0', linewidth=lw)
+    ax.loglog(r.disk_spec.wavelength, r.disk_spec.fnujy,
+              label='$F_{\\nu,disk}$', color='C2', linewidth=lw)
+
+    # observed spectra
+    ispec = -1
+    for s in r.obs:
+        if not isinstance(s,spectrum.ObsSpectrum):
+            continue
+        data = {}
+        flux = s.fnujy * r.best_params[ispec]
+        loerr = (s.fnujy - s.e_fnujy) * r.best_params[ispec]
+        hierr = (s.fnujy + s.e_fnujy) * r.best_params[ispec]
+        ispec -= 1
+
+        ax.plot(s.wavelength, flux, color='black', alpha=0.7)
+        ax.plot(s.wavelength, loerr,
+                color='black', alpha=0.4, linewidth=lw)
+        ax.plot(s.wavelength, hierr,
+                color='black', alpha=0.4, linewidth=lw)
+
+    # photometry
+    min_phot = np.inf
+    for p in r.obs:
+        if not isinstance(p,photometry.Photometry):
+            continue
+
+        ok = np.invert(np.logical_or(p.upperlim,p.ignore))
+        for i,f in enumerate(p.filters):
+            if filter.iscolour(f):
+                ok[i] = False
+
+        ax.errorbar(p.mean_wavelength()[ok],p.fnujy[ok],
+                    yerr=p.e_fnujy[ok], fmt='o',color='firebrick')
+        ax.plot(p.mean_wavelength()[p.upperlim],p.fnujy[p.upperlim],
+                'v',color='firebrick')
+        min_phot = np.min(np.append(min_phot, p.fnujy[ok]))
+
+    # annotation
+    ax.set_ylim(ylim)
+    ax.set_xlim(xlim)
+    ax.set_ylabel('flux density / Jy')
+    ax.set_xlabel('wavelength / $\mu$m')
+
+    if legend:
+        ax.legend(frameon=False)
+
+    fig.tight_layout()
+    fig.savefig(file)
 
 
 def sed_limits(results):

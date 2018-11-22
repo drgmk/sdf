@@ -14,7 +14,7 @@ setup(
         'astropy >= v2.0.0','binarytree','bokeh','corner',
         'extinction','emcee','filelock',
         'jinja2','matplotlib','mysql-connector','numpy',
-        'pymultinest','scipy'
+        'pymultinest','requests','scipy'
         ],
     entry_points = {
         'console_scripts': ['sdf-fit=sdf.scripts:sdf_fit',
