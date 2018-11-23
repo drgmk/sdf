@@ -8,7 +8,6 @@ import json
 import numpy as np
 from scipy.stats import truncnorm
 from scipy.optimize import minimize
-import pymultinest as pmn
 import matplotlib.pyplot as plt
 import corner
 import astropy.units as u
@@ -704,6 +703,8 @@ class Result(SampledResult):
              Force update of multinest fitting.
         """
 
+        import pymultinest as pmn
+    
         # if we want to re-run multinest, delete previous output first
         run_mn = update_mn
         if os.path.exists(self.pmn_base+'phys_live.points'):

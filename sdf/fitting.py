@@ -4,7 +4,6 @@ import glob
 
 import binarytree as bt
 import numpy as np
-import pymultinest as pmn
 import emcee
 
 # in case we don't have this module
@@ -436,6 +435,8 @@ def multinest_lnlike(cube,ndim,nparam):
 
 def multinest(o,m,dir):
     """Run pymultinest to fit model(s) to photometry."""
+    
+    import pymultinest as pmn
     
     dir = dir.rstrip('/')
     
