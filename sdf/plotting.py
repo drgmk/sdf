@@ -466,8 +466,10 @@ def quick_sed(r,file=None,fig=None,xsize=8,ysize=6,dpi=100,
     return fig
 
 
-def pretty_sed(pkl, file=None, xlim=None, ylim=None, legend=True,
-               lw=3, figsize=(5.5,4)):
+def pretty_sed(pkl_url=None, pkl_file=None, file=None, nu_fnu=False,
+               xlim=None, ylim=None, legend=True,
+               lw=3, figsize=(5.5,4),
+               star=True, disk=True, total=True):
     """Make a pretty SED for publication.
     
     Parameters
@@ -487,8 +489,12 @@ def pretty_sed(pkl, file=None, xlim=None, ylim=None, legend=True,
     file : str
         Name of file to save plot to
     """
-    s = requests.get(pkl)
-    r = pickle.loads(s.content)
+    if pkl_url is not None:
+        s = requests.get(pkl_url)
+        r = pickle.loads(s.content)
+    else:
+        with open(pkl_file,'rb') as f:
+            r = pickle.load(f)
 
     # refill models, they're deleted to save space at pickling
     mod,plmod = model.get_models(r.obs,r.model_comps)
@@ -498,23 +504,39 @@ def pretty_sed(pkl, file=None, xlim=None, ylim=None, legend=True,
     # make the plot
     fig,ax = plt.subplots(figsize=figsize)
 
+    nu = lambda w : 1e-26 * 3e14 / w
+
     # stellar and total spectra
-    ax.plot(r.total_spec.wavelength, r.total_spec.fnujy,
-            label='$F_{\\nu,total}$', color='C1', linewidth=lw)
-    ax.loglog(r.star_spec.wavelength, r.star_spec.fnujy,
-              label='$F_{\\nu,star}$', color='C0', linewidth=lw)
-    ax.loglog(r.disk_spec.wavelength, r.disk_spec.fnujy,
-              label='$F_{\\nu,disk}$', color='C2', linewidth=lw)
+    if total:
+        x = 1.
+        if nu_fnu:
+            x = nu(r.total_spec.wavelength)
+        ax.plot(r.total_spec.wavelength, r.total_spec.fnujy * x,
+                label='$F_{\\nu,total}$', color='C1', linewidth=lw)
+    if star:
+        x = 1.
+        if nu_fnu:
+            x = nu(r.total_spec.wavelength)
+        ax.loglog(r.star_spec.wavelength, r.star_spec.fnujy * x,
+                  label='$F_{\\nu,star}$', color='C0', linewidth=lw)
+    if disk:
+        x = 1.
+        if nu_fnu:
+            x = nu(r.total_spec.wavelength)
+        ax.loglog(r.disk_spec.wavelength, r.disk_spec.fnujy * x,
+                  label='$F_{\\nu,disk}$', color='C2', linewidth=lw)
 
     # observed spectra
     ispec = -1
     for s in r.obs:
         if not isinstance(s,spectrum.ObsSpectrum):
             continue
-        data = {}
-        flux = s.fnujy * r.best_params[ispec]
-        loerr = (s.fnujy - s.e_fnujy) * r.best_params[ispec]
-        hierr = (s.fnujy + s.e_fnujy) * r.best_params[ispec]
+        x = 1.
+        if nu_fnu:
+            x = nu(s.wavelength)
+        flux = s.fnujy * r.best_params[ispec] * x
+        loerr = (s.fnujy - s.e_fnujy) * r.best_params[ispec] * x
+        hierr = (s.fnujy + s.e_fnujy) * r.best_params[ispec] * x
         ispec -= 1
 
         ax.plot(s.wavelength, flux, color='black', alpha=0.7)
@@ -528,22 +550,30 @@ def pretty_sed(pkl, file=None, xlim=None, ylim=None, legend=True,
     for p in r.obs:
         if not isinstance(p,photometry.Photometry):
             continue
+        x = np.ones(len(p.fnujy))
+        if nu_fnu:
+            x = nu(p.mean_wavelength())
 
         ok = np.invert(np.logical_or(p.upperlim,p.ignore))
         for i,f in enumerate(p.filters):
             if filter.iscolour(f):
                 ok[i] = False
 
-        ax.errorbar(p.mean_wavelength()[ok],p.fnujy[ok],
-                    yerr=p.e_fnujy[ok], fmt='o',color='firebrick')
-        ax.plot(p.mean_wavelength()[p.upperlim],p.fnujy[p.upperlim],
+        ax.errorbar(p.mean_wavelength()[ok],p.fnujy[ok] * x[ok],
+                    yerr=p.e_fnujy[ok] * x[ok],
+                    fmt='o',color='firebrick')
+        ax.plot(p.mean_wavelength()[p.upperlim],
+                p.fnujy[p.upperlim] * x[p.upperlim],
                 'v',color='firebrick')
-        min_phot = np.min(np.append(min_phot, p.fnujy[ok]))
+#        min_phot = np.min(np.append(min_phot, p.fnujy[ok]))
 
     # annotation
     ax.set_ylim(ylim)
     ax.set_xlim(xlim)
-    ax.set_ylabel('flux density / Jy')
+    if nu_fnu:
+        ax.set_ylabel(r'$\nu F_\nu$ / W m$^{-2}$')
+    else:
+        ax.set_ylabel('flux density / Jy')
     ax.set_xlabel('wavelength / $\mu$m')
 
     if legend:
