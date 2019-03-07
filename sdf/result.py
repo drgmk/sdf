@@ -756,7 +756,10 @@ class Result(SampledResult):
             
         if plot:
             d = self.analyzer.get_data()
-            fig = corner.corner(d[:,2:],labels=self.model_info['parameters'])
+            mask = d[:,0] > 1e-10 # idea from pymultinest
+            fig = corner.corner(d[mask,2:], weights=d[mask,0],
+                                show_titles=True,
+                                labels=self.model_info['parameters'])
             fig.savefig(self.corner_plot)
             plt.close(fig) # not doing this causes an epic memory leak
 
@@ -839,6 +842,7 @@ class Result(SampledResult):
         
         # generate a normal distribution of parallaxes, truncated to
         # contain no negative values, if there is an uncertainty
+        # TODO: strictly this should take the weights into account
         if self.obs_keywords['plx_err'] is not None \
             and self.obs_keywords['plx_value'] is not None:
             if self.obs_keywords['plx_err'] > 0 \
@@ -973,7 +977,11 @@ class Result(SampledResult):
                     labels.append(key)
             samples = samples[1:]
 
-            fig = corner.corner(samples.transpose(),labels=labels)
+            mask = self.param_sample_probs > 1e-10
+            fig = corner.corner(samples.transpose()[mask,:],
+                                weights=self.param_sample_probs[mask],
+                                show_titles=True,
+                                labels=labels)
             fig.savefig(self.distributions_plot)
             plt.close(fig)
 
