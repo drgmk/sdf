@@ -8,8 +8,6 @@ def test_read_model_keep_filters():
     fs = ['BS_YS','MIPS24']
     m1 = m.copy()
     m1.keep_filters(fs,colour_bases=True)
-    assert( np.all( np.equal(m1.filters,
-                             np.array(['BS_YS','MIPS24','BS','YS'])) ) )
-    m.keep_filters(fs,colour_bases=False)
-    assert( np.all( np.equal(m1.filters,
-                             np.array(['BS_YS','MIPS24'])) ) )
+    assert( np.array_equal(m1.filters,['BS_YS','MIPS24','BS','YS']) )
+    m1.keep_filters(fs,colour_bases=False)
+    assert( np.array_equal(m1.filters,['BS_YS','MIPS24']) )
