@@ -18,7 +18,7 @@ addons:
 # are quicker and avoid lapack issues
 install:
     - pip install --only-binary=numpy,scipy numpy scipy
-    - pip install mysql-connector==2.1.4
+    - pip install mysql-connector==2.1.7
     - pip install .
 
 # run pytest tests, build multinest first
