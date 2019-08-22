@@ -363,3 +363,28 @@ def get_sdbids(ids):
                 sdbids.append( sdbid )
 
     return sdbids
+
+
+def get_alma_project(ra,de, radius_arcsec=10/3600):
+    """Return ALMA project IDs (if exists) given coordinates."""
+
+    # set up connection
+    try:
+        cnx = mysql.connector.connect(user=cfg.mysql['user'],
+                                      password=cfg.mysql['passwd'],
+                                      host=cfg.mysql['host'],
+                                      database=cfg.mysql['db_sdb'])
+        cursor = cnx.cursor(buffered=True)
+    
+    except mysql.connector.InterfaceError:
+        print("Can't connect to {} at {}".format(cfg.mysql['db_sdb'],
+                                                 cfg.mysql['host']) )
+        return
+
+    cursor.execute("SELECT DISTINCT project_code FROM alma_obslog WHERE "
+                   "ra BETWEEN {}-{} AND {}+{} AND "
+                   "dec_ BETWEEN {}-{} AND {}+{};"
+                   "".format(ra,radius_arcsec,ra,radius_arcsec,
+                             de,radius_arcsec,de,radius_arcsec))
+
+    return [s for (s,) in cursor]
