@@ -518,10 +518,10 @@ class PhotModel(Model):
                 fi = np.where(f == self.filters)[0]
                 keep = np.append( keep, fi )
             else:
-                raise utils.SdfError("filter {} not found in PhotModel.\
-                                     This probably means the PhotModel \
-                                     needs to be updated [using \
-                                     model_setup.setup_phot()].".format(f))
+                raise utils.SdfError("filter {} not found in PhotModel. "
+                                     "This probably means the PhotModel "
+                                     "needs to be updated (using "
+                                     "model_setup.setup_phot()).".format(f))
 
         # now add the base filters
         if len(extras) > 0 and colour_bases:
