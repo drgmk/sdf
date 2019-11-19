@@ -468,6 +468,8 @@ def quick_sed(r,file=None,fig=None,xsize=8,ysize=6,dpi=100,
 
 def pretty_sed(pkl_url=None, pkl_file=None, file=None, nu_fnu=False,
                xlim=None, ylim=None, legend=True,
+               upperlim=True,
+               exclude_filt=None, exclude_bib=None,
                lw=3, figsize=(5.5,4),
                star=True, disk=True, total=True):
     """Make a pretty SED for publication.
@@ -475,19 +477,25 @@ def pretty_sed(pkl_url=None, pkl_file=None, file=None, nu_fnu=False,
     Parameters
     ----------
     pkl : str
-        Url to pickle
+        Url of pickle.
     xlim : tuple
-        Tuple of numbers for x limits
+        Tuple of numbers for x limits.
     ylim : tuple
-        Tuple of numbers for y limits
+        Tuple of numbers for y limits.
     legend : bool
-        Show legend or not
+        Show legend or not.
+    upperlim: bool
+        Show upper limits or not.
+    exclude_filt : list of str
+        Exclude photometry from plot.
+    exclude_bib : list of str
+        Exclude photometry from plot.
     lw : float or integer
-        Line widths
+        Line widths.
     figsize : tuple
-        Size of figure
+        Size of figure.
     file : str
-        Name of file to save plot to
+        Name of file to save plot to.
     """
     if pkl_url is not None:
         s = requests.get(pkl_url)
@@ -558,13 +566,23 @@ def pretty_sed(pkl_url=None, pkl_file=None, file=None, nu_fnu=False,
         for i,f in enumerate(p.filters):
             if filter.iscolour(f):
                 ok[i] = False
+            if exclude_filt is not None and exclude_bib is not None:
+                if f in exclude_filt and p[i].bibcode in exclude_bib:
+                    ok[i] = False
+            if exclude_filt is not None:
+                if f in exclude_filt:
+                    ok[i] = False
+            if exclude_bib is not None:
+                if p[i].bibcode in exclude_bib:
+                    ok[i] = False
 
         ax.errorbar(p.mean_wavelength()[ok],p.fnujy[ok] * x[ok],
                     yerr=p.e_fnujy[ok] * x[ok],
                     fmt='o',color='firebrick')
-        ax.plot(p.mean_wavelength()[p.upperlim],
-                p.fnujy[p.upperlim] * x[p.upperlim],
-                'v',color='firebrick')
+        if upperlim:
+            ax.plot(p.mean_wavelength()[p.upperlim],
+                    p.fnujy[p.upperlim] * x[p.upperlim],
+                    'v',color='firebrick')
 #        min_phot = np.min(np.append(min_phot, p.fnujy[ok]))
 
     # annotation
