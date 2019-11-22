@@ -822,6 +822,102 @@ class SpecModel(Model):
         return self
 
 
+    @classmethod
+    def sd_spectra(cls, name='sd_disk_r',
+                   wavelengths=cfg.models['default_wave'],
+                   temperatures=10**np.arange(0,3.01,0.1),
+                   smin=10**np.arange(-1,2.01,0.1),
+                   q=np.arange(1.7,1.901,0.02),
+                   smax=100000, nsz=100,
+                   write=False,overwrite=False):
+        """Generate a set of size distribution models.
+
+        Simple analytic grain model after Backman & Paresce, assumes
+        that grains have Qabs that is 1 for s<pi.lambda, and Qabs
+        decreasing as lambda^-n beyond (with n=1). What n is depends
+        on the dust properties, but it appears to be >1 because some
+        disks have (sub)mm slopes steeper than Fnu oc nu^3. Models look
+        like they have n~2, e.g. Draine astrosilicate.
+
+        The sub-mm slopes are not as steep as can be obtained from the
+        real grain models. This is something to do with the details of
+        the absorption/emission efficiencies.
+
+        This models assumes that the peak wavelength of the stellar
+        spectrum peaks at lambda shorter than the grain size to estimate
+        the temperatures, which is a bit suspect but necessary for an
+        analytic solution. The results are a weak function [T^(n/(4+n)]
+        of the stellar temperature anyway.
+        """
+
+        # constants
+        xt = np.pi # turnover in Qabs, pi is like "real" temperatures
+        n = 2.0    # slope of Qabs beyond xt, 2 is like "real" dust
+        cw = 5100. # peak of blackbody emission in micron/K
+        ts = 6000. # assumed stellar temperature
+
+        self = cls()
+
+        self.fnujy_sr = np.zeros((len(wavelengths),
+                                  len(temperatures),
+                                  len(smin),
+                                  len(q)),dtype=float)
+        for i,tbb in enumerate(temperatures):
+            for j, smini in enumerate(smin):
+                for k, qi in enumerate(q):
+
+                    # sizes
+                    s = 10**np.linspace(np.log10(smini),
+                                        np.log10(smax), nsz)
+                    logs = np.log10(s)
+
+                    # calculate grain temperatures
+                    dbb = cw / tbb / xt
+                    dsm = cw / ts  / xt
+                    sm = s < dsm
+                    bb = s > dbb
+                    s_temp = tbb * (dbb/s)**(n/(4+n))
+                    s_temp[sm] = tbb**(4/(4+n)) * ts**(n/(4+n))
+                    s_temp[bb] = tbb
+
+                    # compute bnu for each size
+                    bnu = np.ones((len(s), len(wavelengths)))
+                    for l, st in enumerate(s_temp):
+                        bnu[l,:] = utils.bnu_wav_micron(wavelengths, st)
+
+                    # qabs
+                    qabs = np.ones((len(s), len(wavelengths)))
+                    for l, si in enumerate(s):
+                        x = wavelengths / si
+                        gtx = x > xt
+                        qabs[l,gtx] = (xt/x[gtx])**n
+
+                    # add up size distribution, this is taken straight
+                    # from Wyatt's IDL sigmadbar
+                    qfact = 5 - 3*qi
+                    sigmadbar = qfact * np.log(10) * \
+                                (10**(logs*qfact)) / \
+                                (smax**qfact - smini**qfact)
+
+                    for l in range(len(wavelengths)):
+                        self.fnujy_sr[l,i,j,k] = \
+                        utils.sdf_int(qabs[:,l]*bnu[:,l]*sigmadbar, logs)
+
+#                    return wavelengths, s, s_temp, bnu, qabs, sigmadbar, self.fnujy_sr[:]
+
+        self.name = 'sd'
+        self.wavelength = wavelengths
+        self.parameters = ['log_Temp','log_Dmin','q']
+        self.param_values = {'log_Temp': np.log10(temperatures)}
+        self.param_values['log_Dmin'] = np.log10(smin)
+        self.param_values['q'] = q
+
+        if write:
+            self.write_model(name,overwrite=overwrite)
+
+        return self
+
+
     def interp_to_wavelengths(self,wavelength,log=True):
         """Interpolate the model to the given wavelengths."""
 
