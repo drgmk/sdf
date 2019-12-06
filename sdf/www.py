@@ -108,6 +108,9 @@ def sed_page(results,file='index.html',f_limits_file='f_limits.html',
         bokeh_js = INLINE.render_js()
         bokeh_css = INLINE.render_css()
 
+    alma = db.get_alma_project(results[0].obs_keywords['raj2000'],
+                               results[0].obs_keywords['dej2000'])
+
     html = template.render(
                js=[bokeh_js],
                css=[bokeh_css],
@@ -133,8 +136,7 @@ def sed_page(results,file='index.html',f_limits_file='f_limits.html',
                derived_dist=os.path.basename(results[0].pmn_dir)+'/'+\
                         os.path.basename(results[0].distributions_plot),
                h_obsid=','.join(utils.get_herschel_obsid(results[0].obs)),
-               alma_proj='%7C'.join(db.get_alma_project(results[0].obs_keywords['raj2000'],
-                                             results[0].obs_keywords['dej2000'])),
+               alma_proj='%7C'.join(alma) if alma is not None else None,
                creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
                            )
 
