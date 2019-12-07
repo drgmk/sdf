@@ -16,9 +16,11 @@ addons:
 
 # command to install dependencies, numpy/scipy binaries
 # are quicker and avoid lapack issues
+# binarytree v2 not available any more
 install:
     - pip install --only-binary=numpy,scipy numpy scipy
     - pip install mysql-connector==2.1.7
+    - pip install https://github.com/joowani/binarytree/archive/2.0.1.zip
     - pip install .
 
 # run pytest tests, build multinest first
