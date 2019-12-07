@@ -471,13 +471,21 @@ def pretty_sed(pkl_url=None, pkl_file=None, file=None, nu_fnu=False,
                upperlim=True,
                exclude_filt=None, exclude_bib=None,
                lw=3, figsize=(5.5,4),
-               star=True, disk=True, total=True):
+               star=True, disk=True, components=False, total=True):
     """Make a pretty SED for publication.
     
     Parameters
     ----------
     pkl : str
         Url of pickle.
+    star : bool
+        Plot stellar model.
+    disk : bool
+        Plot disk model.
+    components : bool
+        Plot disk model components.
+    total : bool
+        Plot star + disk model.
     xlim : tuple
         Tuple of numbers for x limits.
     ylim : tuple
@@ -531,6 +539,9 @@ def pretty_sed(pkl_url=None, pkl_file=None, file=None, nu_fnu=False,
         x = 1.
         if nu_fnu:
             x = nu(r.total_spec.wavelength)
+        if components:
+            for s in r.comp_spectra:
+                ax.loglog(s.wavelength, s.fnujy, ':')
         ax.loglog(r.disk_spec.wavelength, r.disk_spec.fnujy * x,
                   label='$F_{\\nu,disk}$', color='C2', linewidth=lw)
 
