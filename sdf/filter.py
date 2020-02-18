@@ -50,14 +50,15 @@ class Filter(object):
 
     We also need to know the reference spectrum to do synthetic 
     photometry in systems where the flux density is given at a specific
-    (e.g. mean) wavelength. It is also good to know how that reference
-    wavelength was derived, but it can also be taken as a number. This
-    correction converts the measurement (also the value that the 
-    reference spectrum would have at this wavelength) to the value the
-    true spectrum must have at this wavelength in order to reproduce the
-    observed signal. The most common reference spectrum is 
-    nu.F_nu=const, but others are also used (e.g. 10,000K blackbody for
-    MIPS).
+    (e.g. mean) wavelength. This is commonly the case for IR photometry,
+    but not in the optical (e.g. see appendix of 2011AJ....141..173B).
+    It is also good to know how that reference wavelength was derived,
+    but it can also be taken as a number. This correction converts the
+    measurement (also the value that the reference spectrum would have
+    at this wavelength) to the value the true spectrum must have at this
+    wavelength in order to reproduce the observed signal. The most
+    common reference spectrum is nu.F_nu=const, but others are also used
+    (e.g. 10,000K blackbody for MIPS).
     
     Filter information comes from the filter_info.py file, all filters,
     colours, indices etc. need to be named as keys to the filters 
