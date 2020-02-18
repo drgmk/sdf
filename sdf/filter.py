@@ -368,14 +368,29 @@ class Filter(object):
     def synthphot(self,spectrum):
         """Synthetic photometry of supplied spectrum object
 
+        In the IR we have f_nu(quoted) (i.e. catalogue value) is:
+
+        f_nu(quoted) = f_nu(lam_eff) K
+
+        where the colour correction K is:
+
+        K =        1        S_nu(lam_eff)   int( f_nu R dnu )
+            ------------- -----------------
+            f_nu(lam_eff) int( S_nu R dnu )
+
+        For a correctly normalised bandpass R (energy counting), the
+        integral in the numerator is "normal" synthetic photoemtry as
+        done in the optical (e.g. appendix of 2011AJ....141..173B).
+
         Method is to separate the terms in synthetic photometry so that
         it can be done with a single set of equations. Separation is 
         into
-          1 the "normal" integration (i.e. without a reference spectrum)
+          1 the "normal" integration as done for the optical
           2 the spectrum-independent part of the colour correction 
-            (which can be pre-computed)
-          3 the flux at the filter's reference wavelength.
-        The latter two are only done if necessary.
+            (second term, which can be pre-computed)
+        The latter is only done if necessary. f_nu(lam_eff) cancels so
+        isn't needed to get f_nu(quoted), but is needed if we want to
+        know what the colour correction was.
         
         Returns a tuple of (quoted flux, colour correction), where the
         colour correction will be None if there isn't one (i.e. no ref
