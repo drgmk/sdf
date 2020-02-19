@@ -4,20 +4,50 @@ Any model can in principle be used and fit to photometry and spectra
 using sdf, the models just need to be set up correctly. For the default
 models most of that is done here.
 
+Basic structure is that there are SpecModels (spectra) and PhotModels
+(photometry in filters). PhotModels are derived from SpecModels.
+
+To start from scratch, it may be beneficial to create a fresh folder
+in which models will go, since generation can take a long time. Do this
+by changing the file:model_root setting in .sdf.conf when model_setup
+is imported (but change it back once that is done).
+
+Models with reddening can be created from those without, e.g. with
+phoenix_reddened_spectra.
+
+In general, run setup_phot to regenerate PhotModels when filters have
+been added or modified.
+
 For generic details of how models are structured and how they work, see
 :py:mod:`sdf.model`.
 
 Models
 ------
 
-phoenix
-    bla
-    
-blackbodies
-    bla
-    
-real grain
-    bla
+### Phoenix
+To generate phoenix model grids, first create resampled spectra with
+resample_phoenix_spectra, which will loop over metallicities to create
+models with one resolution. Two are needed in the standard setup, r=100
+for SpecModels, and r=1000 from which the PhotModels are generated.
+
+Then setup_default_phoenix will put all of these together to make the
+full grids.
+
+### Kurucz
+Run kurucz_spectra, which simply converts a model grid file into the
+format used by sdf.
+
+### Blackbodies
+Run bb_spectra and/or modbb_spectra, which just call functions in
+sdf.model.SpecModel
+
+### Simplified size distribution
+Run sdf.model.SpecModel.sd_spectra
+
+### "Real grain"
+Run real_grain_spectra, which reads in a file that was previously
+created from IDL codes.
+
 """
 
 import glob
