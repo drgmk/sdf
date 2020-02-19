@@ -719,6 +719,15 @@ def f_limits(r):
                      line_width=3,muted_alpha=0.2, line_dash=s,
                      name='lim',legend=n)
 
+        # best-fit values
+        for i,d in enumerate(r.disk_r_distributions):
+            data = {'temp':d['tdisk'], 'f':d['ldisk_lstar'],
+                    'comp':np.repeat('{}'.format(i), len(d['tdisk']))}
+            pldata = ColumnDataSource(data=data)
+            fig.circle('temp', 'f', source=pldata, legend='Best fit',
+                       color=cfg.model_colours[i], name='fit',
+                       alpha=cfg.phot_alpha[i])
+
         fig.legend.click_policy="mute"
         fig.legend.location = 'top_left'
         fig.legend.label_text_font_size = '10pt'
@@ -754,6 +763,15 @@ def f_limits(r):
                 fig.line('rad','f',source=pldata,color='lightgrey',
                          line_width=3,muted_alpha=0.2, line_dash=s,
                          name='lim',legend=n)
+
+            # best-fit values
+            for i,d in enumerate(r.disk_r_distributions):
+                data = {'r':d['rdisk_bb'], 'f':d['ldisk_lstar'],
+                        'comp':np.repeat('{}'.format(i), len(d['rdisk_bb']))}
+                pldata = ColumnDataSource(data=data)
+                fig.circle('r', 'f', source=pldata, legend='Best fit',
+                           color=cfg.model_colours[i], name='fit',
+                           alpha=cfg.phot_alpha[i])
 
             fig.legend.click_policy="mute"
             fig.legend.location = 'top_left'
