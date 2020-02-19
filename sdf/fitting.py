@@ -535,6 +535,22 @@ def pmn_pc(prob,samples,pcs,axis=0):
             raise utils.SdfError("wrong type {}".format(type(pcs)))
 
 
+def weighted_dist(prob):
+    """Select samples from distribution, accounting for weights.
+
+    Returns boolean array with same length as input, with True
+    indicating samples to keeep.
+
+    Parameters
+    ----------
+    prob : np.array
+        Array of probabilities
+    """
+
+    p_rand = np.random.uniform(high=np.max(prob),size=len(prob))
+    return prob > p_rand
+
+
 def sort_evidence(ev_in,ndim):
     """Return argsort for models using evidence.
 
