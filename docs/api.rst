@@ -27,6 +27,7 @@ Core modules
     model
     fitting
     result
+    analytics
     utils
 
 

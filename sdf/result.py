@@ -435,8 +435,8 @@ class SampledResult(BaseResult):
     def star_results_one(self,i):
         """Return dict of star-specifics for ith model component.
         
-        .. todo: make stellar parameters consistent, e.g. re-compute
-                 lstar from rstar and teff if we have a distance
+        .. todo:: make stellar parameters consistent, e.g. re-compute
+                  lstar from rstar and teff if we have a distance
         """
 
         star = {}

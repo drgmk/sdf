@@ -224,7 +224,7 @@ def generate_cal_seds(out_dir=cfg.file['www_root']+'calibration/stis_ngsl/',
 def generate_cal_table():
     """Generate a table that helps browse calibration SEDs.
     
-    .. todo: fix broken www links.
+    .. todo:: fix broken www links.
     """
 
     print("STIS NGSL calibration table")
@@ -249,8 +249,8 @@ def generate_cal_table():
 def generate_cal_hr_diag(cdn=True):
     """Generate HR diagram and f-r plot to help browse calibration SEDs.
     
-    .. todo: fix www so link goes back to calibration table.
-    .. todo: fix thumbs
+    .. todo:: fix www so link goes back to calibration table.
+    .. todo:: fix thumbs
     """
 
     print("STIS NGSL HR diagram")

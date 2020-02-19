@@ -401,7 +401,7 @@ def quick_sed(r,file=None,fig=None,xsize=8,ysize=6,dpi=100,
     axis_labels : bool, optional
         Show axis labels or not.
 
-    .. todo: this is very simple, needs work.
+    .. todo:: this is very simple, needs work.
     """
 
     if fig is None:
@@ -727,7 +727,7 @@ def f_limits(r):
             pldata = ColumnDataSource(data=data)
             fig.circle('temp', 'f', source=pldata, legend='Best fit',
                        color=cfg.model_colours[i], name='fit',
-                       alpha=cfg.phot_alpha[i],
+                       alpha=cfg.phot_alpha[i], size=7,
                        muted_color=cfg.model_colours[i],
                        muted_alpha=cfg.phot_alpha[i]/2)
 
@@ -775,7 +775,7 @@ def f_limits(r):
                 pldata = ColumnDataSource(data=data)
                 fig.circle('r', 'f', source=pldata, legend='Best fit',
                            color=cfg.model_colours[i], name='fit',
-                           alpha=cfg.phot_alpha[i],
+                           alpha=cfg.phot_alpha[i], size=7,
                            muted_color=cfg.model_colours[i],
                            muted_alpha=cfg.phot_alpha[i]/2)
 

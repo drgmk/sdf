@@ -10,7 +10,7 @@ class BB_Disk(object):
     '''A blackbody disk class.
         
     Takes multiple temperatures, the purpose being for use to show
-    disk properties in paramter spaces such as fractional luminosity
+    disk properties in parameter spaces such as fractional luminosity
     vs. temperature.
     
     Parameters
@@ -26,10 +26,10 @@ class BB_Disk(object):
     temperatures : 1-D array, optional
         Vector of temperatures.
 
-    .. todo: distance not actually needed for calibration limited, fix.
+    .. todo:: distance not actually needed for calibration limited, fix.
 
-    .. todo: don't use a for loop over temperatures,
-             fix utils.bnu_wav_micron instead.
+    .. todo:: don't use a for loop over temperatures,
+              fix utils.bnu_wav_micron instead.
     '''
 
     def __init__(self,wavelengths=None,temperatures=None,
