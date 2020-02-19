@@ -775,13 +775,16 @@ class Result(SampledResult):
             self.best_params_1sig.append(self.analyzer.get_stats()\
                                          ['marginals'][i]['sigma'])
         
-        # tuple of multinest samples to use for uncertainty estimation.
-        # total probability in samples must be 1
+        # tuple of multinest samples to use for uncertainty estimation,
+        # randomly chosen from multinest output. total probability in
+        # samples must sum to 1
         self.param_samples = ()
         self.param_sample_probs = []
         randi = []
-        for i in np.random.randint(0,high=len(self.analyzer.data),
-                                   size=cfg.fitting['n_samples']):
+        
+        i_shuf = np.arange(len(self.analyzer.data))
+        np.random.shuffle(i_shuf)
+        for i in i_shuf[:cfg.fitting['n_samples']]:
             randi.append(i)
             self.param_samples += (self.analyzer.data[i,2:],)
             self.param_sample_probs.append(self.analyzer.data[i,0])
@@ -842,7 +845,6 @@ class Result(SampledResult):
         
         # generate a normal distribution of parallaxes, truncated to
         # contain no negative values, if there is an uncertainty
-        # TODO: strictly this should take the weights into account
         if self.obs_keywords['plx_err'] is not None \
             and self.obs_keywords['plx_value'] is not None:
             if self.obs_keywords['plx_err'] > 0 \
