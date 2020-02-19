@@ -705,8 +705,8 @@ def f_limits(r):
                     'filter':np.repeat(fname[i],len(lim[:,i]))}
             pldata = ColumnDataSource(data=data)
             fig.line('temp','f',source=pldata,color=cols[i % ncols],
-                     line_width=3,muted_alpha=0.2,
-                     name='lim',legend=fname[i])
+                     line_width=3, name='lim',legend=fname[i],
+                     muted_alpha=0.2, muted_color=cols[i % ncols])
 
         # extra limits
         for l,n,s in zip([th_lim,alma_lim],
@@ -720,13 +720,16 @@ def f_limits(r):
                      name='lim',legend=n)
 
         # best-fit values
+        ok = fitting.weighted_dist(r.param_sample_probs)
         for i,d in enumerate(r.disk_r_distributions):
-            data = {'temp':d['tdisk'], 'f':d['ldisk_lstar'],
-                    'comp':np.repeat('{}'.format(i), len(d['tdisk']))}
+            data = {'temp':d['tdisk'][ok], 'f':d['ldisk_lstar'][ok],
+                    'comp':np.repeat('{}'.format(i), np.sum(ok))}
             pldata = ColumnDataSource(data=data)
             fig.circle('temp', 'f', source=pldata, legend='Best fit',
                        color=cfg.model_colours[i], name='fit',
-                       alpha=cfg.phot_alpha[i])
+                       alpha=cfg.phot_alpha[i],
+                       muted_color=cfg.model_colours[i],
+                       muted_alpha=cfg.phot_alpha[i]/2)
 
         fig.legend.click_policy="mute"
         fig.legend.location = 'top_left'
@@ -750,8 +753,8 @@ def f_limits(r):
                         'filter':np.repeat(fname[i],len(lim[:,i]))}
                 pldata = ColumnDataSource(data=data)
                 fig.line('rad','f',source=pldata,color=cols[i % ncols],
-                         line_width=3,muted_alpha=0.2,
-                         name='lim',legend=fname[i])
+                         line_width=3, name='lim',legend=fname[i],
+                         muted_alpha=0.2, muted_color=cols[i % ncols])
 
             # extra limits
             for l,n,s in zip([th_lim,alma_lim],
@@ -765,13 +768,16 @@ def f_limits(r):
                          name='lim',legend=n)
 
             # best-fit values
+            ok = fitting.weighted_dist(r.param_sample_probs)
             for i,d in enumerate(r.disk_r_distributions):
-                data = {'r':d['rdisk_bb'], 'f':d['ldisk_lstar'],
-                        'comp':np.repeat('{}'.format(i), len(d['rdisk_bb']))}
+                data = {'r':d['rdisk_bb'][ok], 'f':d['ldisk_lstar'][ok],
+                        'comp':np.repeat('{}'.format(i), np.sum(ok))}
                 pldata = ColumnDataSource(data=data)
                 fig.circle('r', 'f', source=pldata, legend='Best fit',
                            color=cfg.model_colours[i], name='fit',
-                           alpha=cfg.phot_alpha[i])
+                           alpha=cfg.phot_alpha[i],
+                           muted_color=cfg.model_colours[i],
+                           muted_alpha=cfg.phot_alpha[i]/2)
 
             fig.legend.click_policy="mute"
             fig.legend.location = 'top_left'
