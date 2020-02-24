@@ -834,10 +834,10 @@ class SpecModel(Model):
 
         Simple analytic grain model after Backman & Paresce, assumes
         that grains have Qabs that is 1 for s<pi.lambda, and Qabs
-        decreasing as lambda^-n beyond (with n=1). What n is depends
-        on the dust properties, but it appears to be >1 because some
-        disks have (sub)mm slopes steeper than Fnu oc nu^3. Models look
-        like they have n~2, e.g. Draine astrosilicate.
+        decreasing as lambda^-n beyond. What n is depends on the dust
+        properties, but it appears to be >1 because some disks have
+        (sub)mm slopes steeper than Fnu oc nu^3. Models look like they
+        have n~2, e.g. Draine astrosilicate.
 
         The sub-mm slopes are not as steep as can be obtained from the
         real grain models. This is something to do with the details of
@@ -1057,6 +1057,24 @@ def reduce_zerod(m,parameters):
     out.fnujy_sr = m.fnujy(np.append(parameters,-np.log10(cfg.ssr)))
     out.fill_log_fnujy_sr_hashed()
     
+    return out
+
+
+def reduce_squeeze(m):
+    """Reduce model by removing length=one dimensions."""
+
+    out = m.copy()
+    print('input model has shape:{}'.format(m.param_shape()))
+
+    keep = np.array(m.param_shape()) != 1
+
+    for k,p in zip(keep,m.parameters):
+        if not k:
+            del out.param_values[p]
+    out.parameters = m.parameters[keep]
+    out.fnujy_sr = np.squeeze(m.fnujy_sr)
+
+    print('output model has shape:{}'.format(out.param_shape()))
     return out
 
 
