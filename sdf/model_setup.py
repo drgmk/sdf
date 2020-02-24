@@ -405,8 +405,8 @@ def phoenix_mh_spectra(resolution=100,mh=0.0,overwrite=False,
     return s
 
 
-def phoenix_reddened_spectra(name='phoenix_m',overwrite=True):
-    """Generate a SpecModel of phoenix spectra, with reddening."""
+def reddened_spectra(name='phoenix_m',overwrite=True):
+    """Generate a SpecModel of spectra, with reddening."""
 
     m = model.SpecModel.read_model(name)
     m0 = model.append_parameter(m,'A_V',0.0)
@@ -520,6 +520,8 @@ def modbb_spectra():
     
     model.SpecModel.modbb_disk_r(name='modbb_disk_r',
                                  write=True,overwrite=True)
+    model.SpecModel.bb_disk_r(name='modbb_l210b1_disk_r',
+                              write=True,lam0=210.0, beta=1.0)
     model.SpecModel.modbb_disk_dr(name='modbb_disk_dr',
                                  write=True,overwrite=True)
 
