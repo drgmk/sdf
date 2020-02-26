@@ -827,7 +827,7 @@ class SpecModel(Model):
                    wavelengths=cfg.models['default_wave'],
                    temperatures=10**np.arange(0,3.01,0.1),
                    smin=10**np.arange(-1,2.01,0.1),
-                   q=np.arange(1.7,1.901,0.02),
+                   q=np.arange(1.67,2.001,0.02),
                    smax=100000, nsz=100,
                    write=False,overwrite=False):
         """Generate a set of size distribution models.
