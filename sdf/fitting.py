@@ -20,6 +20,7 @@ from . import spectrum
 from . import filter
 from . import utils
 from . import result
+from . import db
 from . import config as cfg
 
 # these are for getting info to pymultinest
@@ -30,7 +31,7 @@ global_p_rng = ()
 
 def fit_results(file,update_mn=False,update_an=False,
                 update_json=False,update_thumb=False,
-                sort=True,nospec=False):
+                sort=True,custom_sort=True,nospec=False):
     """Return a list of fitting results.
         
     Parameters
@@ -43,6 +44,8 @@ def fit_results(file,update_mn=False,update_an=False,
         Force update of post-multinest fitting analysis.
     sort : bool, optional
         Sort results by decreasing evidence.
+    custom_sort: bool, optional
+        Additonally sort results using per-target config.
     nospec : bool, optional
         Exclude observed specta from fitting (for speed).
     """
@@ -108,13 +111,22 @@ def fit_results(file,update_mn=False,update_an=False,
             else:
                 t = t.left
 
-    # sort list of results by evidence
-    if sort:
+    # sort list of results by evidence (required for subsequent custom sort)
+    print(' Sorting')
+    if sort or custom_sort:
+        print('   sorting results by evidence')
         results = [results[i] for i in result.sort_results(results)]
+    else:
+        print('   no results sorting')
 
-    # save a thumb of the best fit next to the input file
-    results[0].sed_thumbnail(file=results[0].path+'/'+results[0].id+'_thumb.png',
-                             update=update_thumb)
+    # sort list of results by custom method
+    if custom_sort:
+        print('   applying db.custom_sort results sorting')
+        results = [results[i] for i in db.custom_sort(file, results)]
+
+    # save a thumb of the best fit next to the input file, update every
+    # time since we may have changed best fit (but not fitting itself)
+    results[0].sed_thumbnail(file='{}/{}_thumb.png'.format(results[0].path, results[0].id), update=True)
 
     return results
 

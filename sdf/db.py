@@ -2,6 +2,7 @@ import numpy as np
 
 import mysql.connector
 import astropy.units as u
+from astropy.table import Table
 
 from . import filter
 from . import utils
@@ -243,6 +244,81 @@ def write_disk_r(cursor,r):
                                          key,disk_r[key],
                                          r.id,disk_r['comp_no'])
                            )
+
+
+def custom_sort(file, results):
+    """Custom sort based on per-target config in database."""
+
+    # set up connection
+    try:
+        cnx = mysql.connector.connect(user=cfg.mysql['user'],
+                                      password=cfg.mysql['passwd'],
+                                      host=cfg.mysql['host'],
+                                      database=cfg.mysql['db_sdb'])
+        cursor = cnx.cursor(buffered=True)
+
+    except mysql.connector.InterfaceError:
+        print("Can't connect to {} at {}".format(cfg.mysql['db_sdb'],
+                                                 cfg.mysql['host']) )
+        return
+
+    # attempt to get sdbid from file, which is 'id' keyword when output
+    # by sdb_getphot.py
+    try:
+        p = Table.read(file,format='ascii.ipac')
+        kw = p.meta['keywords']
+        sdbid = kw['id']['value']
+    except:
+        print('     db.custom_sort: no sdbid in photometry file')
+
+    cursor.execute("SELECT n_disk_comps FROM {} WHERE "
+                   "sdbid='{}';".format(cfg.mysql['sdf_fit_config'],
+                                        sdbid))
+
+    out = np.arange(len(results))
+
+    # shift two-component disks to end
+    twod = out.copy()
+    oned = out.copy()
+    twod_i = np.zeros(len(out), dtype=bool)
+    oned_i = np.zeros(len(out), dtype=bool)
+    for i,r in enumerate(results):
+        nd_i = 0
+        for m in r.model_comps:
+            if m in cfg.models['disk']:
+                nd_i += 1
+        if nd_i >= 2:
+            twod_i[i] = True
+        if nd_i >= 1:
+            oned_i[i] = True
+
+    if np.sum(twod_i) > 0:
+        twod = np.append(out[np.invert(twod_i)], out[twod_i])
+    if np.sum(oned_i) > 0:
+        oned = np.append(out[np.invert(oned_i)], out[oned_i])
+
+    # if no config, shift two-component results to end
+#    print(cursor.fetchone())
+    if cursor.rowcount == 0:
+        print('     no config: 2-disk comp results to end')
+        return twod
+    elif cursor.rowcount > 1:
+        raise utils.SdfError('db.custom_sort: >1 config row for {}'.format(file))
+    # else preserve current order
+    else:
+        nd = cursor.fetchone()[0]
+        if nd == 2:
+            print('     n_disk_comps=2: use default result order')
+            return out
+        elif nd == 1:
+            print('     n_disk_comps=1: 2-disk comp results to end')
+            return twod
+        elif nd == 0:
+            print('     n_disk_comps=0: all disk comp results to end')
+            return oned
+        else:
+            raise utils.SdfError('db.custom_sort: weird component config (n_disk_comps={}) for {}'.format(nd, file))
+            return out
 
 
 def get_samples():
