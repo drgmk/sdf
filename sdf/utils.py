@@ -12,15 +12,13 @@ from astropy.table import Table
 from astropy.coordinates import ICRS
 import astropy.units as u
 
-from . import photometry
-
 # do this first, since SdfError called in config
 # TODO: presumably there is a way to avoid this...
 class SdfError(Exception):
     """Use this for non-standard errors."""
     pass
 
-
+from . import photometry
 from . import config as cfg
 
 c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
