@@ -521,7 +521,8 @@ def modbb_spectra():
     model.SpecModel.modbb_disk_r(name='modbb_disk_r',
                                  write=True,overwrite=True)
     model.SpecModel.bb_disk_r(name='modbb_l210b1_disk_r',
-                              write=True,lam0=210.0, beta=1.0)
+                              write=True, overwrite=True,
+                              lam0=210.0, beta=1.0)
     model.SpecModel.modbb_disk_dr(name='modbb_disk_dr',
                                  write=True,overwrite=True)
 
