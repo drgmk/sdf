@@ -122,7 +122,11 @@ def fit_results(file,update_mn=False,update_an=False,
     # sort list of results by custom method
     if custom_sort:
         print('   applying db.custom_sort results sorting')
-        results = [results[i] for i in db.custom_sort(file, results)]
+        srt = db.custom_sort(file, results)
+        if srt is None:
+            print("     couldn't get config")
+        else:
+            results = [results[i] for i in srt]
 
     # save a thumb of the best fit next to the input file, update every
     # time since we may have changed best fit (but not fitting itself)
