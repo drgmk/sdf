@@ -46,7 +46,7 @@ end
 ;; wavelength range slightly greater than used in sdf, readsav seems
 ;; to restore things with slightly different ranges
 nw = 500
-wavs = logarrw(min=0.1,max=1e4,n=nw)
+wavs = logarrw(min=0.05,max=1e4,n=nw)
 wavs = [0.05,wavs,1e4+1]
 nw = N_ELEMENTS(wavs)
 
