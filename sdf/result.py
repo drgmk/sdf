@@ -443,8 +443,8 @@ class SampledResult(BaseResult):
         star['comp_no'] = i
         distributions = {}
         for j,par in enumerate(self.comp_parameters[i]):
-            star[par] = self.best_params[j]
-            star['e_'+par] = self.best_params_1sig[j]
+            star[par] = self.comp_best_params[i][j]
+            star['e_'+par] = self.comp_best_params_1sig[i][j]
         
         # rstar and lstar if star were at 1pc
         rstar_1pc_dist = np.zeros(cfg.fitting['n_samples'])
