@@ -324,9 +324,14 @@ def custom_sort(file, results):
 def get_samples():
     """Get a list of samples.
     
-    Get a list of samples from the database. Add "everything" and
-    "public" samples, "public" might not show everything in the list,
-    but "everything" will (but may not be visible to anyone).
+    Get a list of samples from the database.
+    
+    Option to add "everything" and "public" samples, "public" might not 
+    show everything in the list, but "everything" will (but may not be
+    visible to anyone). Currently disabled.
+    
+    Samples starting with an underscore are ignored, as a way of 
+    disabling samples without having to delete their tables.
     
     Samples with no sdbid column, i.e. those that haven't been imported
     yet, will be excluded.
@@ -337,7 +342,8 @@ def get_samples():
                                   host=cfg.mysql['host'],
                                   database=cfg.mysql['db_samples'])
     cursor = cnx.cursor(buffered=True)
-    cursor.execute("SHOW TABLES;")
+    cursor.execute("SHOW TABLES WHERE Tables_in_{} "
+                   "NOT REGEXP('^_');".format(cfg.mysql['db_samples']))
     samples_tmp = cursor.fetchall() # a list of tuples
     samples = []
     for s_tuple in samples_tmp:
