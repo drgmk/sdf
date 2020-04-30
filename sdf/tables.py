@@ -36,6 +36,7 @@ def sample_tables():
         print("  sample:",sample)
         sample_table_www(cursor,sample)
         sample_table_votable(cursor,sample)
+        sample_table_photometry(cursor,sample)
 
     cursor.close()
     cnx.close()
@@ -251,6 +252,61 @@ def sample_table_votable(cursor, sample, file_path=None):
 
     tsamp.write(file_path+sample+'.xml',
                 format='votable',overwrite=True)
+
+
+def sample_table_photometry(cursor, sample, file_path=None):
+    """Generate a table of the photometry.
+        
+    Seems that votable can't have a blank entry where there needn't be
+    one (e.g. here an observed flux when none was observed). So write
+    as a csv.
+
+    Change sdf.config.mysql to specify db tables to look in.
+
+    Parameters
+    ----------
+    cursor : mysql.connector.connect.cursor
+        Cursor pointing to main sdb database.
+    sample : str
+        Name of sample.
+    file_path : str, optional
+        Where to put the file, defaults set by www config.
+    """
+
+    # create dir and .htaccess if neeeded
+    if file_path is None:
+        wwwroot = cfg.file['www_root']+'samples/'
+        www.create_dir(wwwroot,sample)
+        file_path = wwwroot+sample+'/'
+
+    # generate the mysql statement
+    sel = "SELECT name, phot.*"
+
+    if sample == 'everything' or sample == 'public':
+        sel += " FROM sdb_pm"
+    else:
+        sel += (" FROM "+cfg.mysql['db_samples']+"."+sample+" "
+                "LEFT JOIN "+cfg.mysql['db_results']+".phot ON sdbid=id"
+                " WHERE comp_no=-1 ORDER BY filter")
+
+    # limit table sizes
+    if sample != 'everything':
+        sel += " LIMIT "+str(cfg.www['votmax'])+";"
+
+    cursor.execute(sel)
+    rows = cursor.fetchall()
+    tsamp = Table(rows=rows,names=cursor.column_names,masked=True)
+
+    print("    got ",len(tsamp)," rows for photometry table")
+
+    # mask blank entries
+    for n in tsamp.colnames:
+        no = tsamp[n] == None
+        if np.any(no):
+            tsamp[n].mask = no
+
+    tsamp.write(file_path+sample+'_photometry.csv',
+                format='csv',overwrite=True)
 
 
 def sample_table_temp_tables(cursor):
