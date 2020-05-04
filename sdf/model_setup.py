@@ -541,7 +541,7 @@ def real_grain_spectra(file,overwrite=False):
     s.name = 'amsil_r'
     s.wavelength = pr['wavs']
     s.parameters = ['log_Temp','log_Dmin','q']
-    s.param_values = {'log_Temp': np.log10(pr['temps']),
+    s.param_values = {'log_Temp': np.log10(pr['tbbs']),
                       'log_Dmin': np.log10(pr['dmins']),
                       'q': pr['qs']}
 
