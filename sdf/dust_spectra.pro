@@ -8,7 +8,7 @@
 ;; to restore things with slightly different ranges
 nwavs = 500
 wavs = logarrw(min=0.05,max=1e4,n=nwavs)
-wavs = [0.05,wavs,1e4+1]
+wavs = [0.0499,wavs,1e4+1]
 nwavs = N_ELEMENTS(wavs)
 
 ;; assume a composition (astrosil)
