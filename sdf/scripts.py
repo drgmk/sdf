@@ -112,6 +112,8 @@ def sdf_sample():
     
     # inputs
     parser = argparse.ArgumentParser(description='Update sample www pages')
+    parser.add_argument('--samples','-s',nargs='+',
+                        help='Restrict to target samples')
     parser.add_argument('--tables','-t',action='store_true',
                         help='Update sample tables')
     parser.add_argument('--plots','-p',action='store_true',
@@ -124,12 +126,12 @@ def sdf_sample():
 
     if args.tables:
         print("Updating sample tables")
-        tables.sample_tables()
+        tables.sample_tables(args.samples)
 
     if args.plots:
         print("Updating sample plots")
-        plotting.flux_size_plots()
-        plotting.sample_plots()
+        plotting.flux_size_plots(args.samples)
+        plotting.sample_plots(args.samples)
 
     if args.calibration:
         print("Updating calibration plots")

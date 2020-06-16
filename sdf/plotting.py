@@ -993,7 +993,7 @@ def sample_plot(cursor,sample,absolute_paths=True, rel_loc=None):
     return bokeh.embed.components(p)
 
 
-def flux_size_plots():
+def flux_size_plots(samples=None):
 
     # set up connection
     cnx = mysql.connector.connect(user=cfg.mysql['user'],
@@ -1010,7 +1010,9 @@ def flux_size_plots():
     bokeh_css = bokeh.resources.CDN.render_css()
 
     # get a list of samples and generate their pages
-    samples = db.get_samples()
+    if samples is None:
+        samples = db.get_samples()
+    
     for sample in samples:
         
         print("  sample:",sample)

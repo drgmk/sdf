@@ -20,7 +20,7 @@ from . import utils
 from . import config as cfg
 
 
-def sample_tables():
+def sample_tables(samples=None):
     """Generate tables for all samples."""
 
     # set up connection
@@ -31,7 +31,9 @@ def sample_tables():
     cursor = cnx.cursor(buffered=True)
 
     # get a list of samples and generate their pages
-    samples = db.get_samples()
+    if samples is None:
+        samples = db.get_samples()
+    
     for sample in samples:
         print("  sample:",sample)
         sample_table_www(cursor,sample)
@@ -289,9 +291,9 @@ def sample_table_photometry(cursor, sample, file_path=None):
                 "LEFT JOIN "+cfg.mysql['db_results']+".phot ON sdbid=id"
                 " WHERE comp_no=-1 ORDER BY filter")
 
-    # limit table sizes
-    if sample != 'everything':
-        sel += " LIMIT "+str(cfg.www['votmax'])+";"
+    # these are large, so don't limit table sizes
+#    if sample != 'everything':
+#        sel += " LIMIT "+str(cfg.www['votmax'])+";"
 
     cursor.execute(sel)
     rows = cursor.fetchall()
