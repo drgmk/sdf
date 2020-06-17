@@ -334,8 +334,8 @@ class ObsSpectrum(Spectrum):
 
 
     @classmethod
-    def read_cassis(cls,file,module_split=False):
-        """Read a file from the CASSIS database of IRS spectra.
+    def read_cassis_lores(cls,file,module_split=False):
+        """Read a low res file from the CASSIS database of IRS spectra.
         
         Returns a tuple of ObsSpectrum objects, optionally split by
         IRS module (SL1, SL2, LL1, LL2), since these might need to
@@ -413,6 +413,82 @@ class ObsSpectrum(Spectrum):
 
 
     @classmethod
+    def read_cassis_hires(cls,file,module_split=False):
+        """Read a high res file from the CASSIS database of IRS spectra.
+            
+        Returns a tuple of ObsSpectrum objects, optionally split by IRS
+        module (SH1, SH2), since these might need to be normalised
+        individually.
+        
+        Check for nan values in uncertainty arrays.
+        """
+        
+        # open the file and put it in a Table
+        fh = fits.open(file)
+        t = Table(fh[0].data)
+        
+        # get the column names
+        coldefs = fh[0].header['COL*DEF']
+        for i,name in enumerate(t.colnames):
+            try:
+                t[name].name = coldefs[i]
+            except IndexError:
+                pass
+    
+        fh.close()
+        
+        # optionally split into modules and sort by wavelength
+        # module no. not given, so using wavelength of 19.475um
+        module = ['SH','LH']
+        wave_split = t['wavelength'] - 19.475
+        split_sign = [-1, 1]
+        if module_split:
+            s_list = []
+            for mod, sign in zip(module, split_sign):
+
+                ok = ( (wave_split * sign > 0) &
+                       (np.isfinite(t['flux'])) &
+                       (np.isfinite(t['flux_error'])) )
+                no = np.logical_or(t['flux_error'][ok] <= 0,
+                                   t['flux'][ok] <= 0)
+                ok[ok] = np.invert(no)
+            
+                # there might be all nan errors or no data
+                if np.any(ok) > 0:
+                    s = ObsSpectrum()
+                    s.instrument = 'Spitzer IRS '+mod
+                    s.wavelength = t['wavelength'].data[ok]
+                    s.nu_hz = c_micron / t['wavelength'].data[ok]
+                    s.fnujy = t['flux'].data[ok]
+                    s.e_fnujy = t['flux_error'].data[ok]
+                    s.bibcode = '2015ApJS..218...21L'
+                    s.sort('wave')
+                    s_list.append(s)
+
+            if len(s_list) == 0:
+                raise utils.SdfError('No usable data in {}'.format(file))
+
+            return tuple(s_list)
+        
+        else:
+            self = cls()
+            ok = np.isfinite(t['flux_error'])
+            no = np.logical_or(t['flux_error'][ok] <= 0,
+                               t['flux'][ok] <= 0)
+            ok[ok] = np.invert(no)
+            if np.any(ok) == 0:
+                raise utils.SdfError('No usable data in {}'.format(file))
+            self.wavelength = t['wavelength'].data[ok]
+            self.nu_hz = c_micron / t['wavelength'].data[ok]
+            self.fnujy = t['flux'].data[ok]
+            self.e_fnujy = t['flux_error'].data[ok]
+            self.bibcode = '2015ApJS..218...21L'
+            self.instrument = 'Spitzer IRS'
+            self.sort('wave')
+            return (self,)
+
+
+    @classmethod
     def read_csv(cls, file):
         """Read a spectrum in a generic csv file.
         
@@ -449,10 +525,19 @@ class ObsSpectrum(Spectrum):
         """Read a spectrum file, sorting out how to do it.
             
         The calls should all return tuples of ObsSpectrum objects.
+        
+        Since we might have low or high resolution spectra, try low res
+        first (which will fail).
         """
         
         if type == 'irsstare':
-            return ObsSpectrum.read_cassis(file,module_split=module_split)
+            try:
+                return ObsSpectrum.read_cassis_lores(file,module_split=module_split)
+            except:
+                pass
+
+            return ObsSpectrum.read_cassis_hires(file,module_split=module_split)
+                
         elif type == 'csv':
             return ObsSpectrum.read_csv(file)
 
