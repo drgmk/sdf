@@ -219,6 +219,7 @@ filters = {}
 # that we want in the "all" list
 extras = ['BS_YS','STROMM1','STROMC1',
           'UJ_BJ','BJ_VJ','VJ_IC','VJ_RC','RC_IC',
+          'WAV44','WAV63',
           'WAV350','WAV450','WAV610',
           'WAV800','WAV850','WAV855',
           'WAV860','WAV870','WAV880','WAV890','WAV895',
