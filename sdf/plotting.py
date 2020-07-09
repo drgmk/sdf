@@ -672,7 +672,7 @@ def f_limits(r):
             bb = analytics.BB_Disk()
 
         # observed limits
-        lim,fname = bb.f_limits_from_result(r)
+        lim, det_lo, det_hi, sn_det, fname = bb.f_limits_from_result(r)
 
         # "theoretical" photometric limit
         th_lim = 0.05 * \

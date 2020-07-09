@@ -153,10 +153,21 @@ class BB_Disk(object):
             raise RuntimeError('Need to pass flux_limits or r_limits')
 
 
-    def f_limits_from_result(self,r,min_wavelength=8.0,
+    def f_limits_from_result(self,r,min_wavelength=8.0, sn=3,
+                             x={}, x_det={},
                              skip_filters=[],keep_filters=None):
         '''Derive fractional luminosity limits from an sdf result object.
-            
+        
+        Also derive fractional luminosities and signal to noise of excess
+        detections. Return low and high limits, expect to plot these
+        with pyplot.fill_between and something like:
+        
+        ax.fill_between(temps, det_lo[:,i], det_hi[:,i],
+                        where=(det_lo[:,i]<det_hi[:,i]), alpha=0.25)
+
+        Account for long wavelength grain inefficiency with X factor, 
+        used per filter, e.g. {'WAV850':4}.
+
         Rather than worry about flux vs. calibration limited, just do 
         the calculation assuming flux limited by calculating the flux
         limit for each observed filter (whether it was an upper limit
@@ -168,6 +179,12 @@ class BB_Disk(object):
             Result object with photometry.
         min_wavelength : float, optional
             Exclude filters with a mean wavelength shorter than this.
+        sn : float, optional
+            S/N at which detection significant, used only for detections.
+        x : dict
+            X factor to increase limits by: {filter,X}
+        x_det : dict
+            X factor to increase upper detection limit by: {filter,X}
         skip_filters : list, optional
             List of filters to skip.
         keep_filters : list, optional
@@ -177,6 +194,8 @@ class BB_Disk(object):
         waves = np.array([])
         filters = np.array([])
         f_lim = np.array([])
+        f_det = np.array([])
+        e_det = np.array([])
         f_star = np.array([])
 
         # get stellar luminosity at 1pc if no distance
@@ -213,17 +232,70 @@ class BB_Disk(object):
                 filt_i = np.where(filt == np.array(r.all_filters))[0]
                 f_star = np.append(f_star,r.all_star_phot[filt_i])
                 
+                fac = 1
+                if filt in x.keys():
+                    fac = x[filt]
+
                 if p.upperlim[ok][i]:
-                    f_lim = np.append(f_lim,p.fnujy[ok][i])
+                    f_lim = np.append(f_lim,p.fnujy[ok][i]*fac)
+                    f_det = np.append(f_det, 0)
+                    e_det = np.append(e_det, 0)
                 else:
                     # 1sigma uncertainty, observed and star in quadrature
                     unc = np.sqrt(
               p.e_fnujy[ok][i]**2 + \
               0.25*(r.all_star_phot_1sig_lo[filt_i] + r.all_star_phot_1sig_hi[filt_i])**2
                                   )
-                    f_lim = np.append(f_lim,3*unc)
+                    f_lim = np.append(f_lim,3*unc*fac)
+                    f_det = np.append(f_det, p.fnujy[ok][i] - f_star[-1])
+                    e_det = np.append(e_det, unc)
 
         lims = self.f_limits(waves,flux_limits=f_lim,
                              stellar_flux=f_star,lstar_1pc=lstar)
-        return lims,filters
+        dets = self.f_limits(waves,flux_limits=f_det,
+                             stellar_flux=f_star,lstar_1pc=lstar)
 
+        ok = e_det > 0
+        sn_dets = np.zeros(lims.shape[1])
+        sn_dets[ok] = f_det[ok] / e_det[ok]
+
+        # now compute limit ranges for detections, first get ranges
+        det_lo = np.zeros(lims.shape)
+        det_hi = lims.copy()
+        both_hi = lims.copy()
+        for i in range(lims.shape[1]):
+            if sn_dets[i]>sn:
+                fac = 1
+                if filters[i] in x_det.keys():
+                    fac = x_det[filters[i]]
+                det_lo[:,i] = dets[:,i]*(1-sn/sn_dets[i])
+                det_hi[:,i] = dets[:,i]*(fac+sn/sn_dets[i])
+                both_hi[:,i] = np.max([[det_hi[:,i]],[lims[:,i]]], axis=0)
+
+        # now adjust high limit based on other limits
+        for i in range(lims.shape[1]):
+            other = np.arange(lims.shape[1]) != i
+            det_hi[:,i] = np.min( np.hstack((both_hi[:,other],det_hi[:,i].reshape((-1,1)))), axis=1 )
+        
+        return lims, det_lo, det_hi, sn_dets, filters
+
+
+    def f_limits_togrid(self, lims, f=None):
+        '''Return boolean grid in f - r/T space indicating detectability.
+        
+        Sum multiple of these to get the grid that shows how many of the
+        systems it was possible to detect a disk for.
+        
+        Parameters
+        ----------
+        lims : array
+            Array of f limits (i.e. n_temperatures x n_lim).
+        f : array, optional
+            Array of f to use in grid.
+        '''
+        
+        if f is None:
+            f = 10**np.linspace(-7,-1,100)
+            
+        fs, _ = np.meshgrid(f, self.temperatures)
+        return fs > np.min(lim, axis=1), f
