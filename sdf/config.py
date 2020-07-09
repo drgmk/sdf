@@ -106,7 +106,7 @@ fitting = {
     'n_live': cfg['fitting'].getint('n_live'),
     'n_update': cfg['fitting'].getint('n_update'),
     'verb': cfg['fitting'].getboolean('verb'),
-    'n_samples': cfg['fitting'].getint('n_samples'),
+    'n_samples_max': cfg['fitting'].getint('n_samples_max'),
     'model_om_range': (cfg['fitting'].getfloat('model_om_lo'),
                        cfg['fitting'].getfloat('model_om_hi')),
     'spectra_norm_range': (cfg['fitting'].getfloat('spectra_norm_lo'),

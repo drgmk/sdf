@@ -416,7 +416,11 @@ class FixedResult(BaseResult):
 
 
 class SampledResult(BaseResult):
-    """Class for results from Monte-Carlo or other sampling methods."""
+    """Class for results from Monte-Carlo or other sampling methods.
+    
+    Assumes that samples have uniform weights, e.g. from MCMC, or
+    MultiNest's post_equal_weights.dat.
+    """
 
     def star_results(self):
         """Return tuple of dicts of star-specifics, if result has star."""
@@ -447,18 +451,15 @@ class SampledResult(BaseResult):
             star['e_'+par] = self.comp_best_params_1sig[i][j]
         
         # rstar and lstar if star were at 1pc
-        rstar_1pc_dist = np.zeros(cfg.fitting['n_samples'])
-        lstar_1pc_dist = np.zeros(cfg.fitting['n_samples'])
-        for j,par in enumerate(self.comp_param_samples[i]):
-            rstar_1pc_dist[j] = np.sqrt(cfg.ssr * 10**par[-1]/np.pi) \
-                                * u.pc.to(u.m)
-            lstar_1pc_dist[j] = 4 * np.pi * rstar_1pc_dist[j]**2 \
-                                * par[0]**4 * 5.670373e-08 / u.L_sun.to(u.W)
-        
+        rstar_1pc_dist = np.sqrt(cfg.ssr * 10**self.comp_param_samples[i][:,-1]/np.pi) \
+                         * u.pc.to(u.m)
+        lstar_1pc_dist = 4 * np.pi * rstar_1pc_dist**2 \
+                         * self.comp_param_samples[i][:,0]**4 \
+                         * 5.670373e-08 / u.L_sun.to(u.W)
+
         distributions['lstar_1pc'] = lstar_1pc_dist
         self.distributions['lstar_1pc_tot'] += lstar_1pc_dist
-        lo,star['lstar_1pc'],hi = fitting.pmn_pc(self.param_sample_probs,
-                                                 lstar_1pc_dist,[16.0,50.0,84.0])
+        lo,star['lstar_1pc'],hi = np.percentile(lstar_1pc_dist,[16.0,50.0,84.0])
         star['e_lstar_1pc_lo'] = star['lstar_1pc'] - lo
         star['e_lstar_1pc_hi'] = hi - star['lstar_1pc']
         star['e_lstar_1pc'] = (star['e_lstar_1pc_lo']+star['e_lstar_1pc_hi'])/2.0
@@ -472,16 +473,14 @@ class SampledResult(BaseResult):
             # combine lstar_1pc and plx distributions for lstar
             lstar_dist = lstar_1pc_dist / self.distributions['parallax']**2
             distributions['lstar'] = lstar_dist
-            lo,star['lstar'],hi = fitting.pmn_pc(self.param_sample_probs,
-                                                 lstar_dist,[16.0,50.0,84.0])
+            lo,star['lstar'],hi = np.percentile(lstar_dist,[16.0,50.0,84.0])
             star['e_lstar_lo'] = star['lstar'] - lo
             star['e_lstar_hi'] = hi - star['lstar']
             star['e_lstar'] = (star['e_lstar_lo']+star['e_lstar_hi'])/2.0
      
             rstar_dist = rstar_1pc_dist / self.distributions['parallax'] / u.R_sun.to(u.m)
             distributions['rstar'] = rstar_dist
-            lo,star['rstar'],hi = fitting.pmn_pc(self.param_sample_probs,
-                                                 rstar_dist,[16.0,50.0,84.0])
+            lo,star['rstar'],hi = np.percentile(rstar_dist,[16.0,50.0,84.0])
             star['e_rstar_lo'] = star['rstar'] - lo
             star['e_rstar_hi'] = hi - star['rstar']
             star['e_rstar'] = (star['e_rstar_lo']+star['e_rstar_hi'])/2.0
@@ -528,15 +527,13 @@ class SampledResult(BaseResult):
     
             # array of disk temperature samples
             if 'Temp' in par:
-                distributions['tdisk'] = np.zeros(cfg.fitting['n_samples'])
-                for k,sample in enumerate(self.comp_param_samples[i]):
-                    if par == 'log_Temp':
-                        distributions['tdisk'][k] = 10**sample[j]
-                    elif par == 'Temp':
-                        distributions['tdisk'][k] = sample[j]
+                if par == 'log_Temp':
+                    distributions['tdisk'] = 10**self.comp_param_samples[i][:,j]
+                elif par == 'Temp':
+                    distributions['tdisk'] = self.comp_param_samples[i][:,j]
 
         # disk and fractional luminosity
-        ldisk_1pc_dist = np.zeros(cfg.fitting['n_samples'])
+        ldisk_1pc_dist = np.zeros(self.n_samples)
         for j,par in enumerate(self.comp_param_samples[i]):
             
             # there will only be one SpecModel in the ith component
@@ -551,8 +548,7 @@ class SampledResult(BaseResult):
                         * 4 * np.pi * (u.pc.to(u.m))**2 / u.L_sun.to(u.W)
         
         distributions['ldisk_1pc'] = ldisk_1pc_dist
-        lo,disk_r['ldisk_1pc'],hi = fitting.pmn_pc(self.param_sample_probs,
-                                                   ldisk_1pc_dist,[16.0,50.0,84.0])
+        lo,disk_r['ldisk_1pc'],hi = np.percentile(ldisk_1pc_dist,[16.0,50.0,84.0])
         disk_r['e_ldisk_1pc_lo'] = disk_r['ldisk_1pc'] - lo
         disk_r['e_ldisk_1pc_hi'] = hi - disk_r['ldisk_1pc']
         disk_r['e_ldisk_1pc'] = (disk_r['e_ldisk_1pc_lo']+disk_r['e_ldisk_1pc_hi'])/2.0
@@ -562,8 +558,8 @@ class SampledResult(BaseResult):
 
             ldisk_lstar_dist = ldisk_1pc_dist / self.distributions['lstar_1pc_tot']
             distributions['ldisk_lstar'] = ldisk_lstar_dist
-            lo,disk_r['ldisk_lstar'],hi = fitting.pmn_pc(self.param_sample_probs,
-                                                         ldisk_lstar_dist,[16.0,50.0,84.0])
+            lo,disk_r['ldisk_lstar'],hi = np.percentile(ldisk_lstar_dist,
+                                                        [16.0,50.0,84.0])
             disk_r['e_ldisk_lstar_lo'] = disk_r['ldisk_lstar'] - lo
             disk_r['e_ldisk_lstar_hi'] = hi - disk_r['ldisk_lstar']
             disk_r['e_ldisk_lstar'] = (disk_r['e_ldisk_lstar_lo']+
@@ -576,8 +572,8 @@ class SampledResult(BaseResult):
                 rdisk_bb_dist = lstar**0.5 * (278.3/distributions['tdisk'])**2
 
                 distributions['rdisk_bb'] = rdisk_bb_dist
-                lo,disk_r['rdisk_bb'],hi = fitting.pmn_pc(self.param_sample_probs,
-                                                          rdisk_bb_dist,[16.0,50.0,84.0])
+                lo,disk_r['rdisk_bb'],hi = np.percentile(rdisk_bb_dist,
+                                                         [16.0,50.0,84.0])
                 disk_r['e_rdisk_bb_lo'] = disk_r['rdisk_bb'] - lo
                 disk_r['e_rdisk_bb_hi'] = hi - disk_r['rdisk_bb']
                 disk_r['e_rdisk_bb'] = (disk_r['e_rdisk_bb_lo']+disk_r['e_rdisk_bb_hi'])/2.0
@@ -753,15 +749,6 @@ class Result(SampledResult):
         else:
             if os.path.getmtime(self.corner_plot) < self.mn_a_time:
                 plot = True
-            
-        if plot:
-            d = self.analyzer.get_data()
-            mask = d[:,0] > 1e-10 # idea from pymultinest
-            fig = corner.corner(d[mask,2:], weights=d[mask,0],
-                                show_titles=True,
-                                labels=self.model_info['parameters'])
-            fig.savefig(self.corner_plot)
-            plt.close(fig) # not doing this causes an epic memory leak
 
         # parameter names and best fit
         self.evidence = self.analyzer.get_stats()['global evidence']
@@ -775,21 +762,18 @@ class Result(SampledResult):
             self.best_params_1sig.append(self.analyzer.get_stats()\
                                          ['marginals'][i]['sigma'])
         
-        # tuple of multinest samples to use for uncertainty estimation,
-        # randomly chosen from multinest output. total probability in
-        # samples must sum to 1
-        self.param_samples = ()
-        self.param_sample_probs = []
-        randi = []
-        
-        i_shuf = np.arange(len(self.analyzer.data))
-        np.random.shuffle(i_shuf)
-        for i in i_shuf[:cfg.fitting['n_samples']]:
-            randi.append(i)
-            self.param_samples += (self.analyzer.data[i,2:],)
-            self.param_sample_probs.append(self.analyzer.data[i,0])
-                
-        self.param_sample_probs /= np.sum(self.param_sample_probs)
+        # equally weighted samples for distributions, last column is loglike
+        self.param_samples = self.analyzer.get_equal_weighted_posterior()[:,:-1]
+        if len(self.param_samples) > cfg.fitting['n_samples_max']:
+            self.param_samples = self.param_samples[:cfg.fitting['n_samples_max']]
+        self.n_samples = len(self.param_samples)
+
+        # corner plot of parameters
+        if plot:
+            fig = corner.corner(self.param_samples, show_titles=True,
+                                labels=self.model_info['parameters'])
+            fig.savefig(self.corner_plot)
+            plt.close(fig) # not doing this causes an epic memory leak
 
         # split the parameters into components
         self.n_parameters = len(self.parameters)
@@ -805,8 +789,7 @@ class Result(SampledResult):
             self.comp_best_params_1sig += (self.best_params_1sig[i0:i0+nparam],)
             
             comp_i_samples = ()
-            for i in randi:
-                comp_i_samples += (self.analyzer.data[i,i0+2:i0+nparam+2],)
+            comp_i_samples = self.param_samples[:self.n_samples,i0:i0+nparam]
             self.comp_param_samples += (comp_i_samples,)
 
             i0 += nparam
@@ -840,8 +823,8 @@ class Result(SampledResult):
         # fluxes and uncertainties etc. using parameter samples
         self.distributions = {}
         
-        # we will want lstar at 1pc below
-        self.distributions['lstar_1pc_tot'] = np.zeros(cfg.fitting['n_samples'])
+        # we will add to lstar at 1pc when getting star-specific results
+        self.distributions['lstar_1pc_tot'] = np.zeros(self.n_samples)
         
         # generate a normal distribution of parallaxes, truncated to
         # contain no negative values, if there is an uncertainty
@@ -857,23 +840,23 @@ class Result(SampledResult):
                     truncnorm.rvs(lo_cut,np.inf,
                                   loc=self.obs_keywords['plx_value']/1e3,
                                   scale=self.obs_keywords['plx_err']/1e3,
-                                  size=cfg.fitting['n_samples'])
+                                  size=self.n_samples)
                     
         # observed fluxes
         obs_nel = self.fill_observations()
 
         # model fluxes, including colours/indices
-        model_dist = np.zeros((len(self.filters),cfg.fitting['n_samples']))
+        model_dist = np.zeros((len(self.filters),self.n_samples))
         model_comp_dist = np.zeros((self.n_comps,len(self.filters),
-                                    cfg.fitting['n_samples']))
+                                    self.n_samples))
 
         # all fluxes, including colours/indices
         p_all = photometry.Photometry(filters=filter.Filter.all)
         self.all_filters = p_all.filters
         p_all_mod,_ = model.get_models((p_all,),self.model_comps)
-        all_dist = np.zeros((p_all.nphot,cfg.fitting['n_samples']))
+        all_dist = np.zeros((p_all.nphot,self.n_samples))
         all_comp_dist = np.zeros((self.n_comps,p_all.nphot,
-                                    cfg.fitting['n_samples']))
+                                    self.n_samples))
 
         for i,par in enumerate(self.param_samples):
 
@@ -890,17 +873,16 @@ class Result(SampledResult):
 
         # summed model fluxes
         self.distributions['model_fnujy'] = model_dist
-        lo,self.model_fnujy,hi = fitting.pmn_pc(self.param_sample_probs,
-                                                model_dist,[16.0,50.0,84.0],
-                                                axis=1)
+        lo,self.model_fnujy,hi = np.percentile(model_dist,
+                                               [16.0,50.0,84.0], axis=1)
         self.model_fnujy_1sig_lo = self.model_fnujy - lo
         self.model_fnujy_1sig_hi = hi - self.model_fnujy
 
         # per-component model fluxes
         self.distributions['model_comp_fnujy'] = model_comp_dist
-        lo,self.model_comp_fnujy,hi = fitting.pmn_pc(self.param_sample_probs,
-                                                     model_comp_dist,[16.0,50.0,84.0],
-                                                     axis=2)
+        lo,self.model_comp_fnujy,hi = np.percentile(model_comp_dist,
+                                                    [16.0,50.0,84.0],
+                                                    axis=2)
         self.model_comp_fnujy_1sig_lo = self.model_comp_fnujy - lo
         self.model_comp_fnujy_1sig_hi = hi - self.model_comp_fnujy
 
@@ -911,8 +893,8 @@ class Result(SampledResult):
         self.dof = len(self.wavelengths)-len(self.parameters)-1
 
         # star and disk photometry for all filters
-        star_phot_dist = np.zeros((p_all.nphot,cfg.fitting['n_samples']))
-        disk_phot_dist = np.zeros((p_all.nphot,cfg.fitting['n_samples']))
+        star_phot_dist = np.zeros((p_all.nphot,self.n_samples))
+        disk_phot_dist = np.zeros((p_all.nphot,self.n_samples))
         for i,comp in enumerate(self.model_comps):
             if self.star_or_disk[i] == 'star':
                 star_phot_dist += all_comp_dist[i,:,:]
@@ -921,9 +903,8 @@ class Result(SampledResult):
 
         # star photometry in all filters
         self.distributions['star_phot'] = star_phot_dist
-        lo,self.all_star_phot,hi = fitting.pmn_pc(self.param_sample_probs,
-                                              star_phot_dist,[16.0,50.0,84.0],
-                                              axis=1)
+        lo,self.all_star_phot,hi = np.percentile(star_phot_dist,
+                                                 [16.0,50.0,84.0],axis=1)
         self.all_star_phot_1sig_lo = self.all_star_phot - lo
         self.all_star_phot_1sig_hi = hi - self.all_star_phot
 
@@ -932,9 +913,8 @@ class Result(SampledResult):
 
         # disk photometry in all filters
         self.distributions['disk_phot'] = disk_phot_dist
-        lo,self.all_disk_phot,hi = fitting.pmn_pc(self.param_sample_probs,
-                                              disk_phot_dist,[16.0,50.0,84.0],
-                                              axis=1)
+        lo,self.all_disk_phot,hi = np.percentile(disk_phot_dist,
+                                                 [16.0,50.0,84.0],axis=1)
         self.all_disk_phot_1sig_lo = self.all_disk_phot - lo
         self.all_disk_phot_1sig_hi = hi - self.all_disk_phot
 
@@ -943,17 +923,15 @@ class Result(SampledResult):
 
         # component photometry in all filters
         self.distributions['all_comp_phot'] = all_comp_dist
-        lo,self.all_comp_phot,hi = fitting.pmn_pc(self.param_sample_probs,
-                                                  all_comp_dist,[16.0,50.0,84.0],
-                                                  axis=2)
+        lo,self.all_comp_phot,hi = np.percentile(all_comp_dist,
+                                                 [16.0,50.0,84.0],axis=2)
         self.all_comp_phot_1sig_lo = self.all_comp_phot - lo
         self.all_comp_phot_1sig_hi = hi - self.all_comp_phot
 
         # total photometry in all filters
         self.distributions['all_phot'] = all_dist
-        lo,self.all_phot,hi = fitting.pmn_pc(self.param_sample_probs,
-                                             all_dist,[16.0,50.0,84.0],
-                                             axis=1)
+        lo,self.all_phot,hi = np.percentile(all_dist,
+                                            [16.0,50.0,84.0], axis=1)
         self.all_phot_1sig_lo = self.all_phot - lo
         self.all_phot_1sig_hi = hi - self.all_phot
 
@@ -962,9 +940,22 @@ class Result(SampledResult):
         self.disk_r,self.disk_r_distributions = self.disk_r_results()
         self.main_results = self.star + self.disk_r
         
+        # best fit spectra
+        self.fill_best_fit_spectra()
+
+        # set analysis finish time
+        self.analysis_time = time.time()
+
         # corner plot of distributions, join them together first
+        plot = False
         if not os.path.exists(self.distributions_plot):
-            samples = np.zeros(cfg.fitting['n_samples'])
+            plot = True
+        else:
+            if os.path.getmtime(self.distributions_plot) < self.analysis_time:
+                plot = True
+
+        if plot:
+            samples = np.zeros(self.n_samples)
             labels = []
             if 'parallax' in self.distributions.keys():
                 samples = np.vstack((samples,self.distributions['parallax']))
@@ -979,19 +970,10 @@ class Result(SampledResult):
                     labels.append(key)
             samples = samples[1:]
 
-            mask = self.param_sample_probs > 1e-10
-            fig = corner.corner(samples.transpose()[mask,:],
-                                weights=self.param_sample_probs[mask],
-                                show_titles=True,
-                                labels=labels)
+            fig = corner.corner(samples.transpose(),
+                                show_titles=True, labels=labels)
             fig.savefig(self.distributions_plot)
             plt.close(fig)
-
-        # best fit spectra
-        self.fill_best_fit_spectra()
-
-        # set analysis finish time
-        self.analysis_time = time.time()
 
 
     def delete_multinest(self):
