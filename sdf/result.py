@@ -649,6 +649,8 @@ class Result(SampledResult):
                     self.exclude_spectra == nospec and \
                     self.mn_time > cfg.fitting['mn_oldest'] and \
                     self.analysis_time > cfg.fitting['an_oldest'] and \
+                    ( len(self.param_samples) == len(self.analyzer.get_equal_weighted_posterior()) or \
+                      len(self.param_samples) == cfg.fitting['n_samples_max'] ) and \
                     self.pickle_time > self.analysis_time > self.mn_a_time > \
                     self.mn_time > self.rawphot_time:
 
@@ -699,6 +701,8 @@ class Result(SampledResult):
              Force update of multinest fitting.
         """
 
+        print("   multinest")
+
         import pymultinest as pmn
     
         # if we want to re-run multinest, delete previous output first
@@ -721,6 +725,7 @@ class Result(SampledResult):
         # multinest does checkpointing, so we can force a re-run by
         # deleting the files
         if run_mn or npt != cfg.fitting['n_live']:
+            print("     redoing")
             self.delete_multinest()
         
         # we must go there, multinest only takes 100 char paths
@@ -808,6 +813,8 @@ class Result(SampledResult):
             Force update of analysis
         """
 
+        print("   analysis")
+
         # see if we have anything to do
         run_an = update_an
         if hasattr(self,'analysis_time'):
@@ -818,6 +825,7 @@ class Result(SampledResult):
         else:
             run_an = True
         if not run_an:
+            print("     skipping")
             return
 
         # fluxes and uncertainties etc. using parameter samples
