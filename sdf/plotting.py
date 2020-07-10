@@ -720,10 +720,9 @@ def f_limits(r):
                      name='lim',legend=n)
 
         # best-fit values
-        ok = fitting.weighted_dist(r.param_sample_probs)
         for i,d in enumerate(r.disk_r_distributions):
-            data = {'temp':d['tdisk'][ok], 'f':d['ldisk_lstar'][ok],
-                    'comp':np.repeat('{}'.format(i), np.sum(ok))}
+            data = {'temp':d['tdisk'], 'f':d['ldisk_lstar'],
+                    'comp':np.repeat('{}'.format(i), len(d['tdisk']))}
             pldata = ColumnDataSource(data=data)
             fig.circle('temp', 'f', source=pldata, legend='Best fit',
                        color=cfg.model_colours[i], name='fit',
@@ -768,10 +767,9 @@ def f_limits(r):
                          name='lim',legend=n)
 
             # best-fit values
-            ok = fitting.weighted_dist(r.param_sample_probs)
             for i,d in enumerate(r.disk_r_distributions):
-                data = {'r':d['rdisk_bb'][ok], 'f':d['ldisk_lstar'][ok],
-                        'comp':np.repeat('{}'.format(i), np.sum(ok))}
+                data = {'r':d['rdisk_bb'], 'f':d['ldisk_lstar'],
+                        'comp':np.repeat('{}'.format(i), len(d['rdisk_bb']))}
                 pldata = ColumnDataSource(data=data)
                 fig.circle('r', 'f', source=pldata, legend='Best fit',
                            color=cfg.model_colours[i], name='fit',
