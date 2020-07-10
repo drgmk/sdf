@@ -789,7 +789,7 @@ class Result(SampledResult):
             self.comp_best_params_1sig += (self.best_params_1sig[i0:i0+nparam],)
             
             comp_i_samples = ()
-            comp_i_samples = self.param_samples[:self.n_samples,i0:i0+nparam]
+            comp_i_samples = self.param_samples[:,i0:i0+nparam]
             self.comp_param_samples += (comp_i_samples,)
 
             i0 += nparam
