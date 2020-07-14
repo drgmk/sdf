@@ -48,8 +48,9 @@ calc = {
 if os.path.exists(cfg['file']['model_root']):
     model_names = [i for i in os.walk(cfg['file']['model_root'])][0][1]
 else:
-    raise utils.SdfError("model directory {} doesn't exist".\
-                         format(cfg['file']['model_root']))
+    print('Config: no models in {}\n  may need to create ~/.sdf.conf'.format(cfg['file']['model_root']))
+    model_names = []
+
 model_loc = {}
 for name in model_names:
     model_loc[name] = file['model_root']+name+'/'
