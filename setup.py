@@ -16,6 +16,7 @@ setup(
         'jinja2','matplotlib','mysql-connector','numpy',
         'pymultinest','requests','scipy'
         ],
+    include_package_data=True,
     entry_points = {
         'console_scripts': ['sdf-fit=sdf.scripts:sdf_fit',
                             'sdf-sample=sdf.scripts:sdf_sample',

@@ -28,7 +28,8 @@ import bokeh.palettes
 
 from . import utils
 
-print('sdf config read from:')
+print('Config')
+print('  found files:')
 
 # info from the config files, defaults are in same dir as this file
 cfg = configparser.ConfigParser()

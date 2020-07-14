@@ -1,2 +1,4 @@
+include sdf/sdf.conf
 graft sdf/data
+graft sdf/calibration
 graft sdf/www
