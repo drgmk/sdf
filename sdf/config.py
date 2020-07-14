@@ -28,12 +28,14 @@ import bokeh.palettes
 
 from . import utils
 
+print('sdf config read from:')
+
 # info from the config files, defaults are in same dir as this file
 cfg = configparser.ConfigParser()
-cfg.read([
+print(cfg.read([
           os.path.dirname(os.path.realpath(__file__))+'/sdf.conf',
           os.path.expanduser('~')+'/.sdf.conf'
-         ])
+         ]))
 
 # simple dictionaries with only strings
 file = cfg['file']
@@ -48,7 +50,7 @@ calc = {
 if os.path.exists(cfg['file']['model_root']):
     model_names = [i for i in os.walk(cfg['file']['model_root'])][0][1]
 else:
-    print('Config: no models in {}\n  may need to create ~/.sdf.conf'.format(cfg['file']['model_root']))
+    print('  no models in {}\n  may need to create ~/.sdf.conf'.format(cfg['file']['model_root']))
     model_names = []
 
 model_loc = {}
