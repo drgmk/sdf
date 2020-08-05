@@ -28,7 +28,7 @@ import bokeh.palettes
 
 from . import utils
 
-print('Config')
+print(' Config')
 print('  found files:')
 
 # info from the config files, defaults are in same dir as this file
