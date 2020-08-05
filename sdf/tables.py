@@ -235,6 +235,14 @@ def sample_table_votable(cursor, sample, file_path=None):
                                                   ),
                     np.repeat('-rawphot.txt',len(tsamp))
                                                  )
+    # to mnest folder
+    tsamp['mnest_url'] = np.core.defchararray.add(
+                          np.core.defchararray.add(
+                            tsamp['url'],tsamp['sdbid']
+                                                  ),
+                    np.repeat(cfg.fitting['pmn_dir_suffix'], len(tsamp))
+                                                 )
+
     # to best fit model json
     tsamp['model_url'] = np.empty(len(tsamp),dtype='U150')
     for i,comps in enumerate(tsamp['model_comps']):
