@@ -773,20 +773,18 @@ class Result(SampledResult):
         self.evidence = self.analyzer.get_stats()['global evidence']
         self.parameters = self.model_info['parameters']
 
-        self.best_params = []
-        self.best_params_1sig = []
-        for i in range(len(self.parameters)):
-            self.best_params.append(self.analyzer.get_stats()\
-                                    ['marginals'][i]['median'])
-            self.best_params_1sig.append(self.analyzer.get_stats()\
-                                         ['marginals'][i]['sigma'])
-
         # equally weighted samples for distributions, last column is loglike
         self.param_samples = self.analyzer.get_equal_weighted_posterior()[:,:-1]
         if len(self.param_samples) > cfg.fitting['n_samples_max']:
             self.param_samples = self.param_samples[:cfg.fitting['n_samples_max']]
 
         self.n_samples = len(self.param_samples)
+
+        # best fit parameters
+        lo, med, hi = np.percentile(self.param_samples,
+                                    [16.0, 50.0, 84.0], axis=0)
+        self.best_params = list(med)
+        self.best_params_1sig = list((hi - lo)/2)
 
         # split the parameters into components
         self.n_parameters = len(self.parameters)
