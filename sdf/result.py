@@ -668,6 +668,7 @@ class Result(SampledResult):
         if not hasattr(self,'obs'):
             return self
         self.run_multinest(update_mn=mn_up)
+        self.get_multinest_results(update_mn_a=update_an)
         self.run_analysis(update_an=update_an)
 
         # delete the models to save space, we don't need them again
@@ -733,27 +734,40 @@ class Result(SampledResult):
             fitting.multinest( self.obs,self.models,'.' )
             self.mn_time = os.path.getmtime(self.pmn_base+'phys_live.points')
 
+
+    def get_multinest_results(self,update_mn_a=False):
+        '''Get results and samples from multinest.
+            
+        This could have been contained within run_analysis, so same
+        update requirement as that routine.
+        
+        Parameters
+        ----------
+        update_mn_a : bool, optional
+        Force update of multinest results.
+        '''
+    
+        print("   getting analysis data")
+
+        import pymultinest as pmn
+
         # update the analyzer if necessary
-        get_a = False
+        get_a = update_mn_a
         if hasattr(self,'mn_a_time'):
             if self.mn_time > self.mn_a_time:
                 get_a = True
+            if cfg.fitting['an_oldest'] > self.mn_a_time:
+                get_a = True
         else:
             get_a = True
+    
+        if not get_a:
+            print("     skipping")
+            return
 
-        if get_a:
-            a = pmn.Analyzer(outputfiles_basename=self.pmn_base,
-                             n_params=self.model_info['ndim'])
-            self.analyzer = a
-            self.mn_a_time = time.time()
-
-        # parameter fitting corner plot
-        plot = False
-        if not os.path.exists(self.corner_plot):
-            plot = True
-        else:
-            if os.path.getmtime(self.corner_plot) < self.mn_a_time:
-                plot = True
+        a = pmn.Analyzer(outputfiles_basename=self.pmn_base,
+                         n_params=self.model_info['ndim'])
+        self.analyzer = a
 
         # parameter names and best fit
         self.evidence = self.analyzer.get_stats()['global evidence']
@@ -766,19 +780,13 @@ class Result(SampledResult):
                                     ['marginals'][i]['median'])
             self.best_params_1sig.append(self.analyzer.get_stats()\
                                          ['marginals'][i]['sigma'])
-        
+
         # equally weighted samples for distributions, last column is loglike
         self.param_samples = self.analyzer.get_equal_weighted_posterior()[:,:-1]
         if len(self.param_samples) > cfg.fitting['n_samples_max']:
             self.param_samples = self.param_samples[:cfg.fitting['n_samples_max']]
-        self.n_samples = len(self.param_samples)
 
-        # corner plot of parameters
-        if plot:
-            fig = corner.corner(self.param_samples, show_titles=True,
-                                labels=self.model_info['parameters'])
-            fig.savefig(self.corner_plot)
-            plt.close(fig) # not doing this causes an epic memory leak
+        self.n_samples = len(self.param_samples)
 
         # split the parameters into components
         self.n_parameters = len(self.parameters)
@@ -796,9 +804,26 @@ class Result(SampledResult):
             comp_i_samples = ()
             comp_i_samples = self.param_samples[:,i0:i0+nparam]
             self.comp_param_samples += (comp_i_samples,)
-
+            
             i0 += nparam
-        
+
+        self.mn_a_time = time.time()
+
+        # corner plot of parameters
+        # parameter fitting corner plot
+        plot = False
+        if not os.path.exists(self.corner_plot):
+            plot = True
+        else:
+            if os.path.getmtime(self.corner_plot) < self.mn_a_time:
+                plot = True
+
+        if plot:
+            fig = corner.corner(self.param_samples, show_titles=True,
+                                labels=self.model_info['parameters'])
+            fig.savefig(self.corner_plot)
+            plt.close(fig) # not doing this causes an epic memory leak
+
 
     def run_analysis(self,update_an=False):
         """Run analysis of the multinest results.
