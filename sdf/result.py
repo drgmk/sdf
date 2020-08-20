@@ -830,6 +830,13 @@ class Result(SampledResult):
         or if the multinest analyzer time is more recent than the
         previous analysis time.
         
+        .. todo:: in deriving model fluxes we have a choice; photometry 
+        for median model, or median photometry across possible models.
+        These are different, particularly so when the best fit is very
+        uncertain. The former is better for plotting, as the photometry
+        will line up with the spectrum (which is the median), but the
+        latter is better for getting the range of allowed fluxes.
+
         Parameters
         ----------
         update_an : bool, optional
