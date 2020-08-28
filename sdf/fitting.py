@@ -640,3 +640,37 @@ def run_emcee(r,nwalkers=8,nstep=100,start_pos=None):
     pos,lnprob,rstate = sampler.run_mcmc(start_pos, nstep)
 
     return pos,sampler
+
+
+def find_outliers(r, max_wav=3):
+    '''Find probable outliers after fitting.
+    
+    Loops through observations shorter than some wavelength, ignoring
+    each point, rescaling the model without this point, and computes
+    the chi^2. Tests whether the lowest point is significantly
+    different to the others.
+    '''
+
+    ok = (filter.mean_wavelength(r.filters) < max_wav) & \
+          np.invert(r.filters_ignore)
+    
+    chi_ref = np.sum( ((r.obs_fnujy[ok] - r.model_fnujy[ok])/r.obs_e_fnujy[ok])**2 )
+
+    dchi = np.zeros(len(r.obs_fnujy))
+    for i in range(len(dchi)):
+        if not ok[i]:
+            continue
+        
+        ok_tmp = ok.copy()
+        ok_tmp[i] = False
+        model_tmp = r.model_fnujy * np.mean(r.obs_fnujy[ok_tmp]) / np.mean(r.model_fnujy[ok_tmp])
+        dchi[i] = np.sum( ((r.obs_fnujy[ok_tmp] - model_tmp[ok_tmp])/r.obs_e_fnujy[ok_tmp])**2 )
+
+    mini = np.argmin(dchi[ok])
+    print('most likely outlier: {}: {}'.format(mini, r.filters[mini]))
+    ok[mini] = False
+    print('{:f} vs. range of {:f} to {:f}'.format(dchi[mini],
+                                                  np.min(dchi[ok]),
+                                                  np.max(dchi[ok])))
+
+    return chi_ref, dchi
