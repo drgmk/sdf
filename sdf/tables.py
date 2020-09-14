@@ -212,7 +212,7 @@ def sample_table_votable(cursor, sample, file_path=None):
             " LEFT JOIN "+cfg.mysql['db_results']+".disk_r USING (id)"
             " LEFT JOIN "+cfg.mysql['db_results']+".model USING (id)"
             " WHERE sdb_pm.sdbid IS NOT NULL"
-            " ORDER by raj2000")
+            " ORDER by raj2000, disk_r.temp")
     # limit table sizes
     if sample != 'everything':
         sel += " LIMIT "+str(cfg.www['votmax'])+";"
@@ -259,6 +259,9 @@ def sample_table_votable(cursor, sample, file_path=None):
                 raise utils.SdfError("{}".format(comps))
 
     print("    got ",len(tsamp)," rows for votable")
+
+    # this may get written to the votable in the future...
+    tsamp.meta = {'updated':datetime.utcnow().strftime("%d/%m/%y %X")}
 
     tsamp.write(file_path+sample+'.xml',
                 format='votable',overwrite=True)
