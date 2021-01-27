@@ -138,7 +138,8 @@ def sample_table_www(cursor,sample,file='index.html',
                   dtype=('S1000','S50','S50','S50',
                          'S4','S8','S8','S10','S5','S4','S6','S4','S12'))
     for row in cursor:
-        tsamp.add_row(row)
+        add = [str(x) for x in row]
+        tsamp.add_row(add)
 
     for n in tsamp.colnames:
         none = np.where(tsamp[n] == 'None')

@@ -12,7 +12,7 @@ setup(
     classifiers=['Programming Language :: Python :: 3'],
     install_requires = [
         'astropy >= v2.0.0','binarytree == v2.0.1','bokeh','corner',
-        'extinction','emcee','filelock',
+        'extinction','emcee','filelock','bleach',
         'jinja2','matplotlib','mysql-connector','numpy',
         'pymultinest','requests','scipy'
         ],

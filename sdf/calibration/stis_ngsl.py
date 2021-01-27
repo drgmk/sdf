@@ -53,7 +53,7 @@ def add_obs_spec_fits(fig,r,fits=None,parameters=None):
     else:
         label = 'ngsl'
 
-    fig.line(wave,flux,legend=label,**cfg.pl['mod_sp'][-1])
+    fig.line(wave,flux,legend_label=label,**cfg.pl['mod_sp'][-1])
 
 
 def add_fixed_model(fig,r,model,parameters=None):

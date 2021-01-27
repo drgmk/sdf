@@ -122,7 +122,7 @@ class Filter(object):
         
         # grab the filter name
         name_field = votable.get_field_by_id('filterID')
-        self.name = name_field.value.decode()
+        self.name = name_field.value#.decode()
         
         # mean wavelength
         wmean = votable.get_field_by_id('WavelengthMean')
@@ -135,7 +135,7 @@ class Filter(object):
         
         # magnitude system
         sys = votable.get_field_by_id('MagSys')
-        self.magnitude_system = sys.value.decode()
+        self.magnitude_system = sys.value#.decode()
         
         # and the response, assuming there is no masking [hence filled()]
         vo_filt_table = votable.get_first_table()

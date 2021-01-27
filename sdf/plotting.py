@@ -712,7 +712,7 @@ def f_limits(r):
                     'filter':np.repeat(fname[i],len(lim[:,i]))}
             pldata = ColumnDataSource(data=data)
             fig.line('temp','f',source=pldata,color=cols[i % ncols],
-                     line_width=3, name='lim',legend=fname[i],
+                     line_width=3, name='lim',legend_label=fname[i],
                      muted_alpha=0.2, muted_color=cols[i % ncols])
 
         # extra limits
@@ -724,14 +724,14 @@ def f_limits(r):
             pldata = ColumnDataSource(data=data)
             fig.line('temp','f',source=pldata,color='lightgrey',
                      line_width=3,muted_alpha=0.2, line_dash=s,
-                     name='lim',legend=n)
+                     name='lim',legend_label=n)
 
         # best-fit values
         for i,d in enumerate(r.disk_r_distributions):
             data = {'temp':d['tdisk'], 'f':d['ldisk_lstar'],
                     'comp':np.repeat('{}'.format(i), len(d['tdisk']))}
             pldata = ColumnDataSource(data=data)
-            fig.circle('temp', 'f', source=pldata, legend='Best fit',
+            fig.circle('temp', 'f', source=pldata, legend_label='Best fit',
                        color=cfg.model_colours[i], name='fit',
                        alpha=cfg.phot_alpha[i], size=7,
                        muted_color=cfg.model_colours[i],
@@ -759,7 +759,7 @@ def f_limits(r):
                         'filter':np.repeat(fname[i],len(lim[:,i]))}
                 pldata = ColumnDataSource(data=data)
                 fig.line('rad','f',source=pldata,color=cols[i % ncols],
-                         line_width=3, name='lim',legend=fname[i],
+                         line_width=3, name='lim',legend_label=fname[i],
                          muted_alpha=0.2, muted_color=cols[i % ncols])
 
             # extra limits
@@ -771,14 +771,14 @@ def f_limits(r):
                 pldata = ColumnDataSource(data=data)
                 fig.line('rad','f',source=pldata,color='lightgrey',
                          line_width=3,muted_alpha=0.2, line_dash=s,
-                         name='lim',legend=n)
+                         name='lim',legend_label=n)
 
             # best-fit values
             for i,d in enumerate(r.disk_r_distributions):
                 data = {'r':d['rdisk_bb'], 'f':d['ldisk_lstar'],
                         'comp':np.repeat('{}'.format(i), len(d['rdisk_bb']))}
                 pldata = ColumnDataSource(data=data)
-                fig.circle('r', 'f', source=pldata, legend='Best fit',
+                fig.circle('r', 'f', source=pldata, legend_label='Best fit',
                            color=cfg.model_colours[i], name='fit',
                            alpha=cfg.phot_alpha[i], size=7,
                            muted_color=cfg.model_colours[i],
@@ -1402,7 +1402,7 @@ def filter_plot(file=cfg.file['www_root']+'filters.html'):
             pl[-1].line('wave','response',
                         line_color=cols[i],line_width=2,
                         source=pldata,
-                        legend=fname,muted_alpha=0.2)
+                        legend_label=fname,muted_alpha=0.2)
 
             pl[-1].legend.click_policy="mute"
             pl[-1].legend.label_text_font_size = '8pt'
