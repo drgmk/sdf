@@ -467,7 +467,7 @@ def quick_sed(r,file=None,fig=None,xsize=8,ysize=6,dpi=100,
 
 
 def pretty_sed(pkl_url=None, pkl_file=None, file=None, nu_fnu=False,
-               xlim=None, ylim=None, legend=True,
+               xlim=None, ylim=None, legend=True, title=None,
                upperlim=True,
                exclude_filt=None, exclude_bib=None,
                lw=3, figsize=(5.5,4),
@@ -608,9 +608,16 @@ def pretty_sed(pkl_url=None, pkl_file=None, file=None, nu_fnu=False,
     if legend:
         ax.legend(frameon=False)
 
-    fig.tight_layout()
-    fig.savefig(file)
+    if title:
+        ax.set_title(title)
 
+    fig.tight_layout()
+    if file:
+        fig.savefig(file)
+        plt.close(fig)
+    else:
+        return fig
+    
 
 def sed_limits(results):
     """Figure out plotting limits given observations."""
