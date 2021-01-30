@@ -466,7 +466,8 @@ def quick_sed(r,file=None,fig=None,xsize=8,ysize=6,dpi=100,
     return fig
 
 
-def pretty_sed(pkl_url=None, pkl_file=None, file=None, nu_fnu=False,
+def pretty_sed(pkl_url=None, pkl_file=None, file=None, ax=None, fig=None,
+               nu_fnu=False,
                xlim=None, ylim=None, legend=True, title=None,
                upperlim=True,
                exclude_filt=None, exclude_bib=None,
@@ -517,8 +518,9 @@ def pretty_sed(pkl_url=None, pkl_file=None, file=None, nu_fnu=False,
     r.models = mod
     r.pl_models = plmod
 
-    # make the plot
-    fig,ax = plt.subplots(figsize=figsize)
+    # make the plot if we weren't gien an axis
+    if ax is None:
+        fig,ax = plt.subplots(figsize=figsize)
 
     nu = lambda w : 1e-26 * 3e14 / w
 
@@ -542,8 +544,11 @@ def pretty_sed(pkl_url=None, pkl_file=None, file=None, nu_fnu=False,
         if components:
             for s in r.comp_spectra:
                 ax.loglog(s.wavelength, s.fnujy, ':')
-        ax.loglog(r.disk_spec.wavelength, r.disk_spec.fnujy * x,
-                  label='$F_{\\nu,disk}$', color='C2', linewidth=lw)
+        try:
+            ax.loglog(r.disk_spec.wavelength, r.disk_spec.fnujy * x,
+                      label='$F_{\\nu,disk}$', color='C2', linewidth=lw)
+        except:
+            pass
 
     # observed spectra
     ispec = -1
@@ -611,12 +616,14 @@ def pretty_sed(pkl_url=None, pkl_file=None, file=None, nu_fnu=False,
     if title:
         ax.set_title(title)
 
-    fig.tight_layout()
-    if file:
+    if fig:
+        fig.tight_layout()
+        
+    if file and fig:
         fig.savefig(file)
         plt.close(fig)
     else:
-        return fig
+        return ax
     
 
 def sed_limits(results):
