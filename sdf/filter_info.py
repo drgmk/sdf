@@ -226,9 +226,10 @@ extras = ['BS_YS','STROMM1','STROMC1',
           'WAV1100',
           'WAV1200','WAV1240','WAV1250','WAV1260','WAV1270','WAV1290',
           'WAV1300','WAV1310','WAV1330','WAV1340','WAV1350',
-          'WAV2000','WAV2700',
+          'WAV2000','WAV2140','WAV2700',
           'WAV3000','WAV3190','WAV3300',
           'WAV6800',
+          'WAV8800',
           'WAV9000']
 
 for f in extras:
