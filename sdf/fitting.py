@@ -179,6 +179,10 @@ def model_director(file,reddening=False,use_classifier=False):
             if len(kw['sp_type']) > 1:
                 if kw['sp_type'][1] not in '56789':
                     pass
+        elif kw['sp_type'][0:2] == 'dM':
+            if len(kw['sp_type']) > 2:
+                if kw['sp_type'][2] not in '56789':
+                    pass
 
             cool = 1
             tree = bt.Node(('top',))
