@@ -10,7 +10,10 @@ from . import config as cfg
 
 
 def write_all(r,update=False):
-    """Write sdf results to db."""
+    """Write sdf results to db.
+    
+    .. todo:: make function for mysql connection.
+    """
 
     print(" Database")
 
@@ -19,7 +22,8 @@ def write_all(r,update=False):
         cnx = mysql.connector.connect(user=cfg.mysql['user'],
                                       password=cfg.mysql['passwd'],
                                       host=cfg.mysql['host'],
-                                      database=cfg.mysql['db_results'])
+                                      database=cfg.mysql['db_results'],
+                                      auth_plugin='mysql_native_password')
         cursor = cnx.cursor(buffered=True)
 
     except mysql.connector.InterfaceError:
@@ -254,7 +258,8 @@ def custom_sort(file, results):
         cnx = mysql.connector.connect(user=cfg.mysql['user'],
                                       password=cfg.mysql['passwd'],
                                       host=cfg.mysql['host'],
-                                      database=cfg.mysql['db_sdb'])
+                                      database=cfg.mysql['db_sdb'],
+                                      auth_plugin='mysql_native_password')
         cursor = cnx.cursor(buffered=True)
 
     except mysql.connector.InterfaceError:
@@ -340,7 +345,8 @@ def get_samples():
     cnx = mysql.connector.connect(user=cfg.mysql['user'],
                                   password=cfg.mysql['passwd'],
                                   host=cfg.mysql['host'],
-                                  database=cfg.mysql['db_samples'])
+                                  database=cfg.mysql['db_samples'],
+                                  auth_plugin='mysql_native_password')
     cursor = cnx.cursor(buffered=True)
     cursor.execute("SHOW TABLES WHERE Tables_in_{} "
                    "NOT REGEXP('^_');".format(cfg.mysql['db_samples']))
@@ -365,7 +371,8 @@ def sample_targets(sample,db=cfg.mysql['db_samples']):
         cnx = mysql.connector.connect(user=cfg.mysql['user'],
                                       password=cfg.mysql['passwd'],
                                       host=cfg.mysql['host'],
-                                      database=db)
+                                      database=db,
+                                      auth_plugin='mysql_native_password')
         cursor = cnx.cursor(buffered=True)
 
     except mysql.connector.InterfaceError:
@@ -389,7 +396,8 @@ def sdb_xids(id):
         cnx = mysql.connector.connect(user=cfg.mysql['user'],
                                       password=cfg.mysql['passwd'],
                                       host=cfg.mysql['host'],
-                                      database=cfg.mysql['db_sdb'])
+                                      database=cfg.mysql['db_sdb'],
+                                      auth_plugin='mysql_native_password')
         cursor = cnx.cursor(buffered=True)
 
     except mysql.connector.InterfaceError:
@@ -426,7 +434,8 @@ def get_sdbids(ids):
         cnx = mysql.connector.connect(user=cfg.mysql['user'],
                                       password=cfg.mysql['passwd'],
                                       host=cfg.mysql['host'],
-                                      database=cfg.mysql['db_sdb'])
+                                      database=cfg.mysql['db_sdb'],
+                                      auth_plugin='mysql_native_password')
         cursor = cnx.cursor(buffered=True)
 
     except mysql.connector.InterfaceError:
@@ -455,7 +464,8 @@ def get_alma_project(ra,de, radius_arcsec=10/3600):
         cnx = mysql.connector.connect(user=cfg.mysql['user'],
                                       password=cfg.mysql['passwd'],
                                       host=cfg.mysql['host'],
-                                      database=cfg.mysql['db_sdb'])
+                                      database=cfg.mysql['db_sdb'],
+                                      auth_plugin='mysql_native_password')
         cursor = cnx.cursor(buffered=True)
     
     except mysql.connector.InterfaceError:
