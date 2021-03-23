@@ -1,0 +1,419 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Produced with astropy.io.votable version 4.2
+     http://www.astropy.org/ -->
+<VOTABLE version="1.1" xmlns="http://www.ivoa.net/xml/VOTable/v1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.ivoa.net/xml/VOTable/v1.1">
+ <INFO ID="QUERY_STATUS" name="QUERY_STATUS" value="OK"/>
+ <RESOURCE type="results">
+  <TABLE nrows="76" utype="photdm:PhotometryFilter.transmissionCurve.spectrum">
+   <FIELD ID="Wavelength" datatype="float" name="Wavelength" ucd="em.wl" unit="AA" utype="spec:Data.SpectralAxis.Value"/>
+   <FIELD ID="Transmission" datatype="float" name="Transmission" ucd="phys.transmission" unit="" utype="spec:Data.FluxAxis.Value"/>
+   <PARAM ID="FilterProfileService" arraysize="*" datatype="char" name="FilterProfileService" ucd="meta.ref.ivorn" utype="PhotometryFilter.fpsIdentifier" value="ivo://svo/fps"/>
+   <PARAM ID="filterID" arraysize="*" datatype="char" name="filterID" ucd="meta.id" utype="photdm:PhotometryFilter.identifier" value="2MASS/2MASS.Ks"/>
+   <PARAM ID="WavelengthUnit" arraysize="*" datatype="char" name="WavelengthUnit" ucd="meta.unit" utype="PhotometryFilter.SpectralAxis.unit" value="Angstrom"/>
+   <PARAM ID="WavelengthUCD" arraysize="*" datatype="char" name="WavelengthUCD" ucd="meta.ucd" utype="PhotometryFilter.SpectralAxis.UCD" value="em.wl"/>
+   <PARAM ID="Description" arraysize="*" datatype="char" name="Description" ucd="meta.note" utype="photdm:PhotometryFilter.description" value="2MASS Ks"/>
+   <PARAM ID="PhotSystem" arraysize="*" datatype="char" name="PhotSystem" utype="photdm:PhotometricSystem.description" value="2MASS">
+    <DESCRIPTION>
+     Photometric system
+    </DESCRIPTION>
+   </PARAM>
+   <PARAM ID="Band" arraysize="*" datatype="char" name="Band" utype="photdm:PhotometryFilter.bandName" value="Ks"/>
+   <PARAM ID="Facility" arraysize="*" datatype="char" name="Facility" ucd="instr.obsty" value="2MASS">
+    <DESCRIPTION>
+     Observational facility
+    </DESCRIPTION>
+   </PARAM>
+   <PARAM ID="ProfileReference" arraysize="*" datatype="char" name="ProfileReference" value="http://www.ipac.caltech.edu/2mass/releases/allsky/doc/sec6_4a.html#rsr"/>
+   <PARAM ID="CalibrationReference" arraysize="*" datatype="char" name="CalibrationReference" value="http://adsabs.harvard.edu/abs/2003AJ....126.1090C"/>
+   <PARAM ID="Description" arraysize="*" datatype="char" name="Description" ucd="meta.note" utype="photdm:PhotometryFilter.description" value="2MASS Ks"/>
+   <PARAM ID="components" arraysize="*" datatype="char" name="components" value="Filter + Instrument + Atmosphere">
+    <DESCRIPTION>
+     Transmission components
+    </DESCRIPTION>
+   </PARAM>
+   <PARAM ID="WavelengthRef" datatype="float" name="WavelengthRef" ucd="em.wl" unit="AA" value="21590">
+    <DESCRIPTION>
+     Manually specified. See reference
+    </DESCRIPTION>
+   </PARAM>
+   <PARAM ID="WavelengthMean" datatype="float" name="WavelengthMean" ucd="em.wl" unit="AA" utype="photdm:PhotometryFilter.SpectralAxis.Coverage.Location.Value" value="21590">
+    <DESCRIPTION>
+     Manually specified. See reference
+    </DESCRIPTION>
+   </PARAM>
+   <PARAM ID="WavelengthEff" datatype="float" name="WavelengthEff" ucd="em.wl.effective" unit="AA" value="21590">
+    <DESCRIPTION>
+     Manually specified. See reference
+    </DESCRIPTION>
+   </PARAM>
+   <PARAM ID="WavelengthMin" datatype="float" name="WavelengthMin" ucd="em.wl;stat.min" unit="AA" utype="photdm:PhotometryFilter.SpectralAxis.Coverage.Bounds.Start" value="19543.692304348">
+    <DESCRIPTION>
+     Minimum filter wavelength. Defined as the first lambda value with
+     a transmission at least 1% of maximum transmission
+    </DESCRIPTION>
+   </PARAM>
+   <PARAM ID="WavelengthMax" datatype="float" name="WavelengthMax" ucd="em.wl;stat.max" unit="AA" utype="photdm:PhotometryFilter.SpectralAxis.Coverage.Bounds.Stop" value="23552.400005256">
+    <DESCRIPTION>
+     Maximum filter wavelength. Defined as the last lambda value with
+     a transmission at least 1% of maximum transmission
+    </DESCRIPTION>
+   </PARAM>
+   <PARAM ID="WidthEff" datatype="float" name="WidthEff" ucd="instr.bandwidth" unit="AA" utype="photdm:PhotometryFilter.SpectralAxis.Coverage.Bounds.Extent" value="2618.8695332218">
+    <DESCRIPTION>
+     Effective width. Defined as integ[x*filter(x) dx].\nEquivalent to
+     the horizontal size of a rectangle with height equal to maximum
+     transmission and with the same area that the one covered by the
+     filter transmission curve.
+    </DESCRIPTION>
+   </PARAM>
+   <PARAM ID="WavelengthCen" datatype="float" name="WavelengthCen" ucd="em.wl" unit="AA" value="21634.039848591">
+    <DESCRIPTION>
+     Central wavelength. Defined as the central wavelength between the
+     two points defining FWMH
+    </DESCRIPTION>
+   </PARAM>
+   <PARAM ID="WavelengthPivot" datatype="float" name="WavelengthPivot" ucd="em.wl" unit="AA" value="21603.094799742">
+    <DESCRIPTION>
+     Peak wavelength. Defined as sqrt{integ[x*filter(x)
+     dx]/integ[filter(x) dx/x]}
+    </DESCRIPTION>
+   </PARAM>
+   <PARAM ID="WavelengthPeak" datatype="float" name="WavelengthPeak" ucd="em.wl" unit="AA" value="22630">
+    <DESCRIPTION>
+     Peak wavelength. Defined as the lambda value with larger
+     transmission
+    </DESCRIPTION>
+   </PARAM>
+   <PARAM ID="WavelengthPhot" datatype="float" name="WavelengthPhot" ucd="em.wl" unit="AA" value="21557.652498909">
+    <DESCRIPTION>
+     Photon distribution based effective wavelength. Defined as
+     integ[x^2*filter(x)*vega(x) dx]/integ[x*filter(x)*vega(x) dx]
+    </DESCRIPTION>
+   </PARAM>
+   <PARAM ID="FWHM" datatype="float" name="FWHM" ucd="instr.bandwidth" unit="AA" value="2784.5527721703">
+    <DESCRIPTION>
+     Full width at half maximum. Defined as the difference between the
+     two wavelengths for which filter transmission is half maximum
+    </DESCRIPTION>
+   </PARAM>
+   <PARAM ID="Fsun" datatype="float" name="Fsun" ucd="phot.flux.density" unit="erg.s.A-1.cm-2" value="8.794065776272">
+    <DESCRIPTION>
+     Sun flux
+    </DESCRIPTION>
+   </PARAM>
+   <PARAM ID="PhotCalID" arraysize="*" datatype="char" name="PhotCalID" ucd="meta.id" utype="photdm:PhotCal.identifier" value="2MASS/2MASS.Ks/Vega"/>
+   <PARAM ID="MagSys" arraysize="*" datatype="char" name="MagSys" ucd="meta.code" utype="photdm:PhotCal.MagnitudeSystem.type" value="Vega"/>
+   <PARAM ID="ZeroPoint" datatype="float" name="ZeroPoint" ucd="phot.flux.density" unit="Jy" utype="photdm:PhotCal.ZeroPoint.Flux.value" value="666.8"/>
+   <PARAM ID="ZeroPointUnit" arraysize="*" datatype="char" name="ZeroPointUnit" ucd="meta.unit" utype="photdm:PhotCal.ZeroPoint.Flux.unit" value="Jy"/>
+   <PARAM ID="ZeroPointType" arraysize="*" datatype="char" name="ZeroPointType" ucd="meta.code" utype="photdm:PhotCal.ZeroPoint.type" value="Pogson"/>
+   <DATA>
+    <TABLEDATA>
+     <TR>
+      <TD>19000</TD>
+      <TD>0</TD>
+     </TR>
+     <TR>
+      <TD>19150</TD>
+      <TD>0</TD>
+     </TR>
+     <TR>
+      <TD>19270</TD>
+      <TD>0</TD>
+     </TR>
+     <TR>
+      <TD>19340</TD>
+      <TD>0.0002</TD>
+     </TR>
+     <TR>
+      <TD>19390</TD>
+      <TD>0.0005</TD>
+     </TR>
+     <TR>
+      <TD>19480</TD>
+      <TD>0.0054</TD>
+     </TR>
+     <TR>
+      <TD>19570</TD>
+      <TD>0.0119</TD>
+     </TR>
+     <TR>
+      <TD>19620</TD>
+      <TD>0.0197</TD>
+     </TR>
+     <TR>
+      <TD>19690</TD>
+      <TD>0.0422</TD>
+     </TR>
+     <TR>
+      <TD>19760</TD>
+      <TD>0.0873</TD>
+     </TR>
+     <TR>
+      <TD>19810</TD>
+      <TD>0.1528</TD>
+     </TR>
+     <TR>
+      <TD>19890</TD>
+      <TD>0.2482</TD>
+     </TR>
+     <TR>
+      <TD>19900</TD>
+      <TD>0.1902</TD>
+     </TR>
+     <TR>
+      <TD>19980</TD>
+      <TD>0.2339</TD>
+     </TR>
+     <TR>
+      <TD>20080</TD>
+      <TD>0.2946</TD>
+     </TR>
+     <TR>
+      <TD>20140</TD>
+      <TD>0.3982</TD>
+     </TR>
+     <TR>
+      <TD>20190</TD>
+      <TD>0.3366</TD>
+     </TR>
+     <TR>
+      <TD>20280</TD>
+      <TD>0.6207</TD>
+     </TR>
+     <TR>
+      <TD>20370</TD>
+      <TD>0.765</TD>
+     </TR>
+     <TR>
+      <TD>20450</TD>
+      <TD>0.7464</TD>
+     </TR>
+     <TR>
+      <TD>20610</TD>
+      <TD>0.6251</TD>
+     </TR>
+     <TR>
+      <TD>20720</TD>
+      <TD>0.7255</TD>
+     </TR>
+     <TR>
+      <TD>20750</TD>
+      <TD>0.6895</TD>
+     </TR>
+     <TR>
+      <TD>20820</TD>
+      <TD>0.7879</TD>
+     </TR>
+     <TR>
+      <TD>20890</TD>
+      <TD>0.8181</TD>
+     </TR>
+     <TR>
+      <TD>20990</TD>
+      <TD>0.8228</TD>
+     </TR>
+     <TR>
+      <TD>21060</TD>
+      <TD>0.8633</TD>
+     </TR>
+     <TR>
+      <TD>21130</TD>
+      <TD>0.8778</TD>
+     </TR>
+     <TR>
+      <TD>21200</TD>
+      <TD>0.8549</TD>
+     </TR>
+     <TR>
+      <TD>21240</TD>
+      <TD>0.8953</TD>
+     </TR>
+     <TR>
+      <TD>21380</TD>
+      <TD>0.9189</TD>
+     </TR>
+     <TR>
+      <TD>21450</TD>
+      <TD>0.9268</TD>
+     </TR>
+     <TR>
+      <TD>21550</TD>
+      <TD>0.9267</TD>
+     </TR>
+     <TR>
+      <TD>21690</TD>
+      <TD>0.9009</TD>
+     </TR>
+     <TR>
+      <TD>21760</TD>
+      <TD>0.9228</TD>
+     </TR>
+     <TR>
+      <TD>21850</TD>
+      <TD>0.8428</TD>
+     </TR>
+     <TR>
+      <TD>21970</TD>
+      <TD>0.9459</TD>
+     </TR>
+     <TR>
+      <TD>22080</TD>
+      <TD>0.9804</TD>
+     </TR>
+     <TR>
+      <TD>22130</TD>
+      <TD>0.9879</TD>
+     </TR>
+     <TR>
+      <TD>22180</TD>
+      <TD>0.9848</TD>
+     </TR>
+     <TR>
+      <TD>22320</TD>
+      <TD>0.9647</TD>
+     </TR>
+     <TR>
+      <TD>22370</TD>
+      <TD>0.9816</TD>
+     </TR>
+     <TR>
+      <TD>22480</TD>
+      <TD>0.9834</TD>
+     </TR>
+     <TR>
+      <TD>22560</TD>
+      <TD>0.9613</TD>
+     </TR>
+     <TR>
+      <TD>22600</TD>
+      <TD>0.9792</TD>
+     </TR>
+     <TR>
+      <TD>22630</TD>
+      <TD>1</TD>
+     </TR>
+     <TR>
+      <TD>22650</TD>
+      <TD>0.9632</TD>
+     </TR>
+     <TR>
+      <TD>22700</TD>
+      <TD>0.9812</TD>
+     </TR>
+     <TR>
+      <TD>22720</TD>
+      <TD>0.9681</TD>
+     </TR>
+     <TR>
+      <TD>22760</TD>
+      <TD>0.9109</TD>
+     </TR>
+     <TR>
+      <TD>22770</TD>
+      <TD>0.9821</TD>
+     </TR>
+     <TR>
+      <TD>22810</TD>
+      <TD>0.8896</TD>
+     </TR>
+     <TR>
+      <TD>22840</TD>
+      <TD>0.8918</TD>
+     </TR>
+     <TR>
+      <TD>22860</TD>
+      <TD>0.9424</TD>
+     </TR>
+     <TR>
+      <TD>22910</TD>
+      <TD>0.8404</TD>
+     </TR>
+     <TR>
+      <TD>22930</TD>
+      <TD>0.8042</TD>
+     </TR>
+     <TR>
+      <TD>22950</TD>
+      <TD>0.7077</TD>
+     </TR>
+     <TR>
+      <TD>22970</TD>
+      <TD>0.6576</TD>
+     </TR>
+     <TR>
+      <TD>22990</TD>
+      <TD>0.5607</TD>
+     </TR>
+     <TR>
+      <TD>23060</TD>
+      <TD>0.4437</TD>
+     </TR>
+     <TR>
+      <TD>23110</TD>
+      <TD>0.3482</TD>
+     </TR>
+     <TR>
+      <TD>23160</TD>
+      <TD>0.2302</TD>
+     </TR>
+     <TR>
+      <TD>23200</TD>
+      <TD>0.1626</TD>
+     </TR>
+     <TR>
+      <TD>23250</TD>
+      <TD>0.136</TD>
+     </TR>
+     <TR>
+      <TD>23280</TD>
+      <TD>0.0921</TD>
+     </TR>
+     <TR>
+      <TD>23350</TD>
+      <TD>0.0624</TD>
+     </TR>
+     <TR>
+      <TD>23390</TD>
+      <TD>0.0431</TD>
+     </TR>
+     <TR>
+      <TD>23440</TD>
+      <TD>0.034</TD>
+     </TR>
+     <TR>
+      <TD>23460</TD>
+      <TD>0.031</TD>
+     </TR>
+     <TR>
+      <TD>23520</TD>
+      <TD>0.0118</TD>
+     </TR>
+     <TR>
+      <TD>23610</TD>
+      <TD>0.0068</TD>
+     </TR>
+     <TR>
+      <TD>23630</TD>
+      <TD>0.0007</TD>
+     </TR>
+     <TR>
+      <TD>23700</TD>
+      <TD>0.003</TD>
+     </TR>
+     <TR>
+      <TD>23750</TD>
+      <TD>0.0021</TD>
+     </TR>
+     <TR>
+      <TD>23840</TD>
+      <TD>0.0004</TD>
+     </TR>
+     <TR>
+      <TD>23990</TD>
+      <TD>0</TD>
+     </TR>
+    </TABLEDATA>
+   </DATA>
+  </TABLE>
+ </RESOURCE>
+</VOTABLE>

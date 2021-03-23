@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 import warnings
 import numpy as np
@@ -7,6 +8,7 @@ import astropy.units as u
 from . import spectrum
 from . import filter_info
 from . import utils
+from . import config as cfg
 
 # ignore warnings about SVO filter votables
 warnings.simplefilter('ignore', exceptions.W42)
@@ -108,17 +110,25 @@ class Filter(object):
         
         self = cls()
         
-        # get the filter, either from url or cache, if we want something
-        # other than Vega use the PhotCalID in the name given
-        if 'PhotCalID' in name:
-            url = "http://svo2.cab.inta-csic.es/theory/fps3/fps.php?"+name
+        # try loading from xml file in filter directory
+        # remove '/' from SVO names
+        self.fileloc = os.path.dirname(os.path.abspath(__file__))+ \
+                              '/data/filters/'+name.replace('/','.')+'.xml'
+        if os.path.exists(self.fileloc):
+            votable = parse(self.fileloc)
         else:
-            url = "http://svo2.cab.inta-csic.es/theory/fps3/fps.php?ID="+name
-        fileloc = download_file(url,cache=True)
-        self.fileloc = fileloc
-        
-        # open the file and get the necessary info
-        votable = parse(fileloc)
+
+            # get the filter, either from url or cache, if we want something
+            # other than Vega use the PhotCalID in the name given
+            if 'PhotCalID' in name:
+                url = "http://svo2.cab.inta-csic.es/theory/fps3/fps.php?"+name
+            else:
+                url = "http://svo2.cab.inta-csic.es/theory/fps3/fps.php?ID="+name
+            loc = download_file(url,cache=True)
+            
+            # open the file and save to filters folder for posterity
+            votable = parse(loc)
+            votable.to_xml(self.fileloc)
         
         # grab the filter name
         name_field = votable.get_field_by_id('filterID')
