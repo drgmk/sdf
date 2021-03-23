@@ -14,7 +14,7 @@ setup(
         'astropy >= v2.0.0','binarytree == v2.0.1','bokeh','corner',
         'extinction','emcee','filelock','bleach',
         'jinja2','matplotlib','mysql-connector','numpy',
-        'pymultinest','requests','scipy'
+        'pymultinest','pytest','requests','scipy'
         ],
     include_package_data=True,
     entry_points = {
