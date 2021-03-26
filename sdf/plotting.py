@@ -817,11 +817,8 @@ def sample_plots(samples=None, file='hr.html', file_path=None,
                  absolute_paths=True, rel_loc=None):
 
     # set up connection
-    cnx = mysql.connector.connect(user=cfg.mysql['user'],
-                                  password=cfg.mysql['passwd'],
-                                  host=cfg.mysql['host'],
-                                  database=cfg.mysql['db_sdb'],
-                                  auth_plugin='mysql_native_password')
+    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
+                     cfg.mysql['host'], cfg.mysql['db_sdb'])
     cursor = cnx.cursor(buffered=True)
 
     env = jinja2.Environment(autoescape=False,
@@ -1009,11 +1006,8 @@ def sample_plot(cursor,sample,absolute_paths=True, rel_loc=None):
 def flux_size_plots(samples=None):
 
     # set up connection
-    cnx = mysql.connector.connect(user=cfg.mysql['user'],
-                                  password=cfg.mysql['passwd'],
-                                  host=cfg.mysql['host'],
-                                  database=cfg.mysql['db_sdb'],
-                                  auth_plugin='mysql_native_password')
+    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
+                     cfg.mysql['host'], cfg.mysql['db_sdb'])
     cursor = cnx.cursor(buffered=True)
 
     env = jinja2.Environment(autoescape=False,
@@ -1224,19 +1218,10 @@ def calibration(sample='zpo_cal_',
         Location of directory in which to place plots.
     """
 
-    try:
-        cnx = mysql.connector.connect(user=cfg.mysql['user'],
-                                      password=cfg.mysql['passwd'],
-                                      host=cfg.mysql['host'],
-                                      database=cfg.mysql['db_results'],
-                                      auth_plugin='mysql_native_password')
-        cursor = cnx.cursor(buffered=True)
-        print("  "+sample)
-            
-    except mysql.connector.InterfaceError:
-        print("Can't connect to {} at {}".format(cfg.mysql['db_results'],
-                                                 cfg.mysql['host']) )
-        return
+    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
+                     cfg.mysql['host'], cfg.mysql['db_results'])
+    cursor = cnx.cursor(buffered=True)
+    print("  "+sample)
 
     # get a wavelength-sorted list of filters.
     cursor.execute("SELECT DISTINCT filter FROM "+cfg.mysql['phot_table']+" "

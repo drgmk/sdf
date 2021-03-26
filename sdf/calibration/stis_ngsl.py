@@ -135,11 +135,8 @@ def generate_cal_seds(out_dir=cfg.file['www_root']+'calibration/stis_ngsl/',
 
     # set up connection
     try:
-        cnx = mysql.connector.connect(user=cfg.mysql['user'],
-                                      password=cfg.mysql['passwd'],
-                                      host=cfg.mysql['host'],
-                                      database=cfg.mysql['db_samples'],
-                                      auth_plugin='mysql_native_password')
+        cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
+                         cfg.mysql['host'], cfg.mysql['db_samples'])
         cursor = cnx.cursor(buffered=True)
 
     except mysql.connector.InterfaceError:
@@ -232,11 +229,8 @@ def generate_cal_table():
 
     # set up connection
     try:
-        cnx = mysql.connector.connect(user=cfg.mysql['user'],
-                                      password=cfg.mysql['passwd'],
-                                      host=cfg.mysql['host'],
-                                      database=cfg.mysql['db_sdb'],
-                                      auth_plugin='mysql_native_password')
+        cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
+                         cfg.mysql['host'], cfg.mysql['db_sdb'])
         cursor = cnx.cursor(buffered=True)
 
     except mysql.connector.InterfaceError:
@@ -259,11 +253,8 @@ def generate_cal_hr_diag(cdn=True):
 
     # set up connection
     try:
-        cnx = mysql.connector.connect(user=cfg.mysql['user'],
-                                      password=cfg.mysql['passwd'],
-                                      host=cfg.mysql['host'],
-                                      database=cfg.mysql['db_sdb'],
-                                      auth_plugin='mysql_native_password')
+        cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
+                         cfg.mysql['host'], cfg.mysql['db_sdb'])
         cursor = cnx.cursor(buffered=True)
 
     except mysql.connector.InterfaceError:

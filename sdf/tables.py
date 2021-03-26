@@ -24,11 +24,8 @@ def sample_tables(samples=None):
     """Generate tables for all samples."""
 
     # set up connection
-    cnx = mysql.connector.connect(user=cfg.mysql['user'],
-                                  password=cfg.mysql['passwd'],
-                                  host=cfg.mysql['host'],
-                                  database=cfg.mysql['db_sdb'],
-                                  auth_plugin='mysql_native_password')
+    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
+                     cfg.mysql['host'], cfg.mysql['db_sdb'])
     cursor = cnx.cursor(buffered=True)
 
     # get a list of samples and generate their pages

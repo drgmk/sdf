@@ -9,6 +9,19 @@ from . import utils
 from . import config as cfg
 
 
+def get_cnx(user,passwd,host,db):
+    '''Get cursor for connection to a database.'''
+    try:
+        return mysql.connector.connect(user=user, password=passwd,
+                                       host=host, database=db,
+                                       auth_plugin='mysql_native_password')
+
+    except mysql.connector.InterfaceError:
+        print("   Can't connect to {} at {}".format(cfg.mysql['db_results'],
+                                                    cfg.mysql['host']) )
+        return None
+
+
 def write_all(r,update=False):
     """Write sdf results to db.
     
@@ -18,18 +31,11 @@ def write_all(r,update=False):
     print(" Database")
 
     # set up connection
-    try:
-        cnx = mysql.connector.connect(user=cfg.mysql['user'],
-                                      password=cfg.mysql['passwd'],
-                                      host=cfg.mysql['host'],
-                                      database=cfg.mysql['db_results'],
-                                      auth_plugin='mysql_native_password')
-        cursor = cnx.cursor(buffered=True)
-
-    except mysql.connector.InterfaceError:
-        print("   Can't connect to {} at {}".format(cfg.mysql['db_results'],
-                                                    cfg.mysql['host']) )
+    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
+                     cfg.mysql['host'], cfg.mysql['db_results'])
+    if cnx is None:
         return
+    cursor = cnx.cursor(buffered=True)
 
     # write to the tables
     if update or update_needed(cursor,cfg.mysql['model_table'],r):
@@ -254,18 +260,11 @@ def custom_sort(file, results):
     """Custom sort based on per-target config in database."""
 
     # set up connection
-    try:
-        cnx = mysql.connector.connect(user=cfg.mysql['user'],
-                                      password=cfg.mysql['passwd'],
-                                      host=cfg.mysql['host'],
-                                      database=cfg.mysql['db_sdb'],
-                                      auth_plugin='mysql_native_password')
-        cursor = cnx.cursor(buffered=True)
-
-    except mysql.connector.InterfaceError:
-        print("Can't connect to {} at {}".format(cfg.mysql['db_sdb'],
-                                                 cfg.mysql['host']) )
+    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
+                     cfg.mysql['host'], cfg.mysql['db_sdb'])
+    if cnx is None:
         return
+    cursor = cnx.cursor(buffered=True)
 
     # attempt to get sdbid from file, which is 'id' keyword when output
     # by sdb_getphot.py
@@ -342,11 +341,8 @@ def get_samples():
     yet, will be excluded.
     """
     
-    cnx = mysql.connector.connect(user=cfg.mysql['user'],
-                                  password=cfg.mysql['passwd'],
-                                  host=cfg.mysql['host'],
-                                  database=cfg.mysql['db_samples'],
-                                  auth_plugin='mysql_native_password')
+    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
+                     cfg.mysql['host'], cfg.mysql['db_samples'])
     cursor = cnx.cursor(buffered=True)
     cursor.execute("SHOW TABLES WHERE Tables_in_{} "
                    "NOT REGEXP('^_');".format(cfg.mysql['db_samples']))
@@ -367,18 +363,11 @@ def sample_targets(sample,db=cfg.mysql['db_samples']):
     """Return list of sdbids of targets in some sample."""
 
     # set up connection
-    try:
-        cnx = mysql.connector.connect(user=cfg.mysql['user'],
-                                      password=cfg.mysql['passwd'],
-                                      host=cfg.mysql['host'],
-                                      database=db,
-                                      auth_plugin='mysql_native_password')
-        cursor = cnx.cursor(buffered=True)
-
-    except mysql.connector.InterfaceError:
-        print("Can't connect to {} at {}".format(cfg.mysql[db],
-                                                 cfg.mysql['host']) )
+    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
+                     cfg.mysql['host'], db)
+    if cnx is None:
         return
+    cursor = cnx.cursor(buffered=True)
 
     cursor.execute("SELECT sdbid FROM "+sample+" WHERE sdbid IS NOT NULL")
     ids = []
@@ -392,18 +381,11 @@ def sdb_xids(id):
     """Get selected xids for a given sdb id."""
 
     # set up connection
-    try:
-        cnx = mysql.connector.connect(user=cfg.mysql['user'],
-                                      password=cfg.mysql['passwd'],
-                                      host=cfg.mysql['host'],
-                                      database=cfg.mysql['db_sdb'],
-                                      auth_plugin='mysql_native_password')
-        cursor = cnx.cursor(buffered=True)
-
-    except mysql.connector.InterfaceError:
-        print("Can't connect to {} at {}".format(cfg.mysql['db_sdb'],
-                                                 cfg.mysql['host']) )
+    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
+                     cfg.mysql['host'], cfg.mysql['db_sdb'])
+    if cnx is None:
         return
+    cursor = cnx.cursor(buffered=True)
 
     cursor.execute("SELECT xid FROM xids WHERE sdbid = '{}' AND xid "
                    "REGEXP('^HD|^HR|^HIP|^GJ|^TYC|^NAME|^\\\\* ')".format(id))
@@ -430,18 +412,11 @@ def get_sdbids(ids):
         raise utils.SdfError('please pass a list, not {}'.format(type(ids)))
 
     # set up connection
-    try:
-        cnx = mysql.connector.connect(user=cfg.mysql['user'],
-                                      password=cfg.mysql['passwd'],
-                                      host=cfg.mysql['host'],
-                                      database=cfg.mysql['db_sdb'],
-                                      auth_plugin='mysql_native_password')
-        cursor = cnx.cursor(buffered=True)
-
-    except mysql.connector.InterfaceError:
-        print("Can't connect to {} at {}".format(cfg.mysql['db_sdb'],
-                                                 cfg.mysql['host']) )
+    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
+                     cfg.mysql['host'], cfg.mysql['db_sdb'])
+    if cnx is None:
         return
+    cursor = cnx.cursor(buffered=True)
 
     sdbids = []
     for id in ids:
@@ -460,18 +435,11 @@ def get_alma_project(ra,de, radius_arcsec=10/3600):
     """Return ALMA project IDs (if exists) given coordinates."""
 
     # set up connection
-    try:
-        cnx = mysql.connector.connect(user=cfg.mysql['user'],
-                                      password=cfg.mysql['passwd'],
-                                      host=cfg.mysql['host'],
-                                      database=cfg.mysql['db_sdb'],
-                                      auth_plugin='mysql_native_password')
-        cursor = cnx.cursor(buffered=True)
-    
-    except mysql.connector.InterfaceError:
-        print("Can't connect to {} at {}".format(cfg.mysql['db_sdb'],
-                                                 cfg.mysql['host']) )
+    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
+                     cfg.mysql['host'], cfg.mysql['db_sdb'])
+    if cnx is None:
         return
+    cursor = cnx.cursor(buffered=True)
 
     cursor.execute("SELECT DISTINCT project_code FROM alma_obslog WHERE "
                    "ra BETWEEN {}-{} AND {}+{} AND "
