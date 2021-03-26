@@ -27,7 +27,8 @@ def sample_tables(samples=None):
     cnx = mysql.connector.connect(user=cfg.mysql['user'],
                                   password=cfg.mysql['passwd'],
                                   host=cfg.mysql['host'],
-                                  database=cfg.mysql['db_sdb'])
+                                  database=cfg.mysql['db_sdb'],
+                                  auth_plugin='mysql_native_password')
     cursor = cnx.cursor(buffered=True)
 
     # get a list of samples and generate their pages
@@ -103,11 +104,11 @@ def sample_table_www(cursor,sample,file='index.html',
            "ROUND(raj2000/15.,1) as `RA/h`,"
            "ROUND(dej2000,1) as `Dec`,"
            "sp_type as SpType,"
-           "ROUND("+cfg.mysql['db_results']+".star.teff,0) as Teff,"
-           "ROUND(log10(lstar),2) as `LogL*`,"
-           "ROUND(1/COALESCE(star.plx_arcsec),1) AS Dist,"
-           "ROUND(log10(SUM(ldisk_lstar)),1) as Log_f,"
-           "GROUP_CONCAT(ROUND(temp,1)) as T_disk")
+           "ROUND(star.teff,0) as Teff,"
+           "ROUND(log10(star.lstar),2) as `LogL*`,"
+           "ROUND(1/star.plx_arcsec,1) AS Dist,"
+           "ROUND(log10(disk_r.ldisk_lstar)) as Log_f,"
+           "disk_r.temp as T_disk")
         
     # here we decide which samples get all targets, for now "everything"
     # and "public" get everything, but this could be changed so that
@@ -119,15 +120,14 @@ def sample_table_www(cursor,sample,file='index.html',
                 "LEFT JOIN sdb_pm USING (sdbid)")
         
     sel += (" LEFT JOIN simbad USING (sdbid)"
-            " LEFT JOIN "+cfg.mysql['db_results']+".star on sdbid=star.id"
-            " LEFT JOIN "+cfg.mysql['db_results']+".disk_r on sdbid=disk_r.id"
+            " LEFT JOIN star on sdbid=star.id"
+            " LEFT JOIN disk_r on sdbid=disk_r.id"
             " LEFT JOIN hd USING (sdbid)"
             " LEFT JOIN hip USING (sdbid)"
             " LEFT JOIN gj USING (sdbid)"
             " LEFT JOIN tmass USING (sdbid)"
             " LEFT JOIN phot USING (sdbid)"
             " WHERE sdb_pm.sdbid IS NOT NULL"
-            " GROUP BY sdbid"
             " ORDER by raj2000")
     # limit table sizes
     if sample != 'everything':
@@ -351,3 +351,17 @@ def sample_table_temp_tables(cursor):
                    " id as sdbid,ROUND(-2.5*log10(ANY_VALUE(model_jy)/3882.37),1) as Vmag"
                    " FROM "+cfg.mysql['db_results']+".phot WHERE filter='VJ' GROUP BY id;")
     cursor.execute("ALTER TABLE phot ADD INDEX sdbid_phot (sdbid);")
+    cursor.execute("DROP TABLE IF EXISTS star;")
+    cursor.execute("CREATE TEMPORARY TABLE star SELECT"
+                   " id,ROUND(ANY_VALUE("+cfg.mysql['db_results']+".star.teff),0) as teff,"
+                   " ANY_VALUE(plx_arcsec) as plx_arcsec, SUM(lstar) as lstar"
+                   " from "+cfg.mysql['db_results']+".star"
+                   " GROUP BY id;")
+    cursor.execute("ALTER TABLE star ADD INDEX id_star (id);")
+    cursor.execute("DROP TABLE IF EXISTS disk_r;")
+    cursor.execute("CREATE TEMPORARY TABLE disk_r SELECT"
+                   " id,GROUP_CONCAT(ROUND(temp,1)) as temp,SUM(ldisk_lstar) as ldisk_lstar"
+                   " from "+cfg.mysql['db_results']+".disk_r"
+                   " GROUP BY id;")
+    cursor.execute("ALTER TABLE disk_r ADD INDEX id_dr (id);")
+

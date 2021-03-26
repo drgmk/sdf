@@ -820,7 +820,8 @@ def sample_plots(samples=None, file='hr.html', file_path=None,
     cnx = mysql.connector.connect(user=cfg.mysql['user'],
                                   password=cfg.mysql['passwd'],
                                   host=cfg.mysql['host'],
-                                  database=cfg.mysql['db_sdb'])
+                                  database=cfg.mysql['db_sdb'],
+                                  auth_plugin='mysql_native_password')
     cursor = cnx.cursor(buffered=True)
 
     env = jinja2.Environment(autoescape=False,
@@ -1011,7 +1012,8 @@ def flux_size_plots(samples=None):
     cnx = mysql.connector.connect(user=cfg.mysql['user'],
                                   password=cfg.mysql['passwd'],
                                   host=cfg.mysql['host'],
-                                  database=cfg.mysql['db_sdb'])
+                                  database=cfg.mysql['db_sdb'],
+                                  auth_plugin='mysql_native_password')
     cursor = cnx.cursor(buffered=True)
 
     env = jinja2.Environment(autoescape=False,
@@ -1226,7 +1228,8 @@ def calibration(sample='zpo_cal_',
         cnx = mysql.connector.connect(user=cfg.mysql['user'],
                                       password=cfg.mysql['passwd'],
                                       host=cfg.mysql['host'],
-                                      database=cfg.mysql['db_results'])
+                                      database=cfg.mysql['db_results'],
+                                      auth_plugin='mysql_native_password')
         cursor = cnx.cursor(buffered=True)
         print("  "+sample)
             
