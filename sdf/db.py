@@ -4,6 +4,7 @@ import mysql.connector
 import astropy.units as u
 from astropy.table import Table
 
+from . import db
 from . import filter
 from . import utils
 from . import config as cfg
