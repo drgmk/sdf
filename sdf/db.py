@@ -360,12 +360,12 @@ def get_samples():
     return samples #+ ['public','everything']
 
 
-def sample_targets(sample,db=cfg.mysql['db_samples']):
+def sample_targets(sample,db_tab=cfg.mysql['db_samples']):
     """Return list of sdbids of targets in some sample."""
 
     # set up connection
     cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
-                     cfg.mysql['host'], db)
+                     cfg.mysql['host'], db_tab)
     if cnx is None:
         return
     cursor = cnx.cursor(buffered=True)
