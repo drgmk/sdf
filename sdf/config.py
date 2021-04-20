@@ -101,6 +101,7 @@ ssr = 1.596074069110538e-15 #( np.pi*u.solRad**2 / (u.pc)**2 ).si.value
 # details for fitting
 fitting = {
     'models': ast.literal_eval(cfg['fitting']['models']),
+    'extra_models': ast.literal_eval(cfg['fitting']['extra_models']),
     'exclude_filters': cfg['fitting']['exclude_filters'].split(','),
     'upperlim_filters': cfg['fitting']['upperlim_filters'].split(','),
     'model_join': cfg['fitting']['model_join'],

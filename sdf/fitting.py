@@ -53,7 +53,26 @@ def fit_results(file,update_mn=False,update_an=False,
     print(" Fitting")
     results = []
 
-    # fit specific models if defined by conf, overrides default
+    # fit any extra models that we'll append later
+    extra = []
+    if len(cfg.fitting['extra_models']) > 0:
+        for m in cfg.fitting['extra_models']:
+
+            print("  ",m)
+            r = result.Result.get(
+                            file,m,update_mn=update_mn,
+                            update_an=update_an,update_json=update_json,
+                            update_thumb=update_thumb,nospec=nospec
+                                           )
+
+            # check for files with no photometry
+            if not hasattr(r,'obs'):
+                print("  no photometry = no results")
+                return None
+
+            extra.append(r)
+
+    # get results for models defined by conf, overrides default
     if len(cfg.fitting['models']) > 0:
         for m in cfg.fitting['models']:
 
@@ -127,6 +146,12 @@ def fit_results(file,update_mn=False,update_an=False,
             print("     couldn't get config")
         else:
             results = [results[i] for i in srt]
+
+    # append extra results
+    if len(extra) > 0:
+        print(' Appending')
+        [print('   {}'.format(m)) for m in cfg.fitting['extra_models']]
+        results = results + extra
 
     # save a thumb of the best fit next to the input file, update every
     # time since we may have changed best fit (but not fitting itself)
