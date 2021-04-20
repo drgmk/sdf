@@ -469,7 +469,7 @@ def quick_sed(r,file=None,fig=None,xsize=8,ysize=6,dpi=100,
 def pretty_sed(pkl_url=None, pkl_file=None, file=None, ax=None, fig=None,
                nu_fnu=False,
                xlim=None, ylim=None, legend=True, title=None,
-               upperlim=True,
+               upperlim=True, spectra=True,
                exclude_filt=None, exclude_bib=None,
                lw=3, figsize=(5.5,4),
                star=True, disk=True, components=False, total=True):
@@ -495,6 +495,8 @@ def pretty_sed(pkl_url=None, pkl_file=None, file=None, ax=None, fig=None,
         Show legend or not.
     upperlim: bool
         Show upper limits or not.
+    spectra : bool
+        Show observed spectra or not.
     exclude_filt : list of str
         Exclude photometry from plot.
     exclude_bib : list of str
@@ -551,23 +553,24 @@ def pretty_sed(pkl_url=None, pkl_file=None, file=None, ax=None, fig=None,
             pass
 
     # observed spectra
-    ispec = -1
-    for s in r.obs:
-        if not isinstance(s,spectrum.ObsSpectrum):
-            continue
-        x = 1.
-        if nu_fnu:
-            x = nu(s.wavelength)
-        flux = s.fnujy * r.best_params[ispec] * x
-        loerr = (s.fnujy - s.e_fnujy) * r.best_params[ispec] * x
-        hierr = (s.fnujy + s.e_fnujy) * r.best_params[ispec] * x
-        ispec -= 1
+    if spectra:
+        ispec = -1
+        for s in r.obs:
+            if not isinstance(s,spectrum.ObsSpectrum):
+                continue
+            x = 1.
+            if nu_fnu:
+                x = nu(s.wavelength)
+            flux = s.fnujy * r.best_params[ispec] * x
+            loerr = (s.fnujy - s.e_fnujy) * r.best_params[ispec] * x
+            hierr = (s.fnujy + s.e_fnujy) * r.best_params[ispec] * x
+            ispec -= 1
 
-        ax.plot(s.wavelength, flux, color='black', alpha=0.7)
-        ax.plot(s.wavelength, loerr,
-                color='black', alpha=0.4, linewidth=lw)
-        ax.plot(s.wavelength, hierr,
-                color='black', alpha=0.4, linewidth=lw)
+            ax.plot(s.wavelength, flux, color='black', alpha=0.7)
+            ax.plot(s.wavelength, loerr,
+                    color='black', alpha=0.4, linewidth=lw)
+            ax.plot(s.wavelength, hierr,
+                    color='black', alpha=0.4, linewidth=lw)
 
     # photometry
     min_phot = np.inf
