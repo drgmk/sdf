@@ -199,20 +199,19 @@ def model_director(file,reddening=False,use_classifier=False):
             pass
         elif kw['sp_type'][0] in 'LTY':
             tree = t_cool
-            cool = 2
         elif kw['sp_type'][0] == 'M':
             if len(kw['sp_type']) > 1:
-                if kw['sp_type'][1] not in '56789':
-                    pass
+                if kw['sp_type'][1] in '56789':
+                    cool = 1
         elif kw['sp_type'][0:2] == 'dM':
             if len(kw['sp_type']) > 2:
-                if kw['sp_type'][2] not in '56789':
-                    pass
+                if kw['sp_type'][2] in '56789':
+                    cool = 1
 
-            cool = 1
-            tree = bt.Node(('top',))
-            tree.left = t_cool
-            tree.right = t_star
+    if cool == 1:
+        tree = bt.Node(('top',))
+        tree.left = t_cool
+        tree.right = t_star
 
     tree.value = ('top',)
     return tree
