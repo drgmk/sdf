@@ -24,10 +24,7 @@ def get_cnx(user,passwd,host,db):
 
 
 def write_all(r,update=False):
-    """Write sdf results to db.
-    
-    .. todo:: make function for mysql connection.
-    """
+    """Write sdf results to db."""
 
     print(" Database")
 

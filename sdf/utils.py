@@ -363,9 +363,7 @@ def linterp(newx,x,y):
 
 def rnd1sf(x):
     """Round numbers to 1 s.f. (based on first if more than 1)."""
-    
-    # TODO: make this neater
-    
+
     # give zeros if anything is wrong
     if not np.all(np.isfinite(x)) or np.min(x) <= 0:
         return np.zeros(len(x))

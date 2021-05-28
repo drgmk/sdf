@@ -40,9 +40,10 @@ def add_obs_spec_fits(fig,r,fits=None,parameters=None):
     --------
     sdf.plotting.sed_components
     sdf.calibration.stis_ngsl.generate_cal_seds
-    """
-    # TODO: this is STIS NGSL specific for now, could make more general
 
+    .. todo:: this is STIS NGSL specific for now, could make more general
+    """
+    
     hdu = astropy.io.fits.open(fits)
     wave = hdu[1].data['WAVELENGTH'] / 1e4
     flux = hdu[1].data['FLUX'] * u.Unit('erg/(cm2*s*Angstrom)').to('Jy',

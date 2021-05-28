@@ -207,7 +207,7 @@ class Model(object):
         This is spline interpolation. This doesn't matter too much since
         any high dynamic range parameters are already log spaced.
 
-        TODO: this is the core of the sdf code in terms of execution
+        .. todo:: this is the core of the sdf code in terms of execution
         time. Experiments so far find that map_coordinates is faster
         than RegularGridInterpolator, but is hindered somewhat by the
         need to do interpolation first to find the grid points needed by
@@ -919,15 +919,16 @@ class SpecModel(Model):
 
 
     def interp_to_wavelengths(self,wavelength,log=True):
-        """Interpolate the model to the given wavelengths."""
+        """Interpolate the model to the given wavelengths.
 
-        # TODO: this only needs to be run at the beginning of a fit but
-        # is very slow, especially when there are spectra, speed it up!
+        .. todo:: this only needs to be run at the beginning of a fit but
+        is very slow, especially when there are spectra, speed it up!
 
-        # TODO: this is straight linear/log interpolation, but could
-        # smooth the spectra first since the given wavelength grid will
-        # almost certainly be near the spectral resolution of whatever
-        # instrument it came from. Probably use resample.
+        .. todo:: this is straight linear/log interpolation, but could
+        smooth the spectra first since the given wavelength grid will
+        almost certainly be near the spectral resolution of whatever
+        instrument it came from. Probably use resample.
+        """
 
         # check we need to do something
         if np.all(self.wavelength == wavelength):

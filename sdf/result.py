@@ -161,7 +161,7 @@ class BaseResult(object):
                 s.fill_irradiance()
                 self.comp_spectra += (s,)
 
-                # TODO: resample spectrum rather than interpolate model
+                # could resample spectrum rather than interpolate model
                 m.interp_to_wavelengths(wave)
                 total_spec += m.fnujy(self.comp_best_params[i])
                 if self.star_or_disk[i] == 'star':

@@ -400,8 +400,6 @@ def quick_sed(r,file=None,fig=None,xsize=8,ysize=6,dpi=100,
         DPI of output figure.
     axis_labels : bool, optional
         Show axis labels or not.
-
-    .. todo:: this is very simple, needs work.
     """
 
     if fig is None:
@@ -1064,8 +1062,9 @@ def flux_size_plot(cursor,sample):
         Connection to database
     sample : string
         Name of sample in config.mysql['db_samples'] to plot
+
+    .. todo:: multiple compoments are plotted at the total disk flux =bad
     """
-    # TODO: multiple compoments are plotted at the total disk flux =bad
 
     # bands to show disk fluxes at
     filters = ['MIRI.F1000W','MIRI.F1800W','WISE22','MIRI.F2550W',
