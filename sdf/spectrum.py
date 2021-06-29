@@ -160,7 +160,7 @@ class Spectrum(object):
         """Fill wavelength array from nu_hz
         """
         self.wavelength = c_micron / self.nu_hz
-    
+
 
     def copy(self):
         """Return a copy"""
@@ -793,8 +793,6 @@ class ModelSpectrum(Spectrum):
 
         .. todo:: Can read go faster? BT-Settl files are epic
         
-        .. todo:: Add fix for wavelengths in air (not vacuum), see 
-                  http://osubdd.ens-lyon.fr/phoenix/doc/spectra.html
         """
 
         self = cls()
@@ -828,7 +826,8 @@ class ModelSpectrum(Spectrum):
         f = np.power(10,f)
         _,srt = np.unique( w, return_index=True )
         srt = np.flipud(srt)
-        wav = u.Quantity( w[srt], u.Angstrom )
+        wav = wave_vac2air(w[srt])
+        wav = u.Quantity( wav, u.Angstrom )
         flam = u.Quantity( f[srt]/np.pi, u.erg/u.s/u.cm**2/u.cm) # divide by pi
         self.wavelength = wav.to(u.micron).value
         self.nu_hz = wav.to( 'Hz', equivalencies=u.spectral() ).value
@@ -880,10 +879,10 @@ class ModelSpectrum(Spectrum):
             
             # new models have TEFF on first line
             if 'TEFF' in l:
-                teffLogg = re.search('TEFF\s+(\d+\.\d*)\s+GRAVITY\s+(\d+\.\d*)',l)
+                teffLogg = re.search(r'TEFF\s+(\d+\.\d*)\s+GRAVITY\s+(\d+\.\d*)',l)
                 teff = np.append(teff,float(teffLogg.groups()[0]))
                 logg = np.append(logg,float(teffLogg.groups()[1]))
-                metalAlpha = re.search('\[([\s+-]?\d+\.\d+)([aAbB]?)\]?',l)
+                metalAlpha = re.search(r'\[([\s+-]?\d+\.\d+)([aAbB]?)\]?',l)
                 mh = np.append(mh,float(metalAlpha.groups()[0]))
                 if metalAlpha.groups()[1] != '':
                     raise utils.SdfError("Alpha non-nothing ({}), wtf?".\
@@ -943,3 +942,37 @@ class ModelSpectrum(Spectrum):
         else:
             expected_len = len(self.nu_hz)
         self._fnujy_sr = utils.validate_1d(value,expected_len)
+
+
+def wave_vac2air(wavelength):
+    """Convert wavelengths in vacuum to air."""
+    div = 1 + 1e-6*nrefrac(wavelength)
+    return wavelength / div
+
+
+def nrefrac(wl, density=1.0):
+    """Calculate refractive index of air from Cauchy formula.
+
+    Note that Phoenix delivers synthetic spectra in the vaccum and
+    that a line shift is necessary to adapt these synthetic spectra
+    for comparisons to observations from the ground. For this, divide
+    the vacuum wavelengths by (1+1.e-6*nrefrac) as returned from the
+    function below to get the air wavelengths (or use the equation
+    for AIR from it).
+    https://osubdd.ens-lyon.fr/phoenix/doc/spectra.html
+
+    Input: wavelength in Angstrom, density of air in amagat (relative to STP,
+    e.g. ~10% decrease per 1000m above sea level).
+    Returns N = (n-1) * 1.e6.
+    """
+
+    # The IAU standard for conversion from air to vacuum wavelengths is given
+    # in Morton (1991, ApJS, 77, 119). For vacuum wavelengths (VAC) in
+    # Angstroms, convert to air wavelength (AIR) via:
+
+    #  AIR = VAC / (1.0 + 2.735182E-4 + 131.4182 / VAC^2 + 2.76249E8 / VAC^4)
+
+    wl2inv = (1.e4/wl)**2
+    refracstp = 272.643 + 1.2288 * wl2inv  + 3.555e-2 * wl2inv**2
+    return density * refracstp
+
