@@ -505,6 +505,76 @@ def phoenix_cool_spectra(resolution=100,overwrite=False,
     return s
 
 
+def koester_wd_spectra(resolution=100,overwrite=False,name_postfix=''):
+    """Generate a SpecModel for Koester white dwarf spectra.
+
+    Parameters
+    ----------
+    resolution : float, optional
+        Resolution of generated models.
+    overwrite : bool, optional
+        Force overwrite of extant models.
+    name_postfix : str, optional
+        String to append to model names.
+    """
+
+    name = 'koester_wd'
+
+    # don't do the calculation if there will be a write error
+    if overwrite == False:
+        if name in cfg.model_loc.keys():
+            if exists(cfg.model_loc[name]+name+'_SpecModel.fits'):
+                raise utils.SdfError("{} exists, will not overwrite".
+                               format(cfg.model_loc[name]+name+'.fits'))
+
+    # the files for the main set of models
+    fs = glob.glob(cfg.file['koester_models']+'da*.dk.dat.txt')
+    fs.sort()
+
+    # get the new wavelength grid, and ensure it goes to the max
+    wave = np.power(10,np.arange(np.log10(cfg.models['min_wav_micron']),
+                                np.log10(cfg.models['max_wav_micron']),
+                                np.log10(1+1/float(resolution))))
+    if np.max(wave) != cfg.models['max_wav_micron']:
+        wave = np.append(wave,cfg.models['max_wav_micron'])
+
+    # read in and resample
+    spec = []
+    for f in fs:
+        s = spectrum.ModelSpectrum.read_koester(f)
+        s.resample(wave)
+        spec.append(s)
+
+    # sort spectra
+    teff = [s.param_values['Teff'] for s in spec]
+    logg = [s.param_values['logg'] for s in spec]
+    teffarr = np.unique(teff)
+    loggarr = np.unique(logg)
+
+    s = model.SpecModel()
+    s.name = spec[0].name
+    s.wavelength = spec[0].wavelength
+    s.parameters = ['Teff','logg']
+    s.param_values = {'Teff':teffarr,
+                      'logg':loggarr}
+
+    s.fnujy_sr = np.zeros((len(s.wavelength),
+                          len(teffarr),
+                          len(loggarr)),dtype=float)
+
+    for i,sp in enumerate(spec):
+        if not np.all( np.equal(s.wavelength,sp.wavelength) ):
+            raise utils.SdfError("wavelength grids not the same \
+                            in files {} and {}".format(fs[0],fs[i]))
+        j = np.where(teff[i] == teffarr)[0][0]
+        k = np.where(logg[i] == loggarr)[0][0]
+        s.fnujy_sr[:,j,k] = sp.fnujy_sr
+
+    s.write_model(name,overwrite=overwrite)
+
+    return s
+
+
 def bb_spectra():
     """Generate SpecModel grid of blackbody models."""
     

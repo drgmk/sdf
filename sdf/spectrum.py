@@ -840,6 +840,50 @@ class ModelSpectrum(Spectrum):
         return self
 
 
+    @classmethod
+    def read_koester(cls,file):
+        """Return the spectrum from a Koester WD model
+
+        Grid was obtained from VOSA, assume wavelengths already in air.
+        Format is wavelength (A), flam (erg/s/cm^2/A). The shortest
+        wavelength is about 900A (0.09um) and the longest 30,000A (30um).
+        """
+
+        self = cls()
+
+        self.name = 'koester_wd'
+        self.parameters = ['Teff','logg']
+
+        par = re.search("da([0-9]+)_([0-9]+).dk.dat.txt",file)
+        if par is None:
+            raise utils.SdfError("couldn't re file {}".format(file))
+        teff = float(par.groups()[0])
+        logg = float(par.groups()[1])/100
+        self.param_values = {'Teff':teff,'logg':logg}
+
+        # read in
+        w,f = np.loadtxt(file, unpack=True)
+
+        # add short wavelength points
+        w = np.append(w, [np.min(w)-np.median(np.diff(w)),
+                          cfg.models['min_wav_micron']*1e4])
+        f = np.append(f, [cfg.tiny, cfg.tiny])
+
+        _,srt = np.unique( w, return_index=True )
+        srt = np.flipud(srt)
+        wav = u.Quantity( w[srt], u.Angstrom )
+        flam = u.Quantity( f[srt]/np.pi, u.erg/u.s/u.cm**2/u.Angstrom) # divide by pi
+        self.wavelength = wav.to(u.micron).value
+        self.nu_hz = wav.to( 'Hz', equivalencies=u.spectral() ).value
+        self.fnujy_sr = flam.to(u.jansky,
+                                equivalencies=u.spectral_density(wav) ).value
+        self.extend_power_law()
+        # make npt large, as we may resample with R>1000
+        self.fill_gaps(npt=5000)
+        self.sort('wave')
+        return self
+
+
     def read_kurucz(file):
         """Read a grid of Castelli & Kurucz models from a specific file.
         Returns a tuple with (teff,logg,[M/H],models), where the first

@@ -17,7 +17,7 @@ def get_cnx(user,passwd,host,db):
                                        host=host, database=db,
                                        auth_plugin='mysql_native_password')
 
-    except mysql.connector.InterfaceError:
+    except:
         print("   Can't connect to {} at {}".format(cfg.mysql['db_results'],
                                                     cfg.mysql['host']) )
         return None
