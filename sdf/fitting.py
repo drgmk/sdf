@@ -197,7 +197,7 @@ def model_director(file,reddening=False,use_classifier=False):
     if 'sp_type' in kw.keys():
         if kw['sp_type'] is None:
             pass
-        elif kw['sp_type'][:2] == 'DA' or kw['sp_type'][:2] == 'DB':
+        elif kw['sp_type'][:2] == 'DA' or kw['sp_type'][:2] == 'DB' or kw['sp_type'][:2] == 'DC':
             tree = model_tree(top=('koester_wd',), extra='bb_disk_r')
         elif kw['sp_type'][0] in 'LTY':
             tree = t_cool
