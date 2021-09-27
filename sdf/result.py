@@ -1,4 +1,3 @@
-from functools import lru_cache
 import os.path
 import pickle
 import glob
@@ -9,6 +8,8 @@ import numpy as np
 from scipy.stats import truncnorm
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('agg') # avoid memory leak with GUI based version
 import corner
 import astropy.units as u
 
@@ -25,14 +26,12 @@ from . import config as cfg
 class BaseResult(object):
     """Basic class to compute and handle fitting results."""
 
-    @lru_cache(maxsize=128)
     def __init__(self,rawphot,model_comps):
         """Basic instantiation of the Result object."""
         
         self.file_info(rawphot,model_comps)
     
     
-    @lru_cache(maxsize=128)
     def file_info(self,rawphot,model_comps):
         """Basic file info."""
                   
@@ -588,7 +587,6 @@ class Result(SampledResult):
               with loaded pickles, which will still be Result.
     """
 
-    @lru_cache(maxsize=128)
     def get(rawphot,model_comps,update_mn=False,
             update_an=False,update_json=False,update_thumb=False,
             nospec=False):

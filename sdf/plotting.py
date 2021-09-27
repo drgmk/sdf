@@ -7,6 +7,8 @@ import requests
 import ast
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('agg') # avoid memory leak with GUI based version
 import mysql.connector
 import astropy.units as u
 

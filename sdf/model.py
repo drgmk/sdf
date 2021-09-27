@@ -33,7 +33,7 @@ class Model(object):
     thing is done. """
     
     
-    @lru_cache(maxsize=32)
+    @lru_cache(maxsize=8)
     def read_file(file):
         """Read a model file."""
 
@@ -164,7 +164,6 @@ class Model(object):
         self.log_fnujy_sr_hashed = utils.hashable(tmp)
 
 
-    @lru_cache(maxsize=8)
     def rginterpolator(self):
         """Return a regular grid interpolator.
             
@@ -389,7 +388,6 @@ class PhotModel(Model):
         self.write_file(dir+name+'_PhotModel.fits',overwrite=overwrite)
 
         
-    @lru_cache(maxsize=32)
     def read_model(name):
         """Read a named model, location given in config"""
         
@@ -586,7 +584,6 @@ class SpecModel(Model):
         self.write_file(dir+name+'_SpecModel.fits',overwrite=overwrite)
 
         
-    @lru_cache(maxsize=32)
     def read_model(name):
         """Read a named model, location given in config."""
         

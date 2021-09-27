@@ -2,6 +2,8 @@ import os
 import glob
 import argparse
 
+#from pympler import summary, muppy, tracker
+
 import filelock
 
 from sdf import fitting
@@ -14,6 +16,8 @@ from sdf import config as cfg
 
 def sdf_fit():
     """Run fitting with sdf."""
+
+#    tr = tracker.SummaryTracker()
 
     # inputs
     parser1 = argparse.ArgumentParser(description='Run sdf')
@@ -105,6 +109,8 @@ def sdf_fit():
 
         except filelock.Timeout:
             pass
+
+#        tr.print_diff()
 
 
 def sdf_sample():

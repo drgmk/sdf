@@ -389,7 +389,7 @@ def iau_coord(ra,dec):
                                             alwayssign=True, pad=True))
 
 
-@lru_cache(maxsize=16)
+@lru_cache(maxsize=8)
 def spline_filter_mem(arr,order=None):
     """Filter array, memoizing result.
         
