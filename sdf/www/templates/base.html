@@ -19,7 +19,7 @@
     {% endblock %}
 
     <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Lato">
-    <link rel="stylesheet" type="text/css" href="http://drgmk.com/sdb/style.css">
+    <link rel="stylesheet" type="text/css" href="{{ sdb_url }}/style.css">
         
     {% endblock head %}
 </head>
@@ -31,7 +31,7 @@
     
     {% block search %}
     <div class="search">
-    <form style="display:inline-block;" action="/sdb/search/search.php" method="GET">
+    <form style="display:inline-block;" action="{{ sdb_url }}/search/search.php" method="GET">
         <input type = "text" name = "id"/>
         <input type = "submit" value = "Search" />
     </form>
@@ -43,7 +43,7 @@
     {% block footer %}
     <div class="footer">
         <hr>
-        <div class="footer_home"><a href="/sdb">home</a> | <a href="/sdb/help.html">help</a></div>
+        <div class="footer_home"><a href="/sdb">home</a> | <a href="{{ sdb_path }}/help.html">help</a></div>
         {% if creation_time %}
         <div class="footer_gen">generated {{ creation_time }} UTC</div>
         {% endif %}

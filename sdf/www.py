@@ -73,7 +73,7 @@ def home_page(file=cfg.file['www_root']+'index.html'):
          loader=jinja2.PackageLoader('sdf',package_path='www/templates'))
     template = env.get_template("home.html")
 
-    html = template.render()
+    html = template.render(sdb_url = cfg.www['sdb_url'])
 
     with io.open(file, mode='w', encoding='utf-8') as f:
         f.write(html)
@@ -112,6 +112,8 @@ def sed_page(results,file='index.html',f_limits_file='f_limits.html',
                                results[0].obs_keywords['dej2000'])
 
     html = template.render(
+               base_url = cfg.www['base_url'],
+               sdb_url = cfg.www['sdb_url'],
                js=[bokeh_js],
                css=[bokeh_css],
                plot_script=script,
@@ -161,6 +163,8 @@ def f_limits_page(results,file='f_limits.html',sed_file='index.html',
         bokeh_css = INLINE.render_css()
 
     html = template.render(
+               base_url = cfg.www['base_url'],
+               sdb_url = cfg.www['sdb_url'],
                js=[bokeh_js],
                css=[bokeh_css],
                plot_script=script,

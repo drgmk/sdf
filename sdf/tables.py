@@ -71,7 +71,7 @@ def sample_table_www(cursor,sample,file='index.html',
         (e.g. "folder1/',sql_column,'/file.html")
     """
 
-    wwwroot = cfg.www['site_root']
+    wwwroot = cfg.www['sdb_path']
     sample_root = cfg.file['www_root']+'samples/'
 
     # create temporary tables we want to join on
@@ -82,7 +82,7 @@ def sample_table_www(cursor,sample,file='index.html',
     # are for special cases
     if absolute_paths:
         www.create_dir(sample_root,sample)
-        url_str = wwwroot+"seds/masters/',sdbid,'/public"
+        url_str = wwwroot+"/seds/masters/',sdbid,'/public"
         file = sample_root+sample+'/'+file
     else:
         if rel_loc is None:
@@ -222,7 +222,7 @@ def sample_table_votable(cursor, sample, file_path=None):
     # add some url columns with links
     tsamp['url'] = np.core.defchararray.add(
                      np.core.defchararray.add(
-        np.repeat(cfg.www['site_url']+'seds/masters/',len(tsamp)),tsamp['sdbid']
+        np.repeat(cfg.www['sdb_url']+'seds/masters/',len(tsamp)),tsamp['sdbid']
                                               ),
                         np.repeat('/public/',len(tsamp))
                                              )
@@ -247,7 +247,7 @@ def sample_table_votable(cursor, sample, file_path=None):
         if comps is not None:
             try:
                 tsamp['model_url'][i] = (
-                     cfg.www['site_url'] + 'seds/masters/' +
+                     cfg.www['sdb_url'] + 'seds/masters/' +
                      tsamp['sdbid'][i] + '/public/' +
                      tsamp['sdbid'][i] + cfg.fitting['pmn_dir_suffix'] + '/' +
                      cfg.fitting['model_join'].join(ast.literal_eval(comps)) +

@@ -122,8 +122,9 @@ fitting = {
 
 # www stuff
 www = {
-    'site_root': cfg['www']['site_root'],
-    'site_url': cfg['www']['site_url'],
+    'base_url': cfg['www']['base_url'],
+    'sdb_path': cfg['www']['sdb_path'],
+    'sdb_url': cfg['www']['base_url'] + '/' + cfg['www']['sdb_path'],
     'tablemax': cfg['www'].getint('tablemax'),
     'votmax': cfg['www'].getint('votmax'),
     'plotmax': cfg['www'].getint('plotmax'),

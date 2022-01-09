@@ -94,7 +94,7 @@
                         <div><a href="http://almascience.nrao.edu/asax/?result_view=observation&projectCode={{ alma_proj }}" target="_blank" title="ALMA archive">ALMA archive</a></div>
                     {% endif %}
                     {% if h_obsid != '' %}
-                        <div><a href="http://drgmk.com/hdb/find.php?obsid={{ h_obsid }}" target="_blank" title="Herschel PSF fitting">Herschel PSF fit</a></div>
+                        <div><a href="{{ base_url }}/hdb/find.php?obsid={{ h_obsid }}" target="_blank" title="Herschel PSF fitting">Herschel PSF fit</a></div>
                     {% endif %}
                         </div>
                       </span>
