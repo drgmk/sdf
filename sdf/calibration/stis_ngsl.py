@@ -204,6 +204,7 @@ def generate_cal_seds(out_dir=cfg.file['www_root']+'calibration/stis_ngsl/',
 
         html = template.render(js=[bokeh_js],
                                css=[bokeh_css],
+                               sdb_url=cfg.www['sdb_url'],
                                plot_script=script,
                                plot_div=div,
                                main_id=results[0].obs_keywords['main_id'],
@@ -280,6 +281,7 @@ def generate_cal_hr_diag(cdn=True):
 
     html = template.render(js=[bokeh_js],
                            css=[bokeh_css],
+                           sdb_url=cfg.www['sdb_url'],
                            body_class='wide',
                            plot_script=script,
                            plot_div=div,

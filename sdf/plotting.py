@@ -858,6 +858,7 @@ def sample_plots(samples=None, file='hr.html', file_path=None,
                    plot_script=script,
                    plot_div=div,
                    title=sample,
+                   sdb_url=cfg.www['sdb_url'],
                    creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
                                )
 
@@ -1045,6 +1046,7 @@ def flux_size_plots(samples=None):
                    plot_script=script,
                    plot_div=div,
                    title=sample,
+                   sdb_url=cfg.www['sdb_url'],
                    creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
                                )
 
@@ -1356,6 +1358,7 @@ def calibration(sample='zpo_cal_',
                    plot_script=script,
                    plot_div=div,
                    title=sample,
+                   sdb_url=cfg.www['sdb_url'],
                    creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
                            )
 
@@ -1426,6 +1429,7 @@ def filter_plot(file=cfg.file['www_root']+'filters.html'):
                    plot_script=script,
                    plot_div=div,
                    title='filters',
+                   sdb_url=cfg.www['sdb_url'],
                    creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
                            )
 
