@@ -123,7 +123,7 @@ fitting = {
 # www stuff
 www = {
     'base_url': cfg['www']['base_url'],
-    'sdb_path': cfg['www']['sdb_path'],
+    'sdb_path': '/' + cfg['www']['sdb_path'],
     'sdb_url': cfg['www']['base_url'] + '/' + cfg['www']['sdb_path'],
     'tablemax': cfg['www'].getint('tablemax'),
     'votmax': cfg['www'].getint('votmax'),
