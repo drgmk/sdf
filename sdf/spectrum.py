@@ -582,7 +582,7 @@ class ObsSpectrum(Spectrum):
                                     module_split=module_split
                                     )
                 n += 1
-            elif 'csv' in key:
+            elif 'csv' in key or 'visir' in key:
                 if kw[key]['value'][0] == '/':
                     s += ObsSpectrum.read_file_of_type(
                                     kw[key]['value'], type='csv'
