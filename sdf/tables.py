@@ -104,7 +104,7 @@ def sample_table_www(cursor,sample,file='index.html',
            "ROUND(star.teff,0) as Teff,"
            "ROUND(log10(star.lstar),2) as `LogL*`,"
            "ROUND(1/star.plx_arcsec,1) AS Dist,"
-           "ROUND(log10(disk_r.ldisk_lstar)) as Log_f,"
+           "ROUND(log10(disk_r.ldisk_lstar),1) as Log_f,"
            "disk_r.temp as T_disk")
         
     # here we decide which samples get all targets, for now "everything"
