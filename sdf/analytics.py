@@ -64,7 +64,8 @@ class BB_Disk(object):
 
 
     def f_limits(self,lim_waves,flux_limits=None,r_limits=None,
-                 stellar_flux=None,fwhm=None,lstar_1pc=None):
+                 stellar_flux=None,fwhm=None,lstar_1pc=None,
+                 resolved='detection'):
         '''Return fractional luminosity limits.
             
         This routine implements Wyatt (2008) equations 8 and 11.
@@ -84,6 +85,15 @@ class BB_Disk(object):
             limited observations if disk is resolved.
         lstar_1pc : float
             L_star at 1pc, used for flux limits when distance unknown.
+        resolved : str, optional
+            Whether limit requires detection, radial, or fully resolved.
+            
+        Resolved keyword allows for disks to be resolved. Default is just
+        detection, in which case s/n ~ 1/r, since n_beams increases as r^2,
+        but noise is sqrt(n_beams) and signal is constant. For radial,
+        (azimuthal averaging) signal decreases as 1/r and noise per
+        radial bin increases as r, so s/n ~ 1/r^1.5. For fully noise is
+        constant but signal decreases as r^2, so s/n ~ 1/r^2.
 
         One of flux_limits or r_limits must be given. If both, they must
         have the same length, and correspond to the wavelengths given.
@@ -116,8 +126,16 @@ class BB_Disk(object):
                 # apply correction for resolved disks
                 if self.distance is not None and fwhm is not None:
                     fwhm_fact = 2 * self.blackbody_radii()[i] / self.distance / fwhm
-                    resolved = fwhm_fact > 1.0
-                    slims[i,resolved] *= fwhm_fact[resolved]
+                    if resolved == 'radial':
+                        fwhm_fact = fwhm_fact**1.5
+                    elif resolved == 'fully':
+                        fwhm_fact = fwhm_fact**2
+                    elif resolved == 'detection':
+                        pass
+                    else:
+                        raise utils.SdfError('Resolved needs to be "detection/radial/fully"')
+                    resolvedi = fwhm_fact > 1.0
+                    slims[i,resolvedi] *= fwhm_fact[resolvedi]
 
         
         # calibration limit, use actual stellar flux if given
