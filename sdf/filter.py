@@ -227,6 +227,7 @@ class Filter(object):
         # sort, normalise, and fill
         if self.nu_hz is not None:
             self.sort()
+            self.trim()
             self.normalise_response()
             self.fill_mean_wavelength()
             self.fill_ref_nu_hz()
@@ -304,6 +305,26 @@ class Filter(object):
             return self.measurement_calibration(flux)
         else:
             return flux
+
+
+    def trim(self, threshold=1e-4, frac=0.00001):
+        """Trim low-level values from response if they exist, assumes sorted."""
+        
+        cum = np.cumsum(self.response)
+        cmax = np.max(cum)
+        ok = np.logical_and(cum > cmax*frac, cum < cmax*(1-frac))
+        ok = np.logical_or(ok, self.response > np.max(self.response)*threshold)
+        
+        # keep one extra at each end for integral
+        for i in range(1, len(ok)):
+            if ok[i]:
+                ok[i-1] = True
+        for i in range(len(ok)-2, 1, -1):
+            if ok[i]:
+                ok[i+1] = True
+                
+        self.nu_hz = self.nu_hz[ok]
+        self.response = self.response[ok]
 
 
     def sort(self):
