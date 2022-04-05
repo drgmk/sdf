@@ -670,8 +670,8 @@ filters['MIPS160'] = {'svo_name': 'Spitzer/MIPS.160mu',
 # JWST NIRCAM, units of electrons/photon
 nrc_filt_loc = os.path.dirname(os.path.abspath(__file__))+ \
                                     '/data/filters/nircam/'
-com_w, com_tr = np.loadtxt(nrc_filt_loc+'ModA_COM_Substrate_Transmission_20151028_JKrist.dat',
-                           skiprows=1, unpack=True)
+#com_w, com_tr = np.loadtxt(nrc_filt_loc+'ModA_COM_Substrate_Transmission_20151028_JKrist.dat',
+#                           skiprows=1, unpack=True)
 for file in glob.glob(nrc_filt_loc+'*.txt'):
     filt_name = 'NIRCAM.'+os.path.basename(file).split('_')[0]
     filters[filt_name] = {
@@ -679,15 +679,15 @@ for file in glob.glob(nrc_filt_loc+'*.txt'):
         'response_type':'photon',
         'ref_wavelength': None,
         'ref_spectrum': None,
-        'response_ref': 'https://jwst-docs.stsci.edu/display/JTI/NIRCam+Filters',
+        'response_ref': 'https://jwst-docs.stsci.edu/jwst-near-infrared-camera/nircam-instrumentation/nircam-filters',
         'wav_micron': np.loadtxt(file,skiprows=1,usecols=0),
         'response': np.loadtxt(file,skiprows=1,usecols=1)
                           }
-    if filt_name in ['NIRCAM.F182M', 'NIRCAM.F187N', 'NIRCAM.F200W']:
-        name = filt_name + 'C'
-        filters[name] = filters[filt_name].copy()
-        filters[name]['response'] = filters[name]['response'] * np.interp(filters[name]['wav_micron'],
-                                                                           com_w, com_tr)
+#    if filt_name in ['NIRCAM.F182M', 'NIRCAM.F187N', 'NIRCAM.F200W']:
+#        name = filt_name + 'C'
+#        filters[name] = filters[filt_name].copy()
+#        filters[name]['response'] = filters[name]['response'] * np.interp(filters[name]['wav_micron'],
+#                                                                           com_w, com_tr)
 
 # JWST MIRI, units of electrons/photon
 miri_file = os.path.dirname(os.path.abspath(__file__))+ \
@@ -700,10 +700,29 @@ for i,filt in enumerate(['F560W','F770W','F1000W','F1280W','F1130W',
         'response_type':'photon',
         'ref_wavelength': None,
         'ref_spectrum': None,
-        'response_ref': 'https://jwst-docs.stsci.edu/display/JTI/MIRI+Filters+and+Dispersers',
+        'response_ref': 'https://jwst-docs.stsci.edu/jwst-mid-infrared-instrument/miri-instrumentation/miri-filters-and-dispersers',
         'wav_micron': np.loadtxt(miri_file,delimiter=',',skiprows=2,usecols=0),
         'response': np.loadtxt(miri_file,delimiter=',',skiprows=2,usecols=i+1)
                           }
+                          
+# JWST coronagraphic throughput, extracted from pandeia
+cor_dir = os.path.dirname(os.path.abspath(__file__))+ \
+                          '/data/filters/NOPUPIL/'
+for dir in ['MIRI','NIRCAM']:
+    for file in glob.glob(cor_dir+dir+'/*'):
+        filt_name = dir + '.' + os.path.basename(file).replace('.txt','')
+        if dir == 'NIRCAM':
+            filt_name = filt_name + 'C'
+        filters[filt_name] = {
+            'magnitude_system': 'Vega',
+            'response_type':'photon',
+            'ref_wavelength': None,
+            'ref_spectrum': None,
+            'response_ref': 'https://jwst-docs.stsci.edu/jwst-exposure-time-calculator-overview/jwst-etc-pandeia-engine-tutorial/jwst-etc-instrument-throughputs',
+            'wav_micron': np.loadtxt(file, usecols=0),
+            'response': np.loadtxt(file, usecols=1)
+                              }
+
 
 # IRAS, RSRs, calibrations empirical, and see Rieke+2008
 filters['IRAS12'] = {'svo_name': 'IRAS/IRAS.12mu',
