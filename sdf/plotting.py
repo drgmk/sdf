@@ -11,6 +11,7 @@ import matplotlib
 matplotlib.use('agg') # avoid memory leak with GUI based version
 import mysql.connector
 import astropy.units as u
+import astropy.table
 
 import jinja2
 import bokeh.resources
@@ -942,6 +943,10 @@ def sample_plot(cursor,sample,absolute_paths=True, rel_loc=None):
     t['col'] = col
     n_unique = len(np.unique(t['sdbid']))
     data = ColumnDataSource(data=t)
+    
+    # stellar tracks
+    with open(path.dirname(path.abspath(__file__)) + '/data/mist/tracks.pkl', 'rb') as f:
+        trs = pickle.load(f)
 
     # set up hover/tap tools
     # TODO: hover in one highlights in the other
@@ -959,11 +964,15 @@ def sample_plot(cursor,sample,absolute_paths=True, rel_loc=None):
                 y_axis_type="log",y_range=(0.5*min(t['lstar']),max(t['lstar'])*2),
                 x_axis_type="log",x_range=(1.1*max(t['teff']),min(t['teff'])/1.1),
                 width=750,height=800)
+    for trk in trs:
+        hr.line(trk[0], trk[1], **cfg.pl['hr_track'], legend_label='MIST PMS/MS (0.1-4MSun)')
     xs,err_xs,ys,err_ys = utils.plot_err(t['teff'],t['e_teff'],t['lstar'],t['e_lstar'])
     hr.multi_line(xs,err_ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
     hr.multi_line(err_xs,ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
     hr.circle('teff','lstar',source=data,name='dot',line_color='col',
               fill_color='col',**cfg.pl['hr_dot'])
+
+    hr.legend.location = 'top_left'
 
     # f vs temp (if we have any)
     if np.max(t['ldisklstar']) > 0:

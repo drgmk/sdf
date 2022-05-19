@@ -2,6 +2,7 @@ from functools import lru_cache
 from contextlib import contextmanager
 import os
 import glob
+import pickle
 from hashlib import sha1
 
 from scipy import sparse
@@ -462,3 +463,22 @@ def get_herschel_obsid(obs):
                             obsids = np.append(obsids, p.note[i])
 
     return np.unique(obsids)
+
+
+def read_mist_eep(dir):
+    """Read a series of MIST evolutionary tracks and save."""
+    
+    out_dir = os.path.dirname(os.path.abspath(__file__)) + '/data/mist/'
+    fs = glob.glob(dir + '/00*eep') # masses below 10M_sun
+    
+    tracks = []
+    for f in fs:
+        # pick round numbers and masses below 5M_sun
+        if os.path.basename(f).count('0') == 4 and int(os.path.basename(f)[2]) < 5:
+            print(f)
+            t = Table.read(f, format='ascii', header_start=11)
+            t = t[t['phase'] < 2] # phase up to RGB
+            tracks.append([10**t['log_Teff'].data, 10**t['log_L'].data])
+
+    with open(out_dir+'/tracks.pkl', 'wb') as f:
+        pickle.dump(tracks, f)
