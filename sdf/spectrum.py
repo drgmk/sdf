@@ -331,6 +331,10 @@ class ObsSpectrum(Spectrum):
             self.fill_hz2wave()
         if self.nu_hz is None and self.wavelength is not None:
             self.fill_wave2hz()
+            
+        if self.wavelength is not None and self.fnujy is not None:
+            if len(self.wavelength) != len(fnujy):
+                raise utils.SdfError('ObsSpectrum: wave/freq and flux arrays different length.')
 
 
     @classmethod
