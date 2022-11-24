@@ -24,6 +24,9 @@ For generic details of how models are structured and how they work, see
 Models
 ------
 
+Aside from Phoenix, the functions below create only SpecModels, once
+these are run then specmodel2photmust be run to generate PhotModels.
+
 ### Phoenix
 To generate phoenix model grids, first create resampled spectra with
 resample_phoenix_spectra, which will loop over metallicities to create
@@ -76,7 +79,18 @@ def setup_default_phoenix():
     PhotModel is derived from high resolution spectra, and SpecModel is
     lower resolution because high resolution isn't necessary, and saves
     memory while running.
+    
+    Does both a Solar (0.0) and full metallicity range model.
     """
+
+    # create the high resolution SpecModel
+    phoenix_spectra(in_name_postfix='-r1000',name='phoenix_sol',overwrite=True,
+                    m_range=[])
+    # compute convolved photometry in all filters and write PhotModel
+    specmodel2phot('phoenix_sol',overwrite_filters=True,overwrite_model=True)
+    # create the low resolution SpecModel
+    phoenix_spectra(in_name_postfix='-r100',name='phoenix_sol',overwrite=True,
+                    m_range=[])
 
     # create the high resolution SpecModel
     phoenix_spectra(in_name_postfix='-r1000',name='phoenix_m',overwrite=True)
@@ -233,7 +247,8 @@ def kurucz_spectra():
     m.write_model('kurucz_m',overwrite=True)
 
 
-def phoenix_spectra(in_name_postfix='',name='phoenix_m',overwrite=True):
+def phoenix_spectra(in_name_postfix='',name='phoenix_m',overwrite=True,
+                    m_range=['+0.5',-0.5,-1.0,-1.5,-2.0,-2.5,-3.0,-3.5,-4.0]):
     """Combine PHOENIX spectra with a range of [M/H] and write to disk.
 
     Parameters
@@ -250,12 +265,16 @@ def phoenix_spectra(in_name_postfix='',name='phoenix_m',overwrite=True):
         Write the combined model to disk. This option would only need to
         be set to False for testing whether some models will actually
         combine OK.
+        
+    m_range: list, optional
+        List of metallicities in addition to 0.0 to include in model
     """
 
     s00 = model.SpecModel.read_model('phoenix-0.0'+in_name_postfix)
-    s00 = model.append_parameter(s00,'MH',0.0)
+    if len(m_range) > 0:
+        s00 = model.append_parameter(s00,'MH',0.0)
 
-    for m in ['+0.5',-0.5,-1.0,-1.5,-2.0,-2.5,-3.0,-3.5,-4.0]:
+    for m in m_range:
 
         s = model.SpecModel.read_model('phoenix'+str(m)+in_name_postfix)
         s = model.append_parameter(s,'MH',float(m))

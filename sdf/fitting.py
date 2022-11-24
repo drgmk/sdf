@@ -175,9 +175,9 @@ def model_director(file,reddening=False,use_classifier=False):
 
     # default model tries star + up to two bb components
     if reddening:
-        star = 'phoenix_m_av'
+        star = 'phoenix_sol_av'
     else:
-        star = 'phoenix_m'
+        star = 'phoenix_sol'
 
     t_star = model_tree(top=(star,), extra='modbb_disk_r',n_extra=2)
 
