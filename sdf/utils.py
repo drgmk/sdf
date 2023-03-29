@@ -369,7 +369,7 @@ def rnd1sf(x):
     if not np.all(np.isfinite(x)) or np.min(x) <= 0:
         return np.zeros(len(x))
     else:
-        return np.round(x, -np.int(np.floor(np.log10(np.abs(x[0])))))
+        return np.round(x, -int(np.floor(np.log10(np.abs(x[0])))))
 
 
 def iau_coord(ra,dec):
@@ -459,7 +459,7 @@ def get_herschel_obsid(obs):
         if isinstance(p, photometry.Photometry):
             for i,f in enumerate(p.filters):
                 if f in ['PACS70','PACS100','PACS160']:
-                        if 'HSA_GMK' in p.bibcode[i]:
+                        if 'HSA' in p.bibcode[i]:
                             obsids = np.append(obsids, p.note[i])
 
     return np.unique(obsids)

@@ -16,7 +16,7 @@ import astropy.table
 import jinja2
 import bokeh.resources
 from bokeh.plotting import figure,ColumnDataSource
-from bokeh.models.widgets import Panel,Tabs
+from bokeh.models import TabPanel,Tabs
 from bokeh.models import HoverTool,TapTool,OpenURL
 from bokeh.layouts import gridplot,layout
 import bokeh.palettes
@@ -83,7 +83,7 @@ def sed_components(results,tab_order=None,
                 title += "{}:{:.1f}, ".format(par,r.best_params[j])
 
         # sed plot
-        hover = HoverTool(names=['phot'],tooltips=[('band',"@filter"),
+        hover = HoverTool(name='phot',tooltips=[('band',"@filter"),
                                                    ('meas',"@flux"),
                                                    ('unc',"@err")])
         tools = ['wheel_zoom,box_zoom,save,reset',hover]
@@ -109,7 +109,7 @@ def sed_components(results,tab_order=None,
                 func(sed[i],r,**kw)
 
         # residuals
-        hover = HoverTool(names=['resid'],tooltips=[('band',"@filter"),
+        hover = HoverTool(name='resid',tooltips=[('band',"@filter"),
                                                     ('sigma',"@res")])
         tools = ['wheel_zoom,box_zoom,save,reset',hover]
 
@@ -131,7 +131,7 @@ def sed_components(results,tab_order=None,
 
         grid = gridplot([[sed[i]],[res[i]]],toolbar_location='below')
 
-        tabs.append( Panel(child=grid, title=r.model_info['name']) )
+        tabs.append( TabPanel(child=grid, title=r.model_info['name']) )
     
     if tab_order is not None:
         if len(tab_order) != len(results):
@@ -430,7 +430,7 @@ def quick_sed(r,file=None,fig=None,xsize=8,ysize=6,dpi=100,
         err_pl[0,err_fix] = 0.99 * p.fnujy[err_fix]
 
         ax[0].errorbar(p.mean_wavelength()[ok], p.fnujy[ok],
-                       yerr=err_pl[:,ok], fmt='o')
+                       yerr=np.abs(err_pl[:,ok]), fmt='o')
 
     # residuals panel
     ok = np.invert(r.filters_ignore)
@@ -644,8 +644,10 @@ def sed_limits(results):
 
             if isinstance(o,photometry.Photometry):
                 xlim = [np.min(o.mean_wavelength()),np.max(o.mean_wavelength())]
+                ylim_tmp = np.min(o.e_fnujy[o.ignore != 1])
             elif isinstance(o,spectrum.ObsSpectrum):
                 xlim = [np.min(o.wavelength),np.max(o.wavelength)]
+                ylim_tmp = np.min(o.e_fnujy)
 
             if xlim[0] < xlims[0] or xlims[0] == -1:
                 xlims[0] = xlim[0]
@@ -656,7 +658,7 @@ def sed_limits(results):
 
             # set lower y limit to uncertainty if negative or zero fluxes
             if ylim[0] <= 0:
-                ylim[0] = np.min(o.e_fnujy)
+                ylim[0] = ylim_tmp
 
             if ylim[0] < ylims[0] or ylims[0] == -1:
                 ylims[0] = ylim[0]
@@ -705,7 +707,7 @@ def f_limits(r):
 
         yrange = [2e-7,0.1]
 
-        hover = HoverTool(names=['lim'],tooltips=[('band',"@filter")])
+        hover = HoverTool(name='lim',tooltips=[('band',"@filter")])
         tools = ['wheel_zoom,box_zoom,save,reset',hover]
 
         # vs disk temperature
@@ -752,7 +754,7 @@ def f_limits(r):
         fig.legend.location = 'top_left'
         fig.legend.label_text_font_size = '10pt'
 
-        tab1 = Panel(child=fig, title='vs. temperature')
+        tab1 = TabPanel(child=fig, title='vs. temperature')
 
         # vs disk radius, need a stellar luminosity for this
         if bb.lstar is not None:
@@ -799,11 +801,11 @@ def f_limits(r):
             fig.legend.location = 'top_left'
             fig.legend.label_text_font_size = '10pt'
 
-            tab2 = Panel(child=fig, title='vs. radius')
+            tab2 = TabPanel(child=fig, title='vs. radius')
         else:
             fig = figure(title='L_star unknown, radius limits not available',
                          width=cfg.pl['x_size'],height=cfg.pl['y_top_size'])
-            tab2 = Panel(child=fig, title='vs. blackbody radius')
+            tab2 = TabPanel(child=fig, title='vs. blackbody radius')
 
         if bb.lstar:
             tab = Tabs(tabs=[tab2,tab1])
@@ -922,7 +924,7 @@ def sample_plot(cursor,sample,absolute_paths=True, rel_loc=None):
 
     if ngot == 0:
         print("    HR + f vs. r: nothing to plot")
-        p = gridplot([[figure(),figure()]],sizing_mode='scale_width',toolbar_location='above')
+        p = gridplot([[figure(),figure()]],sizing_mode='inherit',toolbar_location='above')
         return bokeh.embed.components(p)
     else:
         print("    got ",ngot," rows for plot")
@@ -948,18 +950,9 @@ def sample_plot(cursor,sample,absolute_paths=True, rel_loc=None):
     with open(path.dirname(path.abspath(__file__)) + '/data/mist/tracks.pkl', 'rb') as f:
         trs = pickle.load(f)
 
-    # set up hover/tap tools
-    # TODO: hover in one highlights in the other
-    hover1 = HoverTool(names=['dot'],tooltips=[("name","@main_id")])
-    hover2 = HoverTool(names=['dot'],tooltips=[("name","@main_id")])
-    tap1 = TapTool(names=['dot'])
-    tap2 = TapTool(names=['dot'])
-    tools1 = ['wheel_zoom,box_zoom,box_select,save,reset',hover1,tap1]
-    tools2 = ['wheel_zoom,box_zoom,box_select,save,reset',hover2,tap2]
-
     # hr diagram
     hr = figure(title="HR diagram ("+str(n_unique)+" of "+str(ntot)+")",
-                tools=tools1,active_scroll='wheel_zoom',
+                tools=['wheel_zoom,box_zoom,box_select,save,reset'],active_scroll='wheel_zoom',
                 x_axis_label='Effective temperature / K',y_axis_label='Stellar luminosity / Solar',
                 y_axis_type="log",y_range=(0.5*min(t['lstar']),max(t['lstar'])*2),
                 x_axis_type="log",x_range=(1.1*max(t['teff']),min(t['teff'])/1.1),
@@ -969,15 +962,15 @@ def sample_plot(cursor,sample,absolute_paths=True, rel_loc=None):
     xs,err_xs,ys,err_ys = utils.plot_err(t['teff'],t['e_teff'],t['lstar'],t['e_lstar'])
     hr.multi_line(xs,err_ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
     hr.multi_line(err_xs,ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
-    hr.circle('teff','lstar',source=data,name='dot',line_color='col',
-              fill_color='col',**cfg.pl['hr_dot'])
+    hr_circ = hr.circle('teff','lstar',source=data,name='dot',line_color='col',
+                        fill_color='col',**cfg.pl['hr_dot'])
 
     hr.legend.location = 'top_left'
 
     # f vs temp (if we have any)
     if np.max(t['ldisklstar']) > 0:
         ft = figure(title="fractional luminosity vs disk temperature",
-                    tools=tools2,active_scroll='wheel_zoom',
+                    tools=['wheel_zoom,box_zoom,box_select,save,reset'],active_scroll='wheel_zoom',
                     x_axis_label='Disk temperature / K',
                     y_axis_label='Disk fractional luminosity',
                     y_axis_type="log",y_range=(0.5*cr[0],2*cr[1]),
@@ -992,12 +985,20 @@ def sample_plot(cursor,sample,absolute_paths=True, rel_loc=None):
                                              t['ldisklstar'], t['e_ldisklstar'])
         ft.multi_line(xs,err_ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
         ft.multi_line(err_xs,ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
-        ft.circle('tdisk','ldisklstar',source=data,name='dot',fill_color='col',
-                  line_color='col',**cfg.pl['hr_dot'])
+        ft_circ = ft.circle('tdisk','ldisklstar',source=data,name='dot',fill_color='col',
+                            line_color='col',**cfg.pl['hr_dot'])
     else:
         ft = figure(title='no IR excesses')
-            
-    p = gridplot([[hr,ft]],sizing_mode='scale_width',toolbar_location='above')
+
+    # set up hover/tap tools
+    # TODO: hover in one highlights in the other
+    hover1 = HoverTool(renderers=[hr_circ, ft_circ],tooltips=[("name","@main_id")])
+    tap1 = TapTool(renderers=[hr_circ, ft_circ])
+    for tool in [hover1,tap1]:
+        hr.add_tools(tool)
+        ft.add_tools(tool)
+
+    p = gridplot([[hr,ft]],sizing_mode='inherit',toolbar_location='above')
 
     # taptool callback
     if absolute_paths:
@@ -1131,7 +1132,7 @@ def flux_size_plot(cursor,sample):
         if len(l) == 0:
             print("    flux vs r: nothing to plot")
             pl = figure()
-            tabs.append( Panel(child=pl, title=f) )
+            tabs.append( TabPanel(child=pl, title=f) )
             continue
 
         keys = cursor.column_names
@@ -1150,7 +1151,7 @@ def flux_size_plot(cursor,sample):
 
         data = ColumnDataSource(data=t)
 
-        hover = HoverTool(names=['dot'],tooltips=[("name","@id")])
+        hover = HoverTool(name='dot',tooltips=[("name","@id")])
         tools = ['wheel_zoom,box_zoom,box_select,tap,save,reset',hover]
 
         pl = figure(title="disk flux vs radius ("+str(ngot)+" of "+str(ntot)+")",
@@ -1176,7 +1177,7 @@ def flux_size_plot(cursor,sample):
         taptool = pl.select(type=TapTool)
         taptool.callback = OpenURL(url=url)
 
-        tabs.append( Panel(child=pl, title=f) )
+        tabs.append( TabPanel(child=pl, title=f) )
     
     tab = Tabs(tabs=tabs)
     return bokeh.embed.components(tab)
@@ -1296,8 +1297,8 @@ def calibration(sample='zpo_cal_',
         std = np.percentile(data['R'],[5,95])
 
         # flux ratio plot
-        hover = HoverTool(names=['pl'],tooltips=[('id',"@name")])
-        tap = TapTool(names=['pl'])
+        hover = HoverTool(name='pl',tooltips=[('id',"@name")])
+        tap = TapTool(name='pl')
         tools = ['wheel_zoom,pan,save,reset']
         flux.append( figure(x_axis_label='Teff / K',y_axis_label=f,
                             y_range=std.tolist(),
@@ -1418,7 +1419,7 @@ def filter_plot(file=cfg.file['www_root']+'filters.html'):
             pl[-1].legend.click_policy="mute"
             pl[-1].legend.label_text_font_size = '8pt'
 
-    grid = gridplot(pl,ncols=1,sizing_mode='scale_width',
+    grid = gridplot(pl,ncols=1,sizing_mode='inherit',
                     toolbar_location='above')
 
     script,div = bokeh.embed.components(grid)
