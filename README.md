@@ -10,7 +10,7 @@ Create new environment with
 
 `conda env create -f sdf.yml`
 
-Install (far outdated) `binarytree` with:
+Install (outdated) `binarytree` with:
 
 `pip install https://github.com/joowani/binarytree/archive/2.0.1.zip`
 
