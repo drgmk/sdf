@@ -924,7 +924,7 @@ def sample_plot(cursor,sample,absolute_paths=True, rel_loc=None):
 
     if ngot == 0:
         print("    HR + f vs. r: nothing to plot")
-        p = gridplot([[figure(),figure()]],sizing_mode='inherit',toolbar_location='above')
+        p = gridplot([[figure(),figure()]],sizing_mode='scale_both',toolbar_location='above')
         return bokeh.embed.components(p)
     else:
         print("    got ",ngot," rows for plot")
@@ -987,18 +987,20 @@ def sample_plot(cursor,sample,absolute_paths=True, rel_loc=None):
         ft.multi_line(err_xs,ys,line_color=t['col'],**cfg.pl['hr_e_dot'])
         ft_circ = ft.circle('tdisk','ldisklstar',source=data,name='dot',fill_color='col',
                             line_color='col',**cfg.pl['hr_dot'])
+        renderers = [hr_circ, ft_circ]
     else:
         ft = figure(title='no IR excesses')
+        renderers = [hr_circ]
 
     # set up hover/tap tools
     # TODO: hover in one highlights in the other
-    hover1 = HoverTool(renderers=[hr_circ, ft_circ],tooltips=[("name","@main_id")])
-    tap1 = TapTool(renderers=[hr_circ, ft_circ])
+    hover1 = HoverTool(renderers=renderers,tooltips=[("name","@main_id")])
+    tap1 = TapTool(renderers=renderers)
     for tool in [hover1,tap1]:
         hr.add_tools(tool)
         ft.add_tools(tool)
 
-    p = gridplot([[hr,ft]],sizing_mode='inherit',toolbar_location='above')
+    p = gridplot([[hr,ft]],sizing_mode='scale_both',toolbar_location='above')
 
     # taptool callback
     if absolute_paths:
