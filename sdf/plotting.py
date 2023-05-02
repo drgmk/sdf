@@ -924,7 +924,7 @@ def sample_plot(cursor,sample,absolute_paths=True, rel_loc=None):
 
     if ngot == 0:
         print("    HR + f vs. r: nothing to plot")
-        p = gridplot([[figure(),figure()]],sizing_mode='scale_both',toolbar_location='above')
+        p = gridplot([[figure(),figure()]],sizing_mode='inherit',toolbar_location='above')
         return bokeh.embed.components(p)
     else:
         print("    got ",ngot," rows for plot")
