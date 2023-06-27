@@ -106,8 +106,7 @@ class BaseResult(object):
         self.exclude_spectra = nospec
         if not nospec:
             s = spectrum.ObsSpectrum.read_sdb_file(self.rawphot,
-                                                   module_split=True,
-                                                   nspec=1)
+                                                   module_split=True)
             if s is not None:
                 self.obs = (p,) + s
 

@@ -579,7 +579,7 @@ class ObsSpectrum(Spectrum):
             return ObsSpectrum.read_csv(file)
 
 
-    def read_sdb_file(file, module_split=False, nspec=99):
+    def read_sdb_file(file, module_split=False, nspec=None):
         """Read a sdb rawphot file and return a tuple of spectra.
         
         The file format is set by sdb_getphot.py, and is ascii.ipac.
@@ -599,15 +599,22 @@ class ObsSpectrum(Spectrum):
         # get the data and keywords
         p = Table.read(file,format='ascii.ipac')
         kw = p.meta['keywords']
-        
+
+        if nspec is None:
+            nspec = {'irsstare': 1,
+                     'spex': 1,
+                     'visir': 1,
+                     'csv': 10}
+
+        n = {}
+        for k in nspec.keys():
+            n[k] = 0
+
         # get spectra that match these names
         s = ()
-        n = 0
         for key in kw.keys():
-            if n >= nspec:
-                continue
-            
-            if np.sum([i in key for i in ['irsstare','spex','visir','csv']]) == 0:
+            # shortcut
+            if np.sum([i in key for i in ['irsstare', 'spex', 'visir', 'csv']]) == 0:
                 continue
 
             path = ''
@@ -615,23 +622,31 @@ class ObsSpectrum(Spectrum):
                 path = cfg.file['spectra']
             
             if 'irsstare' in key:
+                if n['irsstare'] + 1 > nspec['irsstare']:
+                    continue
                 s += ObsSpectrum.read_file_of_type(
-                                path+kw[key]['value'],type='irsstare',
+                                path+kw[key]['value'], type='irsstare',
                                 module_split=module_split
                                 )
-                n += 1
+                n['irsstare'] += 1
             elif 'spex' in key:
+                if n['spex'] + 1 > nspec['spex']:
+                    continue
                 s += ObsSpectrum.read_file_of_type(
-                                path+kw[key]['value'],type='spex')
-                n += 1
+                                path+kw[key]['value'], type='spex')
+                n['spex'] += 1
             elif 'visir' in key:
+                if n['visir'] + 1 > nspec['visir']:
+                    continue
                 s += ObsSpectrum.read_file_of_type(
-                                path+kw[key]['value'],type='csv')
-                n += 1
+                                path+kw[key]['value'], type='csv')
+                n['visir'] += 1
             elif 'csv' in key:
+                if n['csv'] + 1 > nspec['csv']:
+                    continue
                 s += ObsSpectrum.read_file_of_type(
-                                path+kw[key]['value'],type='csv')
-                n += 1
+                                path+kw[key]['value'], type='csv')
+                n['csv'] += 1
 
         if len(s) > 0:
             return s
