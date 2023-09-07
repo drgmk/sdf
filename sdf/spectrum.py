@@ -508,8 +508,11 @@ class ObsSpectrum(Spectrum):
                   'error on spectrum {}'.format(file))
         elif t.shape[1] == 3:
             w, f, e = t.T
+        elif t.shape[1] > 3:
+            print(f'sdf.spectrum.ObsSpectrum.read_csv using first 3 cols as w, f, e in {file}')
+            w, f, e = t.T[0], t.T[1], t.T[2]
         else:
-            raise SdfError('file {} has wrong number of columns'.format(file))
+            raise utils.SdfError('file {} has wrong number of columns'.format(file))
 
         # check for nans that may arise from comment columns
         ok = np.isfinite(w) & np.isfinite(f) & np.isfinite(e)
