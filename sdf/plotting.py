@@ -18,7 +18,7 @@ import bokeh.resources
 from bokeh.plotting import figure,ColumnDataSource
 from bokeh.models import TabPanel,Tabs
 from bokeh.models import HoverTool,TapTool,OpenURL
-from bokeh.layouts import gridplot,layout
+from bokeh.layouts import gridplot, column, layout
 import bokeh.palettes
 import bokeh.embed
 
@@ -1078,25 +1078,29 @@ def flux_size_plot(cursor,sample):
         Connection to database
     sample : string
         Name of sample in config.mysql['db_samples'] to plot
-
-    .. todo:: multiple compoments are plotted at the total disk flux =bad
     """
 
     # bands to show disk fluxes at
-    filters = ['MIRI.F1000W','MIRI.F1800W','WISE22','MIRI.F2550W',
+    filters = ['MIRI.F1000W','MIRI.F1800W','MIRI.F2550W',
                'PACS70','WAV880']
 
-    # sensitivities from Smith & Wyatt 2010
+    beam = [0.328, 0.591, 0.803, 6., 1.]
+
+    # sensitivities from Smith & Wyatt 2010, scaled to ETC in 2023
     miri_10_sens = np.array([[1000.,0.15],[100,0.15],[1,0.2],[0.01,0.3],
-                             [0.001,0.7],[0.001,1.5],[0.01,10],[0.1,50]])
+                             [0.001,0.7],[0.001,1.5],[0.01,10],[0.1,50]]) * 0.48/0.7
     miri_18_sens = np.array([[1000,0.25],[100.,0.3],[10,0.4],[1,0.7],
-                             [0.5,1],[0.1,2],[0.05,4],[0.05,10],[0.05,40]])
+                             [0.5,1],[0.1,2],[0.05,4],[0.05,10],[0.05,40]]) * 2.23/4.3
     miri_25_sens = np.array([[1000.,0.3],[100,0.3],[10,0.4],[3,0.5],[2,1],
-                             [1,1.5],[0.5,2],[0.2,4],[0.2,10],[0.2,40]])
-    sens = [miri_10_sens,miri_18_sens,miri_25_sens,miri_25_sens,
+                             [1,1.5],[0.5,2],[0.2,4],[0.2,10],[0.2,40]]) * 12.2/28
+    sens = [miri_10_sens,miri_18_sens,miri_25_sens,
             None,None]
 
-    tabs = []
+    sens_mjy = np.array([0.48, .23, 12.2, 2000, 20]) * 1e-3
+
+    tabs_fs = []
+    tabs_cs = []
+    tabs_sb = []
     for i,f in enumerate(filters):
 
         # get the results
@@ -1108,18 +1112,21 @@ def flux_size_plot(cursor,sample):
         sel = sel1 + ("LEFT JOIN "+cfg.mysql['db_results']+".model ON sdbid=id "
                       "LEFT JOIN "+cfg.mysql['db_results']+".disk_r USING (id) "
                       "LEFT JOIN "+cfg.mysql['db_results']+".star USING (id) "
-                      "LEFT JOIN "+cfg.mysql['db_results']+".phot "
-                      "ON (model.id=phot.id AND disk_r.disk_r_comp_no=phot.comp_no) "
+                      "LEFT JOIN "+cfg.mysql['db_results']+".phot p_disk "
+                      "ON (model.id=p_disk.id AND disk_r.disk_r_comp_no=p_disk.comp_no) "
+                      "LEFT JOIN "+cfg.mysql['db_results']+".phot p_star "
+                      "ON (model.id=p_star.id AND star.star_comp_no=p_star.comp_no) "
                       "LEFT JOIN "+cfg.mysql['db_sdb']+".simbad USING (sdbid) "
-                      "WHERE filter = %s AND phot.id IS NOT NULL "
-                      "AND model_jy IS NOT NULL AND rdisk_bb IS NOT NULL "
+                      "WHERE p_disk.filter = %s AND p_star.filter = %s AND p_disk.id IS NOT NULL "
+                      "AND p_disk.model_jy IS NOT NULL AND rdisk_bb IS NOT NULL "
                       "AND plx_arcsec IS NOT NULL ")
         # limit table sizes
         if sample != 'everything':
             sel += " LIMIT "+str(cfg.www['tablemax'])+";"
 
-        selall = ("SELECT coalesce(main_id,sdbid) as id,sdbid,chisq, "
-                "1e3*model_jy as flux,rdisk_bb*plx_arcsec as rdisk ") + sel
+        selall = ("SELECT coalesce(main_id,sdbid) as id, sdbid, chisq, "
+                  "1e3*p_disk.model_jy as disk_flux, p_disk.model_jy/p_star.model_jy as disk_contr, "
+                  "rdisk_bb*plx_arcsec as rdisk ") + sel
 
         # number in sample
         selnum = "SELECT COUNT(*)" + sel1
@@ -1127,18 +1134,20 @@ def flux_size_plot(cursor,sample):
         ntot = cursor.fetchall()[0][0]
 
         # fill a table with fluxes
-        cursor.execute(selall,(str(f),))
+        cursor.execute(selall,(str(f),str(f)))
         allsql = cursor.fetchall()
         l = list(zip(*allsql))
 
         if len(l) == 0:
             print("    flux vs r: nothing to plot")
             pl = figure()
-            tabs.append( TabPanel(child=pl, title=f) )
+            tabs_fs.append(TabPanel(child=pl, title=f))
+            tabs_cs.append(TabPanel(child=pl, title=f))
+            tabs_sb.append(TabPanel(child=pl, title=f))
             continue
 
         keys = cursor.column_names
-        dtypes = [None,None,float,float,float]
+        dtypes = [None,None,float,float,float,float]
         t = {}
         for j in range(len(keys)):
             col = np.array(l[j],dtype=dtypes[j])
@@ -1151,38 +1160,94 @@ def flux_size_plot(cursor,sample):
         col,cr = colours_for_list(t['chisq'],bokeh.palettes.plasma,log=True)
         t['col'] = col
 
+        # adjust contrast to be per beam, and add SB
+        t['disk_contr'] /= (t['rdisk']/beam[i])**2
+        t['disk_sb'] = t['disk_flux'] / (np.pi * t['rdisk']**2)
+
         data = ColumnDataSource(data=t)
 
         hover = HoverTool(name='dot',tooltips=[("name","@id")])
         tools = ['wheel_zoom,box_zoom,box_select,tap,save,reset',hover]
 
-        pl = figure(title="disk flux vs radius ("+str(ngot)+" of "+str(ntot)+")",
+        fs = figure(title="disk flux vs radius ("+str(ngot)+" of "+str(ntot)+")",
                     tools=tools,active_scroll='wheel_zoom',toolbar_location='above',
                     x_axis_label='Disk black body radius / arcsec',
                     y_axis_label='Disk flux / mJy',
-                    y_axis_type="log",y_range=(0.5*min(t['flux']),max(t['flux'])*2),
+                    y_axis_type="log",y_range=(0.5*min(t['disk_flux']),max(t['disk_flux'])*2),
                     x_axis_type="log",x_range=(0.5*min(t['rdisk']),max(t['rdisk'])*2),
-                    width=850,height=600)
+                    width=850,height=500)
+
+        cs = figure(title="disk contrast per beam vs radius ("+str(ngot)+" of "+str(ntot)+")",
+                    tools=tools,active_scroll='wheel_zoom',toolbar_location='above',
+                    x_axis_label='Disk black body radius / arcsec',
+                    y_axis_label='Disk/star contrast per beam',
+                    y_axis_type="log",y_range=(0.5*min(t['disk_contr']),max(t['disk_contr'])*2),
+                    x_axis_type="log",x_range=(0.5*min(t['rdisk']),max(t['rdisk'])*2),
+                    width=850,height=500)
+
+        sb = figure(title="disk surface brightness vs radius ("+str(ngot)+" of "+str(ntot)+")",
+                    tools=tools,active_scroll='wheel_zoom',toolbar_location='above',
+                    x_axis_label='Disk black body radius / arcsec',
+                    y_axis_label='Disk surface brightness / mJy/arcsec2',
+                    y_axis_type="log",y_range=(0.5*min(t['disk_sb']),max(t['disk_sb'])*2),
+                    x_axis_type="log",x_range=(0.5*min(t['rdisk']),max(t['rdisk'])*2),
+                    width=850,height=500)
 
         if sens[i] is not None:
-            pl.line(sens[i][:,1],sens[i][:,0],
-                    line_color='red',line_alpha=0.3,line_width=4)
+            fs.line(sens[i][:,1],sens[i][:,0], legend_label='Smith & Wyatt 2010 sens',
+                    line_color='blue',line_alpha=0.3,line_width=4)
 
-        xs,ys = utils.plot_join_line(t,'sdbid','rdisk','flux')
+        xs,ys = utils.plot_join_line(t,'sdbid','rdisk','disk_flux')
         if xs is not None:
-            pl.multi_line(xs,ys,**cfg.pl['fvsr_join'])
+            fs.multi_line(xs,ys,**cfg.pl['fvsr_join'])
         
-        pl.circle('rdisk','flux',source=data,size=10,fill_color='col',
+        fs.circle('rdisk','disk_flux',source=data,size=10,fill_color='col',
                   name='dot',fill_alpha=0.6,line_color='col',line_alpha=1)
 
-        url = "/sdb/seds/masters/@sdbid/public"
-        taptool = pl.select(type=TapTool)
-        taptool.callback = OpenURL(url=url)
+        fs.line(x=[beam[i], beam[i]], y=[0.5*min(t['disk_flux']),max(t['disk_flux'])*2],
+                legend_label='PSF FWHM', line_alpha=0.3, line_width=4, line_color='red')
+        fs.line(x=[0.5*min(t['rdisk']),max(t['rdisk'])*2], y=[sens_mjy[i], sens_mjy[i]],
+                legend_label='~1h pt src sens', line_alpha=0.3, line_width=4, line_color='green')
 
-        tabs.append( TabPanel(child=pl, title=f) )
-    
-    tab = Tabs(tabs=tabs)
-    return bokeh.embed.components(tab)
+        xs,ys = utils.plot_join_line(t,'sdbid','rdisk','disk_contr')
+        if xs is not None:
+            cs.multi_line(xs,ys,**cfg.pl['fvsr_join'])
+
+        cs.circle('rdisk','disk_contr',source=data,size=10,fill_color='col',
+                  name='dot',fill_alpha=0.6,line_color='col',line_alpha=1)
+
+        cs.line(x=[beam[i], beam[i]], y=[0.5*min(t['disk_contr']),max(t['disk_contr'])*2],
+                legend_label='PSF FWHM', line_alpha=0.3, line_width=4, line_color='red')
+
+        xs,ys = utils.plot_join_line(t,'sdbid','rdisk','disk_sb')
+        if xs is not None:
+            sb.multi_line(xs,ys,**cfg.pl['fvsr_join'])
+
+        sb.circle('rdisk','disk_sb',source=data,size=10,fill_color='col',
+                  name='dot',fill_alpha=0.6,line_color='col',line_alpha=1)
+
+        sb.line(x=[beam[i], beam[i]], y=[0.5*min(t['disk_sb']),max(t['disk_sb'])*2],
+                legend_label='PSF FWHM', line_alpha=0.3, line_width=4, line_color='red')
+        sb.line(x=[0.5*min(t['rdisk']),max(t['rdisk'])*2], y=[sens_mjy[i]*beam[i], sens_mjy[i]*beam[i]],
+                legend_label='~1h pt src sens', line_alpha=0.3, line_width=4, line_color='green')
+
+        url = "/sdb/seds/masters/@sdbid/public"
+        taptool1 = fs.select(type=TapTool)
+        taptool1.callback = OpenURL(url=url)
+        taptool2 = cs.select(type=TapTool)
+        taptool2.callback = OpenURL(url=url)
+        taptool3 = sb.select(type=TapTool)
+        taptool3.callback = OpenURL(url=url)
+
+        tabs_fs.append( TabPanel(child=fs, title=f) )
+        tabs_cs.append( TabPanel(child=cs, title=f) )
+        tabs_sb.append( TabPanel(child=sb, title=f) )
+
+    tab1 = Tabs(tabs=tabs_fs)
+    tab2 = Tabs(tabs=tabs_cs)
+    tab3 = Tabs(tabs=tabs_sb)
+    p = column([tab1, tab2, tab3], sizing_mode='scale_both')
+    return bokeh.embed.components(p)
 
 
 def colours_for_list(values_in,palette,log=False):
