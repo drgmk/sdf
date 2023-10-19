@@ -24,8 +24,8 @@ def sample_tables(samples=None):
     """Generate tables for all samples."""
 
     # set up connection
-    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
-                     cfg.mysql['host'], cfg.mysql['db_sdb'])
+    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
+                     cfg.db['host'], cfg.db['db_sdb'])
     cursor = cnx.cursor(buffered=True)
 
     # get a list of samples and generate their pages
@@ -113,7 +113,7 @@ def sample_table_www(cursor,sample,file='index.html',
     if sample == 'everything' or sample == 'public':
         sel += " FROM sdb_pm"
     else:
-        sel += (" FROM "+cfg.mysql['db_samples']+"."+sample+" "
+        sel += (" FROM "+cfg.db['db_samples']+"."+sample+" "
                 "LEFT JOIN sdb_pm USING (sdbid)")
         
     sel += (" LEFT JOIN simbad USING (sdbid)"
@@ -203,13 +203,13 @@ def sample_table_votable(cursor, sample, file_path=None):
     if sample == 'everything' or sample == 'public':
         sel += " FROM sdb_pm"
     else:
-        sel += (" FROM "+cfg.mysql['db_samples']+"."+sample+" "
+        sel += (" FROM "+cfg.db['db_samples']+"."+sample+" "
                 "LEFT JOIN sdb_pm USING (sdbid)")
         
     sel += (" LEFT JOIN simbad USING (sdbid)"
-            " LEFT JOIN "+cfg.mysql['db_results']+".star ON sdbid=star.id"
-            " LEFT JOIN "+cfg.mysql['db_results']+".disk_r USING (id)"
-            " LEFT JOIN "+cfg.mysql['db_results']+".model USING (id)"
+            " LEFT JOIN "+cfg.db['db_results']+".star ON sdbid=star.id"
+            " LEFT JOIN "+cfg.db['db_results']+".disk_r USING (id)"
+            " LEFT JOIN "+cfg.db['db_results']+".model USING (id)"
             " WHERE sdb_pm.sdbid IS NOT NULL"
             " ORDER by raj2000, disk_r.temp")
     # limit table sizes
@@ -297,8 +297,8 @@ def sample_table_photometry(cursor, sample, file_path=None):
     if sample == 'everything' or sample == 'public':
         sel += " FROM sdb_pm"
     else:
-        sel += (" FROM "+cfg.mysql['db_samples']+"."+sample+" "
-                "LEFT JOIN "+cfg.mysql['db_results']+".phot ON sdbid=id"
+        sel += (" FROM "+cfg.db['db_samples']+"."+sample+" "
+                "LEFT JOIN "+cfg.db['db_results']+".phot ON sdbid=id"
                 " WHERE comp_no=-1 ORDER BY filter")
 
     # these are large, so don't limit table sizes
@@ -347,19 +347,19 @@ def sample_table_temp_tables(cursor):
     cursor.execute("DROP TABLE IF EXISTS phot;")
     cursor.execute("CREATE TEMPORARY TABLE phot SELECT"
                    " id as sdbid,ROUND(-2.5*log10(ANY_VALUE(model_jy)/3882.37),1) as Vmag"
-                   " FROM "+cfg.mysql['db_results']+".phot WHERE filter='VJ' GROUP BY id;")
+                   " FROM "+cfg.db['db_results']+".phot WHERE filter='VJ' GROUP BY id;")
     cursor.execute("ALTER TABLE phot ADD INDEX sdbid_phot (sdbid);")
     cursor.execute("DROP TABLE IF EXISTS star;")
     cursor.execute("CREATE TEMPORARY TABLE star SELECT"
-                   " id,ROUND(ANY_VALUE("+cfg.mysql['db_results']+".star.teff),0) as teff,"
+                   " id,ROUND(ANY_VALUE("+cfg.db['db_results']+".star.teff),0) as teff,"
                    " ANY_VALUE(plx_arcsec) as plx_arcsec, SUM(lstar) as lstar"
-                   " from "+cfg.mysql['db_results']+".star"
+                   " from "+cfg.db['db_results']+".star"
                    " GROUP BY id;")
     cursor.execute("ALTER TABLE star ADD INDEX id_star (id);")
     cursor.execute("DROP TABLE IF EXISTS disk_r;")
     cursor.execute("CREATE TEMPORARY TABLE disk_r SELECT"
                    " id,GROUP_CONCAT(ROUND(temp,1)) as temp,SUM(ldisk_lstar) as ldisk_lstar"
-                   " from "+cfg.mysql['db_results']+".disk_r"
+                   " from "+cfg.db['db_results']+".disk_r"
                    " GROUP BY id;")
     cursor.execute("ALTER TABLE disk_r ADD INDEX id_dr (id);")
 

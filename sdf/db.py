@@ -18,8 +18,8 @@ def get_cnx(user,passwd,host,db):
                                        auth_plugin='mysql_native_password')
 
     except:
-        print("   Can't connect to {} at {}".format(cfg.mysql['db_results'],
-                                                    cfg.mysql['host']) )
+        print("   Can't connect to {} at {}".format(cfg.db['db_results'],
+                                                    cfg.db['host']) )
         return None
 
 
@@ -29,31 +29,31 @@ def write_all(r,update=False):
     print(" Database")
 
     # set up connection
-    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
-                     cfg.mysql['host'], cfg.mysql['db_results'])
+    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
+                     cfg.db['host'], cfg.db['db_results'])
     if cnx is None:
         return
     cursor = cnx.cursor(buffered=True)
 
     # write to the tables
-    if update or update_needed(cursor,cfg.mysql['model_table'],r):
+    if update or update_needed(cursor,cfg.db['model_table'],r):
         
         print("   writing")
         
         cursor.execute("DELETE FROM {} "
-                       "WHERE id = '{}'".format(cfg.mysql['phot_table'],r.id))
+                       "WHERE id = '{}'".format(cfg.db['phot_table'],r.id))
         write_phot(cursor,r)
 
         cursor.execute("DELETE FROM {} "
-                       "WHERE id = '{}'".format(cfg.mysql['model_table'],r.id))
+                       "WHERE id = '{}'".format(cfg.db['model_table'],r.id))
         write_model(cursor,r)
 
         cursor.execute("DELETE FROM {} "
-                       "WHERE id = '{}'".format(cfg.mysql['star_table'],r.id))
+                       "WHERE id = '{}'".format(cfg.db['star_table'],r.id))
         write_star(cursor,r)
 
         cursor.execute("DELETE FROM {} "
-                       "WHERE id = '{}'".format(cfg.mysql['disk_r_table'],r.id))
+                       "WHERE id = '{}'".format(cfg.db['disk_r_table'],r.id))
         write_disk_r(cursor,r)
     
     else:
@@ -112,7 +112,7 @@ def write_phot(cursor,r):
                     "model_jy,e_model_jy_lo,e_model_jy_hi,residual,R) "
                     "VALUES ('{}',{:d},'{}',{:e}, "
                     "{:e},{},'{}',{:e},{:e},{:e}, "
-                    "{:e},{:e})".format(cfg.mysql['phot_table'],
+                    "{:e},{:e})".format(cfg.db['phot_table'],
                                         r.id,-1,r.filters[j],r.obs_fnujy[j],
                                         r.obs_e_fnujy[j],r.obs_upperlim[j].astype(int),
                                         r.obs_bibcode[j],r.model_fnujy[j],
@@ -131,7 +131,7 @@ def write_phot(cursor,r):
                 cursor.execute("UPDATE {} "
                                "SET R_star = {:e}, chi_star = {:e}"
                                "WHERE id = '{}' AND comp_no = {:d} "
-                               "AND filter = '{}'".format(cfg.mysql['phot_table'],
+                               "AND filter = '{}'".format(cfg.db['phot_table'],
                                                           ratio,chi,r.id,-1,filt) )
 
         # the other filters
@@ -139,14 +139,14 @@ def write_phot(cursor,r):
             cursor.execute("INSERT INTO {} "
                     "(id,comp_no,filter,model_jy,e_model_jy_lo,e_model_jy_hi) "
                     "VALUES ('{}',{:d},'{}',{:e},{:e}, "
-                    "{:e})".format(cfg.mysql['phot_table'],
+                    "{:e})".format(cfg.db['phot_table'],
                                    r.id,-1,filt,r.all_phot[i],
                                    r.all_phot_1sig_lo[i],
                                    r.all_phot_1sig_hi[i]))
 
         # add these on to both
         if r.all_star_phot is not None:
-            cursor.execute("UPDATE "+cfg.mysql['phot_table']+" "
+            cursor.execute("UPDATE "+cfg.db['phot_table']+" "
                            "SET star_jy = {:e}, "
                            "e_star_jy_lo = {:e}, e_star_jy_hi = {:e} "
                            "WHERE id = '{}' AND comp_no = {:d} "
@@ -156,7 +156,7 @@ def write_phot(cursor,r):
                                                       r.id,-1,filt) )
 
         if r.all_disk_phot is not None:
-            cursor.execute("UPDATE "+cfg.mysql['phot_table']+" "
+            cursor.execute("UPDATE "+cfg.db['phot_table']+" "
                            "SET disk_jy = {:e}, "
                            "e_disk_jy_lo = {:e}, e_disk_jy_hi = {:e} "
                            "WHERE id = '{}' AND comp_no = {:d} "
@@ -170,7 +170,7 @@ def write_phot(cursor,r):
             cursor.execute("INSERT INTO {} "
                     "(id,comp_no,filter,model_jy,e_model_jy_lo,e_model_jy_hi) "
                     "VALUES ('{}',{:d},'{}',{:e},{:e}, "
-                    "{:e})".format(cfg.mysql['phot_table'],r.id,j,filt,
+                    "{:e})".format(cfg.db['phot_table'],r.id,j,filt,
                                    r.all_comp_phot[j,i],
                                    r.all_comp_phot_1sig_lo[j,i],
                                    r.all_comp_phot_1sig_hi[j,i]))
@@ -183,7 +183,7 @@ def write_model(cursor,r):
     Assumes rows have been removed already (if necessary).
     """
 
-    stmt = ("INSERT INTO "+cfg.mysql['model_table']+" "
+    stmt = ("INSERT INTO "+cfg.db['model_table']+" "
             "(id,model_comps,parameters,evidence,chisq,dof,model_mtime) "
             "VALUES (%s,%s,%s,%s,%s,%s,%s)")
 
@@ -206,7 +206,7 @@ def write_star(cursor,r):
 
         # start a row
         cursor.execute("INSERT INTO {} (id,star_comp_no) VALUES "
-                       "('{}',{:d})".format(cfg.mysql['star_table'],
+                       "('{}',{:d})".format(cfg.db['star_table'],
                                             r.id,star['comp_no']))
 
         # and add the rest of the results, only keys starting 'e_' and
@@ -218,7 +218,7 @@ def write_star(cursor,r):
                 continue
             cursor.execute(
                "UPDATE {} SET {} = {:e}, {} = {:e} WHERE id = '{}' "
-               "AND star_comp_no = {}".format(cfg.mysql['star_table'],
+               "AND star_comp_no = {}".format(cfg.db['star_table'],
                                               key[2:],star[key[2:]],
                                               key,star[key],
                                               r.id,star['comp_no'])
@@ -235,7 +235,7 @@ def write_disk_r(cursor,r):
     for i,disk_r in enumerate(r.disk_r):
         
         cursor.execute("INSERT INTO {} (id,disk_r_comp_no) VALUES "
-                       "('{}',{:d})".format(cfg.mysql['disk_r_table'],
+                       "('{}',{:d})".format(cfg.db['disk_r_table'],
                                             r.id,disk_r['comp_no']))
 
         # and add the rest of the results, only keys starting 'e_' and
@@ -247,7 +247,7 @@ def write_disk_r(cursor,r):
                 continue
             cursor.execute(
                "UPDATE {} SET {} = {:e}, {} = {:e} WHERE id = '{}' "
-               "AND disk_r_comp_no = {}".format(cfg.mysql['disk_r_table'],
+               "AND disk_r_comp_no = {}".format(cfg.db['disk_r_table'],
                                          key[2:],disk_r[key[2:]],
                                          key,disk_r[key],
                                          r.id,disk_r['comp_no'])
@@ -258,8 +258,8 @@ def custom_sort(file, results):
     """Custom sort based on per-target config in database."""
 
     # set up connection
-    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
-                     cfg.mysql['host'], cfg.mysql['db_sdb'])
+    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
+                     cfg.db['host'], cfg.db['db_sdb'])
     if cnx is None:
         return
     cursor = cnx.cursor(buffered=True)
@@ -274,7 +274,7 @@ def custom_sort(file, results):
         print('     db.custom_sort: no sdbid in photometry file')
 
     cursor.execute("SELECT n_disk_comps FROM {} WHERE "
-                   "sdbid='{}';".format(cfg.mysql['sdf_fit_config'],
+                   "sdbid='{}';".format(cfg.db['sdf_fit_config'],
                                         sdbid))
 
     out = np.arange(len(results))
@@ -339,11 +339,11 @@ def get_samples():
     yet, will be excluded.
     """
     
-    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
-                     cfg.mysql['host'], cfg.mysql['db_samples'])
+    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
+                     cfg.db['host'], cfg.db['db_samples'])
     cursor = cnx.cursor(buffered=True)
     cursor.execute("SHOW TABLES WHERE Tables_in_{} "
-                   "NOT REGEXP('^_');".format(cfg.mysql['db_samples']))
+                   "NOT REGEXP('^_');".format(cfg.db['db_samples']))
     samples_tmp = cursor.fetchall() # a list of tuples
     samples = []
     for s_tuple in samples_tmp:
@@ -357,12 +357,12 @@ def get_samples():
     return samples #+ ['public','everything']
 
 
-def sample_targets(sample,db_tab=cfg.mysql['db_samples']):
+def sample_targets(sample,db_tab=cfg.db['db_samples']):
     """Return list of sdbids of targets in some sample."""
 
     # set up connection
-    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
-                     cfg.mysql['host'], db_tab)
+    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
+                     cfg.db['host'], db_tab)
     if cnx is None:
         return
     cursor = cnx.cursor(buffered=True)
@@ -379,8 +379,8 @@ def sdb_xids(id):
     """Get selected xids for a given sdb id."""
 
     # set up connection
-    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
-                     cfg.mysql['host'], cfg.mysql['db_sdb'])
+    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
+                     cfg.db['host'], cfg.db['db_sdb'])
     if cnx is None:
         return
     cursor = cnx.cursor(buffered=True)
@@ -410,8 +410,8 @@ def get_sdbids(ids):
         raise utils.SdfError('please pass a list, not {}'.format(type(ids)))
 
     # set up connection
-    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
-                     cfg.mysql['host'], cfg.mysql['db_sdb'])
+    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
+                     cfg.db['host'], cfg.db['db_sdb'])
     if cnx is None:
         return
     cursor = cnx.cursor(buffered=True)
@@ -433,8 +433,8 @@ def get_alma_project(ra,de, radius_arcsec=10/3600):
     """Return ALMA project IDs (if exists) given coordinates."""
 
     # set up connection
-    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
-                     cfg.mysql['host'], cfg.mysql['db_sdb'])
+    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
+                     cfg.db['host'], cfg.db['db_sdb'])
     if cnx is None:
         return
     cursor = cnx.cursor(buffered=True)

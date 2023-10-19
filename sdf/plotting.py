@@ -823,8 +823,8 @@ def sample_plots(samples=None, file='hr.html', file_path=None,
                  absolute_paths=True, rel_loc=None):
 
     # set up connection
-    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
-                     cfg.mysql['host'], cfg.mysql['db_sdb'])
+    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
+                     cfg.db['host'], cfg.db['db_sdb'])
     cursor = cnx.cursor(buffered=True)
 
     env = jinja2.Environment(autoescape=False,
@@ -890,14 +890,14 @@ def sample_plot(cursor,sample,absolute_paths=True, rel_loc=None):
     # get data, ensure primary axes are not nans else bokeh will
     # complain about the data
     if sample == 'everything' or sample == 'public':
-        sel1 = " FROM "+cfg.mysql['db_sdb']+".sdb_pm"
+        sel1 = " FROM "+cfg.db['db_sdb']+".sdb_pm"
     else:
-        sel1 = (" FROM "+cfg.mysql['db_samples']+"."+sample+
-                " LEFT JOIN "+cfg.mysql['db_sdb']+".sdb_pm USING (sdbid)")
+        sel1 = (" FROM "+cfg.db['db_samples']+"."+sample+
+                " LEFT JOIN "+cfg.db['db_sdb']+".sdb_pm USING (sdbid)")
 
-    sel = sel1 + (" LEFT JOIN "+cfg.mysql['db_sdb']+".simbad USING (sdbid)"
-                  " LEFT JOIN "+cfg.mysql['db_results']+".star ON sdbid=star.id"
-                  " LEFT JOIN "+cfg.mysql['db_results']+".disk_r ON sdbid=disk_r.id")
+    sel = sel1 + (" LEFT JOIN "+cfg.db['db_sdb']+".simbad USING (sdbid)"
+                  " LEFT JOIN "+cfg.db['db_results']+".star ON sdbid=star.id"
+                  " LEFT JOIN "+cfg.db['db_results']+".disk_r ON sdbid=disk_r.id")
 
     # statement for selecting stuff to plot
     sel += " WHERE teff IS NOT NULL AND lstar IS NOT NULL"
@@ -1022,8 +1022,8 @@ def sample_plot(cursor,sample,absolute_paths=True, rel_loc=None):
 def flux_size_plots(samples=None):
 
     # set up connection
-    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
-                     cfg.mysql['host'], cfg.mysql['db_sdb'])
+    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
+                     cfg.db['host'], cfg.db['db_sdb'])
     cursor = cnx.cursor(buffered=True)
 
     env = jinja2.Environment(autoescape=False,
@@ -1105,18 +1105,18 @@ def flux_size_plot(cursor,sample):
 
         # get the results
         if sample == 'everything' or sample == 'public':
-            sel1 = "FROM "+cfg.mysql['db_sdb']+".sdb_pm "
+            sel1 = "FROM "+cfg.db['db_sdb']+".sdb_pm "
         else:
-            sel1 = "FROM "+cfg.mysql['db_samples']+"."+sample+" "
+            sel1 = "FROM "+cfg.db['db_samples']+"."+sample+" "
          
-        sel = sel1 + ("LEFT JOIN "+cfg.mysql['db_results']+".model ON sdbid=id "
-                      "LEFT JOIN "+cfg.mysql['db_results']+".disk_r USING (id) "
-                      "LEFT JOIN "+cfg.mysql['db_results']+".star USING (id) "
-                      "LEFT JOIN "+cfg.mysql['db_results']+".phot p_disk "
+        sel = sel1 + ("LEFT JOIN "+cfg.db['db_results']+".model ON sdbid=id "
+                      "LEFT JOIN "+cfg.db['db_results']+".disk_r USING (id) "
+                      "LEFT JOIN "+cfg.db['db_results']+".star USING (id) "
+                      "LEFT JOIN "+cfg.db['db_results']+".phot p_disk "
                       "ON (model.id=p_disk.id AND disk_r.disk_r_comp_no=p_disk.comp_no) "
-                      "LEFT JOIN "+cfg.mysql['db_results']+".phot p_star "
+                      "LEFT JOIN "+cfg.db['db_results']+".phot p_star "
                       "ON (model.id=p_star.id AND star.star_comp_no=p_star.comp_no) "
-                      "LEFT JOIN "+cfg.mysql['db_sdb']+".simbad USING (sdbid) "
+                      "LEFT JOIN "+cfg.db['db_sdb']+".simbad USING (sdbid) "
                       "WHERE p_disk.filter = %s AND p_star.filter = %s AND p_disk.id IS NOT NULL "
                       "AND p_disk.model_jy IS NOT NULL AND rdisk_bb IS NOT NULL "
                       "AND plx_arcsec IS NOT NULL ")
@@ -1301,13 +1301,13 @@ def calibration(sample='zpo_cal_',
         Location of directory in which to place plots.
     """
 
-    cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
-                     cfg.mysql['host'], cfg.mysql['db_results'])
+    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
+                     cfg.db['host'], cfg.db['db_results'])
     cursor = cnx.cursor(buffered=True)
     print("  "+sample)
 
     # get a wavelength-sorted list of filters.
-    cursor.execute("SELECT DISTINCT filter FROM "+cfg.mysql['phot_table']+" "
+    cursor.execute("SELECT DISTINCT filter FROM "+cfg.db['phot_table']+" "
                    "WHERE obs_jy IS NOT NULL LIMIT 100")
     filters = cursor.fetchall()
     filters = [f for (f,) in filters]
@@ -1336,9 +1336,9 @@ def calibration(sample='zpo_cal_',
         stmt = ("SELECT name, sdbid, chi_star,"
                 "IF(R_star BETWEEN -100 and 100,R_star,100),"
                 "parameters, chisq/IF(dof<1,1,dof) as cdof FROM "
-                +cfg.mysql['model_table']+" ""LEFT JOIN "
-                +cfg.mysql['phot_table']+" USING (id) "
-                "LEFT JOIN "+cfg.mysql['db_samples']+'.'+sample+" ON id=sdbid "
+                +cfg.db['model_table']+" ""LEFT JOIN "
+                +cfg.db['phot_table']+" USING (id) "
+                "LEFT JOIN "+cfg.db['db_samples']+'.'+sample+" ON id=sdbid "
                 "WHERE sdbid IS NOT NULL AND filter='"+f+"' "
                 "AND obs_upperlim=0 and chi_star != 0")
         cursor.execute(stmt)

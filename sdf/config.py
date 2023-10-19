@@ -19,14 +19,11 @@ would look something like:
 """
 
 import os
-import glob
 import ast
 import configparser
 
 import numpy as np
 import bokeh.palettes
-
-from . import utils
 
 print(' Config')
 print('  found files:')
@@ -40,7 +37,12 @@ print(cfg.read([
 
 # simple dictionaries with only strings
 file = cfg['file']
-mysql = cfg['mysql']
+
+db = cfg['db']
+if db['type'] == 'mysql':
+    db.update(cfg['mysql'])
+elif db['type'] == 'sqlite':
+    db.update(cfg['sqlite'])
 
 # calculation stuff
 calc = {

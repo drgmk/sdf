@@ -136,13 +136,13 @@ def generate_cal_seds(out_dir=cfg.file['www_root']+'calibration/stis_ngsl/',
 
     # set up connection
     try:
-        cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
-                         cfg.mysql['host'], cfg.mysql['db_samples'])
+        cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
+                         cfg.db['host'], cfg.db['db_samples'])
         cursor = cnx.cursor(buffered=True)
 
     except mysql.connector.InterfaceError:
-        print("   Can't connect to {} at {}".format(cfg.mysql['db_samples'],
-                                                    cfg.mysql['host']) )
+        print("   Can't connect to {} at {}".format(cfg.db['db_samples'],
+                                                    cfg.db['host']) )
         return
 
     # get the ids and spectra names
@@ -231,13 +231,13 @@ def generate_cal_table():
 
     # set up connection
     try:
-        cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
-                         cfg.mysql['host'], cfg.mysql['db_sdb'])
+        cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
+                         cfg.db['host'], cfg.db['db_sdb'])
         cursor = cnx.cursor(buffered=True)
 
     except mysql.connector.InterfaceError:
-        print("   Can't connect to {} at {}".format(cfg.mysql['db_sdb'],
-                                                    cfg.mysql['host']) )
+        print("   Can't connect to {} at {}".format(cfg.db['db_sdb'],
+                                                    cfg.db['host']) )
         return
 
     tables.sample_table_www(cursor,'stis_ngsl_',absolute_paths=False,
@@ -255,13 +255,13 @@ def generate_cal_hr_diag(cdn=True):
 
     # set up connection
     try:
-        cnx = db.get_cnx(cfg.mysql['user'], cfg.mysql['passwd'],
-                         cfg.mysql['host'], cfg.mysql['db_sdb'])
+        cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
+                         cfg.db['host'], cfg.db['db_sdb'])
         cursor = cnx.cursor(buffered=True)
 
     except mysql.connector.InterfaceError:
-        print("   Can't connect to {} at {}".format(cfg.mysql['db_sdb'],
-                                                    cfg.mysql['host']) )
+        print("   Can't connect to {} at {}".format(cfg.db['db_sdb'],
+                                                    cfg.db['host']) )
         return
 
     file = cfg.file['www_root']+'calibration/stis_ngsl/hr.html'
