@@ -17,5 +17,3 @@ Install (outdated) `binarytree` with:
 Then `cd` into the sdf folder (where `setup.py` is) and install with:
 
 `pip install .`
-
-![build status](https://travis-ci.org/drgmk/sdf.svg?branch=master)
