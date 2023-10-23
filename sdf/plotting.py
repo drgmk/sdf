@@ -926,7 +926,6 @@ def sample_plot(cursor,sample,absolute_paths=True, rel_loc=None):
 
     # organise these into a dict of ndarrays
     l = list(zip(*allsql))
-    # keys = cursor.column_names
     keys = [desc[0] for desc in cursor.description]
     dtypes = [None,None,float,float,float,float,
               float,float,float,float]
@@ -1140,7 +1139,6 @@ def flux_size_plot(cursor,sample):
             tabs_sb.append(TabPanel(child=pl, title=f))
             continue
 
-        # keys = cursor.column_names
         keys = [desc[0] for desc in cursor.description]
         dtypes = [None,None,float,float,float,float]
         t = {}

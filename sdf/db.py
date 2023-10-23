@@ -373,14 +373,6 @@ def get_samples():
         cursor.execute(f"SELECT * FROM '{s}' LIMIT 1;")
         if 'sdbid' in list(map(lambda x: x[0], cursor.description)):
             samples.append(s)
-        # if cfg.db['type'] == 'mysql':
-        #     cursor.execute(f"SHOW COLUMNS FROM {s} LIKE 'sdbid';")
-        #     if len(cursor.fetchall()) == 1:
-        #         samples.append(s)
-        # elif cfg.db['type'] == 'sqlite':
-        #     cursor.execute(f"SELECT * FROM '{s}' LIMIT 1;")
-        #     if 'sdbid' in list(map(lambda x: x[0], cursor.description)):
-        #         samples.append(s)
 
     cnx.close()
     return samples #+ ['public','everything']
