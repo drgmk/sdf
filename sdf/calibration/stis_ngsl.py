@@ -1,6 +1,5 @@
 """Generate material to compare STIS NGSL spectra to models."""
 
-import os
 import io
 from datetime import datetime
 
@@ -9,7 +8,6 @@ import jinja2
 from bokeh.plotting import ColumnDataSource
 import bokeh.resources
 import bokeh.palettes
-import mysql.connector
 import astropy.io.fits
 import astropy.units as u
 
@@ -135,15 +133,7 @@ def generate_cal_seds(out_dir=cfg.file['www_root']+'calibration/stis_ngsl/',
     print("STIS NGSL calibration plots")
 
     # set up connection
-    try:
-        cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
-                         cfg.db['host'], cfg.db['db_samples'])
-        cursor = cnx.cursor(buffered=True)
-
-    except mysql.connector.InterfaceError:
-        print("   Can't connect to {} at {}".format(cfg.db['db_samples'],
-                                                    cfg.db['host']) )
-        return
+    cnx, cursor = db.get_cnx(cfg.db['db_samples'])
 
     # get the ids and spectra names
     cursor.execute("SELECT sdbid,spec_file,IFNULL(stis_Teff,0), "
@@ -220,6 +210,8 @@ def generate_cal_seds(out_dir=cfg.file['www_root']+'calibration/stis_ngsl/',
         with io.open(out_dir+sdbid+'.html', mode='w', encoding='utf-8') as f:
             f.write(html)
 
+    cnx.close()
+
 
 def generate_cal_table():
     """Generate a table that helps browse calibration SEDs.
@@ -230,18 +222,12 @@ def generate_cal_table():
     print("STIS NGSL calibration table")
 
     # set up connection
-    try:
-        cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
-                         cfg.db['host'], cfg.db['db_sdb'])
-        cursor = cnx.cursor(buffered=True)
-
-    except mysql.connector.InterfaceError:
-        print("   Can't connect to {} at {}".format(cfg.db['db_sdb'],
-                                                    cfg.db['host']) )
-        return
+    cnx, cursor = db.get_cnx(cfg.db['db_sdb'])
 
     tables.sample_table_www(cursor,'stis_ngsl_',absolute_paths=False,
                     file=cfg.file['www_root']+'calibration/stis_ngsl/index.html')
+
+    cnx.close()
 
 
 def generate_cal_hr_diag(cdn=True):
@@ -254,15 +240,7 @@ def generate_cal_hr_diag(cdn=True):
     print("STIS NGSL HR diagram")
 
     # set up connection
-    try:
-        cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
-                         cfg.db['host'], cfg.db['db_sdb'])
-        cursor = cnx.cursor(buffered=True)
-
-    except mysql.connector.InterfaceError:
-        print("   Can't connect to {} at {}".format(cfg.db['db_sdb'],
-                                                    cfg.db['host']) )
-        return
+    cnx, cursor = db.get_cnx(cfg.db['db_sdb'])
 
     file = cfg.file['www_root']+'calibration/stis_ngsl/hr.html'
     script,div = plotting.sample_plot(cursor,'stis_ngsl_',
@@ -291,3 +269,4 @@ def generate_cal_hr_diag(cdn=True):
     with io.open(file, mode='w', encoding='utf-8') as f:
         f.write(html)
 
+    cnx.close()

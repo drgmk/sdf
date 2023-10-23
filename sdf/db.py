@@ -1,26 +1,51 @@
 import numpy as np
 
+import sqlite3
 import mysql.connector
-import astropy.units as u
 from astropy.table import Table
 
-from . import db
 from . import filter
 from . import utils
 from . import config as cfg
 
+ph = '%s'
+if cfg.db['type'] == 'sqlite':
+    ph = '?'
 
-def get_cnx(user,passwd,host,db):
-    '''Get cursor for connection to a database.'''
-    try:
-        return mysql.connector.connect(user=user, password=passwd,
-                                       host=host, database=db,
-                                       auth_plugin='mysql_native_password')
+def get_cnx(db):
+    """Get cursor for connection to a database."""
 
-    except:
-        print("   Can't connect to {} at {}".format(cfg.db['db_results'],
-                                                    cfg.db['host']) )
-        return None
+    if cfg.db['type'] == 'mysql':
+        try:
+            cnx = mysql.connector.connect(user=cfg.db['user'], password=cfg.db['passwd'],
+                                          host=cfg.db['host'], database=db,
+                                          auth_plugin='mysql_native_password')
+            cursor = cnx.cursor(buffered=True)
+            cursor.execute("SET @@SQL_MODE = CONCAT(@@SQL_MODE, ',PIPES_AS_CONCAT');")
+            return cnx, cursor
+
+        except:
+            print(f"   Can't connect to {db} at {cfg.db['host']}")
+            return None, None
+
+    elif cfg.db['type'] == 'sqlite':
+        attach = []
+        for k in cfg.db.keys():
+            if 'db_' in k:
+                if cfg.db[k] != db:
+                    attach.append(cfg.db[k]+'.db')
+
+        try:
+            cnx = sqlite3.connect(database=cfg.sqlite['path']+db+'.db')
+            cursor = cnx.cursor()
+            for a in attach:
+                cursor.execute(f'ATTACH DATABASE "{cfg.sqlite["path"]+a}" AS {a.replace(".db", "")}')
+
+            return cnx, cursor
+
+        except:
+            print(f"   Can't connect to {db} ({attach}) at {cfg.sqlite['path']} with sqlite")
+            return None, None
 
 
 def write_all(r,update=False):
@@ -29,11 +54,9 @@ def write_all(r,update=False):
     print(" Database")
 
     # set up connection
-    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
-                     cfg.db['host'], cfg.db['db_results'])
+    cnx, cursor = get_cnx(cfg.db['db_results'])
     if cnx is None:
         return
-    cursor = cnx.cursor(buffered=True)
 
     # write to the tables
     if update or update_needed(cursor,cfg.db['model_table'],r):
@@ -61,7 +84,6 @@ def write_all(r,update=False):
 
     # commit and close
     cnx.commit()
-    cursor.close()
     cnx.close()
 
 
@@ -129,7 +151,7 @@ def write_phot(cursor,r):
                     ratio = r.obs_fnujy[j] - r.all_star_phot[i]
 
                 cursor.execute("UPDATE {} "
-                               "SET R_star = {:e}, chi_star = {:e}"
+                               "SET R_star = {:e}, chi_star = {:e} "
                                "WHERE id = '{}' AND comp_no = {:d} "
                                "AND filter = '{}'".format(cfg.db['phot_table'],
                                                           ratio,chi,r.id,-1,filt) )
@@ -183,16 +205,16 @@ def write_model(cursor,r):
     Assumes rows have been removed already (if necessary).
     """
 
-    stmt = ("INSERT INTO "+cfg.db['model_table']+" "
-            "(id,model_comps,parameters,evidence,chisq,dof,model_mtime) "
-            "VALUES (%s,%s,%s,%s,%s,%s,%s)")
+    stmt = (f"INSERT INTO {cfg.db['model_table']} "
+            f"(id, model_comps, parameters, evidence, chisq, dof, model_mtime) "
+            f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})")
 
-    values = (str(r.id),str(r.model_comps),
+    values = (str(r.id), str(r.model_comps),
               '['+','.join("{:e}".format(p) for p in r.best_params)+']',
-              str(r.evidence),str(r.chisq),
-              str(r.dof),str(r.pickle_time))
+              str(r.evidence), str(r.chisq),
+              str(r.dof), str(r.pickle_time))
 
-    cursor.execute(stmt,values)
+    cursor.execute(stmt, values)
 
 
 def write_star(cursor,r):
@@ -258,11 +280,9 @@ def custom_sort(file, results):
     """Custom sort based on per-target config in database."""
 
     # set up connection
-    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
-                     cfg.db['host'], cfg.db['db_sdb'])
+    cnx, cursor = get_cnx(cfg.db['db_sdb'])
     if cnx is None:
         return
-    cursor = cnx.cursor(buffered=True)
 
     # attempt to get sdbid from file, which is 'id' keyword when output
     # by sdb_getphot.py
@@ -301,14 +321,14 @@ def custom_sort(file, results):
 
     # if no config, shift two-component results to end
 #    print(cursor.fetchone())
-    if cursor.rowcount == 0:
+    nd = cursor.fetchall()
+    if len(nd) == 0:
         print('     no config: 2-disk comp results to end')
         return twod
-    elif cursor.rowcount > 1:
+    elif len(nd) > 1:
         raise utils.SdfError('db.custom_sort: >1 config row for {}'.format(file))
     # else preserve current order
     else:
-        nd = cursor.fetchone()[0]
         if nd == 2:
             print('     n_disk_comps=2: use default result order')
             return out
@@ -339,20 +359,29 @@ def get_samples():
     yet, will be excluded.
     """
     
-    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
-                     cfg.db['host'], cfg.db['db_samples'])
-    cursor = cnx.cursor(buffered=True)
-    cursor.execute("SHOW TABLES WHERE Tables_in_{} "
-                   "NOT REGEXP('^_');".format(cfg.db['db_samples']))
-    samples_tmp = cursor.fetchall() # a list of tuples
+    cnx, cursor = get_cnx(cfg.db['db_samples'])
+    if cfg.db['type'] == 'mysql':
+        cursor.execute("SHOW TABLES WHERE Tables_in_{} "
+                       "NOT REGEXP('^_');".format(cfg.db['db_samples']))
+    elif cfg.db['type'] == 'sqlite':
+        cursor.execute("SELECT name FROM sqlite_schema WHERE type='table' "
+                       "AND name NOT LIKE '^_%' ESCAPE '^';")
+    samples_tmp = cursor.fetchall()  # a list of tuples
     samples = []
     for s_tuple in samples_tmp:
         s = s_tuple[0]
-        cursor.execute("SHOW COLUMNS FROM {} LIKE 'sdbid'".format(s))
-        if cursor.rowcount == 1:
+        cursor.execute(f"SELECT * FROM '{s}' LIMIT 1;")
+        if 'sdbid' in list(map(lambda x: x[0], cursor.description)):
             samples.append(s)
+        # if cfg.db['type'] == 'mysql':
+        #     cursor.execute(f"SHOW COLUMNS FROM {s} LIKE 'sdbid';")
+        #     if len(cursor.fetchall()) == 1:
+        #         samples.append(s)
+        # elif cfg.db['type'] == 'sqlite':
+        #     cursor.execute(f"SELECT * FROM '{s}' LIMIT 1;")
+        #     if 'sdbid' in list(map(lambda x: x[0], cursor.description)):
+        #         samples.append(s)
 
-    cursor.close()
     cnx.close()
     return samples #+ ['public','everything']
 
@@ -361,17 +390,16 @@ def sample_targets(sample,db_tab=cfg.db['db_samples']):
     """Return list of sdbids of targets in some sample."""
 
     # set up connection
-    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
-                     cfg.db['host'], db_tab)
-    if cnx is None:
+    cnx, cursor = get_cnx(db_tab)
+    if cursor is None:
         return
-    cursor = cnx.cursor(buffered=True)
 
     cursor.execute("SELECT sdbid FROM "+sample+" WHERE sdbid IS NOT NULL")
     ids = []
     for (id,) in cursor:
         ids.append(id)
 
+    cnx.close()
     return ids
 
 
@@ -379,17 +407,20 @@ def sdb_xids(id):
     """Get selected xids for a given sdb id."""
 
     # set up connection
-    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
-                     cfg.db['host'], cfg.db['db_sdb'])
-    if cnx is None:
+    cnx, cursor = get_cnx(cfg.db['db_sdb'])
+    if cursor is None:
         return
-    cursor = cnx.cursor(buffered=True)
 
-    cursor.execute("SELECT xid FROM xids WHERE sdbid = '{}' AND xid "
-                   "REGEXP('^HD|^HR|^HIP|^GJ|^TYC|^NAME|^\\\\* ')".format(id))
+    # cursor.execute("SELECT xid FROM xids WHERE sdbid = '{}' AND xid "
+    #                "REGEXP('^HD|^HR|^HIP|^GJ|^TYC|^NAME|^\\\\* ')".format(id))
+    cursor.execute("SELECT xid FROM xids WHERE sdbid = '{}' AND "
+                   "(xid LIKE 'HD%' OR xid LIKE 'HR%' OR  xid LIKE 'HIP%' OR "
+                   "xid LIKE 'GJ%' OR xid LIKE 'TYC%' OR xid LIKE '* %');".format(id))
     xids = []
     for (id,) in cursor:
         xids.append(id)
+
+    cnx.close()
 
     if len(xids) == 0:
         return
@@ -410,11 +441,9 @@ def get_sdbids(ids):
         raise utils.SdfError('please pass a list, not {}'.format(type(ids)))
 
     # set up connection
-    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
-                     cfg.db['host'], cfg.db['db_sdb'])
-    if cnx is None:
+    cnx, cursor = get_cnx(cfg.db['db_sdb'])
+    if cursor is None:
         return
-    cursor = cnx.cursor(buffered=True)
 
     sdbids = []
     for id in ids:
@@ -426,6 +455,7 @@ def get_sdbids(ids):
             for (sdbid,) in cursor:
                 sdbids.append( sdbid )
 
+    cnx.close()
     return sdbids
 
 
@@ -433,11 +463,9 @@ def get_alma_project(ra,de, radius_arcsec=10/3600):
     """Return ALMA project IDs (if exists) given coordinates."""
 
     # set up connection
-    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
-                     cfg.db['host'], cfg.db['db_sdb'])
-    if cnx is None:
+    cnx, cursor = get_cnx(cfg.db['db_sdb'])
+    if cursor is None:
         return
-    cursor = cnx.cursor(buffered=True)
 
     cursor.execute("SELECT DISTINCT project_code FROM alma_obslog WHERE "
                    "ra BETWEEN {}-{} AND {}+{} AND "
@@ -445,4 +473,6 @@ def get_alma_project(ra,de, radius_arcsec=10/3600):
                    "".format(ra,radius_arcsec,ra,radius_arcsec,
                              de,radius_arcsec,de,radius_arcsec))
 
-    return [s for (s,) in cursor]
+    ret = [s for (s,) in cursor]
+    cnx.close()
+    return ret

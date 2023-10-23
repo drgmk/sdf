@@ -3,16 +3,12 @@
 import io
 import ast
 from datetime import datetime
-from os.path import isdir,isfile,basename
-from os import mkdir,remove,write,rmdir
 
 import numpy as np
 from astropy.table import Table
 from astropy.utils import xml
-import mysql.connector
 
 import jinja2
-import bokeh.resources
 
 from . import db
 from . import www
@@ -24,9 +20,7 @@ def sample_tables(samples=None):
     """Generate tables for all samples."""
 
     # set up connection
-    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
-                     cfg.db['host'], cfg.db['db_sdb'])
-    cursor = cnx.cursor(buffered=True)
+    cnx, cursor = db.get_cnx(cfg.db['db_sdb'])
 
     # get a list of samples and generate their pages
     if samples is None:
@@ -82,18 +76,18 @@ def sample_table_www(cursor,sample,file='index.html',
     # are for special cases
     if absolute_paths:
         www.create_dir(sample_root,sample)
-        url_str = wwwroot+"/seds/masters/',sdbid,'/public"
+        url_str = wwwroot+"/seds/masters/' || sdbid || '/public"
         file = sample_root+sample+'/'+file
     else:
         if rel_loc is None:
-            url_str = "',sdbid,'.html"
+            url_str = "' || sdbid || '.html"
         else:
             url_str = rel_loc
 
     sel = ("SELECT "
-           "CONCAT('<a target=\"_blank\" href=\""+url_str+"\">',"
-              "COALESCE(main_id,hd.xid,hip.xid,gj.xid,tmass.xid,sdbid),"
-              "'<span><img src=\""+url_str+"/',sdbid,'_thumb.png\"></span></a>') as id,"
+           "'<a target=\"_blank\" href=\""+url_str+"\">' || "
+              "COALESCE(main_id,hd.xid,hip.xid,gj.xid,tmass.xid,sdbid) ||"
+              "'<span><img src=\""+url_str+"/' || sdbid || '_thumb.png\"></span></a>' as id,"
            "hd.xid as HD,"
            "hip.xid as HIP,"
            "gj.xid as GJ,"
@@ -101,12 +95,12 @@ def sample_table_www(cursor,sample,file='index.html',
            "ROUND(raj2000/15.,1) as `RA/h`,"
            "ROUND(dej2000,1) as `Dec`,"
            "sp_type as SpType,"
-           "ROUND(star.teff,0) as Teff,"
-           "ROUND(log10(star.lstar),2) as `LogL*`,"
-           "ROUND(1/star.plx_arcsec,1) AS Dist,"
-           "ROUND(log10(disk_r.ldisk_lstar),1) as Log_f,"
-           "disk_r.temp as T_disk")
-        
+           "ROUND(star_tmp.teff,0) as Teff,"
+           "ROUND(log10(star_tmp.lstar),2) as `LogL*`,"
+           "ROUND(1/star_tmp.plx_arcsec,1) AS Dist,"
+           "ROUND(log10(disk_r_tmp.ldisk_lstar),1) as Log_f,"
+           "disk_r_tmp.temp as T_disk")
+
     # here we decide which samples get all targets, for now "everything"
     # and "public" get everything, but this could be changed so that
     # "public" is some subset of "everything"
@@ -117,13 +111,13 @@ def sample_table_www(cursor,sample,file='index.html',
                 "LEFT JOIN sdb_pm USING (sdbid)")
         
     sel += (" LEFT JOIN simbad USING (sdbid)"
-            " LEFT JOIN star on sdbid=star.id"
-            " LEFT JOIN disk_r on sdbid=disk_r.id"
+            " LEFT JOIN star_tmp on sdbid=star_tmp.id"
+            " LEFT JOIN disk_r_tmp on sdbid=disk_r_tmp.id"
             " LEFT JOIN hd USING (sdbid)"
             " LEFT JOIN hip USING (sdbid)"
             " LEFT JOIN gj USING (sdbid)"
             " LEFT JOIN tmass USING (sdbid)"
-            " LEFT JOIN phot USING (sdbid)"
+            " LEFT JOIN phot_tmp USING (sdbid)"
             " WHERE sdb_pm.sdbid IS NOT NULL"
             " ORDER by raj2000")
     # limit table sizes
@@ -131,7 +125,7 @@ def sample_table_www(cursor,sample,file='index.html',
         sel += " LIMIT "+str(cfg.www['tablemax'])+";"
 
     cursor.execute(sel)
-    tsamp = Table(names=cursor.column_names,
+    tsamp = Table(names=[desc[0] for desc in cursor.description],
                   dtype=('S1000','S50','S50','S50',
                          'S4','S8','S8','S10','S5','S4','S6','S4','S12'))
     for row in cursor:
@@ -218,7 +212,7 @@ def sample_table_votable(cursor, sample, file_path=None):
 
     cursor.execute(sel)
     rows = cursor.fetchall()
-    tsamp = Table(rows=rows,names=cursor.column_names)
+    tsamp = Table(rows=rows, names=[desc[0] for desc in cursor.description])
 
     # add some url columns with links
     tsamp['url'] = np.core.defchararray.add(
@@ -307,7 +301,7 @@ def sample_table_photometry(cursor, sample, file_path=None):
 
     cursor.execute(sel)
     rows = cursor.fetchall()
-    tsamp = Table(rows=rows,names=cursor.column_names,masked=True)
+    tsamp = Table(rows=rows, names=[desc[0] for desc in cursor.description], masked=True)
 
     print("    got ",len(tsamp)," rows for photometry table")
 
@@ -325,41 +319,47 @@ def sample_table_temp_tables(cursor):
     """Create temporary tables for creating sample tables."""
 
     cursor.execute("DROP TABLE IF EXISTS tmass;")
-    cursor.execute("CREATE TEMPORARY TABLE tmass SELECT sdbid,GROUP_CONCAT(xid) as xid"
-                   " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid REGEXP('^2MASS')"
+    cursor.execute("CREATE TEMPORARY TABLE tmass AS SELECT sdbid,GROUP_CONCAT(xid) as xid"
+                   " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid LIKE '2MASS%'"
                    " GROUP BY sdbid;")
-    cursor.execute("ALTER TABLE tmass ADD INDEX sdbid_tmass (sdbid);")
+    cursor.execute("CREATE INDEX sdbid_tmass ON tmass (sdbid);")
+
     cursor.execute("DROP TABLE IF EXISTS hd;")
-    cursor.execute("CREATE TEMPORARY TABLE hd SELECT sdbid,GROUP_CONCAT(xid) as xid"
-                   " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid REGEXP('^HD')"
+    cursor.execute("CREATE TEMPORARY TABLE hd AS SELECT sdbid,GROUP_CONCAT(xid) as xid"
+                   " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid LIKE 'HD%'"
                    " GROUP BY sdbid;")
-    cursor.execute("ALTER TABLE hd ADD INDEX sdbid_hd (sdbid);")
+    cursor.execute("CREATE INDEX sdbid_hd ON hd (sdbid);")
+
     cursor.execute("DROP TABLE IF EXISTS hip;")
-    cursor.execute("CREATE TEMPORARY TABLE hip SELECT sdbid,GROUP_CONCAT(xid) as xid"
-                   " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid REGEXP('^HIP')"
+    cursor.execute("CREATE TEMPORARY TABLE hip AS SELECT sdbid,GROUP_CONCAT(xid) as xid"
+                   " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid LIKE 'HIP%'"
                    " GROUP BY sdbid;")
-    cursor.execute("ALTER TABLE hip ADD INDEX sdbid_hip (sdbid);")
+    cursor.execute("CREATE INDEX sdbid_hip ON hip (sdbid);")
+
     cursor.execute("DROP TABLE IF EXISTS gj;")
-    cursor.execute("CREATE TEMPORARY TABLE gj SELECT sdbid,GROUP_CONCAT(xid) as xid"
-                   " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid REGEXP('^GJ')"
+    cursor.execute("CREATE TEMPORARY TABLE gj AS SELECT sdbid,GROUP_CONCAT(xid) as xid"
+                   " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid LIKE 'GJ%'"
                    " GROUP BY sdbid;")
-    cursor.execute("ALTER TABLE gj ADD INDEX sdbid_gj (sdbid);")
-    cursor.execute("DROP TABLE IF EXISTS phot;")
-    cursor.execute("CREATE TEMPORARY TABLE phot SELECT"
-                   " id as sdbid,ROUND(-2.5*log10(ANY_VALUE(model_jy)/3882.37),1) as Vmag"
-                   " FROM "+cfg.db['db_results']+".phot WHERE filter='VJ' GROUP BY id;")
-    cursor.execute("ALTER TABLE phot ADD INDEX sdbid_phot (sdbid);")
-    cursor.execute("DROP TABLE IF EXISTS star;")
-    cursor.execute("CREATE TEMPORARY TABLE star SELECT"
-                   " id,ROUND(ANY_VALUE("+cfg.db['db_results']+".star.teff),0) as teff,"
-                   " ANY_VALUE(plx_arcsec) as plx_arcsec, SUM(lstar) as lstar"
+    cursor.execute("CREATE INDEX sdbid_gj ON gj (sdbid);")
+
+    cursor.execute("DROP TABLE IF EXISTS phot_tmp;")
+    cursor.execute("CREATE TEMPORARY TABLE phot_tmp AS SELECT"
+                   " id as sdbid,ROUND(-2.5*log10(model_jy/3882.37),1) as Vmag"
+                   " FROM "+cfg.db['db_results']+".phot WHERE filter='VJ' AND comp_no=-1;")
+    cursor.execute("CREATE INDEX sdbid_phot ON phot_tmp (sdbid);")
+
+    cursor.execute("DROP TABLE IF EXISTS star_tmp;")
+    cursor.execute("CREATE TEMPORARY TABLE star_tmp AS SELECT"
+                   " id,ROUND("+cfg.db['db_results']+".star.teff,0) as teff,"
+                   " plx_arcsec as plx_arcsec, lstar"
                    " from "+cfg.db['db_results']+".star"
-                   " GROUP BY id;")
-    cursor.execute("ALTER TABLE star ADD INDEX id_star (id);")
-    cursor.execute("DROP TABLE IF EXISTS disk_r;")
-    cursor.execute("CREATE TEMPORARY TABLE disk_r SELECT"
+                   " WHERE star_comp_no=1;")
+    cursor.execute("CREATE INDEX id_star ON star_tmp (id);")
+
+    cursor.execute("DROP TABLE IF EXISTS disk_r_tmp;")
+    cursor.execute("CREATE TEMPORARY TABLE disk_r_tmp AS SELECT"
                    " id,GROUP_CONCAT(ROUND(temp,1)) as temp,SUM(ldisk_lstar) as ldisk_lstar"
                    " from "+cfg.db['db_results']+".disk_r"
                    " GROUP BY id;")
-    cursor.execute("ALTER TABLE disk_r ADD INDEX id_dr (id);")
+    cursor.execute("CREATE INDEX id_dr ON disk_r_tmp (id);")
 

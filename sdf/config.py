@@ -38,7 +38,9 @@ print(cfg.read([
 # simple dictionaries with only strings
 file = cfg['file']
 
+# databases
 db = cfg['db']
+sqlite = cfg['sqlite']
 if db['type'] == 'mysql':
     db.update(cfg['mysql'])
 elif db['type'] == 'sqlite':

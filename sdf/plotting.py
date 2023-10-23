@@ -1,6 +1,6 @@
 import io
 from datetime import datetime
-from os import path,remove
+from os import path
 import pickle
 import requests
 
@@ -9,9 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('agg') # avoid memory leak with GUI based version
-import mysql.connector
 import astropy.units as u
-import astropy.table
 
 import jinja2
 import bokeh.resources
@@ -27,7 +25,6 @@ from . import model
 from . import spectrum
 from . import photometry
 from . import filter
-from . import fitting
 from . import db
 from . import www
 from . import utils
@@ -451,7 +448,7 @@ def quick_sed(r,file=None,fig=None,xsize=8,ysize=6,dpi=100,
     if axis_labels:
         ax[0].set_ylabel('Flux density / Jy')
         ax[0].xaxis.set_ticklabels([])
-        ax[1].set_xlabel('Wavelength / $\mu$m')
+        ax[1].set_xlabel(r'Wavelength / $\mu$m')
         ax[1].set_ylabel('Residual')
     else:
         ax[0].yaxis.set_ticklabels([])
@@ -612,7 +609,7 @@ def pretty_sed(pkl_url=None, pkl_file=None, file=None, ax=None, fig=None,
         ax.set_ylabel(r'$\nu F_\nu$ / W m$^{-2}$')
     else:
         ax.set_ylabel('flux density / Jy')
-    ax.set_xlabel('wavelength / $\mu$m')
+    ax.set_xlabel(r'wavelength / $\mu$m')
 
     if legend:
         ax.legend(frameon=False)
@@ -823,9 +820,7 @@ def sample_plots(samples=None, file='hr.html', file_path=None,
                  absolute_paths=True, rel_loc=None):
 
     # set up connection
-    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
-                     cfg.db['host'], cfg.db['db_sdb'])
-    cursor = cnx.cursor(buffered=True)
+    cnx, cursor = db.get_cnx(cfg.db['db_sdb'])
 
     env = jinja2.Environment(autoescape=False,
          loader=jinja2.PackageLoader('sdf',package_path='www/templates'))
@@ -890,12 +885,12 @@ def sample_plot(cursor,sample,absolute_paths=True, rel_loc=None):
     # get data, ensure primary axes are not nans else bokeh will
     # complain about the data
     if sample == 'everything' or sample == 'public':
-        sel1 = " FROM "+cfg.db['db_sdb']+".sdb_pm"
+        sel1 = " FROM sdb_pm"
     else:
         sel1 = (" FROM "+cfg.db['db_samples']+"."+sample+
-                " LEFT JOIN "+cfg.db['db_sdb']+".sdb_pm USING (sdbid)")
+                " LEFT JOIN sdb_pm USING (sdbid)")
 
-    sel = sel1 + (" LEFT JOIN "+cfg.db['db_sdb']+".simbad USING (sdbid)"
+    sel = sel1 + (" LEFT JOIN simbad USING (sdbid)"
                   " LEFT JOIN "+cfg.db['db_results']+".star ON sdbid=star.id"
                   " LEFT JOIN "+cfg.db['db_results']+".disk_r ON sdbid=disk_r.id")
 
@@ -931,7 +926,8 @@ def sample_plot(cursor,sample,absolute_paths=True, rel_loc=None):
 
     # organise these into a dict of ndarrays
     l = list(zip(*allsql))
-    keys = cursor.column_names
+    # keys = cursor.column_names
+    keys = [desc[0] for desc in cursor.description]
     dtypes = [None,None,float,float,float,float,
               float,float,float,float]
     for i in range(len(keys)):
@@ -1022,9 +1018,7 @@ def sample_plot(cursor,sample,absolute_paths=True, rel_loc=None):
 def flux_size_plots(samples=None):
 
     # set up connection
-    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
-                     cfg.db['host'], cfg.db['db_sdb'])
-    cursor = cnx.cursor(buffered=True)
+    cnx, cursor = db.get_cnx(cfg.db['db_sdb'])
 
     env = jinja2.Environment(autoescape=False,
          loader=jinja2.PackageLoader('sdf',package_path='www/templates'))
@@ -1105,19 +1099,19 @@ def flux_size_plot(cursor,sample):
 
         # get the results
         if sample == 'everything' or sample == 'public':
-            sel1 = "FROM "+cfg.db['db_sdb']+".sdb_pm "
+            sel1 = "FROM sdb_pm "
         else:
             sel1 = "FROM "+cfg.db['db_samples']+"."+sample+" "
          
-        sel = sel1 + ("LEFT JOIN "+cfg.db['db_results']+".model ON sdbid=id "
+        sel = sel1 + ("LEFT JOIN "+cfg.db['db_results']+".model ON sdbid=model.id "
                       "LEFT JOIN "+cfg.db['db_results']+".disk_r USING (id) "
                       "LEFT JOIN "+cfg.db['db_results']+".star USING (id) "
                       "LEFT JOIN "+cfg.db['db_results']+".phot p_disk "
                       "ON (model.id=p_disk.id AND disk_r.disk_r_comp_no=p_disk.comp_no) "
                       "LEFT JOIN "+cfg.db['db_results']+".phot p_star "
                       "ON (model.id=p_star.id AND star.star_comp_no=p_star.comp_no) "
-                      "LEFT JOIN "+cfg.db['db_sdb']+".simbad USING (sdbid) "
-                      "WHERE p_disk.filter = %s AND p_star.filter = %s AND p_disk.id IS NOT NULL "
+                      "LEFT JOIN simbad USING (sdbid) "
+                      "WHERE p_disk.filter = '"+f+"' AND p_star.filter = '"+f+"' AND p_disk.id IS NOT NULL "
                       "AND p_disk.model_jy IS NOT NULL AND rdisk_bb IS NOT NULL "
                       "AND plx_arcsec IS NOT NULL ")
         # limit table sizes
@@ -1129,12 +1123,12 @@ def flux_size_plot(cursor,sample):
                   "rdisk_bb*plx_arcsec as rdisk ") + sel
 
         # number in sample
-        selnum = "SELECT COUNT(*)" + sel1
+        selnum = "SELECT COUNT(*) " + sel1
         cursor.execute(selnum)
         ntot = cursor.fetchall()[0][0]
 
         # fill a table with fluxes
-        cursor.execute(selall,(str(f),str(f)))
+        cursor.execute(selall)
         allsql = cursor.fetchall()
         l = list(zip(*allsql))
 
@@ -1146,7 +1140,8 @@ def flux_size_plot(cursor,sample):
             tabs_sb.append(TabPanel(child=pl, title=f))
             continue
 
-        keys = cursor.column_names
+        # keys = cursor.column_names
+        keys = [desc[0] for desc in cursor.description]
         dtypes = [None,None,float,float,float,float]
         t = {}
         for j in range(len(keys)):
@@ -1301,9 +1296,7 @@ def calibration(sample='zpo_cal_',
         Location of directory in which to place plots.
     """
 
-    cnx = db.get_cnx(cfg.db['user'], cfg.db['passwd'],
-                     cfg.db['host'], cfg.db['db_results'])
-    cursor = cnx.cursor(buffered=True)
+    cnx, cursor = db.get_cnx(cfg.db['db_results'])
     print("  "+sample)
 
     # get a wavelength-sorted list of filters.
