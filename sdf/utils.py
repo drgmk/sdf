@@ -7,11 +7,11 @@ from hashlib import sha1
 
 from scipy import sparse
 import numpy as np
-from scipy.integrate import simps
 from scipy.ndimage import spline_filter
 from astropy.table import Table
 from astropy.coordinates import ICRS
 import astropy.units as u
+
 
 # do this first, since SdfError called in config
 # TODO: presumably there is a way to avoid this...
@@ -19,10 +19,11 @@ class SdfError(Exception):
     """Use this for non-standard errors."""
     pass
 
+
 from . import photometry
 from . import config as cfg
 
-c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
+c_micron = u.micron.to(u.Hz, equivalencies=u.spectral())
 
 
 @contextmanager
@@ -42,16 +43,16 @@ def pushd(new_dir):
         os.chdir(old_dir)
 
 
-def bnu_wav_micron(wav_um,temp):
+def bnu_wav_micron(wav_um, temp):
     """Return a Planck function, avoiding overflows."""
     k1 = 3.9728949e19
     k2 = 14387.69
     fact1 = k1/(wav_um**3)
     fact2 = k2/(wav_um*temp)
-    if isinstance(wav_um,np.ndarray):
+    if isinstance(wav_um, np.ndarray):
         ofl = fact2 < 709
         bnu = np.zeros(len(wav_um)) + cfg.tiny
-        if np.any(ofl) == False:
+        if np.any(ofl) is False:
             return bnu
         else:
             bnu[ofl] = fact1[ofl]/(np.exp(fact2[ofl])-1.0)
@@ -63,21 +64,21 @@ def bnu_wav_micron(wav_um,temp):
             return fact1/(np.exp(fact2)-1.0)
 
         
-def bnu_nu_hz(nu_hz,temp):
+def bnu_nu_hz(nu_hz, temp):
     wav_um = c_micron / nu_hz
-    return bnu_wav_micron(wav_um,temp)
+    return bnu_wav_micron(wav_um, temp)
 
 
-def sdf_int(y,x):
+def sdf_int(y, x):
     """Decide how we do integration in sdf."""
-    return np.trapz(y,x)
-#    return simps(y,x)
+    return np.trapz(y, x)
+#    return simps(y, x)
 
 
-def validate_1d(value,expected_len,dtype=float):
+def validate_1d(value, expected_len, dtype=float):
     
     if type(value) in [list, tuple]:
-        value = np.array(value,dtype=dtype)
+        value = np.array(value, dtype=dtype)
         
     if value is None:
         value = value
@@ -86,13 +87,14 @@ def validate_1d(value,expected_len,dtype=float):
             if len(value) != expected_len:
                 raise SdfError("incorrect length (expected {0} but found {1})".format(expected_len, len(value)))
         if value.dtype != dtype:
-                value = np.array(value,dtype=dtype)
+            value = np.array(value, dtype=dtype)
     else:
         raise TypeError("should be a 1-d sequence")
     
     return value
 
-def validate_nd(value,expected_dim,dtype=float):
+
+def validate_nd(value, expected_dim, dtype=float):
     
     if value is None:
         value = value
@@ -101,11 +103,12 @@ def validate_nd(value,expected_dim,dtype=float):
             if value.ndim != expected_dim:
                 raise SdfError("incorrect dimension (expected {0} but found {1})".format(expected_dim, value.ndim))
         if value.dtype != dtype:
-            value = np.array(value,dtype=dtype)
+            value = np.array(value, dtype=dtype)
     else:
         raise TypeError("should be an n-d ndarray")
     
     return value
+
 
 def validate_string(value):
     if value is None:
@@ -115,6 +118,7 @@ def validate_string(value):
     else:
         raise TypeError("should be a string")
 
+
 def validate_dict(value):
     if value is None:
         return value
@@ -122,6 +126,7 @@ def validate_dict(value):
         return value
     else:
         raise TypeError("should be a dict")
+
 
 def validate_float(value):
     if value is None:
@@ -131,6 +136,7 @@ def validate_float(value):
     else:
         raise TypeError("{} should be a float".format(value))
 
+
 def validate_function(value):
     if value is None:
         return value
@@ -138,6 +144,7 @@ def validate_function(value):
         return value
     else:
         raise TypeError("should be a function")
+
 
 def validate_quantity(value):
     if value is None:
@@ -148,7 +155,7 @@ def validate_quantity(value):
         raise TypeError("should be an astropy units Quantity")
 
 
-def resample_matrix(wave_in,new_wave,old_R=np.inf,kern_width=5):
+def resample_matrix(wave_in, new_wave, old_R=np.inf, kern_width=5):
     """Return a resampling/convolution kernel.
         
     Copied from Andy Casey's sick code, modified to ensure the range of
@@ -190,7 +197,7 @@ def resample_matrix(wave_in,new_wave,old_R=np.inf,kern_width=5):
     if 2 * np.min(new_Rs[:-1]) < np.max(new_Rs[:-1]):
         raise SdfError("wavelength grid has too wide a range of resolutions "
                        " to be resampled this way ({} to {}) {}".
-                       format(np.min(new_Rs),np.max(new_Rs),new_Rs))
+                       format(np.min(new_Rs), np.max(new_Rs), new_Rs))
     new_R = np.median(new_Rs)
 
     # width of the kernel (dlambda=lambda/R) at each point
@@ -204,29 +211,30 @@ def resample_matrix(wave_in,new_wave,old_R=np.inf,kern_width=5):
 
     # approx center indices for new wavs in old
     ioff = wave_in.searchsorted(new_wave)
-    ioff = np.clip(ioff,0,M-1)
+    ioff = np.clip(ioff, 0, M-1)
 
     # index ranges covered by convolution at a given point
     dlambda = np.diff(wave_in)
-    dlambda = np.append(dlambda,dlambda[-1])
+    dlambda = np.append(dlambda, dlambda[-1])
     dlambda = dlambda[ioff]
     nkern = np.ceil(kern_width * sigmas / dlambda).astype(int)
 
     # For +/- N_kernel_pixels at each point, calculate the kernel
     # and retain the indices.
-    x_indices = np.array([],dtype=int)
-    pdf = np.array([],dtype=int)
+    x_indices = np.array([], dtype=int)
+    pdf = np.array([], dtype=int)
     for i in range(N):
-        xtmp = np.arange(ioff[i] - nkern[i],ioff[i] + nkern[i],1)
-        xtmp = np.clip(xtmp,0,M-1)
-        x_indices = np.append(x_indices,xtmp)
+        xtmp = np.arange(ioff[i] - nkern[i], ioff[i] + nkern[i], 1)
+        xtmp = np.clip(xtmp, 0, M-1)
+        x_indices = np.append(x_indices, xtmp)
         pdftmp = np.exp(-(wave_in[xtmp] - new_wave[i])**2/(2.*sigmas[i]**2))
         # die if no weights in kernel, arises from new wavelength grid
         # point having no nearby points in old grid
         if pdftmp.sum() == 0.0:
-            raise SdfError("{} {} {} {} {} {} {} {} {}".format(i,N,ioff[i],nkern[i],pdftmp,xtmp,wave_in[xtmp],new_wave[i],sigmas[i]))
+            raise SdfError("{} {} {} {} {} {} {} {} {}".format(i, N, ioff[i], nkern[i], pdftmp,
+                                                               xtmp, wave_in[xtmp], new_wave[i], sigmas[i]))
         pdftmp /= pdftmp.sum()
-        pdf = np.append(pdf,pdftmp)
+        pdf = np.append(pdf, pdftmp)
 
     y_indices = np.repeat(np.arange(N), 2 * nkern)
 
@@ -236,7 +244,7 @@ def resample_matrix(wave_in,new_wave,old_R=np.inf,kern_width=5):
 def get_sdb_keywords(file):
     """Get keywords from a sdb file."""
 
-    t = Table.read(file,format='ascii.ipac')
+    t = Table.read(file, format='ascii.ipac')
     kw = {}
     for key in t.meta['keywords'].keys():
         if t.meta['keywords'][key]['value'] == 'None':
@@ -247,7 +255,7 @@ def get_sdb_keywords(file):
     return kw
 
 
-def rawphot_path(sdbid,allow_private=False):
+def rawphot_path(sdbid, allow_private=False):
     """Resolve the path of an sdbid's raw photometry file.
         
     Parameters
@@ -271,7 +279,7 @@ def rawphot_path(sdbid,allow_private=False):
             return locs[0]
 
 
-def uvby_convert(by,m1,c1):
+def uvby_convert(by, m1, c1):
     """Convert Stromgren photometry according to Bessell 2011.
         
     The coefficients are to convert synthetic photometry to observed,
@@ -281,12 +289,12 @@ def uvby_convert(by,m1,c1):
     """
     
     # coeffecients from Table 2
-    by_1 = [-0.007,0.997]
-    by_2 = [ 0.004,0.979]
-    m1_1 = [ 0.005,0.963]
-    m1_2 = [ 0.011,0.951]
-    c1_1 = [-0.016,0.994]
-    c1_2 = [-0.003,1.018]
+    by_1 = [-0.007, 0.997]
+    by_2 = [ 0.004, 0.979]
+    m1_1 = [ 0.005, 0.963]
+    m1_2 = [ 0.011, 0.951]
+    c1_1 = [-0.016, 0.994]
+    c1_2 = [-0.003, 1.018]
 
     if by < 0.5:
         by_out = (by - by_1[0])/by_1[1]
@@ -297,17 +305,17 @@ def uvby_convert(by,m1,c1):
         m1_out = (m1 - m1_2[0])/m1_2[1]
         c1_out = (c1 - c1_2[0])/c1_2[1]
 
-    return by_out,m1_out,c1_out
+    return by_out, m1_out, c1_out
 
 
-def plot_err(a,e_a,b,e_b):
-    """Return x,y arrays to use a lines for error bars."""
+def plot_err(a, e_a, b, e_b):
+    """Return x, y arrays to use a lines for error bars."""
 
     c = []
     d = []
     err_c = []
     err_d = []
-    for x, xerr, y, yerr in zip(a,e_a,b,e_b):
+    for x, xerr, y, yerr in zip(a, e_a, b, e_b):
         c.append((x, x))
         d.append((y, y))
         if x - xerr > 0:
@@ -320,11 +328,11 @@ def plot_err(a,e_a,b,e_b):
         else:
             err_d.append((cfg.tiny, y + yerr))
 
-    return c,err_c,d,err_d
+    return c, err_c, d, err_d
 
 
-def plot_join_line(data,dup_col,x_col,y_col):
-    """Return x,y arrays to join duplicates in a data dictionary.
+def plot_join_line(data, dup_col, x_col, y_col):
+    """Return x, y arrays to join duplicates in a data dictionary.
     
     Parameters
     ----------
@@ -343,18 +351,18 @@ def plot_join_line(data,dup_col,x_col,y_col):
     ys = []
     
     if len(uniq_id) == len(data[dup_col]):
-        return None,None
+        return None, None
 
-    for id in uniq_id:
-        dup = np.where(data[dup_col] == id)[0]
+    for id_ in uniq_id:
+        dup = np.where(data[dup_col] == id_)[0]
         if len(dup) > 1:
             xs.append(data[x_col][dup].tolist())
             ys.append(data[y_col][dup].tolist())
 
-    return xs,ys
+    return xs, ys
 
 
-def linterp(newx,x,y):
+def linterp(newx, x, y):
     """Linear interpolation."""
 
     hi = x.searchsorted(newx)
@@ -372,7 +380,7 @@ def rnd1sf(x):
         return np.round(x, -int(np.floor(np.log10(np.abs(x[0])))))
 
 
-def iau_coord(ra,dec):
+def iau_coord(ra, dec):
     """Return an IAU-style coordinate string.
     
     Parameters
@@ -391,13 +399,13 @@ def iau_coord(ra,dec):
 
 
 @lru_cache(maxsize=16)
-def spline_filter_mem(arr,order=None):
+def spline_filter_mem(arr, order=None):
     """Filter array, memoizing result.
         
     Is passed an array using the hashable wrapper.
     """
     
-    return spline_filter(arr.unwrap(),order=order)
+    return spline_filter(arr.unwrap(), order=order)
 
 
 class hashable(object):
@@ -457,19 +465,19 @@ def get_herschel_obsid(obs):
     obsids = np.array([])
     for p in obs:
         if isinstance(p, photometry.Photometry):
-            for i,f in enumerate(p.filters):
-                if f in ['PACS70','PACS100','PACS160']:
-                        if 'HSA' in p.bibcode[i]:
-                            obsids = np.append(obsids, p.note[i])
+            for i, f in enumerate(p.filters):
+                if f in ['PACS70', 'PACS100', 'PACS160']:
+                    if 'HSA' in p.bibcode[i]:
+                        obsids = np.append(obsids, p.note[i].replace('obsID:', ''))
 
     return np.unique(obsids)
 
 
-def read_mist_eep(dir):
+def read_mist_eep(dir_):
     """Read a series of MIST evolutionary tracks and save."""
     
     out_dir = os.path.dirname(os.path.abspath(__file__)) + '/data/mist/'
-    fs = glob.glob(dir + '/00*eep') # masses below 10M_sun
+    fs = glob.glob(dir_ + '/00*eep')  # masses below 10M_sun
     
     tracks = []
     for f in fs:
@@ -477,7 +485,7 @@ def read_mist_eep(dir):
         if os.path.basename(f).count('0') == 4 and int(os.path.basename(f)[2]) < 5:
             print(f)
             t = Table.read(f, format='ascii', header_start=11)
-            t = t[t['phase'] < 2] # phase up to RGB
+            t = t[t['phase'] < 2]  # phase up to RGB
             tracks.append([10**t['log_Teff'].data, 10**t['log_L'].data])
 
     with open(out_dir+'/tracks.pkl', 'wb') as f:

@@ -1,4 +1,4 @@
-"""Generate www material for results from a single target.""" 
+"""Generate www material for results from a single target."""
 
 import io
 import os
@@ -8,7 +8,7 @@ from datetime import datetime
 import numpy as np
 
 import jinja2
-from bokeh.resources import CDN,INLINE
+from bokeh.resources import CDN, INLINE
 
 from . import plotting
 from . import db
@@ -46,7 +46,7 @@ def www_all(results, write_path=None, sed_file='index.html',
     if os.path.exists(file):
         mtime = []
         for r in results:
-            mtime.append( r.pickle_time )
+            mtime.append(r.pickle_time)
 
         if os.path.getmtime(file) > np.max(mtime):
             if not update:
@@ -70,16 +70,16 @@ def home_page(file=cfg.file['www_root']+'index.html'):
     """
 
     env = jinja2.Environment(autoescape=False,
-         loader=jinja2.PackageLoader('sdf',package_path='www/templates'))
+                             loader=jinja2.PackageLoader('sdf', package_path='www/templates'))
     template = env.get_template("home.html")
 
-    html = template.render(sdb_url = cfg.www['sdb_url'])
+    html = template.render(sdb_url=cfg.www['sdb_url'])
 
     with io.open(file, mode='w', encoding='utf-8') as f:
         f.write(html)
 
 
-def sed_page(results,file='index.html',f_limits_file='f_limits.html',
+def sed_page(results, file='index.html', f_limits_file='f_limits.html',
              cdn=True):
     """Make html page with an SED and other info.
         
@@ -95,10 +95,10 @@ def sed_page(results,file='index.html',f_limits_file='f_limits.html',
         Use CDN for bokeh javascript, otherwise inline.
     """
 
-    script,div = plotting.sed_components(results)
+    script, div = plotting.sed_components(results)
 
     env = jinja2.Environment(autoescape=False,
-         loader=jinja2.PackageLoader('sdf',package_path='www/templates'))
+                             loader=jinja2.PackageLoader('sdf', package_path='www/templates'))
     template = env.get_template("sed_page.html")
 
     if cdn:
@@ -112,8 +112,8 @@ def sed_page(results,file='index.html',f_limits_file='f_limits.html',
                                results[0].obs_keywords['dej2000'])
 
     html = template.render(
-               base_url = cfg.www['base_url'],
-               sdb_url = cfg.www['sdb_url'],
+               base_url=cfg.www['base_url'],
+               sdb_url=cfg.www['sdb_url'],
                js=[bokeh_js],
                css=[bokeh_css],
                plot_script=script,
@@ -121,8 +121,7 @@ def sed_page(results,file='index.html',f_limits_file='f_limits.html',
                sed_file=os.path.basename(file),
                f_limits_file=os.path.basename(f_limits_file),
                phot_file=os.path.basename(results[0].rawphot),
-               json_file=os.path.basename(results[0].pmn_dir)+'/'+\
-                         os.path.basename(results[0].json),
+               json_file=os.path.basename(results[0].pmn_dir) + '/' + os.path.basename(results[0].json),
                file_dir=os.path.basename(results[0].pmn_dir),
                main_id=results[0].obs_keywords['main_id'],
                spty=results[0].obs_keywords['sp_type'],
@@ -133,10 +132,10 @@ def sed_page(results,file='index.html',f_limits_file='f_limits.html',
                plx=results[0].obs_keywords['plx_value'],
                xids=db.sdb_xids(results[0].obs_keywords['id']),
                best_fit=results[0].main_results_text(),
-               par_dist=os.path.basename(results[0].pmn_dir)+'/'+\
+               par_dist=os.path.basename(results[0].pmn_dir) + '/' +
                         os.path.basename(results[0].corner_plot),
-               derived_dist=os.path.basename(results[0].pmn_dir)+'/'+\
-                        os.path.basename(results[0].distributions_plot),
+               derived_dist=os.path.basename(results[0].pmn_dir) + '/' +
+                            os.path.basename(results[0].distributions_plot),
                h_obsid=','.join(utils.get_herschel_obsid(results[0].obs)),
                alma_proj='%7C'.join(alma) if alma is not None else None,
                creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
@@ -146,13 +145,13 @@ def sed_page(results,file='index.html',f_limits_file='f_limits.html',
         f.write(html)
 
 
-def f_limits_page(results,file='f_limits.html',sed_file='index.html',
+def f_limits_page(results, file='f_limits.html', sed_file='index.html',
                   cdn=True):
 
-    script,div = plotting.f_limits(results[0])
+    script, div = plotting.f_limits(results[0])
 
     env = jinja2.Environment(autoescape=False,
-         loader=jinja2.PackageLoader('sdf',package_path='www/templates'))
+                             loader=jinja2.PackageLoader('sdf', package_path='www/templates'))
     template = env.get_template("sed_page.html")
 
     if cdn:
@@ -163,8 +162,8 @@ def f_limits_page(results,file='f_limits.html',sed_file='index.html',
         bokeh_css = INLINE.render_css()
 
     html = template.render(
-               base_url = cfg.www['base_url'],
-               sdb_url = cfg.www['sdb_url'],
+               base_url=cfg.www['base_url'],
+               sdb_url=cfg.www['sdb_url'],
                js=[bokeh_js],
                css=[bokeh_css],
                plot_script=script,
@@ -172,7 +171,7 @@ def f_limits_page(results,file='f_limits.html',sed_file='index.html',
                sed_file=os.path.basename(sed_file),
                f_limits_file=os.path.basename(file),
                phot_file=os.path.basename(results[0].rawphot),
-               json_file=os.path.basename(results[0].pmn_dir)+'/'+\
+               json_file=os.path.basename(results[0].pmn_dir) + '/' +
                          os.path.basename(results[0].json),
                main_id=results[0].obs_keywords['main_id'],
                spty=results[0].obs_keywords['sp_type'],
@@ -183,16 +182,15 @@ def f_limits_page(results,file='f_limits.html',sed_file='index.html',
                plx=results[0].obs_keywords['plx_value'],
                xids=db.sdb_xids(results[0].obs_keywords['id']),
                best_fit=results[0].main_results_text(),
-               par_dist=os.path.basename(results[0].pmn_dir)+'/'+\
+               par_dist=os.path.basename(results[0].pmn_dir) + '/' +
                         os.path.basename(results[0].corner_plot),
-               derived_dist=os.path.basename(results[0].pmn_dir)+'/'+\
+               derived_dist=os.path.basename(results[0].pmn_dir) + '/' +
                         os.path.basename(results[0].distributions_plot),
                creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
                            )
 
     with io.open(file, mode='w', encoding='utf-8') as f:
         f.write(html)
-
 
 
 def cleanup_sample_dirs():
@@ -205,7 +203,7 @@ def cleanup_sample_dirs():
         if dname not in samp:
             fs = glob.glob(d+'/*')
             fs += glob.glob(d+'/.*')
-            print("  {} removed (and files {})".format(d,fs))
+            print("  {} removed (and files {})".format(d, fs))
             [os.remove(f) for f in fs]
             os.rmdir(d)
         else:
@@ -214,7 +212,7 @@ def cleanup_sample_dirs():
 
 def cleanup_calibration_dirs():
     """Remove plots for calibrations that are no longer required."""
-    
+
     fs = glob.glob(cfg.file['www_root']+'calibration/*')
     for f in fs:
         fname = os.path.basename(f.rstrip('.html'))
@@ -226,7 +224,7 @@ def cleanup_calibration_dirs():
             print("  {} ok".format(f))
 
 
-def create_dir(wwwroot,sample):
+def create_dir(wwwroot, sample):
     """Create sample directories and .htaccess if necessary."""
 
     # make dir and .htaccess if dir doesn't exist
@@ -235,8 +233,8 @@ def create_dir(wwwroot,sample):
 
     # make .htaccess if needed, don't put one in those ending with "_"
     # so those directories remain visible to those not logged in
-    if  sample[-1] != '_':
-        fd = open(wwwroot+sample+'/.htaccess','w')
+    if sample[-1] != '_':
+        fd = open(wwwroot+sample+'/.htaccess', 'w')
         fd.write('AuthName "Must login"\n')
         fd.write('AuthType Basic\n')
         fd.write('AuthUserFile '+cfg.file['www_root']+'.htpasswd\n')

@@ -3,37 +3,37 @@ from functools import lru_cache
 import warnings
 import numpy as np
 from astropy.utils.data import download_file
-from astropy.io.votable import parse,exceptions
+from astropy.io.votable import parse, exceptions
 import astropy.units as u
 from . import spectrum
 from . import filter_info
 from . import utils
-from . import config as cfg
 
 # ignore warnings about SVO filter votables
 warnings.simplefilter('ignore', exceptions.W42)
 
-c_micron = u.micron.to(u.Hz,equivalencies=u.spectral())
+c_micron = u.micron.to(u.Hz, equivalencies=u.spectral())
 
-def common_x(x1,y1,x2,y2):
+
+def common_x(x1, y1, x2, y2):
     """Interpolate two y arrays to a single common x array"""
     if len(x1) == len(x2):
-        if np.all( np.equal(x1,x2) ):
-            _,srt = np.unique(x1,return_index=True)
-            return (x1[srt],y1[srt],y2[srt])
-    xall = np.append(x1,x2)
-    xmin = np.max([np.min(x1),np.min(x2)])
-    xmax = np.min([np.max(x1),np.max(x2)])
-    keep = (xall >= xmin) & ( xall <= xmax)
-    if np.any(keep) == False:
+        if np.all(np.equal(x1, x2)):
+            _, srt = np.unique(x1, return_index=True)
+            return x1[srt], y1[srt], y2[srt]
+    xall = np.append(x1, x2)
+    xmin = np.max([np.min(x1), np.min(x2)])
+    xmax = np.min([np.max(x1), np.max(x2)])
+    keep = (xall >= xmin) & (xall <= xmax)
+    if not np.any(keep):
         raise utils.SdfError("x arrays don't overlap {} to {} and {} to {}".format(
-                         np.min(x1),np.max(x1),np.min(x2),np.max(x2)))
-    x = np.unique( xall[keep] )
+                         np.min(x1), np.max(x1), np.min(x2), np.max(x2)))
+    x = np.unique(xall[keep])
     srt = np.argsort(x1)
-    y1 = np.interp(x,x1[srt],y1[srt])
+    y1 = np.interp(x, x1[srt], y1[srt])
     srt = np.argsort(x2)
-    y2 = np.interp(x,x2[srt],y2[srt])
-    return (x,y1,y2)
+    y2 = np.interp(x, x2[srt], y2[srt])
+    return x, y1, y2
     
 
 class Filter(object):
@@ -60,7 +60,7 @@ class Filter(object):
     at this wavelength) to the value the true spectrum must have at this
     wavelength in order to reproduce the observed signal. The most
     common reference spectrum is nu.F_nu=const, but others are also used
-    (e.g. 10,000K blackbody for MIPS).
+    (e.g. 10, 000K blackbody for MIPS).
     
     Filter information comes from the filter_info.py file, all filters,
     colours, indices etc. need to be named as keys to the filters 
@@ -74,12 +74,12 @@ class Filter(object):
     # this needs to return all desired filters, colours, and indices
     all = list(filter_info.filters.keys())
     
-    def __init__(self,name=None,system=None,nu_hz=None,fileloc=None,
-                 response=None,response_type=None,
-                 zero_point=None,zero_point_offset=None,
+    def __init__(self, name=None, nu_hz=None,
+                 response=None, response_type=None,
+                 zero_point=None, zero_point_offset=None,
                  measurement_calibration=None,
-                 magnitude_system=None,ref_wavelength=None,ref_nu_hz=None,
-                 ref_spectrum=None,cc_denom=None,Af_Av=None):
+                 magnitude_system=None, ref_wavelength=None, ref_nu_hz=None,
+                 ref_spectrum=None, cc_denom=None, Af_Av=None):
         self.name = name
         self.nu_hz = nu_hz
         self.response = response
@@ -94,9 +94,8 @@ class Filter(object):
         self.cc_denom = cc_denom
         self.Af_Av = Af_Av
 
-
     @classmethod
-    def svo_get(cls,name):
+    def svo_get(cls, name):
         """Get response and details for a filter from Spanish VO
             
         Other properties still need to be set "by hand", as this
@@ -112,8 +111,8 @@ class Filter(object):
         
         # try loading from xml file in filter directory
         # remove '/' from SVO names
-        self.fileloc = os.path.dirname(os.path.abspath(__file__))+ \
-                              '/data/filters/'+name.replace('/','.')+'.xml'
+        self.fileloc = os.path.dirname(os.path.abspath(__file__)) + \
+            '/data/filters/' + name.replace('/', '.') + '.xml'
         if os.path.exists(self.fileloc):
             votable = parse(self.fileloc)
         else:
@@ -124,7 +123,7 @@ class Filter(object):
                 url = "http://svo2.cab.inta-csic.es/theory/fps3/fps.php?"+name
             else:
                 url = "http://svo2.cab.inta-csic.es/theory/fps3/fps.php?ID="+name
-            loc = download_file(url,cache=True)
+            loc = download_file(url, cache=True)
             
             # open the file and save to filters folder for posterity
             votable = parse(loc)
@@ -157,10 +156,9 @@ class Filter(object):
         vo_filt_table = votable.get_first_table()
         filt_table = vo_filt_table.to_table().filled()
         wav = filt_table['Wavelength']
-        self.nu_hz = np.array( wav.to('Hz',equivalencies=u.spectral()) )
-        self.response = np.array( filt_table['Transmission'] )
+        self.nu_hz = np.array(wav.to('Hz', equivalencies=u.spectral()))
+        self.response = np.array(filt_table['Transmission'])
         return self
-
 
     @lru_cache(maxsize=128)
     def get_memo(name):
@@ -178,9 +176,9 @@ class Filter(object):
             self.name = name
             self.response_type = 'energy'
             cwav = float(name[3:])
-            wave = np.arange( cwav*0.95, cwav*1.05, cwav/100. )
+            wave = np.arange(cwav*0.95, cwav*1.05, cwav/100.0)
             self.nu_hz = c_micron / wave
-            self.response = np.ones( len(wave) )
+            self.response = np.ones(len(wave))
         elif name not in f:
             raise KeyError("Filter {} not in filter_info".format(name))
         else:
@@ -236,8 +234,7 @@ class Filter(object):
         # compute zero-point in Vega system
         if self.magnitude_system == 'Vega':
             v = spectrum.ObsSpectrum.vega_stis()
-            if (np.min(v.nu_hz) < np.min(self.nu_hz) and
-                np.max(v.nu_hz) > np.min(self.nu_hz)):
+            if np.min(v.nu_hz) < np.min(self.nu_hz) < np.max(v.nu_hz):
                 zp = self.synthphot(v)
                 self.zero_point = zp[0]
             else:
@@ -249,24 +246,21 @@ class Filter(object):
 
         return self
 
-
-    def get_with_zpo(name,zpo_file='/Users/grant/astro/projects/sdf/sdf/calibration/zpos.txt'):
+    def get_with_zpo(name, zpo_file='/Users/grant/astro/projects/sdf/sdf/calibration/zpos.txt'):
         """Get filter, using ZPO from file."""
         
         f = Filter.get_memo(name)
-        t = np.genfromtxt(zpo_file,dtype=None)
+        t = np.genfromtxt(zpo_file, dtype=None)
         fs = np.array([filt.decode() for filt in t[0]])
         if name in fs:
-            f.zero_point_offset = float( t[1][ fs == name ][0] )
+            f.zero_point_offset = float(t[1][fs == name][0])
 
         return f
-    
-    
+
     # decide what get() points to
     get = get_memo
-    
 
-    def mag2flux(self,mag):
+    def mag2flux(self, mag):
         """Convert magnitudes to flux density.
 
         Use zero point associated with this filter to convert a given
@@ -276,11 +270,10 @@ class Filter(object):
 
         if self.zero_point is None or self.zero_point_offset is None:
             raise utils.SdfError("no zero point or offset for filter {})".
-                           format(self.name))
+                                 format(self.name))
         return self.zero_point * 10**(-0.4*(mag-self.zero_point_offset))
-    
-    
-    def flux2mag(self,flux):
+
+    def flux2mag(self, flux):
         """Convert flux density to magnitudes.
             
         Use zero point associated with this filter to convert a given
@@ -289,13 +282,11 @@ class Filter(object):
         """
         
         if self.zero_point is None or self.zero_point_offset is None:
-            raise utils.SdfError("no zero point or offset for filter {})".\
-                           format(self.name))
-        return self.zero_point_offset                               \
-               - 2.5 * np.log10( flux / self.zero_point )
+            raise utils.SdfError("no zero point or offset for filter {})".
+                                 format(self.name))
+        return self.zero_point_offset - 2.5 * np.log10(flux / self.zero_point)
 
-
-    def measflux2flux(self,flux):
+    def measflux2flux(self, flux):
         """Convert a measured flux to an actual flux.
         
         Use flux calibration function given for this filter.
@@ -305,7 +296,6 @@ class Filter(object):
             return self.measurement_calibration(flux)
         else:
             return flux
-
 
     def trim(self, threshold=1e-4, frac=0.00001):
         """Trim low-level values from response if they exist, assumes sorted."""
@@ -326,37 +316,34 @@ class Filter(object):
         self.nu_hz = self.nu_hz[ok]
         self.response = self.response[ok]
 
-
     def sort(self):
         """Sort response in increasing order of frequency."""
         
-        _,srt = np.unique(self.nu_hz,return_index=True)
+        _, srt = np.unique(self.nu_hz, return_index=True)
         self.nu_hz = self.nu_hz[srt]
         self.response = self.response[srt]
-
 
     def normalise_response(self):
         """Normalise filter response so integral is one."""
         
-        norm = utils.sdf_int(self.response,self.nu_hz)
+        norm = utils.sdf_int(self.response, self.nu_hz)
         self.response /= norm
 
-    def actual_flux(self,spectrum):
+    def actual_flux(self, spectrum_):
         """Return the spectrum's flux at the reference wavelength.
             
         Interpolate in log space.
         """
         
-        spectrum.sort('nu')
-        if hasattr(spectrum,'fnujy'):
-            log_fnu = np.log10(spectrum.fnujy)
-        elif hasattr(spectrum,'fnujy_sr'):
-            log_fnu = np.log10(spectrum.fnujy_sr)
+        spectrum_.sort('nu')
+        if hasattr(spectrum_, 'fnujy'):
+            log_fnu = np.log10(spectrum_.fnujy)
+        elif hasattr(spectrum_, 'fnujy_sr'):
+            log_fnu = np.log10(spectrum_.fnujy_sr)
         
-        log_nu = np.log10(spectrum.nu_hz)
-        log_ref_fnu = np.interp(np.log10(self.ref_nu_hz),log_nu,log_fnu)
-        return np.power(10,log_ref_fnu)
-
+        log_nu = np.log10(spectrum_.nu_hz)
+        log_ref_fnu = np.interp(np.log10(self.ref_nu_hz), log_nu, log_fnu)
+        return np.power(10, log_ref_fnu)
 
     def fill_ref_nu_hz(self):
         """Set the reference frequency of the filter."""
@@ -364,14 +351,12 @@ class Filter(object):
         if self.ref_wavelength is not None:
             self.ref_nu_hz = c_micron / self.ref_wavelength
 
-
     def fill_mean_wavelength(self):
         """Set the mean wavelength of the filter."""
         
         wave = c_micron / self.nu_hz
-        self.mean_wavelength = utils.sdf_int(self.response,wave)            \
-                               / utils.sdf_int(self.response/wave,wave)
-
+        self.mean_wavelength = utils.sdf_int(self.response, wave) \
+            / utils.sdf_int(self.response/wave, wave)
 
     def pivot_wavelength(self):
         """Return the pivot wavelength.
@@ -382,10 +367,9 @@ class Filter(object):
         """
     
         wave = c_micron / self.nu_hz
-        fp = utils.sdf_int( self.response, wave )                           \
-             / utils.sdf_int( self.response / wave / wave, wave )
+        fp = utils.sdf_int(self.response, wave)                           \
+            / utils.sdf_int(self.response / wave / wave, wave)
         return np.sqrt(fp)
-
 
     def fill_cc_denom(self):
         """Compute the denominator of the colour correction
@@ -400,8 +384,7 @@ class Filter(object):
                               self.nu_hz)
             self.cc_denom = d / self.ref_spectrum(self.ref_nu_hz)
 
-
-    def synthphot(self,spectrum):
+    def synthphot(self, spectrum_):
         """Synthetic photometry of supplied spectrum object
 
         In the IR we have f_nu(quoted) (i.e. catalogue value) is:
@@ -415,7 +398,7 @@ class Filter(object):
             f_nu(lam_eff) int( S_nu R dnu )
 
         For a correctly normalised bandpass R (energy counting), the
-        integral in the numerator is "normal" synthetic photoemtry as
+        integral in the numerator is "normal" synthetic photometry as
         done in the optical (e.g. appendix of 2011AJ....141..173B).
 
         Method is to separate the terms in synthetic photometry so that
@@ -437,11 +420,11 @@ class Filter(object):
         
         """
 
-        if hasattr(spectrum,'fnujy'):
-            fnu = spectrum.fnujy
-        elif hasattr(spectrum,'fnujy_sr'):
-            fnu = spectrum.fnujy_sr
-        x,y1,y2 = common_x(self.nu_hz,self.response,spectrum.nu_hz,fnu)
+        if hasattr(spectrum_, 'fnujy'):
+            fnu = spectrum_.fnujy
+        elif hasattr(spectrum_, 'fnujy_sr'):
+            fnu = spectrum_.fnujy_sr
+        x, y1, y2 = common_x(self.nu_hz, self.response, spectrum_.nu_hz, fnu)
 
         # this is the basic synthetic photometry
         cc_num = utils.sdf_int(y1 * y2, x)
@@ -449,16 +432,16 @@ class Filter(object):
         # if no reference spectrum we just return the integral because
         # we normalised the bandpass when it was loaded
         if self.ref_spectrum is None:
-            return (cc_num,None)
+            return cc_num, None
         else:
-            fnu_eff = self.actual_flux(spectrum)
+            fnu_eff = self.actual_flux(spectrum_)
             cc = cc_num / self.cc_denom / fnu_eff
-            return (cc*fnu_eff,cc)
-
+            return cc*fnu_eff, cc
 
     @property
     def name(self):
         return self._name
+
     @name.setter
     def name(self, value):
         self._name = utils.validate_string(value)
@@ -466,6 +449,7 @@ class Filter(object):
     @property
     def magnitude_system(self):
         return self._magnitude_system
+
     @magnitude_system.setter
     def magnitude_system(self, value):
         self._magnitude_system = utils.validate_string(value)
@@ -473,6 +457,7 @@ class Filter(object):
     @property
     def zero_point(self):
         return self._zero_point
+
     @zero_point.setter
     def zero_point(self, value):
         self._zero_point = utils.validate_float(value)
@@ -480,6 +465,7 @@ class Filter(object):
     @property
     def zero_point_offset(self):
         return self._zero_point_offset
+
     @zero_point_offset.setter
     def zero_point_offset(self, value):
         self._zero_point_offset = utils.validate_float(value)
@@ -487,6 +473,7 @@ class Filter(object):
     @property
     def measurement_calibration(self):
         return self._measurement_calibration
+
     @measurement_calibration.setter
     def measurement_calibration(self, value):
         self._measurement_calibration = utils.validate_function(value)
@@ -494,6 +481,7 @@ class Filter(object):
     @property
     def ref_spectrum(self):
         return self._ref_spectrum
+
     @ref_spectrum.setter
     def ref_spectrum(self, value):
         self._ref_spectrum = utils.validate_function(value)
@@ -501,6 +489,7 @@ class Filter(object):
     @property
     def response_type(self):
         return self._response_type
+
     @response_type.setter
     def response_type(self, value):
         self._response_type = utils.validate_string(value)
@@ -508,21 +497,23 @@ class Filter(object):
     @property
     def nu_hz(self):
         return self._nu_hz
+
     @nu_hz.setter
     def nu_hz(self, value):
-        self._nu_hz = utils.validate_1d(value,None)
+        self._nu_hz = utils.validate_1d(value, None)
 
     @property
     def response(self):
         return self._response
+
     @response.setter
-    def response(self,value):
+    def response(self, value):
         # always set nu_hz first, so no check for attribute nu_hz
         if self.nu_hz is None:
-                expected_len = None
+            expected_len = None
         else:
-                expected_len = len(self.nu_hz)
-        self._response = utils.validate_1d(value,expected_len)
+            expected_len = len(self.nu_hz)
+        self._response = utils.validate_1d(value, expected_len)
 
 
 def mean_wavelength(filternames):
@@ -532,26 +523,25 @@ def mean_wavelength(filternames):
     for f in filternames:
         if iscolour(f):
             col = Colour.get(f)
-            wav = np.append(wav,col.mean_wavelength)
+            wav = np.append(wav, col.mean_wavelength)
         else:
             filt = Filter.get(f)
-            wav = np.append(wav,filt.mean_wavelength)
+            wav = np.append(wav, filt.mean_wavelength)
     return wav
 
 
 class Colour(object):
     """Class for colours/indices, largely for convenience."""
 
-    def __init__(self,name=None,filters=None,weights=None,
-                 mean_wavelength=None):
+    def __init__(self, name=None, filters=None, weights=None,
+                 mean_wavelength_=None):
         self.name = name
         self.filters = filters
         self.weights = weights
-        self.mean_wavelength = mean_wavelength
-
+        self.mean_wavelength = mean_wavelength_
 
     @classmethod
-    def get(cls,name):
+    def get(cls, name):
         """Get a Colour object given a name."""
     
         if not iscolour(name):
@@ -562,34 +552,33 @@ class Colour(object):
         self.fill_info()
         return self
         
-        
     def fill_info(self):
         """Set filters, weights, and other info for this colour."""
 
         # colour
         if '_' in self.name:
-            self.filters = np.array(self.name.split('_'),dtype=str)
-            self.weights = np.array([1.,-1],dtype=float)
+            self.filters = np.array(self.name.split('_'), dtype=str)
+            self.weights = np.array([1., -1], dtype=float)
                 
         # Stromgren M1, (v-b)-(b-y) or (v - 2b + y)
         elif self.name == 'STROMM1':
-            self.filters = np.array(['VS','BS','YS'],dtype=str)
-            self.weights = np.array([1.,-2.,1.],dtype=float)
+            self.filters = np.array(['VS', 'BS', 'YS'], dtype=str)
+            self.weights = np.array([1., -2., 1.], dtype=float)
 
         # Stromgren C1, (u-v)-(v-b) or (u - 2v + b)
         elif self.name == 'STROMC1':
-            self.filters = np.array(['US','VS','BS'],dtype=str)
-            self.weights = np.array([1.,-2.,1.],dtype=float)
+            self.filters = np.array(['US', 'VS', 'BS'], dtype=str)
+            self.weights = np.array([1., -2., 1.], dtype=float)
 
         meanw = np.array([])
         for f in self.filters:
             filt = Filter.get(f)
-            meanw = np.append(meanw,filt.mean_wavelength)
+            meanw = np.append(meanw, filt.mean_wavelength)
         self.mean_wavelength = np.mean(meanw)
 
 
 @lru_cache(maxsize=128)
-def iscolour(filter):
+def iscolour(filter_):
     """Return True if the given filter name is a colour
         
     In practise this means either the name has a '_' in it,
@@ -600,24 +589,24 @@ def iscolour(filter):
     booleans.
     """
     
-    if isinstance(filter,(tuple,list,np.ndarray)):
-        iscol = np.array([],dtype=bool)
-        for f in filter:
-            iscol = np.append(iscol,iscolour(f))
+    if isinstance(filter_, (tuple, list, np.ndarray)):
+        iscol = np.array([], dtype=bool)
+        for f in filter_:
+            iscol = np.append(iscol, iscolour(f))
         return iscol
     else:
-        if '_' in filter:
-            fs = filter.split('_')
+        if '_' in filter_:
+            fs = filter_.split('_')
             if len(fs) != 2:
                 raise utils.SdfError("filter name {} "
-                               "has too many '_'s".format(filter))
+                                     "has too many '_'s".format(filter_))
             if fs[0] == fs[1]:
                 raise utils.SdfError("filters in colour {} "
-                               " are the same".format(filter))
+                                     "are the same".format(filter_))
             return True
-        elif filter == 'STROMM1':
+        elif filter_ == 'STROMM1':
             return True
-        elif filter == 'STROMC1':
+        elif filter_ == 'STROMC1':
             return True
         else:
             return False

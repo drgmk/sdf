@@ -1,6 +1,6 @@
 Title: Absolute Physical Calibration in the Infrared 
 Authors: Rieke G.H., Blaylock M., Decin L., Engelbracht C., Ogle P., Avrett E.,
-         Carpenter J., Cutri R.M., Armus L., Gordon K., Gray R.O., Hinz J., 
+         Carpenter J., Cutri R.M., Armus L., Gordon K., Gray R.O., Hinz J.,
          Su K., Willmer C.N.A. 
 Table: Reference Spectral Energy Distributions of the Sun and Vega
 ================================================================================

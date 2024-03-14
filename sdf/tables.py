@@ -27,17 +27,17 @@ def sample_tables(samples=None):
         samples = db.get_samples()
     
     for sample in samples:
-        print("  sample:",sample)
-        sample_table_www(cursor,sample)
-        sample_table_votable(cursor,sample)
-        sample_table_photometry(cursor,sample)
+        print("  sample:", sample)
+        sample_table_www(cursor, sample)
+        sample_table_votable(cursor, sample)
+        sample_table_photometry(cursor, sample)
 
     cursor.close()
     cnx.close()
 
 
-def sample_table_www(cursor,sample,file='index.html',
-                     absolute_paths=True,rel_loc=None):
+def sample_table_www(cursor, sample, file='index.html',
+                     absolute_paths=True, rel_loc=None):
     """Generate an HTML page with a sample table.
 
     Extract the necessary information from the database and create HTML
@@ -51,6 +51,8 @@ def sample_table_www(cursor,sample,file='index.html',
     ----------
     cursor : mysql.connector.connect.cursor
         Cursor used to execute database query
+    sample : str
+        Name of sample.
     file : str, optional
         File name of html table
     absolute_paths : bool, optional
@@ -62,7 +64,7 @@ def sample_table_www(cursor,sample,file='index.html',
         if absolute_paths is False. This string goes in the middle of an
         sql CONCAT statement, so could have sql in it, in which case
         double and single-quotes must be used
-        (e.g. "folder1/',sql_column,'/file.html")
+        (e.g. "folder1/', sql_column, '/file.html")
     """
 
     wwwroot = cfg.www['sdb_path']
@@ -75,7 +77,7 @@ def sample_table_www(cursor,sample,file='index.html',
     # needed, absolute is used for main sample pages, otherwise these
     # are for special cases
     if absolute_paths:
-        www.create_dir(sample_root,sample)
+        www.create_dir(sample_root, sample)
         url_str = wwwroot+"/seds/masters/' || sdbid || '/public"
         file = sample_root+sample+'/'+file
     else:
@@ -86,19 +88,19 @@ def sample_table_www(cursor,sample,file='index.html',
 
     sel = ("SELECT "
            "'<a target=\"_blank\" href=\""+url_str+"\">' || "
-              "COALESCE(main_id,hd.xid,hip.xid,gj.xid,tmass.xid,sdbid) ||"
-              "'<span><img src=\""+url_str+"/' || sdbid || '_thumb.png\"></span></a>' as id,"
-           "hd.xid as HD,"
-           "hip.xid as HIP,"
-           "gj.xid as GJ,"
-           "ROUND(Vmag,1) as Vmag,"
-           "ROUND(raj2000/15.,1) as `RA/h`,"
-           "ROUND(dej2000,1) as `Dec`,"
-           "sp_type as SpType,"
-           "ROUND(star_tmp.teff,0) as Teff,"
-           "ROUND(log10(star_tmp.lstar),2) as `LogL*`,"
-           "ROUND(1/star_tmp.plx_arcsec,1) AS Dist,"
-           "ROUND(log10(disk_r_tmp.ldisk_lstar),1) as Log_f,"
+           "COALESCE(main_id, hd.xid, hip.xid, gj.xid, tmass.xid, sdbid) ||"
+           "'<span><img src=\""+url_str+"/' || sdbid || '_thumb.png\"></span></a>' as id, "
+           "hd.xid as HD, "
+           "hip.xid as HIP, "
+           "gj.xid as GJ, "
+           "ROUND(Vmag, 1) as Vmag, "
+           "ROUND(raj2000/15., 1) as `RA/h`, "
+           "ROUND(dej2000, 1) as `Dec`, "
+           "sp_type as SpType, "
+           "ROUND(star_tmp.teff, 0) as Teff, "
+           "ROUND(log10(star_tmp.lstar), 2) as `LogL*`, "
+           "ROUND(1/star_tmp.plx_arcsec, 1) AS Dist, "
+           "ROUND(log10(disk_r_tmp.ldisk_lstar), 1) as Log_f, "
            "disk_r_tmp.temp as T_disk")
 
     # here we decide which samples get all targets, for now "everything"
@@ -126,8 +128,8 @@ def sample_table_www(cursor,sample,file='index.html',
 
     cursor.execute(sel)
     tsamp = Table(names=[desc[0] for desc in cursor.description],
-                  dtype=('S1000','S50','S50','S50',
-                         'S4','S8','S8','S10','S5','S4','S6','S4','S12'))
+                  dtype=('S1000', 'S50', 'S50', 'S50',
+                         'S4', 'S8', 'S8', 'S10', 'S5', 'S4', 'S6', 'S4', 'S12'))
     for row in cursor:
         add = [str(x) for x in row]
         tsamp.add_row(add)
@@ -136,35 +138,35 @@ def sample_table_www(cursor,sample,file='index.html',
         none = np.where(tsamp[n] == 'None')
         tsamp[n][none] = '-'
 
-    print("    got ",len(tsamp)," rows for html table")
+    print("    got ", len(tsamp), " rows for html table")
 
     # get the table as xml
     s = io.StringIO()
     w = xml.writer.XMLWriter(s)
-    with w.xml_cleaning_method('bleach_clean',tags=['a','img','span'],
-                               attributes=['src','href','target']):
-        with w.tag('table',attrib={'class':'display compact','id':sample}):
-            with w.tag('thead',attrib={'class':'datatable_header'}):
+    with w.xml_cleaning_method('bleach_clean', tags=['a', 'img', 'span'],
+                               attributes=['src', 'href', 'target']):
+        with w.tag('table', attrib={'class': 'display compact', 'id': sample}):
+            with w.tag('thead', attrib={'class': 'datatable_header'}):
                 with w.tag('tr'):
                     for col in tsamp.colnames:
-                        w.element('td',text=col)
+                        w.element('td', text=col)
             for i in range(len(tsamp)):
                 with w.tag('tr'):
-                    for j,txt in enumerate(tsamp[i]):
+                    for j, txt in enumerate(tsamp[i]):
                         if j == 0:
-                            w.element('td',text=txt,
-                                      attrib={'class':'td_img_hover'})
+                            w.element('td', text=txt,
+                                      attrib={'class': 'td_img_hover'})
                         else:
-                            w.element('td',text=txt)
+                            w.element('td', text=txt)
 
     # write the table out to html
     env = jinja2.Environment(autoescape=False,
-         loader=jinja2.PackageLoader('sdf',package_path='www/templates'))
+                             loader=jinja2.PackageLoader('sdf', package_path='www/templates'))
     template = env.get_template("sample_table.html")
 
-    html = template.render(title=sample,table=s.getvalue(),
+    html = template.render(title=sample, table=s.getvalue(),
                            sdb_url=cfg.www['sdb_url'],
-                 creation_time=datetime.utcnow().strftime("%d/%m/%y %X"))
+                           creation_time=datetime.utcnow().strftime("%d/%m/%y %X"))
 
     with io.open(file, mode='w', encoding='utf-8') as f:
         f.write(html)
@@ -188,7 +190,7 @@ def sample_table_votable(cursor, sample, file_path=None):
     # create dir and .htaccess if neeeded
     if file_path is None:
         wwwroot = cfg.file['www_root']+'samples/'
-        www.create_dir(wwwroot,sample)
+        www.create_dir(wwwroot, sample)
         file_path = wwwroot+sample+'/'
 
     # generate the mysql statement
@@ -217,28 +219,28 @@ def sample_table_votable(cursor, sample, file_path=None):
     # add some url columns with links
     tsamp['url'] = np.core.defchararray.add(
                      np.core.defchararray.add(
-        np.repeat(cfg.www['sdb_url']+'/seds/masters/',len(tsamp)),tsamp['sdbid']
+        np.repeat(cfg.www['sdb_url']+'/seds/masters/', len(tsamp)), tsamp['sdbid']
                                               ),
-                        np.repeat('/public/',len(tsamp))
+                        np.repeat('/public/', len(tsamp))
                                              )
     # to photometry file
     tsamp['phot_url'] = np.core.defchararray.add(
                          np.core.defchararray.add(
-                            tsamp['url'],tsamp['sdbid']
+                            tsamp['url'], tsamp['sdbid']
                                                   ),
-                    np.repeat('-rawphot.txt',len(tsamp))
+                    np.repeat('-rawphot.txt', len(tsamp))
                                                  )
     # to mnest folder
     tsamp['mnest_url'] = np.core.defchararray.add(
                           np.core.defchararray.add(
-                            tsamp['url'],tsamp['sdbid']
+                            tsamp['url'], tsamp['sdbid']
                                                   ),
                     np.repeat(cfg.fitting['pmn_dir_suffix'], len(tsamp))
                                                  )
 
     # to best fit model json
-    tsamp['model_url'] = np.empty(len(tsamp),dtype='U150')
-    for i,comps in enumerate(tsamp['model_comps']):
+    tsamp['model_url'] = np.empty(len(tsamp), dtype='U150')
+    for i, comps in enumerate(tsamp['model_comps']):
         if comps is not None:
             try:
                 tsamp['model_url'][i] = (
@@ -251,13 +253,13 @@ def sample_table_votable(cursor, sample, file_path=None):
             except ValueError:
                 raise utils.SdfError("{}".format(comps))
 
-    print("    got ",len(tsamp)," rows for votable")
+    print("    got ", len(tsamp), " rows for votable")
 
     # this may get written to the votable in the future...
-    tsamp.meta = {'updated':datetime.utcnow().strftime("%d/%m/%y %X")}
+    tsamp.meta = {'updated': datetime.utcnow().strftime("%d/%m/%y %X")}
 
     tsamp.write(file_path+sample+'.xml',
-                format='votable',overwrite=True)
+                format='votable', overwrite=True)
 
 
 def sample_table_photometry(cursor, sample, file_path=None):
@@ -282,7 +284,7 @@ def sample_table_photometry(cursor, sample, file_path=None):
     # create dir and .htaccess if neeeded
     if file_path is None:
         wwwroot = cfg.file['www_root']+'samples/'
-        www.create_dir(wwwroot,sample)
+        www.create_dir(wwwroot, sample)
         file_path = wwwroot+sample+'/'
 
     # generate the mysql statement
@@ -303,63 +305,62 @@ def sample_table_photometry(cursor, sample, file_path=None):
     rows = cursor.fetchall()
     tsamp = Table(rows=rows, names=[desc[0] for desc in cursor.description], masked=True)
 
-    print("    got ",len(tsamp)," rows for photometry table")
+    print("    got ", len(tsamp), " rows for photometry table")
 
     # mask blank entries
     for n in tsamp.colnames:
-        no = tsamp[n] == None
+        no = tsamp[n] is None
         if np.any(no):
             tsamp[n].mask = no
 
     tsamp.write(file_path+sample+'_photometry.csv',
-                format='csv',overwrite=True)
+                format='csv', overwrite=True)
 
 
 def sample_table_temp_tables(cursor):
     """Create temporary tables for creating sample tables."""
 
     cursor.execute("DROP TABLE IF EXISTS tmass;")
-    cursor.execute("CREATE TEMPORARY TABLE tmass AS SELECT sdbid,GROUP_CONCAT(xid) as xid"
+    cursor.execute("CREATE TEMPORARY TABLE tmass AS SELECT sdbid, GROUP_CONCAT(xid) as xid"
                    " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid LIKE '2MASS%'"
                    " GROUP BY sdbid;")
     cursor.execute("CREATE INDEX sdbid_tmass ON tmass (sdbid);")
 
     cursor.execute("DROP TABLE IF EXISTS hd;")
-    cursor.execute("CREATE TEMPORARY TABLE hd AS SELECT sdbid,GROUP_CONCAT(xid) as xid"
+    cursor.execute("CREATE TEMPORARY TABLE hd AS SELECT sdbid, GROUP_CONCAT(xid) as xid"
                    " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid LIKE 'HD%'"
                    " GROUP BY sdbid;")
     cursor.execute("CREATE INDEX sdbid_hd ON hd (sdbid);")
 
     cursor.execute("DROP TABLE IF EXISTS hip;")
-    cursor.execute("CREATE TEMPORARY TABLE hip AS SELECT sdbid,GROUP_CONCAT(xid) as xid"
+    cursor.execute("CREATE TEMPORARY TABLE hip AS SELECT sdbid, GROUP_CONCAT(xid) as xid"
                    " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid LIKE 'HIP%'"
                    " GROUP BY sdbid;")
     cursor.execute("CREATE INDEX sdbid_hip ON hip (sdbid);")
 
     cursor.execute("DROP TABLE IF EXISTS gj;")
-    cursor.execute("CREATE TEMPORARY TABLE gj AS SELECT sdbid,GROUP_CONCAT(xid) as xid"
+    cursor.execute("CREATE TEMPORARY TABLE gj AS SELECT sdbid, GROUP_CONCAT(xid) as xid"
                    " FROM sdb_pm LEFT JOIN xids USING (sdbid) WHERE xid LIKE 'GJ%'"
                    " GROUP BY sdbid;")
     cursor.execute("CREATE INDEX sdbid_gj ON gj (sdbid);")
 
     cursor.execute("DROP TABLE IF EXISTS phot_tmp;")
     cursor.execute("CREATE TEMPORARY TABLE phot_tmp AS SELECT"
-                   " id as sdbid,ROUND(-2.5*log10(model_jy/3882.37),1) as Vmag"
+                   " id as sdbid, ROUND(-2.5*log10(model_jy/3882.37), 1) as Vmag"
                    " FROM "+cfg.db['db_results']+".phot WHERE filter='VJ' AND comp_no=-1;")
     cursor.execute("CREATE INDEX sdbid_phot ON phot_tmp (sdbid);")
 
     cursor.execute("DROP TABLE IF EXISTS star_tmp;")
     cursor.execute("CREATE TEMPORARY TABLE star_tmp AS SELECT"
-                   " id,ROUND("+cfg.db['db_results']+".star.teff,0) as teff,"
+                   " id, ROUND("+cfg.db['db_results']+".star.teff, 0) as teff, "
                    " plx_arcsec as plx_arcsec, lstar"
                    " from "+cfg.db['db_results']+".star"
-                   " WHERE star_comp_no=1;")
+                   " WHERE star_comp_no=0;")
     cursor.execute("CREATE INDEX id_star ON star_tmp (id);")
 
     cursor.execute("DROP TABLE IF EXISTS disk_r_tmp;")
     cursor.execute("CREATE TEMPORARY TABLE disk_r_tmp AS SELECT"
-                   " id,GROUP_CONCAT(ROUND(temp,1)) as temp,SUM(ldisk_lstar) as ldisk_lstar"
+                   " id, GROUP_CONCAT(ROUND(temp, 1)) as temp, SUM(ldisk_lstar) as ldisk_lstar"
                    " from "+cfg.db['db_results']+".disk_r"
                    " GROUP BY id;")
     cursor.execute("CREATE INDEX id_dr ON disk_r_tmp (id);")
-

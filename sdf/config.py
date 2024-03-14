@@ -2,7 +2,7 @@
     
 This is mostly configured with a .conf file, but some post-processing is
 done here. The imformation contained herein can be accessed from 
-elsewhere by importing this module:
+elsewhere by importing this module: 
 
 >>> import config as cfg
 >>> wave = cfg.models['default_wave']
@@ -10,12 +10,12 @@ elsewhere by importing this module:
 Plotting things that are harder (or more laborious) to configure so are
 done fully here for now. Most of these are dictionaries with a list of
 keywords to be given to the plotting routines. An (incomplete) example
-would look something like:
+would look something like: 
 
->>> form bokeh.plotting import figure
+>>> from bokeh.plotting import figure
 >>> import config as cfg
 >>> fig = figure()
->>> fig.circle('x','y',source=data,**cfg.pl['obs_ph'])
+>>> fig.circle('x', 'y', source=data, **cfg.pl['obs_ph'])
 """
 
 import os
@@ -23,10 +23,9 @@ import ast
 import configparser
 
 import numpy as np
-import bokeh.palettes
 
 print(' Config')
-print('  found files:')
+print('  found files: ')
 
 # info from the config files, defaults are in same dir as this file
 cfg = configparser.ConfigParser()
@@ -40,26 +39,25 @@ file = cfg['file']
 
 # databases
 db = cfg['db']
-sqlite = cfg['sqlite']
-if db['type'] == 'mysql':
+if db['type'] == 'mysql': 
     db.update(cfg['mysql'])
-elif db['type'] == 'sqlite':
+elif db['type'] == 'sqlite': 
     db.update(cfg['sqlite'])
 
 # calculation stuff
 calc = {
-    'cpu':cfg['calc'].getint('cpu')
+    'cpu': cfg['calc'].getint('cpu')
 }
 
 # find all the model names and derive the locations
-if os.path.exists(cfg['file']['model_root']):
+if os.path.exists(cfg['file']['model_root']): 
     model_names = [i for i in os.walk(cfg['file']['model_root'])][0][1]
-else:
+else: 
     print('  no models in {}\n  may need to create ~/.sdf.conf'.format(cfg['file']['model_root']))
     model_names = []
 
 model_loc = {}
-for name in model_names:
+for name in model_names: 
     model_loc[name] = file['model_root']+name+'/'
 
 # classify each model
@@ -69,23 +67,23 @@ disk_r_names = cfg['models']['disk_r'].split(',')
 star = []
 disk = []
 disk_r = []
-for n in model_names:
-    for m in star_names:
-        if m in n:
+for n in model_names: 
+    for m in star_names: 
+        if m in n: 
             star.append(n)
-    for m in disk_names:
-        if m in n:
+    for m in disk_names: 
+        if m in n: 
             disk.append(n)
-    for m in disk_r_names:
-        if m in n:
+    for m in disk_r_names: 
+        if m in n: 
             disk_r.append(n)
 
 # default wavelengths
 default_wave = 10**np.arange(np.log10(cfg['models'].getfloat('min_wave_micron')),
                              np.log10(cfg['models'].getfloat('max_wave_micron')),
                 np.log10(1+1/float(cfg['models'].getfloat('default_resolution'))))
-if np.max(default_wave) != cfg['models'].getfloat('max_wave_micron'):
-    default_wave = np.append(default_wave,cfg['models'].getfloat('max_wave_micron'))
+if np.max(default_wave) != cfg['models'].getfloat('max_wave_micron'): 
+    default_wave = np.append(default_wave, cfg['models'].getfloat('max_wave_micron'))
 
 models = {
     'names': model_names,
@@ -100,7 +98,7 @@ models = {
 }
 
 # Solar radius at 1pc as base unit for emitting area in sr
-ssr = 1.596074069110538e-15 #( np.pi*u.solRad**2 / (u.pc)**2 ).si.value
+ssr = 1.596074069110538e-15  # ( np.pi*u.solRad**2 / (u.pc)**2 ).si.value
 
 # details for fitting
 fitting = {
@@ -139,9 +137,9 @@ www = {
 # TODO: tidy and move to sdf.conf
 
 # colours for each model, first is total model
-model_colours = ['navy','firebrick','green','red','darkslategray']
-phot_alpha = [0.5,0.3,0.3,0.3,0.3]
-line_alpha = [0.3,0.3,0.3,0.3,0.5]
+model_colours = ['navy', 'firebrick', 'green', 'red', 'darkslategray']
+phot_alpha = [0.5, 0.3, 0.3, 0.3, 0.3]
+line_alpha = [0.3, 0.3, 0.3, 0.3, 0.5]
 
 line_thin = 2
 line_thick = 4
@@ -160,56 +158,56 @@ pl = {
     'y_bot_size': 130,
 
     # photometry
-    'obs_ph':     {'fill_color':'#444444','fill_alpha':0.8,'size':ob_sz},
-    'obs_ig_ph':  {'fill_color':'#444444','fill_alpha':0.4,'line_alpha':0.4,'size':ob_sz},
-    'obs_e_ph':   {'line_color':'#444444','line_alpha':0.8,'line_width':line_thin},
-    'obs_e_ig_ph':{'line_color':'#444444','line_alpha':0.4,'line_width':line_thin},
-    'obs_sp':     {'line_color':'#444444','line_alpha':0.5,'line_width':line_thin},
-    'obs_e_sp':   {'line_color':'#444444','line_alpha':0.2,'line_width':line_thin},
+    'obs_ph':     {'fill_color': '#444444', 'fill_alpha': 0.8, 'size': ob_sz},
+    'obs_ig_ph':  {'fill_color': '#444444', 'fill_alpha': 0.4, 'line_alpha': 0.4, 'size': ob_sz},
+    'obs_e_ph':   {'line_color': '#444444', 'line_alpha': 0.8, 'line_width': line_thin},
+    'obs_e_ig_ph': {'line_color': '#444444', 'line_alpha': 0.4, 'line_width': line_thin},
+    'obs_sp':     {'line_color': '#444444', 'line_alpha': 0.5, 'line_width': line_thin},
+    'obs_e_sp':   {'line_color': '#444444', 'line_alpha': 0.2, 'line_width': line_thin},
 
     # lines in residuals plot
-    'guide_dash': {'line_width':line_thin,'line_alpha':0.5,'line_dash':'dashed'},
+    'guide_dash': {'line_width': line_thin, 'line_alpha': 0.5, 'line_dash': 'dashed'},
 
     # models
-    'mod_ph':[{'size':ph_sz,'line_color':model_colours[0],
-               'line_alpha':phot_alpha[0],'fill_alpha':fill_alpha,
-               'line_width':line_thin},
-              {'size':ph_sz,'line_color':model_colours[1],
-               'line_alpha':phot_alpha[1],'fill_alpha':fill_alpha,
-               'line_width':line_thin},
-              {'size':ph_sz,'line_color':model_colours[2],
-               'line_alpha':phot_alpha[2],'fill_alpha':fill_alpha,
-               'line_width':line_thin},
-              {'size':ph_sz,'line_color':model_colours[3],
-               'line_alpha':phot_alpha[3],'fill_alpha':fill_alpha,
-               'line_width':line_thin},
-              {'size':ph_sz,'line_color':model_colours[4],
-               'line_alpha':phot_alpha[4],'fill_alpha':fill_alpha,
-               'line_width':line_thin}],
+    'mod_ph': [{'size': ph_sz, 'line_color': model_colours[0],
+               'line_alpha': phot_alpha[0], 'fill_alpha': fill_alpha,
+               'line_width': line_thin},
+              {'size': ph_sz, 'line_color': model_colours[1],
+               'line_alpha': phot_alpha[1], 'fill_alpha': fill_alpha,
+               'line_width': line_thin},
+              {'size': ph_sz, 'line_color': model_colours[2],
+               'line_alpha': phot_alpha[2], 'fill_alpha': fill_alpha,
+               'line_width': line_thin},
+              {'size': ph_sz, 'line_color': model_colours[3],
+               'line_alpha': phot_alpha[3], 'fill_alpha': fill_alpha,
+               'line_width': line_thin},
+              {'size': ph_sz, 'line_color': model_colours[4],
+               'line_alpha': phot_alpha[4], 'fill_alpha': fill_alpha,
+               'line_width': line_thin}],
     
-    'mod_sp':[{'line_color':model_colours[0],'line_alpha':line_alpha[0],
-                    'line_width':line_thick},
-              {'line_color':model_colours[1],'line_alpha':line_alpha[1],
-                    'line_width':line_thin},
-              {'line_color':model_colours[2],'line_alpha':line_alpha[2],
-                    'line_width':line_thin},
-              {'line_color':model_colours[3],'line_alpha':line_alpha[3],
-                    'line_width':line_thin},
-              {'line_color':model_colours[4],'line_alpha':line_alpha[4],
-                    'line_width':line_thin}],
+    'mod_sp': [{'line_color': model_colours[0], 'line_alpha': line_alpha[0],
+                    'line_width': line_thick},
+              {'line_color': model_colours[1], 'line_alpha': line_alpha[1],
+                    'line_width': line_thin},
+              {'line_color': model_colours[2], 'line_alpha': line_alpha[2],
+                    'line_width': line_thin},
+              {'line_color': model_colours[3], 'line_alpha': line_alpha[3],
+                    'line_width': line_thin},
+              {'line_color': model_colours[4], 'line_alpha': line_alpha[4],
+                    'line_width': line_thin}],
 
     # HR diagram #
-    'hr_dot':   {'size':10,'fill_alpha':0.6,'line_alpha':1},
-    'hr_e_dot': {'line_alpha':0.4,'line_width':line_thin},
-    'hr_track': {'line_color':model_colours[0],'line_alpha':0.1,
-                 'line_width':line_thin},
-    'fvsr_join':{'line_color':'darkslategray','line_dash':'dashed',
-                 'line_alpha':0.2,'line_width':line_thin}
+    'hr_dot':   {'size': 10, 'fill_alpha': 0.6, 'line_alpha': 1},
+    'hr_e_dot': {'line_alpha': 0.4, 'line_width': line_thin},
+    'hr_track': {'line_color': model_colours[0], 'line_alpha': 0.1,
+                 'line_width': line_thin},
+    'fvsr_join': {'line_color': 'darkslategray', 'line_dash': 'dashed',
+                 'line_alpha': 0.2, 'line_width': line_thin}
 }
 
 # filters for filter plot
 filter_plot = {
-                'groups': [cfg['filter_plot'].get(k).replace('\n','').split(',')
+                'groups': [cfg['filter_plot'].get(k).replace('\n', '').split(',')
                            for k in cfg['filter_plot'].keys()]
 }
 
