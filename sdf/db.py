@@ -22,7 +22,7 @@ def get_cnx(db):
                                           host=cfg.db['host'], database=db,
                                           auth_plugin='mysql_native_password')
             cursor = cnx.cursor(buffered=True)
-            cursor.execute("SET @@SQL_MODE = CONCAT(@@SQL_MODE, ', PIPES_AS_CONCAT');")
+            cursor.execute("SET @@SQL_MODE = CONCAT(@@SQL_MODE, ',PIPES_AS_CONCAT');")
             cnx.commit()
             return cnx, cursor
 

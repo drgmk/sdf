@@ -275,7 +275,7 @@ def add_model_phot(fig, r):
 
         for i in range(r.n_comps):
             data = {'filter': r.filters[notcol],
-                    'wave': filter.mean_wavelength(data['filter']),
+                    'wave': filter.mean_wavelength(r.filters[notcol]),
                     'flux': r.model_comp_fnujy[i, notcol]}
 
             pldata = ColumnDataSource(data=data)
@@ -284,7 +284,7 @@ def add_model_phot(fig, r):
 
     # full models
     data = {'filter': r.filters[filt],
-            'wave': filter.mean_wavelength(data['filter']),
+            'wave': filter.mean_wavelength(r.filters[filt]),
             'flux': r.model_fnujy[filt]}
     pldata = ColumnDataSource(data=data)
 
@@ -958,7 +958,7 @@ def sample_plot(cursor, sample, absolute_paths=True, rel_loc=None):
     hr_circ = hr.circle('teff', 'lstar', source=data, name='dot', line_color='col',
                         fill_color='col', **cfg.pl['hr_dot'])
 
-    hr.legend.location = 'top_left'
+    hr.legend.location = 'bottom_left'
 
     # f vs temp (if we have any)
     if np.max(t['ldisklstar']) > 0:
