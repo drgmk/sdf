@@ -25,7 +25,7 @@ Models
 ------
 
 Aside from Phoenix, the functions below create only SpecModels, once
-these are run then specmodel2photmust be run to generate PhotModels.
+these are run then specmodel2phot must be run to generate PhotModels.
 
 ### Phoenix
 To generate phoenix model grids, first create resampled spectra with
@@ -131,6 +131,7 @@ def setup_phot(overwrite_filters=False, overwrite_model=True,
                 print("skipping {}".format(name))
                 do_it = False
         if do_it:
+            print("doing {}".format(name))
             specmodel2phot(name, overwrite_filters=overwrite_filters,
                            overwrite_model=overwrite_model)
 
@@ -206,6 +207,7 @@ def convolve_specmodel(mname, overwrite=False):
                 fnujy_sr_reshaped = fnujy_sr
 
             cm = convolve.ConvolvedModel(name=mname,
+                                         filter_=fname,
                                          parameters=m.parameters,
                                          param_values=m.param_values,
                                          fnujy_sr=fnujy_sr_reshaped)

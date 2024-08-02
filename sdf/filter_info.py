@@ -725,6 +725,12 @@ for dir in ['MIRI', 'NIRCAM']:
                               }
 
 
+# SOFIA
+filters['FORCAST.F371'] = {'svo_name': 'SOFIA/FORCAST.F371',
+                           'response_type': 'energy',
+                           'ref_wavelength': 37.1,
+                           'ref_spectrum': lambda nu: 1.0/nu}
+
 # IRAS, RSRs, calibrations empirical, and see Rieke+2008
 filters['IRAS12'] = {'svo_name': 'IRAS/IRAS.12mu',
                      'response_type': 'energy',
