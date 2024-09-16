@@ -461,14 +461,14 @@ class hashable(object):
 
 
 def get_herschel_obsid(obs):
-    """Return a Herschel ObdID (if one exists) given a photometry object."""
+    """Return a Herschel ObsID (if one exists) given a photometry object."""
     obsids = np.array([])
     for p in obs:
         if isinstance(p, photometry.Photometry):
             for i, f in enumerate(p.filters):
                 if f in ['PACS70', 'PACS100', 'PACS160']:
                     if 'HSA' in p.bibcode[i]:
-                        obsids = np.append(obsids, p.note[i].replace('obsID:', ''))
+                        obsids = np.append(obsids, p.note[i].replace('ObsID:', ''))
 
     return np.unique(obsids)
 

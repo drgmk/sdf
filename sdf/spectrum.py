@@ -558,7 +558,7 @@ class ObsSpectrum(Spectrum):
         if type_ == 'irsstare':
             try:
                 return ObsSpectrum.read_cassis_lores(file, module_split=module_split)
-            except utils.SdfError:
+            except:
                 pass
 
             return ObsSpectrum.read_cassis_hires(file, module_split=module_split)
