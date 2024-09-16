@@ -217,16 +217,17 @@ filters = {}
 
 # dummy filters for colours/indices or artificial bandpasses
 # that we want in the "all" list
+# fitting can proceed without these, but not analysis
 extras = ['BS_YS', 'STROMM1', 'STROMC1',
           'UJ_BJ', 'BJ_VJ', 'VJ_IC', 'VJ_RC', 'RC_IC',
           'WAV44', 'WAV63',
           'WAV350', 'WAV450', 'WAV610',
           'WAV800', 'WAV850', 'WAV855',
-          'WAV860', 'WAV870', 'WAV875', 'WAV880', 'WAV890', 'WAV895',
-          'WAV1050',
+          'WAV860', 'WAV870', 'WAV875', 'WAV880', 'WAV885', 'WAV890', 'WAV895',
+          'WAV1000', 'WAV1050',
           'WAV1100',
           'WAV1200', 'WAV1240', 'WAV1250', 'WAV1260', 'WAV1270', 'WAV1290',
-          'WAV1300', 'WAV1310', 'WAV1330', 'WAV1340', 'WAV1350', 'WAV1360',
+          'WAV1300', 'WAV1310', 'WAV1330', 'WAV1335', 'WAV1340', 'WAV1350', 'WAV1360',
           'WAV2000', 'WAV2140', 'WAV2700',
           'WAV3000', 'WAV3190', 'WAV3300',
           'WAV6800',
@@ -466,6 +467,20 @@ filters['2MR1KS'] = filters['2MKS']
 filters['2MR2J'] = filters['2MJ']
 filters['2MR2H'] = filters['2MH']
 filters['2MR2KS'] = filters['2MKS']
+
+# VISTA
+filters['VHS.Y'] = {'svo_name': 'Paranal/VISTA.Y',
+                    'zero_point_offset': 0.0,
+                    'response_type': 'energy'}
+filters['VHS.J'] = {'svo_name': 'Paranal/VISTA.J',
+                    'zero_point_offset': 0.0,
+                    'response_type': 'energy'}
+filters['VHS.H'] = {'svo_name': 'Paranal/VISTA.H',
+                    'zero_point_offset': 0.0,
+                    'response_type': 'energy'}
+filters['VHS.Ks'] = {'svo_name': 'Paranal/VISTA.Ks',
+                     'zero_point_offset': 0.0,
+                     'response_type': 'energy'}
 
 # DENIS, assume energy counting
 filters['IDENIS'] = {'svo_name': 'DENIS/DENIS.I',

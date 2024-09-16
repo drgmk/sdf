@@ -242,6 +242,8 @@ class BB_Disk(object):
                 waves = np.append(waves, new_wave)
                 filters = np.append(filters, filt)
                 filt_i = np.where(filt == np.array(r.all_filters))[0]
+                if len(filt_i) == 0:
+                    raise utils.SdfError(f'no filter {filt} found')
                 f_star = np.append(f_star, r.all_star_phot[filt_i])
                 
                 fac = 1

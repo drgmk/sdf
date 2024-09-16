@@ -176,7 +176,7 @@ class Filter(object):
             self.name = name
             self.response_type = 'energy'
             cwav = float(name[3:])
-            wave = np.arange(cwav*0.95, cwav*1.05, cwav/100.0)
+            wave = np.linspace(cwav*0.95, cwav*1.05, 20)
             self.nu_hz = c_micron / wave
             self.response = np.ones(len(wave))
         elif name not in f:
