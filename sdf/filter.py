@@ -76,7 +76,7 @@ class Filter(object):
     
     def __init__(self, name=None, nu_hz=None,
                  response=None, response_type=None,
-                 zero_point=None, zero_point_offset=None,
+                 zero_point=None, zero_point_offset=0.0,
                  measurement_calibration=None,
                  magnitude_system=None, ref_wavelength=None, ref_nu_hz=None,
                  ref_spectrum=None, cc_denom=None, Af_Av=None):
