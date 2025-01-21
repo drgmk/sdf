@@ -1387,6 +1387,9 @@ def calibration(sample='zpo_cal_',
 
             chist[-1].vbar(x=hcen, top=hhist, width=hedges[1]-hedges[0], bottom=0,
                            line_color='#333333')
+            x = np.linspace(-4, 4, 100)
+            chist[-1].line(x=x, y=np.max(hhist)*np.exp(-0.5*x**2),
+                           line_color=cfg.model_colours[1])
         else:
             chist.append(figure(width=200, height=200))
 
