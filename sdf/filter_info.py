@@ -227,7 +227,7 @@ extras = ['BS_YS', 'STROMM1', 'STROMC1',
           'WAV1000', 'WAV1050',
           'WAV1100',
           'WAV1200', 'WAV1240', 'WAV1250', 'WAV1260', 'WAV1270', 'WAV1290',
-          'WAV1300', 'WAV1310', 'WAV1330', 'WAV1335', 'WAV1340', 'WAV1350', 'WAV1360',
+          'WAV1300', 'WAV1310', 'WAV1330', 'WAV1335', 'WAV1340', 'WAV1350', 'WAV1360', 'WAV1380',
           'WAV2000', 'WAV2140', 'WAV2700',
           'WAV3000', 'WAV3190', 'WAV3300',
           'WAV6800',
@@ -518,13 +518,13 @@ def w2_cal_func(x):
 
 filters['WISE3P4'] = {'svo_name': 'WISE/WISE.W1',
                       'response_type': 'energy',
-                      'zero_point_offset': -0.015,
+                      'zero_point_offset': 0.0,
                       'measurement_calibration': lambda x: x + w1_cal_func(x),
                       'ref_wavelength': 3.3526,
                       'ref_spectrum': lambda nu: 1.0/nu/nu}
 filters['WISE4P6'] = {'svo_name': 'WISE/WISE.W2',
                       'response_type': 'energy',
-                      'zero_point_offset': 0.01,
+                      'zero_point_offset': -0.01,
                       'measurement_calibration': lambda x: x + w2_cal_func(x),
                       'ref_wavelength': 4.6028,
                       'ref_spectrum': lambda nu: 1.0/nu/nu}
@@ -535,7 +535,7 @@ filters['WISE12'] = {'svo_name': 'WISE/WISE.W3',
                      'ref_spectrum': lambda nu: 1.0/nu/nu}
 filters['WISE22'] = {'svo_name': 'WISE/WISE.W4',
                      'response_type': 'energy',
-                     'zero_point_offset': 0.0,
+                     'zero_point_offset': -0.02,
                      'ref_wavelength': 22.0883,
                      'ref_spectrum': lambda nu: 1.0/nu/nu}
 #                     'magnitude_system': 'Vega',
