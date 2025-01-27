@@ -67,7 +67,6 @@ def sample_table_www(cursor, sample, file='index.html',
         (e.g. "folder1/', sql_column, '/file.html")
     """
 
-    wwwroot = cfg.www['sdb_path']
     sample_root = cfg.file['www_root']+'samples/'
 
     # create temporary tables we want to join on
@@ -78,7 +77,7 @@ def sample_table_www(cursor, sample, file='index.html',
     # are for special cases
     if absolute_paths:
         www.create_dir(sample_root, sample)
-        url_str = wwwroot+"/seds/masters/' || sdbid || '/public"
+        url_str = cfg.www['sdb_path'] + "/seds/masters/' || sdbid || '/public"
         file = sample_root+sample+'/'+file
     else:
         if rel_loc is None:
@@ -239,7 +238,7 @@ def sample_table_votable(cursor, sample, file_path=None):
                                                  )
 
     # to best fit model json
-    tsamp['model_url'] = np.empty(len(tsamp), dtype='U150')
+    tsamp['model_url'] = np.empty(len(tsamp), dtype='U250')
     for i, comps in enumerate(tsamp['model_comps']):
         if comps is not None:
             try:
