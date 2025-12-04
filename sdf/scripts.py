@@ -80,6 +80,7 @@ def sdf_fit():
                                + id_ + '/**/*-rawphot.txt')
 
     # one at a time, locking before we start
+    files.sort()
     for f in files:
         
         lock = filelock.FileLock(os.path.dirname(os.path.abspath(f))
