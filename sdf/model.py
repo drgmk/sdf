@@ -900,8 +900,9 @@ class SpecModel(Model):
         """
 
         # check we need to do something
-        if np.all(self.wavelength == wavelength):
-            return
+        if len(self.wavelength) == len(wavelength):
+            if np.all(self.wavelength == wavelength):
+                return
 
         if log:
             neg = self.fnujy_sr <= 0.0

@@ -77,7 +77,7 @@ def sample_table_www(cursor, sample, file='index.html',
     # are for special cases
     if absolute_paths:
         www.create_dir(sample_root, sample)
-        url_str = cfg.www['sdb_path'] + "/seds/masters/' || sdbid || '/public"
+        url_str = cfg.www['sdb_path'] + "seds/masters/' || sdbid || '/public/"
         file = sample_root+sample+'/'+file
     else:
         if rel_loc is None:
@@ -164,7 +164,7 @@ def sample_table_www(cursor, sample, file='index.html',
     template = env.get_template("sample_table.html")
 
     html = template.render(title=sample, table=s.getvalue(),
-                           sdb_url=cfg.www['sdb_url'],
+                           sdb_path=cfg.www['sdb_path'],
                            creation_time=datetime.utcnow().strftime("%d/%m/%y %X"))
 
     with io.open(file, mode='w', encoding='utf-8') as f:
@@ -218,7 +218,7 @@ def sample_table_votable(cursor, sample, file_path=None):
     # add some url columns with links
     tsamp['url'] = np.core.defchararray.add(
                      np.core.defchararray.add(
-        np.repeat(cfg.www['sdb_url']+'/seds/masters/', len(tsamp)), tsamp['sdbid']
+        np.repeat(cfg.www['sdb_url'] + 'seds/masters/', len(tsamp)), tsamp['sdbid']
                                               ),
                         np.repeat('/public/', len(tsamp))
                                              )
@@ -243,7 +243,7 @@ def sample_table_votable(cursor, sample, file_path=None):
         if comps is not None:
             try:
                 tsamp['model_url'][i] = (
-                     cfg.www['sdb_url'] + '/seds/masters/' +
+                     cfg.www['sdb_url'] + 'seds/masters/' +
                      tsamp['sdbid'][i] + '/public/' +
                      tsamp['sdbid'][i] + cfg.fitting['pmn_dir_suffix'] + '/' +
                      cfg.fitting['model_join'].join(ast.literal_eval(comps)) +

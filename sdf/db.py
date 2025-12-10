@@ -52,6 +52,10 @@ def get_cnx(db):
         except utils.SdfError:
             print(f"   Can't connect to {db} ({attach}) at {cfg.db['path']} with sqlite")
             return None, None
+        
+    else:
+        print(f"   Unknown database type {cfg.db['type']}")
+        return None, None
 
 
 def write_all(r, update=False):

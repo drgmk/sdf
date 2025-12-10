@@ -854,7 +854,7 @@ def sample_plots(samples=None, file='hr.html', file_path=None,
                    plot_script=script,
                    plot_div=div,
                    title=sample,
-                   sdb_url=cfg.www['sdb_url'],
+                   sdb_path=cfg.www['sdb_path'],
                    creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
                                )
 
@@ -997,7 +997,7 @@ def sample_plot(cursor, sample, absolute_paths=True, rel_loc=None):
 
     # taptool callback
     if absolute_paths:
-        url = cfg.www['sdb_path'] + "/seds/masters/@sdbid/public"
+        url = cfg.www['sdb_path'] + "seds/masters/@sdbid/public"
     else:
         if rel_loc is None:
             url = "@sdbid.html"
@@ -1049,7 +1049,7 @@ def flux_size_plots(samples=None):
                    plot_script=script,
                    plot_div=div,
                    title=sample,
-                   sdb_url=cfg.www['sdb_url'],
+                   sdb_path=cfg.www['sdb_path'],
                    creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
                                )
 
@@ -1222,7 +1222,7 @@ def flux_size_plot(cursor, sample):
         sb.line(x=[0.5*min(t['rdisk']), max(t['rdisk'])*2], y=[sens_mjy[i]*beam[i], sens_mjy[i]*beam[i]],
                 legend_label='~1h pt src sens', line_alpha=0.3, line_width=4, line_color='green')
 
-        url = cfg.www['sdb_path'] + "/seds/masters/@sdbid/public"
+        url = cfg.www['sdb_path'] + "seds/masters/@sdbid/public"
         taptool1 = fs.select(type=TapTool)
         taptool1.callback = OpenURL(url=url)
         taptool2 = cs.select(type=TapTool)
@@ -1394,7 +1394,7 @@ def calibration(sample='zpo_cal_',
             chist.append(figure(width=200, height=200))
 
         # taptool callback
-        url = cfg.www['sdb_path'] + "/seds/masters/@sdbid/public"
+        url = cfg.www['sdb_path'] + "seds/masters/@sdbid/public"
         taptool = flux[-1].select(type=TapTool)
         taptool.callback = OpenURL(url=url)
 
@@ -1427,7 +1427,7 @@ def calibration(sample='zpo_cal_',
                    plot_script=script,
                    plot_div=div,
                    title=sample,
-                   sdb_url=cfg.www['sdb_url'],
+                   sdb_path=cfg.www['sdb_path'],
                    creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
                            )
 
@@ -1497,7 +1497,7 @@ def filter_plot(file=cfg.file['www_root']+'filters.html'):
                    plot_script=script,
                    plot_div=div,
                    title='filters',
-                   sdb_url=cfg.www['sdb_url'],
+                   sdb_path=cfg.www['sdb_path'],
                    creation_time=datetime.utcnow().strftime("%d/%m/%y %X")
                            )
 
