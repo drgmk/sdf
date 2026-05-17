@@ -1280,7 +1280,7 @@ def colours_for_list(values_in, palette, log=False):
     return col, range_
 
 
-def calibration(sample='zpo_cal_',
+def calibration(sample='zpo_cal_', min_wav=0.017, max_wav=26.,
                 fileroot=cfg.file['www_root']+'calibration/'):
     """Diagnostic plot showing quality of photometric calibration.
 
@@ -1288,6 +1288,10 @@ def calibration(sample='zpo_cal_',
     ----------
     sample : string
         Name of sample in config.mysql['db_samples'] to plot.
+    min_wav : float, optional
+        Minimum wavelength to include in the plots.
+    max_wav : float, optional
+        Maximum wavelength to include in the plots.
     fileroot : string, optional
         Location of directory in which to place plots.
     """
@@ -1316,7 +1320,7 @@ def calibration(sample='zpo_cal_',
     chist = []
     for i, f in enumerate(filters):
 
-        if wav[i] > 26 or wav[i] < 0.017:
+        if wav[i] > max_wav or wav[i] < min_wav:
             continue
 
         # grab the data for this filter

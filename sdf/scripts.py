@@ -143,7 +143,9 @@ def sdf_sample():
     if args.calibration:
         print("Updating calibration plots")
         for sample in cfg.www['cal_samples']:
-            plotting.calibration(sample=sample)
+            plotting.calibration(sample=sample,
+                                 min_wav=cfg.www['min_cal_wav'],
+                                 max_wav=cfg.www['max_cal_wav'])
 
     if args.cleanup:
         print("Cleaning up")
