@@ -130,7 +130,9 @@ www = {
     'tablemax': cfg['www'].getint('tablemax'),
     'votmax': cfg['www'].getint('votmax'),
     'plotmax': cfg['www'].getint('plotmax'),
-    'cal_samples': cfg['www']['cal_samples'].split(',')
+    'cal_samples': cfg['www']['cal_samples'].split(','),
+    'min_cal_wav': cfg['www'].getfloat('min_cal_wav'),
+    'max_cal_wav': cfg['www'].getfloat('max_cal_wav')
 }
 
 # some numbers to be used in the plotting dict below
