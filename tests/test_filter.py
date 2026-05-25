@@ -117,6 +117,31 @@ def test_filter_cc_mips70():
         fnu,cc = filt.synthphot(b)
         assert(np.abs(cc/ccs[i]-1)<7e-4)
 
+def _test_filter_cc_pacs(filter_name, ccs):
+    """This isn't as good as it should be, perhaps because the response given is
+    the filterTransmission and doesn't include the detector absorption."""
+    filt = sdf.filter.Filter.get(filter_name)
+    temps = [1e4, 5000, 1000, 500]
+    if any(cc is None for cc in ccs):
+        pytest.skip('PACS colour-correction reference values are placeholders')
+
+    for i,t in enumerate(temps):
+        b = sdf.spectrum.ModelSpectrum.bnu_nu_hz(filt.nu_hz,t)
+        fnu,cc = filt.synthphot(b)
+        assert(np.abs(cc/ccs[i]-1)<0.017)
+
+def test_filter_cc_pacs70():
+    ccs = [1.016, 1.016, 1.013, 1.011]
+    _test_filter_cc_pacs('PACS70', ccs)
+
+def test_filter_cc_pacs100():
+    ccs = [1.034, 1.033, 1.031, 1.029]
+    _test_filter_cc_pacs('PACS100', ccs)
+
+def test_filter_cc_pacs160():
+    ccs = [1.074, 1.074, 1.072, 1.068]
+    _test_filter_cc_pacs('PACS160', ccs)
+
 def test_filter_mean_wavelength():
     wv = np.array([1,2,3,4,5])
     rs = np.array([1,2,3,4,5])

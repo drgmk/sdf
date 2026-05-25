@@ -187,15 +187,24 @@ LBTI/NOMIC
   Filter from Denis Defrere, assumed QE-based so needs to be converted
   to photon units. No photometry, used for predictions.
 
+JWST
+  JWST uses either a reference spectrum of F(lambda) = constant, or that
+  the flux is given at the effective wavelength, which are the same for
+  that reference spectrum (2022AJ....163..267G). This means we can simply
+  not specify a referece spectrum, but the wavelengths at which fluxes
+  are plotted is not strictly correct (i.e. is not lambda_eff, since
+  we just grab the number from the filter name).
+  
 IRAS
   Filters from SVO in energy units. Photometry from PSC and FSC. At 12
   micron Rieke conclude that the fluxes need to be reduced by a factor
   of 0.992, and by 0.98 at 25 micron. Original calibration used.
 
 Herschel/PACS
-  Filters from SVO in energy units. Use fluxes as published or in GMK's
-  personal catalogue, assume calibration uncertainty much smaller than
-  photometric uncertainty.
+  Download filters from HSA, though no different to VOSA. Use fluxes as
+  published or in GMK's personal catalogue, assume calibration uncertainty
+  much smaller than photometric uncertainty. Colour corrections slightly
+  off from published ones, but the differences are small (<2%).
 
 Herschel/SPIRE
   Filters from SVO in energy units. Use fluxes as published or in GMK's
@@ -207,6 +216,7 @@ Herschel/SPIRE
 import os
 import glob
 import numpy as np
+from astropy.io import fits
 import astropy.units as u
 from . import utils
 
@@ -214,6 +224,18 @@ c_micron = u.micron.to(u.Hz, equivalencies=u.spectral())
 
 
 filters = {}
+
+
+def _filter_from_fits(file):
+    """Read a two-column FITS filter table."""
+
+    file_loc = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            'data', 'filters', file)
+    with fits.open(file_loc) as hdul:
+        wavelength = np.array(hdul[1].data['wavelength'], dtype=float)
+        response = np.array(hdul[1].data['transmission'], dtype=float)
+
+    return wavelength, response
 
 # dummy filters for colours/indices or artificial bandpasses
 # that we want in the "all" list
@@ -785,18 +807,28 @@ filters['MSX21'] = {'svo_name': 'MSX/MSX.E',
                     'ref_spectrum': lambda nu: 1.0/nu}
 
 # PACS/SPIRE, RSRs, ref spectrum F_nu oc 1/nu
-filters['PACS70'] = {'svo_name': 'Herschel/Pacs.blue',
+pacs70_wav, pacs70_response = _filter_from_fits(
+    'PACS_phot_filterTrans_blue.fits')
+pacs100_wav, pacs100_response = _filter_from_fits(
+    'PACS_phot_filterTrans_green.fits')
+pacs160_wav, pacs160_response = _filter_from_fits(
+    'PACS_phot_filterTrans_red.fits')
+
+filters['PACS70'] = {'wav_micron': pacs70_wav,
+                     'response': pacs70_response,
                      'response_type': 'energy',
                      'ref_wavelength': 70.0,
                      'ref_spectrum': lambda nu: 1.0/nu}
-filters['PACS100'] = {'svo_name': 'Herschel/Pacs.green',
-                     'response_type': 'energy',
-                     'ref_wavelength': 100.0,
-                     'ref_spectrum': lambda nu: 1.0/nu}
-filters['PACS160'] = {'svo_name': 'Herschel/Pacs.red',
-                     'response_type': 'energy',
-                     'ref_wavelength': 160.0,
-                     'ref_spectrum': lambda nu: 1.0/nu}
+filters['PACS100'] = {'wav_micron': pacs100_wav,
+                      'response': pacs100_response,
+                      'response_type': 'energy',
+                      'ref_wavelength': 100.0,
+                      'ref_spectrum': lambda nu: 1.0/nu}
+filters['PACS160'] = {'wav_micron': pacs160_wav,
+                      'response': pacs160_response,
+                      'response_type': 'energy',
+                      'ref_wavelength': 160.0,
+                      'ref_spectrum': lambda nu: 1.0/nu}
 filters['SPIRE250'] = {'svo_name': 'Herschel/SPIRE.PSW',
                      'response_type': 'energy',
                      'ref_wavelength': 250.0,
