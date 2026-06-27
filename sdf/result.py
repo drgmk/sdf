@@ -571,6 +571,45 @@ class Result(SampledResult):
               with loaded pickles, which will still be Result.
     """
 
+    @staticmethod
+    def _sort_identical_components(samples, model_comps, comp_parameters):
+        """Give identical temperature components a consistent ordering.
+
+        MultiNest can exchange identical model components, mixing their
+        marginal distributions.  Sort repeated components from hot to cold,
+        moving each component's complete parameter block (including its
+        normalisation) together.
+        """
+
+        samples = np.asarray(samples).copy()
+        assert len(model_comps) == len(comp_parameters)
+        offsets = np.cumsum([0] + [len(p) + 1 for p in comp_parameters])
+
+        for i, name in enumerate(model_comps):
+            for j in range(i + 1, len(model_comps)):
+                if model_comps[j] != name:
+                    continue
+
+                if list(comp_parameters[i]) != list(comp_parameters[j]):
+                    raise utils.SdfError(
+                        "identical {} components have different parameters".
+                        format(name)
+                    )
+
+                temp = [k for k, par in enumerate(comp_parameters[i])
+                        if par in ('Temp', 'log_Temp')]
+                if len(temp) != 1:
+                    continue
+
+                i0, i1 = offsets[i], offsets[i + 1]
+                j0, j1 = offsets[j], offsets[j + 1]
+                swap = samples[:, i0 + temp[0]] < samples[:, j0 + temp[0]]
+                tmp = samples[swap, i0:i1].copy()
+                samples[swap, i0:i1] = samples[swap, j0:j1]
+                samples[swap, j0:j1] = tmp
+
+        return samples
+
     def get(rawphot, model_comps, update_mn=False,
             update_an=False, update_json=False, update_thumb=False,
             nospec=False):
@@ -754,6 +793,10 @@ class Result(SampledResult):
 
         # equally weighted samples for distributions, last column is loglike
         self.param_samples = self.analyzer.get_equal_weighted_posterior()[:, :-1]
+        comp_parameters = [comp[0].parameters for comp in self.models]
+        self.param_samples = self._sort_identical_components(
+            self.param_samples, self.model_comps, comp_parameters
+        )
         if len(self.param_samples) > cfg.fitting['n_samples_max']:
             self.param_samples = self.param_samples[:cfg.fitting['n_samples_max']]
 
