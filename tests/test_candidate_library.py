@@ -40,6 +40,7 @@ def test_candidate_library_round_trips_compact_result(tmp_path):
     stored = library.commit(
         dataset, candidate, posterior,
         analysis={'chi_squared': 1.2},
+        analysis_arrays={'prediction': np.array([1.0, 2.0])},
         provenance={'sdf_revision': 'abc123'},
         completed_at='2026-08-12T00:00:00+00:00',
     )
@@ -49,6 +50,7 @@ def test_candidate_library_round_trips_compact_result(tmp_path):
     assert stored.metadata['analysis']['chi_squared'] == 1.2
     assert stored.metadata['provenance']['sdf_revision'] == 'abc123'
     assert stored.metadata['posterior']['evidence'] == 12.5
+    assert stored.analysis_arrays['prediction'].tolist() == [1.0, 2.0]
     assert np.array_equal(stored.posterior.samples, posterior.samples)
     assert np.array_equal(
         stored.posterior.log_likelihoods, posterior.log_likelihoods

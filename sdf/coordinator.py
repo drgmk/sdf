@@ -9,6 +9,7 @@ import subprocess
 import numpy as np
 
 from . import config as cfg
+from .analysis import FitAnalysis
 from .candidate_library import CandidateLibrary, FitSelection
 from .candidate_search import CandidateSearch
 from .dataset import FitDataset, canonical_fit_source
@@ -44,7 +45,7 @@ class FitCoordinator:
         output_base = str(work_directory / 'run_')
         posterior = self.sampler.run(problem, output_base)
         posterior = _cap_posterior(posterior, cfg.fitting['n_samples_max'])
-        analysis = _basic_analysis(problem, posterior)
+        analysis = FitAnalysis.run(problem, posterior)
         policy_payload = [
             asdict(item) if hasattr(item, '__dataclass_fields__') else item
             for item in policy
@@ -53,7 +54,8 @@ class FitCoordinator:
             dataset,
             candidate,
             posterior,
-            analysis=analysis,
+            analysis=analysis.summary,
+            analysis_arrays=analysis.arrays,
             policy={'targets': policy_payload},
             provenance=self.provenance,
             fit_state=fit_state,
@@ -183,19 +185,6 @@ def _cap_posterior(posterior, maximum):
         diagnostics=posterior.diagnostics,
         native_output=posterior.native_output,
     )
-
-
-def _basic_analysis(problem, posterior):
-    parameters = np.median(posterior.samples, axis=0)
-    residuals, wavelengths, filters = problem.residual(parameters)
-    return {
-        'best_parameters': dict(zip(problem.parameter_names, parameters)),
-        'chi_squared': float(np.sum(np.square(residuals))),
-        'n_residuals': int(len(residuals)),
-        'residuals': residuals,
-        'wavelength_micron': wavelengths,
-        'filters': filters,
-    }
 
 
 def _evidence(stored_candidate):

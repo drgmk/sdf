@@ -23,6 +23,7 @@ class StoredCandidate:
     path: Path
     metadata: dict
     posterior: PosteriorRun
+    analysis_arrays: dict[str, np.ndarray]
 
     @property
     def candidate_id(self):
@@ -65,7 +66,8 @@ class CandidateLibrary:
         self.fits_directory = self.package_directory / 'fits'
 
     def commit(self, dataset, candidate, posterior, *, analysis=None,
-               policy=None, provenance=None, fit_state=None,
+               analysis_arrays=None, policy=None, provenance=None,
+               fit_state=None,
                completed_at=None):
         """Atomically expose a completed candidate and compact posterior."""
 
@@ -85,6 +87,16 @@ class CandidateLibrary:
             arrays['log_likelihoods'] = posterior.log_likelihoods
         if posterior.weights is not None:
             arrays['weights'] = posterior.weights
+        for name, values in (analysis_arrays or {}).items():
+            values = np.asarray(values)
+            if values.dtype.hasobject:
+                try:
+                    values = values.astype(str)
+                except (TypeError, ValueError) as error:
+                    raise TypeError(
+                        'analysis array {} cannot use object dtype'.format(name)
+                    ) from error
+            arrays['analysis__' + name] = values
         _atomic_npz(posterior_path, arrays)
 
         metadata = {
@@ -124,6 +136,7 @@ class CandidateLibrary:
                 'diagnostics': posterior.diagnostics or {},
             },
             'analysis': analysis or {},
+            'analysis_arrays': sorted((analysis_arrays or {}).keys()),
             'policy': policy or {},
             'provenance': provenance or {},
         }
@@ -160,7 +173,13 @@ class CandidateLibrary:
                 options=posterior_meta['options'],
                 diagnostics=posterior_meta['diagnostics'],
             )
-        return StoredCandidate(candidate_directory, metadata, posterior)
+            analysis_arrays = {
+                name: arrays['analysis__' + name]
+                for name in metadata.get('analysis_arrays', ())
+            }
+        return StoredCandidate(
+            candidate_directory, metadata, posterior, analysis_arrays
+        )
 
     def candidates(self):
         """Return every complete artifact, ignoring interrupted directories."""
