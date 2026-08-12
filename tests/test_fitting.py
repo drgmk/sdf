@@ -21,3 +21,27 @@ def test_fitting_pmn_pc():
     samples=np.tile(np.arange(n)+1,(3,3,1))
     pc = sdf.fitting.pmn_pc(prob,samples,pcs,axis=2)
     assert(np.all(pc.T==np.tile(pcs,(3,3,1))))
+
+
+def test_concat_obs_keeps_filters_from_multiple_photometry_objects():
+    first = sdf.photometry.Photometry(
+        filters=np.array(['2MJ']),
+        fnujy=np.array([1.0]),
+        e_fnujy=np.array([0.1]),
+        upperlim=np.array([False]),
+        ignore=np.array([False]),
+        bibcode=np.array(['first']),
+    )
+    second = sdf.photometry.Photometry(
+        filters=np.array(['2MH']),
+        fnujy=np.array([2.0]),
+        e_fnujy=np.array([0.2]),
+        upperlim=np.array([False]),
+        ignore=np.array([False]),
+        bibcode=np.array(['second']),
+    )
+
+    values = sdf.fitting.concat_obs((first, second))
+
+    assert values[7].tolist() == ['2MJ', '2MH']
+    assert values[0].tolist() == [1.0, 2.0]

@@ -859,9 +859,16 @@ class ModelSpectrum(Spectrum):
         try:
             w, f = np.load(file+'.npy')
         except FileNotFoundError:
-            c = lambda s: s.decode().replace("D", "E")  # deal with fortran 1.0D+01
+            def fortran_float(value):
+                """Parse either NumPy's former bytes or current str input."""
+
+                if isinstance(value, bytes):
+                    value = value.decode()
+                return float(value.replace("D", "E"))
+
             w, f = np.loadtxt(file, dtype=float, usecols=(0, 1),
-                              converters={0: c, 1: c}, unpack=True)
+                              converters={0: fortran_float,
+                                          1: fortran_float}, unpack=True)
             np.save(file, [w, f])
         
         f = np.power(10, f)

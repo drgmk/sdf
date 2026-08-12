@@ -56,7 +56,10 @@ class BaseResult(object):
         self.path = os.path.dirname(rawphot)
         
         # id
-        self.id = os.path.basename(rawphot).rstrip('-rawphot.txt')
+        basename = os.path.basename(rawphot)
+        suffix = '-rawphot.txt'
+        self.id = basename[:-len(suffix)] if basename.endswith(suffix) \
+            else os.path.splitext(basename)[0]
 
         # where the multinest output is (or will be), create if needed
         self.pmn_dir = self.path + '/' + self.id            \

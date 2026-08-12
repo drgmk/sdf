@@ -40,3 +40,12 @@ def test_sort_rejects_different_parameters_for_same_model():
             np.zeros((1, 6)), ('disk', 'disk'),
             (('log_Temp', 'beta'), ('log_Temp',))
         )
+
+
+def test_result_id_removes_exact_rawphot_suffix(tmp_path):
+    rawphot = tmp_path / 'target-rawphot.txt'
+    rawphot.write_text('')
+
+    result = sdf.result.BaseResult(str(rawphot), ('phoenix_sol',))
+
+    assert result.id == 'target'

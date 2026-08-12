@@ -307,7 +307,7 @@ def concat_obs(o):
     for obs in o:
         if isinstance(obs, photometry.Photometry):
             obs_wav = np.append(obs_wav, obs.mean_wavelength())
-            obs_filt = np.append(obs_fnu, obs.filters)
+            obs_filt = np.append(obs_filt, obs.filters)
             obs_fnu = np.append(obs_fnu, obs.fnujy)
             obs_e_fnu = np.append(obs_e_fnu, obs.e_fnujy)
             obs_ispec = np.append(obs_ispec, np.repeat(-1, len(obs.filters)))
