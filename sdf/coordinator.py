@@ -10,7 +10,10 @@ import numpy as np
 
 from . import config as cfg
 from .candidate_library import CandidateLibrary, FitSelection
+from .candidate_search import CandidateSearch
+from .dataset import FitDataset, canonical_fit_source
 from .likelihood import FitProblem
+from .model_policy import resolve_package_policies
 from .samplers import MultiNestSampler, PosteriorRun
 
 
@@ -96,6 +99,22 @@ class FitCoordinator:
         results = tuple(
             fitted[key] for key in sorted(fitted)
         )
+        self._write_evidence_selection(results)
+        return results, tuple(sorted(roots))
+
+    def fit_all(self, dataset, candidates, policy=(), force=False):
+        """Fit an explicit/exhaustive candidate collection exactly once."""
+
+        results = tuple(
+            self.fit_candidate(
+                dataset, candidate, policy=policy, force=force
+            )
+            for candidate in candidates
+        )
+        self._write_evidence_selection(results)
+        return results
+
+    def _write_evidence_selection(self, results):
         ranked = tuple(
             result.candidate_id for result in sorted(
                 results, key=_evidence, reverse=True
@@ -105,7 +124,39 @@ class FitCoordinator:
             self.library.write_selection(FitSelection(
                 default=ranked[0], displayed=ranked
             ))
-        return results, tuple(sorted(roots))
+
+
+def fit_package(source, *, sampler=None, force=False, nospec=False,
+                provenance=None):
+    """Fit a discovered package using its resolved portable policy."""
+
+    source = canonical_fit_source(source)
+    dataset = FitDataset.from_path(source, nospec=nospec)
+    package_directory = source if source.is_dir() else source.parent
+    policies = resolve_package_policies(dataset, package_directory)
+    modes = {policy.search_mode for policy in policies}
+    if len(modes) != 1:
+        raise ValueError(
+            'all target policies in one package must use the same search mode'
+        )
+    mode = modes.pop()
+    search = CandidateSearch(policies)
+    coordinator = FitCoordinator(
+        package_directory, sampler=sampler, provenance=provenance
+    )
+    if mode == 'evidence-guided':
+        results, _ = coordinator.evidence_guided(
+            dataset, search, force=force
+        )
+        return results
+    if mode == 'exhaustive':
+        return coordinator.fit_all(
+            dataset, search.exhaustive(), policy=policies, force=force
+        )
+    raise ValueError(
+        '{} package fitting needs explicit candidate input, which is not '
+        'implemented yet'.format(mode)
+    )
 
 
 def _cap_posterior(posterior, maximum):

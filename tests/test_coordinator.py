@@ -4,6 +4,7 @@ import numpy as np
 
 from .context import sdf
 from .test_likelihood import _dataset
+from .test_dataset import _write_rawphot
 import sdf.candidate_search
 import sdf.coordinator
 import sdf.model_policy
@@ -96,3 +97,28 @@ def test_evidence_guided_search_expands_all_supported_siblings(tmp_path):
         if result.posterior.evidence == 7.0
     )
     assert len(selection.displayed) == 3
+
+
+def test_fit_package_loads_yaml_policy_and_runs_exhaustively(tmp_path):
+    _write_rawphot(
+        tmp_path / 'target-rawphot.txt',
+        sdbid='target', main_id='HD 123'
+    )
+    (tmp_path / 'joint-fit.yml').write_text(
+        'version: 1\nobservations: {}\n', encoding='utf-8'
+    )
+    (tmp_path / 'sdf-fit.yml').write_text(
+        'targets:\n'
+        '  HD 123:\n'
+        '    stellar_models: [kurucz-0.0]\n'
+        '    max_disks: 0\n'
+        '    search_mode: exhaustive\n',
+        encoding='utf-8',
+    )
+    sampler = FakeSampler()
+
+    results = sdf.coordinator.fit_package(tmp_path, sampler=sampler)
+
+    assert len(results) == 1
+    assert len(sampler.calls) == 1
+    assert results[0].metadata['policy']['targets'][0]['origin'] == 'package'

@@ -12,6 +12,8 @@ from sdf import tables
 from sdf import db
 from sdf import www
 from sdf import config as cfg
+from sdf.dataset import discover_fit_sources
+from sdf.coordinator import fit_package
 
 
 def sdf_fit():
@@ -61,14 +63,15 @@ def sdf_fit():
     
     # collect the files
     if args.file is not None:
-        files = args.file[0]
+        files = [path for group in args.file for path in group]
 
     elif args.dir is not None:
-        for d in args.dir[0]:
+        files = []
+        for d in (path for group in args.dir for path in group):
             d.rstrip('/')
-            files = glob.glob(os.path.abspath(d) + '/**/'
-                              + args.subset[0] + '/*-rawphot.txt',
-                              recursive=True)
+            files += glob.glob(os.path.abspath(d) + '/**/'
+                               + args.subset[0] + '/*-rawphot.txt',
+                               recursive=True)
 
     elif args.samples is not None:
         ids = []
@@ -79,20 +82,38 @@ def sdf_fit():
             files += glob.glob(cfg.file['sdb_root']+'masters/'
                                + id_ + '/**/*-rawphot.txt')
 
-    # one at a time, locking before we start
-    files.sort()
-    for f in files:
-        
-        lock = filelock.FileLock(os.path.dirname(os.path.abspath(f))
-                                 + '/.sdf_lock-'
-                                 + os.path.basename(f))
+    # Joint-package member files collapse to one package-level fit. Ordinary
+    # rawphot files remain independent and keep the existing Result workflow.
+    sources = discover_fit_sources(files)
+    for source in sources:
+        source = os.fspath(source)
+        is_joint = os.path.isdir(source)
+        if is_joint:
+            lock_path = os.path.join(source, '.sdf_lock')
+        else:
+            lock_path = os.path.dirname(os.path.abspath(source)) \
+                + '/.sdf_lock-' + os.path.basename(source)
+        lock = filelock.FileLock(lock_path)
         try:
             with lock.acquire(timeout=0):
-                
-                print(f)
+                print(source)
+
+                if is_joint:
+                    if args.www or args.update_www or \
+                            args.dbwrite or args.update_db:
+                        raise NotImplementedError(
+                            'joint-fit web/database output will follow the '
+                            'hierarchy-aware analysis layer'
+                        )
+                    fit_package(
+                        source,
+                        force=args.update_all,
+                        nospec=args.no_spectra,
+                    )
+                    continue
 
                 # evidence-sorted list of results
-                results = fitting.fit_results(os.path.abspath(f),
+                results = fitting.fit_results(os.path.abspath(source),
                                               update_mn=args.update_all,
                                               update_an=args.update_analysis,
                                               update_json=args.update_json,
