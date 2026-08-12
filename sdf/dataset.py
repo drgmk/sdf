@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
+import yaml
 
 from . import photometry
 from . import spectrum
@@ -71,23 +73,10 @@ class FitDataset:
     def from_rawphot(cls, rawphot, nospec=False):
         """Load the ordinary one-file/self-mapped form of a fit dataset."""
 
-        rawphot = os.path.abspath(os.fspath(rawphot))
-        observed_photometry = photometry.Photometry.read_sdb_file(rawphot)
-        if observed_photometry is None:
+        loaded = _load_rawphot(rawphot, nospec=nospec)
+        if loaded is None:
             return None
-        if np.all(observed_photometry.ignore):
-            return None
-
-        keywords = utils.get_sdb_keywords(rawphot)
-        target = TargetIdentity.from_keywords(keywords, source=rawphot)
-        observed_spectra = ()
-        if not nospec:
-            values = spectrum.ObsSpectrum.read_sdb_file(
-                rawphot, module_split=True
-            )
-            if values is not None:
-                observed_spectra = tuple(values)
-
+        target, rawphot, observed_photometry, observed_spectra = loaded
         observation_id = target.sdbid or target.main_id or target.key
         observation = Observation(
             observation_id=observation_id,
@@ -98,6 +87,78 @@ class FitDataset:
             spectra=observed_spectra,
         )
         return cls(targets=(target,), observations=(observation,))
+
+    @classmethod
+    def from_package(cls, directory, nospec=False):
+        """Load rawphot files and topology from a joint-fit package."""
+
+        directory = Path(directory).expanduser().resolve()
+        topology_path = directory / 'joint-fit.yml'
+        if not topology_path.is_file():
+            raise utils.SdfError(
+                'joint-fit.yml not found in {}'.format(directory)
+            )
+        topology = _read_joint_fit(topology_path)
+
+        loaded_by_id = {}
+        for rawphot in sorted(directory.glob('*-rawphot.txt')):
+            loaded = _load_rawphot(rawphot, nospec=nospec)
+            if loaded is None:
+                raise utils.SdfError(
+                    'joint observation {} has no usable photometry'.
+                    format(rawphot)
+                )
+            target, source, observed_photometry, observed_spectra = loaded
+            observation_id = target.sdbid or target.main_id or target.key
+            if observation_id in loaded_by_id:
+                raise utils.SdfError(
+                    'duplicate joint observation id {}'.format(observation_id)
+                )
+            loaded_by_id[observation_id] = (
+                target, source, observed_photometry, observed_spectra
+            )
+
+        if not loaded_by_id:
+            raise utils.SdfError(
+                'no *-rawphot.txt files found in {}'.format(directory)
+            )
+
+        referenced = set(topology)
+        for contributors in topology.values():
+            referenced.update(contributors)
+        missing = referenced - set(loaded_by_id)
+        if missing:
+            raise utils.SdfError(
+                'joint-fit.yml references missing observations: {}'.
+                format(', '.join(sorted(missing)))
+            )
+
+        observations = []
+        physical_targets = {}
+        for observation_id in sorted(loaded_by_id):
+            target, source, observed_photometry, observed_spectra = \
+                loaded_by_id[observation_id]
+            contributor_ids = topology.get(observation_id, (observation_id,))
+            contributor_keys = []
+            for contributor_id in contributor_ids:
+                contributor = loaded_by_id[contributor_id][0]
+                physical_targets[contributor.key] = contributor
+                contributor_keys.append(contributor.key)
+            observations.append(Observation(
+                observation_id=observation_id,
+                source=source,
+                target_key=target.key,
+                contributor_keys=tuple(contributor_keys),
+                photometry=observed_photometry,
+                spectra=observed_spectra,
+            ))
+
+        return cls(
+            targets=tuple(
+                physical_targets[key] for key in sorted(physical_targets)
+            ),
+            observations=tuple(observations),
+        )
 
     @property
     def data(self):
@@ -118,6 +179,33 @@ class FitDataset:
             )
         return self.targets[0].keywords
 
+    def component_projection(self, candidate):
+        """Map each flattened observation object to visible model owners."""
+
+        target_keys = {target.key for target in self.targets}
+        unknown = {
+            component.owner_key for component in candidate.components
+        } - target_keys
+        if unknown:
+            raise utils.SdfError(
+                'candidate has unknown target owners: {}'.
+                format(', '.join(sorted(unknown)))
+            )
+
+        rows = []
+        for observation in self.observations:
+            row = [
+                component.owner_key in observation.contributor_keys
+                for component in candidate.components
+            ]
+            if not any(row):
+                raise utils.SdfError(
+                    'candidate has no model component visible to {}'.
+                    format(observation.observation_id)
+                )
+            rows.extend([row] * len(observation.data))
+        return np.asarray(rows, dtype=bool)
+
 
 def _clean_keyword(value):
     if value is None:
@@ -126,3 +214,59 @@ def _clean_keyword(value):
     if value in ('', 'None'):
         return None
     return value
+
+
+def _load_rawphot(rawphot, nospec=False):
+    rawphot = os.path.abspath(os.fspath(rawphot))
+    observed_photometry = photometry.Photometry.read_sdb_file(rawphot)
+    if observed_photometry is None or np.all(observed_photometry.ignore):
+        return None
+
+    keywords = utils.get_sdb_keywords(rawphot)
+    target = TargetIdentity.from_keywords(keywords, source=rawphot)
+    observed_spectra = ()
+    if not nospec:
+        values = spectrum.ObsSpectrum.read_sdb_file(
+            rawphot, module_split=True
+        )
+        if values is not None:
+            observed_spectra = tuple(values)
+    return target, rawphot, observed_photometry, observed_spectra
+
+
+def _read_joint_fit(path):
+    try:
+        payload = yaml.safe_load(path.read_text(encoding='utf-8'))
+    except (OSError, yaml.YAMLError) as error:
+        raise utils.SdfError(
+            'could not read {}: {}'.format(path, error)
+        ) from error
+    if not isinstance(payload, dict):
+        raise utils.SdfError('joint-fit.yml must contain a mapping')
+    if set(payload) - {'version', 'observations'}:
+        raise utils.SdfError('joint-fit.yml contains unknown keys')
+    if payload.get('version') != 1:
+        raise utils.SdfError(
+            'unsupported joint-fit version {}'.format(payload.get('version'))
+        )
+    mappings = payload.get('observations')
+    if not isinstance(mappings, dict):
+        raise utils.SdfError('joint-fit observations must be a mapping')
+
+    normalized = {}
+    for observation_id, contributors in mappings.items():
+        if not isinstance(observation_id, str) or not observation_id.strip():
+            raise utils.SdfError('joint observation ids must be strings')
+        if (not isinstance(contributors, list) or not contributors or
+                any(not isinstance(value, str) or not value.strip()
+                    for value in contributors)):
+            raise utils.SdfError(
+                'contributors for {} must be a non-empty list of strings'.
+                format(observation_id)
+            )
+        if len(set(contributors)) != len(contributors):
+            raise utils.SdfError(
+                'observation {} repeats a contributor'.format(observation_id)
+            )
+        normalized[observation_id] = tuple(contributors)
+    return normalized

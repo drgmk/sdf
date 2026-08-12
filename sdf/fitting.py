@@ -328,7 +328,7 @@ def concat_obs(o):
             obs_nel, obs_wav, obs_filt, obs_bibcode)
 
 
-def residual(param, *args):
+def residual(param, *args, projection=None):
     """Return residuals for a model compared to observation.
         
     The structure of the observation and models needs to
@@ -370,7 +370,9 @@ def residual(param, *args):
     obs_e_fnu = obs_e_fnu * spec_norm
 
     # get model fluxes, including filling of colours/indices
-    mod_fnu, _ = model.model_fluxes(m, param, obs_nel)
+    mod_fnu, _ = model.model_fluxes(
+        m, param, obs_nel, projection=projection
+    )
 
     # residuals in significance units, setting zero where (photometry)
     # is to be ignored, and for upper limits (but amended below)

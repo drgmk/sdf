@@ -29,9 +29,17 @@ class ModelCandidate:
     def for_single_target(cls, target_key, model_names):
         """Describe a legacy tuple of model names with explicit ownership."""
 
+        return cls.from_owned_models(
+            (target_key, model_name) for model_name in tuple(model_names)
+        )
+
+    @classmethod
+    def from_owned_models(cls, owned_models):
+        """Describe an ordered set of `(target_key, model_name)` pairs."""
+
         counts = {}
         components = []
-        for model_name in tuple(model_names):
+        for target_key, model_name in tuple(owned_models):
             if model_name in cfg.models['star']:
                 role = 'stellar'
             elif model_name in cfg.models['disk']:
@@ -41,7 +49,7 @@ class ModelCandidate:
                     "couldn't assign model {} to a stellar or disk role".
                     format(model_name)
                 )
-            key = (role, model_name)
+            key = (target_key, role, model_name)
             counts[key] = counts.get(key, 0) + 1
             ordinal = counts[key]
             components.append(ModelComponentSpec(

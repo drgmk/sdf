@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from .context import sdf
 import sdf.dataset
@@ -66,3 +67,68 @@ def test_fit_problem_wraps_existing_single_target_likelihood():
     assert problem.log_likelihood(parameters) == sdf.fitting.lnlike(
         parameters, problem.observations, problem.models
     )
+
+
+def test_joint_projection_adds_only_visible_target_models():
+    cached_model = sdf.model.PhotModel.read_model('kurucz-0.0')
+    filter_name = next(
+        name for name, bases in zip(
+            cached_model.filters, cached_model.colour_bases
+        ) if len(bases) == 0
+    )
+    targets = tuple(
+        sdf.dataset.TargetIdentity(
+            key='simbad:' + name, main_id=name, sdbid=name, keywords={}
+        )
+        for name in ('A', 'B')
+    )
+
+    def observation(observation_id, contributors):
+        photometry = sdf.photometry.Photometry(
+            filters=np.array([filter_name]),
+            fnujy=np.array([1.0]),
+            e_fnujy=np.array([0.1]),
+            upperlim=np.array([False]),
+            ignore=np.array([False]),
+            bibcode=np.array(['test']),
+        )
+        return sdf.dataset.Observation(
+            observation_id=observation_id,
+            source='/tmp/{}-rawphot.txt'.format(observation_id),
+            target_key='simbad:' + observation_id,
+            contributor_keys=tuple(
+                'simbad:' + contributor for contributor in contributors
+            ),
+            photometry=photometry,
+        )
+
+    dataset = sdf.dataset.FitDataset(
+        targets=targets,
+        observations=(
+            observation('A', ('A',)),
+            observation('B', ('B',)),
+            observation('AB', ('A', 'B')),
+        ),
+    )
+    candidate = sdf.model_selection.ModelCandidate.from_owned_models((
+        ('simbad:A', 'kurucz-0.0'),
+        ('simbad:B', 'kurucz-0.0'),
+    ))
+
+    problem = sdf.likelihood.FitProblem.compile(dataset, candidate)
+    parameters = problem.transform_prior(np.repeat(0.5, problem.ndim))
+    _, _, _, _, _, obs_nel, _, _, _ = sdf.fitting.concat_obs(
+        problem.observations
+    )
+    model_flux, component_flux = sdf.model.model_fluxes(
+        problem.models, parameters, obs_nel,
+        projection=problem.projection,
+    )
+
+    assert problem.projection.tolist() == [
+        [True, False], [False, True], [True, True]
+    ]
+    assert [component.ordinal for component in candidate.components] == [1, 1]
+    assert component_flux[0, 1] == 0.0
+    assert component_flux[1, 0] == 0.0
+    assert model_flux[2] == pytest.approx(model_flux[0] + model_flux[1])

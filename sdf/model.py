@@ -935,7 +935,7 @@ class SpecModel(Model):
         self.fill_log_fnujy_sr_hashed()
 
 
-def model_fluxes(m, param, obs_nel, phot_only=False):
+def model_fluxes(m, param, obs_nel, phot_only=False, projection=None):
     """Get model fluxes and put in arrays.
     
     all_fnu is everything added up, with colours/indices added properly,
@@ -943,31 +943,49 @@ def model_fluxes(m, param, obs_nel, phot_only=False):
     comp_fnu_col[i] contains these with colours computed.
     """
     
+    n_observations = len(m[0]) if isinstance(m[0], tuple) else 1
+    if projection is None:
+        projection = np.ones((n_observations, len(m)), dtype=bool)
+    projection = np.asarray(projection, dtype=bool)
+    if projection.shape != (n_observations, len(m)):
+        raise utils.SdfError(
+            'component projection has shape {}, expected {}'.format(
+                projection.shape, (n_observations, len(m))
+            )
+        )
+
     comp_fnu = []
     all_fnu = []
     i0 = 0
     # loop over model components
-    for comp in m:
+    for component_index, comp in enumerate(m):
         # loop over phot/spectra for this component if they exist
         if not isinstance(comp, tuple):
             comp = (comp, )
         flux = np.array([])
+        projected_flux = np.array([])
         # params same for all in each component
         nparam = len(comp[0].parameters)+1
-        for mod in comp:
+        for observation_index, mod in enumerate(comp):
             if phot_only:
                 if not isinstance(mod, PhotModel):
                     continue
             fnu = mod.fnujy(param[i0:i0+nparam])
             flux = np.append(flux, fnu)
+            if projection[observation_index, component_index]:
+                projected_flux = np.append(projected_flux, fnu)
+            else:
+                projected_flux = np.append(
+                    projected_flux, np.zeros_like(fnu)
+                )
         
         # since we don't know how long all_fnu will be, make sure
         # comp_fnu has first dimension equal number of components 
         if len(all_fnu) == 0:
-            all_fnu = flux
+            all_fnu = projected_flux
             comp_fnu = np.array([flux])
         else:
-            all_fnu += flux
+            all_fnu += projected_flux
             comp_fnu = np.vstack((comp_fnu, flux))
         i0 += nparam
     
@@ -976,6 +994,10 @@ def model_fluxes(m, param, obs_nel, phot_only=False):
     comp_fnu_col = np.zeros((len(comp_fnu), len(mod_fnu)))
     for i, fnu in enumerate(comp_fnu):
         comp_fnu_col[i] = fill_colours(m[0], fnu, obs_nel)
+        visible = np.repeat(
+            projection[:, i], np.asarray(obs_nel, dtype=int)
+        )
+        comp_fnu_col[i, np.invert(visible)] = 0.0
 
     return mod_fnu, comp_fnu_col
 

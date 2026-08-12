@@ -14,7 +14,7 @@ setup(
         'astropy', 'bokeh', 'corner',
         'extinction', 'emcee', 'filelock', 'bleach',
         'jinja2', 'matplotlib', 'mysql-connector-python', 'numpy',
-        'pymultinest', 'pytest', 'requests', 'scipy'
+        'pymultinest', 'pytest', 'PyYAML', 'requests', 'scipy'
         ],
     include_package_data=True,
     entry_points={

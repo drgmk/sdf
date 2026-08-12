@@ -1,19 +1,21 @@
 import numpy as np
+import pytest
 from astropy.table import Table
 
 from .context import sdf
 import sdf.dataset
 
 
-def _write_rawphot(path):
+def _write_rawphot(path, sdbid='sdbid-v3-test', main_id='HD  123',
+                   flux=1.0):
     table = Table(
-        rows=[('2MJ', 1.0, 0.1, 0.0, 0, 'Jy', 'test', 'note', 0)],
+        rows=[('2MJ', flux, 0.1, 0.0, 0, 'Jy', 'test', 'note', 0)],
         names=('Band', 'Phot', 'Err', 'Sys', 'Lim', 'Unit', 'bibcode',
                'Note1', 'exclude'),
     )
     table.meta['keywords'] = {
-        'id': {'value': 'sdbid-v3-test'},
-        'main_id': {'value': 'HD  123'},
+        'id': {'value': sdbid},
+        'main_id': {'value': main_id},
         'sp_type': {'value': 'G2V'},
     }
     table.write(path, format='ascii.ipac')
@@ -41,3 +43,48 @@ def test_target_identity_falls_back_to_sdbid():
 
     assert identity.key == 'sdb:sdb-test'
     assert identity.main_id is None
+
+
+def test_joint_package_resolves_observations_to_physical_targets(tmp_path):
+    _write_rawphot(
+        tmp_path / 'AB-rawphot.txt', sdbid='AB', main_id='HD  123'
+    )
+    _write_rawphot(
+        tmp_path / 'B-rawphot.txt', sdbid='B', main_id='HD  123 B'
+    )
+    _write_rawphot(
+        tmp_path / 'A-rawphot.txt', sdbid='A', main_id='HD  123 A'
+    )
+    (tmp_path / 'joint-fit.yml').write_text(
+        'version: 1\nobservations:\n  AB:\n    - A\n    - B\n',
+        encoding='utf-8',
+    )
+
+    dataset = sdf.dataset.FitDataset.from_package(tmp_path)
+
+    assert [target.key for target in dataset.targets] == [
+        'simbad:HD 123 A', 'simbad:HD 123 B'
+    ]
+    observations = {
+        observation.observation_id: observation
+        for observation in dataset.observations
+    }
+    assert observations['A'].contributor_keys == ('simbad:HD 123 A',)
+    assert observations['B'].contributor_keys == ('simbad:HD 123 B',)
+    assert observations['AB'].contributor_keys == (
+        'simbad:HD 123 A', 'simbad:HD 123 B'
+    )
+    assert observations['AB'].target_key == 'simbad:HD 123'
+
+
+def test_joint_package_rejects_missing_contributor(tmp_path):
+    _write_rawphot(
+        tmp_path / 'AB-rawphot.txt', sdbid='AB', main_id='HD  123'
+    )
+    (tmp_path / 'joint-fit.yml').write_text(
+        'version: 1\nobservations:\n  AB:\n    - A\n',
+        encoding='utf-8',
+    )
+
+    with pytest.raises(sdf.utils.SdfError, match='missing observations: A'):
+        sdf.dataset.FitDataset.from_package(tmp_path)

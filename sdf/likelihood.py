@@ -19,6 +19,7 @@ class FitProblem:
     models: tuple
     plot_models: tuple
     model_info: dict
+    projection: np.ndarray
 
     @classmethod
     def compile(cls, dataset, candidate):
@@ -33,6 +34,7 @@ class FitProblem:
             models=models,
             plot_models=plot_models,
             model_info=model.models_info(models),
+            projection=dataset.component_projection(candidate),
         )
 
     @classmethod
@@ -46,6 +48,9 @@ class FitProblem:
             models=tuple(models),
             plot_models=(),
             model_info=model.models_info(models),
+            projection=np.ones(
+                (len(observations), len(models)), dtype=bool
+            ),
         )
 
     @property
@@ -67,7 +72,10 @@ class FitProblem:
     def residual(self, parameters):
         from . import fitting
 
-        return fitting.residual(parameters, self.observations, self.models)
+        return fitting.residual(
+            parameters, self.observations, self.models,
+            projection=self.projection
+        )
 
     def chi_squared(self, parameters):
         residuals, _, _ = self.residual(parameters)
