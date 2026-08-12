@@ -160,6 +160,15 @@ class FitDataset:
             observations=tuple(observations),
         )
 
+    @classmethod
+    def from_path(cls, source, nospec=False):
+        """Load a rawphot file or its containing joint package."""
+
+        source = canonical_fit_source(source)
+        if source.is_dir():
+            return cls.from_package(source, nospec=nospec)
+        return cls.from_rawphot(source, nospec=nospec)
+
     @property
     def data(self):
         """Flatten observations into the tuple consumed by legacy fitting."""
@@ -214,6 +223,48 @@ def _clean_keyword(value):
     if value in ('', 'None'):
         return None
     return value
+
+
+def canonical_fit_source(source):
+    """Resolve any member of a joint package to the package directory."""
+
+    source = Path(source).expanduser().resolve()
+    if not source.exists():
+        raise utils.SdfError('fit input does not exist: {}'.format(source))
+    if source.is_dir():
+        if (source / 'joint-fit.yml').is_file():
+            return source
+        rawphot = sorted(source.glob('*-rawphot.txt'))
+        if len(rawphot) == 1:
+            return rawphot[0]
+        raise utils.SdfError(
+            '{} is not a joint package and contains {} rawphot files'.format(
+                source, len(rawphot)
+            )
+        )
+    if not source.name.endswith('-rawphot.txt'):
+        raise utils.SdfError(
+            'fit input is not a rawphot file: {}'.format(source)
+        )
+    if (source.parent / 'joint-fit.yml').is_file():
+        return source.parent
+    return source
+
+
+def discover_fit_sources(paths):
+    """Expand paths and deduplicate joint packages across member files."""
+
+    sources = {}
+    for value in paths:
+        path = Path(value).expanduser().resolve()
+        if path.is_dir() and not (path / 'joint-fit.yml').is_file():
+            candidates = path.rglob('*-rawphot.txt')
+        else:
+            candidates = (path,)
+        for candidate in candidates:
+            source = canonical_fit_source(candidate)
+            sources[str(source)] = source
+    return tuple(sources[key] for key in sorted(sources))
 
 
 def _load_rawphot(rawphot, nospec=False):

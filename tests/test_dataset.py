@@ -88,3 +88,42 @@ def test_joint_package_rejects_missing_contributor(tmp_path):
 
     with pytest.raises(sdf.utils.SdfError, match='missing observations: A'):
         sdf.dataset.FitDataset.from_package(tmp_path)
+
+
+def test_joint_member_path_discovers_whole_package_once(tmp_path):
+    _write_rawphot(
+        tmp_path / 'AB-rawphot.txt', sdbid='AB', main_id='HD 123'
+    )
+    _write_rawphot(
+        tmp_path / 'A-rawphot.txt', sdbid='A', main_id='HD 123 A'
+    )
+    (tmp_path / 'joint-fit.yml').write_text(
+        'version: 1\nobservations:\n  AB:\n    - A\n',
+        encoding='utf-8',
+    )
+
+    sources = sdf.dataset.discover_fit_sources((
+        tmp_path / 'AB-rawphot.txt',
+        tmp_path / 'A-rawphot.txt',
+        tmp_path,
+    ))
+    dataset = sdf.dataset.FitDataset.from_path(
+        tmp_path / 'AB-rawphot.txt'
+    )
+
+    assert sources == (tmp_path.resolve(),)
+    assert len(dataset.observations) == 2
+    assert len(dataset.targets) == 1
+
+
+def test_ordinary_directory_with_multiple_files_is_not_one_dataset(tmp_path):
+    _write_rawphot(tmp_path / 'one-rawphot.txt', sdbid='one')
+    _write_rawphot(tmp_path / 'two-rawphot.txt', sdbid='two')
+
+    with pytest.raises(sdf.utils.SdfError, match='contains 2 rawphot files'):
+        sdf.dataset.FitDataset.from_path(tmp_path)
+
+    assert sdf.dataset.discover_fit_sources((tmp_path,)) == (
+        (tmp_path / 'one-rawphot.txt').resolve(),
+        (tmp_path / 'two-rawphot.txt').resolve(),
+    )

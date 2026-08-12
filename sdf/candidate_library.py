@@ -28,8 +28,14 @@ class StoredCandidate:
     def candidate_id(self):
         return self.metadata['candidate_id']
 
-    def is_current(self, dataset):
-        return self.metadata['input_fingerprint'] == input_fingerprint(dataset)
+    def is_current(self, dataset, fit_state=None):
+        if self.metadata['input_fingerprint'] != input_fingerprint(dataset):
+            return False
+        if fit_state is None:
+            return True
+        return self.metadata.get('fit_fingerprint') == fit_fingerprint(
+            fit_state
+        )
 
 
 @dataclass(frozen=True)
@@ -59,7 +65,8 @@ class CandidateLibrary:
         self.fits_directory = self.package_directory / 'fits'
 
     def commit(self, dataset, candidate, posterior, *, analysis=None,
-               policy=None, provenance=None, completed_at=None):
+               policy=None, provenance=None, fit_state=None,
+               completed_at=None):
         """Atomically expose a completed candidate and compact posterior."""
 
         if not isinstance(candidate, ModelCandidate):
@@ -84,6 +91,7 @@ class CandidateLibrary:
             'candidate_id': candidate.canonical_id,
             'display_name': candidate.candidate_id,
             'input_fingerprint': input_fingerprint(dataset),
+            'fit_fingerprint': fit_fingerprint(fit_state or {}),
             'completed_at': completed_at or datetime.now(
                 timezone.utc
             ).isoformat(),
@@ -164,6 +172,14 @@ class CandidateLibrary:
             for path in sorted(self.fits_directory.glob('*/result.json'))
         )
 
+    def find(self, candidate_id):
+        """Return a retained candidate by canonical ID, if present."""
+
+        for candidate in self.candidates():
+            if candidate.candidate_id == candidate_id:
+                return candidate
+        return None
+
     def write_selection(self, selection):
         """Atomically update the cheap mutable display/default choice."""
 
@@ -211,6 +227,16 @@ def input_fingerprint(dataset):
         digest.update(path.read_bytes())
         digest.update(b'\0')
     return digest.hexdigest()
+
+
+def fit_fingerprint(fit_state):
+    """Hash material numerical settings independently of display policy."""
+
+    encoded = json.dumps(
+        fit_state, sort_keys=True, separators=(',', ':'),
+        default=_json_default
+    ).encode('utf-8')
+    return sha256(encoded).hexdigest()
 
 
 def _posterior_fingerprint(posterior):
