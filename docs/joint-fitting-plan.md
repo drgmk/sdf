@@ -23,6 +23,15 @@ from the smaller display selection that downstream users normally see.  Each
 candidate should record the SDF code state, model grids, fit configuration,
 and input state so that it can be understood and its analysis regenerated.
 
+Implementation is underway on `codex/joint-fitting`. The branch now has the
+dataset/candidate/problem boundaries, local MultiNest callbacks, joint-package
+discovery and projections, compact candidate artifacts, SIMBAD-keyed portable
+policy, deterministic candidate search, orchestration, and an initial
+hierarchy-aware analysis layer. Single-file fitting still follows the legacy
+facade. The main remaining vertical slice is joint plotting/HTML and indexing
+for the operator/downstream workflow; see `joint-fitting.md` for the runnable
+development interface and current boundary.
+
 The SDB export contract remains deliberately small:
 
 ```yaml
