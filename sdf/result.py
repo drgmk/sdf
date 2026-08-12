@@ -19,6 +19,10 @@ from . import filter
 from . import fitting
 from . import plotting
 from . import utils
+from .dataset import FitDataset
+from .likelihood import FitProblem
+from .model_selection import ModelCandidate
+from .samplers import MultiNestSampler
 from . import config as cfg
 
 matplotlib.use('agg')  # avoid memory leak with GUI based version
@@ -94,29 +98,29 @@ class BaseResult(object):
             Don't include any spectra when reading in the observations.
         """
 
-        # observations; keywords, tuples of photometry and spectra. if
-        # there is nothing in the photometry file then don't fill
-        # anything else
-        p = photometry.Photometry.read_sdb_file(self.rawphot)
-        if p is None:
-            return
-        elif np.sum(p.ignore) == p.nphot:
+        # Load the one-file form through the same dataset abstraction that
+        # joint packages will use.  If there is no usable photometry, stop.
+        self.dataset = FitDataset.from_rawphot(
+            self.rawphot, nospec=nospec
+        )
+        if self.dataset is None:
             return
 
-        self.obs = (p, )
-        self.obs_keywords = utils.get_sdb_keywords(self.rawphot)
+        self.obs = self.dataset.data
+        self.obs_keywords = self.dataset.primary_keywords
         self.exclude_spectra = nospec
-        if not nospec:
-            s = spectrum.ObsSpectrum.read_sdb_file(self.rawphot,
-                                                   module_split=True)
-            if s is not None:
-                self.obs = (p, ) + s
 
-        # models
-        mod, plmod = model.get_models(self.obs, self.model_comps)
-        self.models = mod
-        self.pl_models = plmod
-        self.model_info = model.models_info(self.models)
+        # Compile explicit component ownership and the existing numerical
+        # models/likelihood into a sampler-independent fitting problem.
+        self.model_candidate = ModelCandidate.for_single_target(
+            self.dataset.targets[0].key, self.model_comps
+        )
+        self.fit_problem = FitProblem.compile(
+            self.dataset, self.model_candidate
+        )
+        self.models = self.fit_problem.models
+        self.pl_models = self.fit_problem.plot_models
+        self.model_info = self.fit_problem.model_info
 
     def fill_observations(self):
         """Fill observed attributes.
@@ -753,7 +757,9 @@ class Result(SampledResult):
         
         # we must go there, multinest only takes 100 char paths
         with utils.pushd(self.pmn_dir):
-            fitting.multinest(self.obs, self.models, '.')
+            output_base = './' + self.model_info['name'] \
+                + cfg.fitting['pmn_model_suffix']
+            MultiNestSampler().run(self.fit_problem, output_base)
             self.mn_time = os.path.getmtime(self.pmn_base+'phys_live.points')
 
     def get_multinest_results(self, update_mn_a=False):
