@@ -12,6 +12,8 @@ from . import config as cfg
 from . import fitting
 from . import model
 
+ANALYSIS_SCHEMA = 2
+
 
 @dataclass(frozen=True)
 class FitAnalysis:
@@ -58,7 +60,11 @@ class FitAnalysis:
         component_prediction = np.percentile(
             component_samples, (16.0, 50.0, 84.0), axis=0
         )
+        spectrum_wavelength, component_spectrum = _median_component_spectra(
+            problem, median_parameters
+        )
         summary = {
+            'schema': ANALYSIS_SCHEMA,
             'parameters': parameter_summary,
             'chi_squared': float(np.sum(np.square(residuals))),
             'n_residuals': int(len(residuals)),
@@ -79,9 +85,37 @@ class FitAnalysis:
             'component_prediction_p16': component_prediction[0],
             'component_prediction_median': component_prediction[1],
             'component_prediction_p84': component_prediction[2],
+            'spectrum_wavelength_micron': spectrum_wavelength,
+            'component_spectrum_median': component_spectrum,
             'residual': residuals,
         }
         return cls(summary=summary, arrays=arrays)
+
+
+def _median_component_spectra(problem, parameters):
+    wavelength = np.asarray(cfg.models['default_wave'], dtype=float)
+    spectra = np.zeros((len(problem.candidate.components), len(wavelength)))
+    offset = 0
+    for index, component_models in enumerate(problem.plot_models):
+        spectral_model = next(
+            (value for value in component_models
+             if isinstance(value, model.SpecModel)),
+            None,
+        )
+        if spectral_model is None:
+            raise ValueError(
+                'component {} has no spectral model'.format(index)
+            )
+        width = len(spectral_model.parameters) + 1
+        if (len(spectral_model.wavelength) != len(wavelength) or
+                not np.array_equal(spectral_model.wavelength, wavelength)):
+            spectral_model = spectral_model.copy()
+            spectral_model.interp_to_wavelengths(wavelength)
+        spectra[index] = spectral_model.fnujy(
+            parameters[offset:offset + width]
+        )
+        offset += width
+    return wavelength, spectra
 
 
 def _component_summaries(problem, samples):

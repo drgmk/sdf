@@ -75,6 +75,12 @@ def test_joint_analysis_uses_each_stellar_owners_parallax():
         'element_stop': 1,
     }
     assert analysis.arrays['component_prediction_median'].shape == (2, 1)
+    assert analysis.summary['schema'] == sdf.analysis.ANALYSIS_SCHEMA
+    assert analysis.arrays['component_spectrum_median'].shape[0] == 2
+    assert analysis.arrays['component_spectrum_median'].shape[1] == len(
+        analysis.arrays['spectrum_wavelength_micron']
+    )
+    assert np.all(analysis.arrays['component_spectrum_median'] > 0)
 
 
 def test_disk_analysis_uses_only_its_owner_stellar_luminosity():

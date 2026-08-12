@@ -73,6 +73,27 @@ def test_coordinator_commits_then_reuses_current_candidate(tmp_path):
     assert '/fits/.work/' in sampler.calls[0][2]
 
 
+def test_coordinator_reanalyses_old_candidate_without_resampling(tmp_path):
+    dataset = _fit_dataset(tmp_path)
+    candidate = sdf.model_selection.ModelCandidate.for_single_target(
+        dataset.targets[0].key, ('kurucz-0.0',)
+    )
+    sampler = FakeSampler()
+    coordinator = sdf.coordinator.FitCoordinator(tmp_path, sampler=sampler)
+    first = coordinator.fit_candidate(dataset, candidate)
+    result_path = first.path / 'result.json'
+    payload = result_path.read_text(encoding='utf-8').replace(
+        '"schema": 2', '"schema": 1'
+    )
+    result_path.write_text(payload, encoding='utf-8')
+
+    refreshed = coordinator.fit_candidate(dataset, candidate)
+
+    assert len(sampler.calls) == 1
+    assert refreshed.metadata['analysis']['schema'] == 2
+    assert 'component_spectrum_median' in refreshed.analysis_arrays
+
+
 def test_evidence_guided_search_expands_all_supported_siblings(tmp_path):
     dataset = _fit_dataset(tmp_path)
     policy = sdf.model_policy.TargetModelPolicy(

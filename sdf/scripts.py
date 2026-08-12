@@ -14,6 +14,7 @@ from sdf import www
 from sdf import config as cfg
 from sdf.dataset import discover_fit_sources
 from sdf.coordinator import fit_package
+from sdf.joint_plotting import write_joint_results_page
 
 
 def sdf_fit():
@@ -110,6 +111,7 @@ def sdf_fit():
                         force=args.update_all,
                         nospec=args.no_spectra,
                     )
+                    write_joint_results_page(source)
                     continue
 
                 # evidence-sorted list of results
