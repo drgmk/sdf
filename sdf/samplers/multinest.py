@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import os
 import numpy as np
 
 from .base import PosteriorRun, SamplerCapabilities
 from .. import config as cfg
+from .. import utils
 
 
 class MultiNestSampler:
@@ -17,6 +19,14 @@ class MultiNestSampler:
 
     def run(self, problem, outputfiles_basename):
         """Run MultiNest and return compact sampler-neutral output."""
+
+        longest_output_name = outputfiles_basename + 'post_equal_weights.dat'
+        if len(os.fsencode(longest_output_name)) >= 100:
+            raise utils.SdfError(
+                'MultiNest output basename is too long for its Fortran '
+                'filenames; change into the output directory and use a short '
+                'relative basename'
+            )
 
         import pymultinest
 

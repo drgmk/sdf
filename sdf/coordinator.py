@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 import subprocess
 
 import numpy as np
 
 from . import config as cfg
+from . import utils
 from .analysis import FitAnalysis
 from .candidate_library import CandidateLibrary, FitSelection
 from .candidate_search import CandidateSearch
@@ -42,8 +43,19 @@ class FitCoordinator:
         work_name = candidate.storage_name.rsplit('--', 1)[-1]
         work_directory = self.library.fits_directory / '.work' / work_name
         work_directory.mkdir(parents=True, exist_ok=True)
-        output_base = str(work_directory / 'run_')
-        posterior = self.sampler.run(problem, output_base)
+        # MultiNest's Fortran filenames are limited to about 100 characters.
+        # Run from the candidate work directory so even deeply nested SDB
+        # package paths are represented by the short, proven `./run_` base.
+        with utils.pushd(work_directory):
+            posterior = self.sampler.run(problem, './run_')
+        if posterior.native_output is not None:
+            posterior = replace(
+                posterior,
+                native_output=str(
+                    (work_directory / posterior.native_output).resolve().
+                    relative_to(self.package_directory)
+                ),
+            )
         posterior = _cap_posterior(posterior, cfg.fitting['n_samples_max'])
         analysis = FitAnalysis.run(problem, posterior)
         policy_payload = [

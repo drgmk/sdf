@@ -1,4 +1,5 @@
 from dataclasses import replace
+import os
 
 import numpy as np
 
@@ -22,7 +23,9 @@ class FakeSampler:
             component.role == 'disk'
             for component in problem.candidate.components
         )
-        self.calls.append((problem.candidate.canonical_id, output_base))
+        self.calls.append((
+            problem.candidate.canonical_id, output_base, os.getcwd()
+        ))
         midpoint = problem.transform_prior(np.repeat(0.5, problem.ndim))
         return sdf.samplers.PosteriorRun(
             samples=np.vstack((midpoint, midpoint)),
@@ -66,7 +69,8 @@ def test_coordinator_commits_then_reuses_current_candidate(tmp_path):
     assert first.candidate_id == second.candidate_id
     assert first.metadata['analysis']['n_residuals'] == 1
     assert first.metadata['provenance']['sdf_revision'] == 'test'
-    assert '/fits/.work/' in sampler.calls[0][1]
+    assert sampler.calls[0][1] == './run_'
+    assert '/fits/.work/' in sampler.calls[0][2]
 
 
 def test_evidence_guided_search_expands_all_supported_siblings(tmp_path):

@@ -134,6 +134,7 @@ class CandidateLibrary:
                 'sampler': posterior.sampler,
                 'options': posterior.options or {},
                 'diagnostics': posterior.diagnostics or {},
+                'native_output': posterior.native_output,
             },
             'analysis': analysis or {},
             'analysis_arrays': sorted((analysis_arrays or {}).keys()),
@@ -172,6 +173,7 @@ class CandidateLibrary:
                 evidence_error=posterior_meta['evidence_error'],
                 options=posterior_meta['options'],
                 diagnostics=posterior_meta['diagnostics'],
+                native_output=posterior_meta.get('native_output'),
             )
             analysis_arrays = {
                 name: arrays['analysis__' + name]

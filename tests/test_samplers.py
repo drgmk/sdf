@@ -2,6 +2,7 @@ import sys
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from .context import sdf
 import sdf.samplers
@@ -77,3 +78,10 @@ def test_multinest_capabilities_support_evidence_and_resume():
     assert capabilities.evidence
     assert capabilities.weighted_samples
     assert capabilities.resumable
+
+
+def test_multinest_rejects_fortran_output_names_over_limit():
+    with pytest.raises(sdf.utils.SdfError, match='too long'):
+        sdf.samplers.MultiNestSampler().run(
+            FakeProblem(0.0), 'x' * 90
+        )
