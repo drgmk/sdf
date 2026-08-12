@@ -129,6 +129,12 @@ def test_joint_projection_adds_only_visible_target_models():
         [True, False], [False, True], [True, True]
     ]
     assert [component.ordinal for component in candidate.components] == [1, 1]
+    assert problem.parameter_names[0].startswith(
+        'simbad:A:stellar:kurucz-0.0:1.'
+    )
+    assert problem.parameter_names[problem.ndim // 2].startswith(
+        'simbad:B:stellar:kurucz-0.0:1.'
+    )
     assert component_flux[0, 1] == 0.0
     assert component_flux[1, 0] == 0.0
     assert model_flux[2] == pytest.approx(model_flux[0] + model_flux[1])

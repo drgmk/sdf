@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import sha1
+import re
 
 from . import config as cfg
 from . import utils
@@ -80,3 +82,28 @@ class ModelCandidate:
             '{}-{}'.format(component.owner_key, component.model_name)
             for component in self.components
         )
+
+    @property
+    def canonical_id(self):
+        """Return an ownership-qualified stable identifier."""
+
+        return '+'.join(component.component_id for component in self.components)
+
+    @property
+    def storage_name(self):
+        """Return a readable filesystem name with a collision-safe suffix."""
+
+        owners = {component.owner_key for component in self.components}
+        if len(owners) == 1:
+            readable = self.candidate_id
+        else:
+            readable = '+'.join(
+                '{}-{}'.format(
+                    component.owner_key.split(':', 1)[-1],
+                    component.model_name
+                )
+                for component in self.components
+            )
+        readable = re.sub(r'[^A-Za-z0-9+_.-]+', '_', readable).strip('._')
+        digest = sha1(self.canonical_id.encode('utf-8')).hexdigest()[:8]
+        return '{}--{}'.format(readable[:120], digest)

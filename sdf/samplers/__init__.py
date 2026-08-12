@@ -1,6 +1,6 @@
 """Sampler adapters for SDF fitting problems."""
 
-from .base import SamplerCapabilities
+from .base import PosteriorRun, SamplerCapabilities
 from .multinest import MultiNestSampler
 
-__all__ = ['SamplerCapabilities', 'MultiNestSampler']
+__all__ = ['MultiNestSampler', 'PosteriorRun', 'SamplerCapabilities']

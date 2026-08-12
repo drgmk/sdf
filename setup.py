@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import find_packages, setup
 
 setup(
     name='sdf',
@@ -8,7 +8,7 @@ setup(
     author='Grant M. Kennedy',
     author_email='g.kennedy@warwick.ac.uk',
     license='MIT',
-    packages=['sdf'],
+    packages=find_packages(exclude=('tests', 'tests.*')),
     classifiers=['Programming Language :: Python :: 3'],
     install_requires=[
         'astropy', 'bokeh', 'corner',

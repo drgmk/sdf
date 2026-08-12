@@ -61,6 +61,33 @@ class FitProblem:
     def parameter_ranges(self):
         return tuple(self.model_info['p_rng'])
 
+    @property
+    def parameter_names(self):
+        """Return deterministic owner-qualified parameter labels."""
+
+        if self.candidate is None:
+            return tuple(self.model_info['parameters'])
+        names = []
+        for component, component_models in zip(
+                self.candidate.components, self.models):
+            model_parameters = tuple(component_models[0].parameters) + ('norm',)
+            names.extend(
+                '{}.{}'.format(component.component_id, parameter)
+                for parameter in model_parameters
+            )
+        for observation in self.dataset.observations:
+            names.extend(
+                'observation:{}.spectrum:{}.norm'.format(
+                    observation.observation_id, index + 1
+                )
+                for index in range(len(observation.spectra))
+            )
+        if len(names) != self.ndim:
+            raise ValueError(
+                'qualified parameter count does not match fitting dimension'
+            )
+        return tuple(names)
+
     def transform_prior(self, unit_values):
         """Transform unit-cube values to the model parameter ranges."""
 

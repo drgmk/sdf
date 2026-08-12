@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .base import SamplerCapabilities
+from .base import PosteriorRun, SamplerCapabilities
 from .. import config as cfg
 
 
@@ -16,7 +16,7 @@ class MultiNestSampler:
     )
 
     def run(self, problem, outputfiles_basename):
-        """Run MultiNest, capturing problem state in local callbacks."""
+        """Run MultiNest and return compact sampler-neutral output."""
 
         import pymultinest
 
@@ -41,4 +41,35 @@ class MultiNestSampler:
             sampling_efficiency=0.3,
             verbose=cfg.fitting['verb'],
             outputfiles_basename=outputfiles_basename,
+        )
+        return self.read(problem, outputfiles_basename)
+
+    def read(self, problem, outputfiles_basename):
+        """Read a completed native MultiNest run into a compact result."""
+
+        import pymultinest
+
+        analyzer = pymultinest.Analyzer(
+            outputfiles_basename=outputfiles_basename,
+            n_params=problem.ndim,
+        )
+        equal_weight = np.asarray(
+            analyzer.get_equal_weighted_posterior(), dtype=float
+        )
+        stats = analyzer.get_stats()
+        return PosteriorRun(
+            samples=equal_weight[:, :-1],
+            parameter_names=problem.parameter_names,
+            sampler='multinest',
+            log_likelihoods=equal_weight[:, -1],
+            evidence=stats.get('global evidence'),
+            evidence_error=stats.get('global evidence error'),
+            options={
+                'n_live_points': cfg.fitting['n_live'],
+                'n_iter_before_update': cfg.fitting['n_update'],
+                'multimodal': True,
+                'sampling_efficiency': 0.3,
+            },
+            diagnostics={'stats': stats},
+            native_output=outputfiles_basename,
         )
