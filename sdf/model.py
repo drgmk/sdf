@@ -1190,7 +1190,7 @@ def fill_colours(comp, mod_fnu, obs_nel):
                         filt = filter.Filter.get(fname)
                         mag = filt.flux2mag(mod_fnu[irel])
                         mags += mag * cb['filterw'][j]
-                    mod_fnu[i] = mags
+                    mod_fnu[i0comp+i] = mags
             final_fnu = np.append(final_fnu,
                                   mod_fnu[i0comp:i0comp+obs_nel[k]])
             i0comp += len(mod.filters)

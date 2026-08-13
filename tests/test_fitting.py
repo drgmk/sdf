@@ -8,6 +8,34 @@ def test_fitting_fill_colours():
     m.keep_filters(fs,colour_bases=True)
     mod_fnu = sdf.model.model_fluxes( (m,), [6300,4.5,-3], [2] )
 
+
+def test_fill_colours_uses_each_observation_offset():
+    """A colour in a later scope must not overwrite an earlier flux."""
+
+    base = sdf.model.PhotModel.read_model('kurucz-0.0')
+    colour = next(
+        name for name, bases in zip(base.filters, base.colour_bases)
+        if len(bases) > 0
+    )
+    flux = next(
+        name for name, bases in zip(base.filters, base.colour_bases)
+        if len(bases) == 0
+    )
+    first = sdf.photometry.Photometry(filters=np.array([flux]))
+    second = sdf.photometry.Photometry(filters=np.array([colour]))
+    parameters = [6300, 4.5, -3]
+
+    models, _ = sdf.model.get_models((first, second), ('kurucz-0.0',))
+    combined, _ = sdf.model.model_fluxes(models, parameters, [1, 1])
+    first_models, _ = sdf.model.get_models((first,), ('kurucz-0.0',))
+    second_models, _ = sdf.model.get_models((second,), ('kurucz-0.0',))
+    first_only, _ = sdf.model.model_fluxes(first_models, parameters, [1])
+    second_only, _ = sdf.model.model_fluxes(second_models, parameters, [1])
+
+    assert combined[0] == first_only[0]
+    assert combined[1] == second_only[0]
+
+
 def test_fitting_pmn_pc():
     n = 100
     prob = np.ones(n)
