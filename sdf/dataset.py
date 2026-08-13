@@ -104,11 +104,15 @@ class FitDataset:
         for rawphot in sorted(directory.glob('*-rawphot.txt')):
             loaded = _load_rawphot(rawphot, nospec=nospec)
             if loaded is None:
-                raise utils.SdfError(
-                    'joint observation {} has no usable photometry'.
-                    format(rawphot)
+                keywords = utils.get_sdb_keywords(rawphot)
+                target = TargetIdentity.from_keywords(
+                    keywords, source=os.path.abspath(os.fspath(rawphot))
                 )
-            target, source, observed_photometry, observed_spectra = loaded
+                source = os.path.abspath(os.fspath(rawphot))
+                observed_photometry = None
+                observed_spectra = ()
+            else:
+                target, source, observed_photometry, observed_spectra = loaded
             observation_id = target.sdbid or target.main_id or target.key
             if observation_id in loaded_by_id:
                 raise utils.SdfError(
@@ -144,6 +148,11 @@ class FitDataset:
                 contributor = loaded_by_id[contributor_id][0]
                 physical_targets[contributor.key] = contributor
                 contributor_keys.append(contributor.key)
+            # A physical contributor need not have a resolved observation of
+            # its own.  Keep its identity for models referenced by composite
+            # scopes, but do not manufacture an empty likelihood block.
+            if observed_photometry is None:
+                continue
             observations.append(Observation(
                 observation_id=observation_id,
                 source=source,
@@ -152,6 +161,11 @@ class FitDataset:
                 photometry=observed_photometry,
                 spectra=observed_spectra,
             ))
+
+        if not observations:
+            raise utils.SdfError(
+                'joint package contains no usable photometry observations'
+            )
 
         return cls(
             targets=tuple(

@@ -21,6 +21,20 @@ def _write_rawphot(path, sdbid='sdbid-v3-test', main_id='HD  123',
     table.write(path, format='ascii.ipac')
 
 
+def _write_empty_rawphot(path, sdbid, main_id):
+    table = Table(
+        names=('Band', 'Phot', 'Err', 'Sys', 'Lim', 'Unit', 'bibcode',
+               'Note1', 'exclude'),
+        dtype=('U30', 'f8', 'f8', 'f8', 'i1', 'U20', 'U30', 'U200', 'i1'),
+    )
+    table.meta['keywords'] = {
+        'id': {'value': sdbid},
+        'main_id': {'value': main_id},
+        'sp_type': {'value': 'DA1'},
+    }
+    table.write(path, format='ascii.ipac')
+
+
 def test_single_rawphot_becomes_self_mapped_dataset(tmp_path):
     rawphot = tmp_path / 'target-rawphot.txt'
     _write_rawphot(rawphot)
@@ -88,6 +102,34 @@ def test_joint_package_rejects_missing_contributor(tmp_path):
 
     with pytest.raises(sdf.utils.SdfError, match='missing observations: A'):
         sdf.dataset.FitDataset.from_package(tmp_path)
+
+
+def test_joint_package_allows_contributor_without_resolved_photometry(
+        tmp_path):
+    _write_rawphot(
+        tmp_path / 'AB-rawphot.txt', sdbid='AB', main_id='HD 123'
+    )
+    _write_rawphot(
+        tmp_path / 'A-rawphot.txt', sdbid='A', main_id='HD 123 A'
+    )
+    _write_empty_rawphot(
+        tmp_path / 'B-rawphot.txt', sdbid='B', main_id='HD 123 B'
+    )
+    (tmp_path / 'joint-fit.yml').write_text(
+        'version: 1\nobservations:\n  AB:\n    - A\n    - B\n',
+        encoding='utf-8',
+    )
+
+    dataset = sdf.dataset.FitDataset.from_package(tmp_path)
+
+    assert [target.key for target in dataset.targets] == [
+        'simbad:HD 123 A', 'simbad:HD 123 B'
+    ]
+    assert [observation.observation_id
+            for observation in dataset.observations] == ['A', 'AB']
+    assert dataset.observations[1].contributor_keys == (
+        'simbad:HD 123 A', 'simbad:HD 123 B'
+    )
 
 
 def test_joint_member_path_discovers_whole_package_once(tmp_path):
