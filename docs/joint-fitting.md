@@ -124,6 +124,22 @@ a package anywhere below its recorded root refreshes that package's rows
 transactionally. SDF does not create an index implicitly. Fit-selection
 commands and `sdf-sample` integration are the next implementation slice.
 
+Retained fits can be inspected and presented without rerunning MultiNest:
+
+```shell
+sdf-fits list /path/to/package
+sdf-fits select /path/to/package \
+  --default FIT-REFERENCE --display FIT-REFERENCE [FIT-REFERENCE ...]
+sdf-fits render /path/to/package
+```
+
+`list` prints the candidate storage names used as concise fit references,
+evidence, and current selection state; `--json` provides the same data for a
+UI. A full candidate ID or an unambiguous storage-name prefix can also be used
+as a reference. Selecting a new default automatically puts it first in the
+displayed tabs, regenerates `index.html`, and refreshes an existing result
+index. It does not run a fit.
+
 Run the regression suite with:
 
 ```shell

@@ -19,6 +19,7 @@ setup(
     include_package_data=True,
     entry_points={
         'console_scripts': ['sdf-fit=sdf.scripts:sdf_fit',
+                            'sdf-fits=sdf.scripts:sdf_fits',
                             'sdf-sample=sdf.scripts:sdf_sample',
                             'sdf-index=sdf.scripts:sdf_index',
                             'sdf-cleanup=sdf.scripts:sdf_cleanup']

@@ -16,6 +16,7 @@ from sdf import www
 from sdf import config as cfg
 from sdf.dataset import discover_fit_sources
 from sdf.coordinator import fit_package
+from sdf.fit_management import FitManager
 from sdf.joint_plotting import write_joint_results_page
 from sdf.result_index import ResultIndex
 
@@ -202,6 +203,57 @@ def sdf_index():
     if problems:
         parser.exit(1, '\n'.join(problems) + '\n')
     print(json.dumps(asdict(index.summary()), sort_keys=True))
+
+
+def sdf_fits():
+    """Inspect and select retained package fits."""
+
+    parser = argparse.ArgumentParser(
+        description='Manage retained fits for one SDF package'
+    )
+    subparsers = parser.add_subparsers(dest='command', required=True)
+    list_parser = subparsers.add_parser('list')
+    list_parser.add_argument('package')
+    list_parser.add_argument('--json', action='store_true')
+    select_parser = subparsers.add_parser('select')
+    select_parser.add_argument('package')
+    select_parser.add_argument('--default')
+    select_parser.add_argument('--display', nargs='+')
+    render_parser = subparsers.add_parser('render')
+    render_parser.add_argument('package')
+    render_parser.add_argument('--output')
+    args = parser.parse_args()
+    manager = FitManager(args.package)
+
+    if args.command == 'list':
+        available = manager.available()
+        if args.json:
+            print(json.dumps([asdict(fit) for fit in available], indent=2))
+            return
+        for fit in available:
+            flags = []
+            if fit.is_default:
+                flags.append('default')
+            if fit.display_position is not None:
+                flags.append('display {}'.format(fit.display_position + 1))
+            evidence = (
+                'n/a' if fit.evidence is None else '{:.3f}'.format(fit.evidence)
+            )
+            print('{}\t{}\t{}\t{}'.format(
+                fit.reference, evidence, ', '.join(flags) or '-',
+                fit.display_name,
+            ))
+        return
+
+    if args.command == 'select':
+        selection = manager.select(
+            default=args.default, displayed=args.display
+        )
+        manager.render()
+        print(json.dumps(asdict(selection), sort_keys=True))
+        return
+
+    print(manager.render(args.output))
 
 
 def sdf_cleanup():
