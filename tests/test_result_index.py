@@ -31,7 +31,7 @@ def test_rebuild_indexes_candidate_targets_components_and_selection(tmp_path):
 
     summary = index.rebuild(tmp_path)
 
-    assert summary == sdf.result_index.IndexSummary(1, 1, 1, 1)
+    assert summary == sdf.result_index.IndexSummary(1, 1, 1, 1, 5)
     rows = index.candidates_for_target(dataset.targets[0].key)
     assert len(rows) == 1
     assert rows[0]['candidate_id'] == result.candidate_id
@@ -39,6 +39,18 @@ def test_rebuild_indexes_candidate_targets_components_and_selection(tmp_path):
     assert rows[0]['data_current'] == 1
     assert rows[0]['is_default'] == 1
     assert rows[0]['display_position'] == 0
+    default = index.default_targets(('sdb-test',))
+    assert len(default) == 1
+    assert default[0]['target_key'] == dataset.targets[0].key
+    assert default[0]['candidate_id'] == result.candidate_id
+    parameters = index.default_parameters(('Test',))
+    assert {
+        (row['quantity_scope'], row['name']) for row in parameters
+    } == {
+        ('fitted', 'Teff'), ('fitted', 'logg'), ('fitted', 'norm'),
+        ('derived', 'luminosity_at_1pc_lsun'),
+        ('derived', 'radius_at_1pc_m'),
+    }
     assert index.verify(tmp_path) == ()
 
 
@@ -52,6 +64,19 @@ def test_rebuild_marks_candidate_data_stale_after_input_change(tmp_path):
 
     rows = index.candidates_for_target(dataset.targets[0].key)
     assert rows[0]['data_current'] == 0
+
+
+def test_default_queries_accept_sample_sized_identifier_lists(tmp_path):
+    _, dataset, _ = _retained_package(tmp_path)
+    index = sdf.result_index.ResultIndex(tmp_path / 'results.sqlite')
+    index.rebuild(tmp_path)
+    identifiers = tuple('missing-{}'.format(i) for i in range(1200)) + (
+        'sdb-test',
+    )
+
+    assert index.default_targets(identifiers)[0]['target_key'] == \
+        dataset.targets[0].key
+    assert index.default_parameters(identifiers)
 
 
 def test_verify_reports_artifact_removed_after_rebuild(tmp_path):

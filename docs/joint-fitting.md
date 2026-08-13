@@ -118,11 +118,17 @@ sdf-index verify /path/to/export
 The default database is `/path/to/export/sdf-results.sqlite`; use `--database`
 to place it elsewhere. The index records packages, canonical target identities,
 candidates, component ownership, evidence, input freshness, and display/default
-selection. It contains no irreplaceable state and can always be rebuilt from
-the package-local `fits` directories. Once that default index exists, fitting
-a package anywhere below its recorded root refreshes that package's rows
-transactionally. SDF does not create an index implicitly. Fit-selection
-commands and `sdf-sample` integration are the next implementation slice.
+selection. Fitted and derived scalar quantities are indexed per physical target
+and owned model component. The `default_targets()` and `default_parameters()`
+query APIs accept sample-sized lists of SIMBAD names, SDB IDs, or canonical
+keys; these are the data boundary for migrating `sdf-sample`.
+
+The index contains no irreplaceable state and can always be rebuilt from the
+package-local `fits` directories. Once that default index exists, fitting a
+package anywhere below its recorded root refreshes that package's rows
+transactionally. SDF does not create an index implicitly. Reworking the sample
+tables and plots to represent multiple physical targets and owned components is
+the remaining `sdf-sample` integration step.
 
 Retained fits can be inspected and presented without rerunning MultiNest:
 

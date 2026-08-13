@@ -22,6 +22,7 @@ class IndexSummary:
     targets: int
     candidates: int
     components: int
+    parameters: int
 
 
 class ResultIndex:
@@ -132,6 +133,60 @@ class ResultIndex:
                          display_position, c.evidence DESC
                 ''',
                 (target_key,),
+            ).fetchall()
+        return tuple(dict(row) for row in rows)
+
+    def default_targets(self, identifiers=None):
+        """Return physical targets with their package's default candidate."""
+
+        with _connection(self.path) as connection:
+            where = _requested_identifiers(
+                connection, identifiers, prefix='WHERE'
+            )
+            if where is None:
+                return ()
+            rows = connection.execute(
+                '''
+                SELECT t.package_path, t.target_key, t.main_id, t.sdbid,
+                       c.candidate_id, c.result_path, c.display_name,
+                       c.evidence, c.evidence_error, c.data_current,
+                       c.completed_at
+                FROM fit_targets AS t
+                JOIN fit_packages AS p ON p.path = t.package_path
+                JOIN fit_candidates AS c
+                  ON c.package_path = p.path
+                 AND c.candidate_id = p.default_candidate_id
+                {where}
+                ORDER BY t.target_key, t.package_path
+                '''.format(where=where),
+            ).fetchall()
+        return tuple(dict(row) for row in rows)
+
+    def default_parameters(self, identifiers=None):
+        """Return indexed scalar results from default candidates."""
+
+        with _connection(self.path) as connection:
+            where = _requested_identifiers(
+                connection, identifiers, prefix='AND'
+            )
+            if where is None:
+                return ()
+            rows = connection.execute(
+                '''
+                SELECT t.package_path, t.target_key, t.main_id, t.sdbid,
+                       fp.candidate_id, fp.component_id, fp.role,
+                       fp.quantity_scope, fp.name, fp.median, fp.minus,
+                       fp.plus, fp.unit
+                FROM fit_targets AS t
+                JOIN fit_packages AS p ON p.path = t.package_path
+                JOIN fit_parameters AS fp
+                  ON fp.package_path = p.path
+                 AND fp.candidate_id = p.default_candidate_id
+                 AND fp.target_key = t.target_key
+                WHERE 1 = 1 {where}
+                ORDER BY t.target_key, fp.role, fp.component_id,
+                         fp.quantity_scope, fp.name
+                '''.format(where=where),
             ).fetchall()
         return tuple(dict(row) for row in rows)
 
@@ -253,6 +308,29 @@ def _create_schema(connection):
         );
         CREATE INDEX fit_components_owner ON fit_components(owner_key);
 
+        CREATE TABLE fit_parameters (
+            package_path TEXT NOT NULL,
+            candidate_id TEXT NOT NULL,
+            target_key TEXT NOT NULL,
+            component_id TEXT NOT NULL,
+            role TEXT NOT NULL,
+            quantity_scope TEXT NOT NULL,
+            name TEXT NOT NULL,
+            median REAL NOT NULL,
+            minus REAL,
+            plus REAL,
+            unit TEXT,
+            PRIMARY KEY (
+                package_path, candidate_id, target_key, component_id,
+                quantity_scope, name
+            ),
+            FOREIGN KEY (package_path, candidate_id)
+                REFERENCES fit_candidates(package_path, candidate_id)
+                ON DELETE CASCADE
+        );
+        CREATE INDEX fit_parameters_target
+            ON fit_parameters(target_key, name);
+
         CREATE TABLE fit_selection (
             package_path TEXT NOT NULL,
             position INTEGER NOT NULL,
@@ -265,6 +343,27 @@ def _create_schema(connection):
                 ON DELETE CASCADE
         );
     '''.format(schema_version=SCHEMA_VERSION))
+
+
+def _requested_identifiers(connection, identifiers, prefix):
+    if identifiers is None:
+        return ''
+    identifiers = tuple(dict.fromkeys(str(value) for value in identifiers))
+    if not identifiers:
+        return None
+    connection.execute(
+        'CREATE TEMP TABLE requested_identifiers (value TEXT PRIMARY KEY)'
+    )
+    connection.executemany(
+        'INSERT INTO requested_identifiers VALUES (?)',
+        ((value,) for value in identifiers),
+    )
+    return '''
+        {prefix} EXISTS (
+            SELECT 1 FROM requested_identifiers AS requested
+            WHERE requested.value IN (t.target_key, t.main_id, t.sdbid)
+        )
+    '''.format(prefix=prefix)
 
 
 def _discover_results(root):
@@ -345,6 +444,10 @@ def _index_package(connection, root, package):
         for target_key, target in result.get('analysis', {}).get(
                 'targets', {}).items():
             targets[target_key] = target
+        _index_parameters(
+            connection, package_path, result['candidate_id'],
+            result.get('analysis', {}),
+        )
 
     for target_key, target in sorted(targets.items()):
         connection.execute(
@@ -369,6 +472,54 @@ def _read_selection(package):
     return json.loads(path.read_text(encoding='utf-8'))
 
 
+def _index_parameters(connection, package_path, candidate_id, analysis):
+    for component in analysis.get('components', ()):
+        for name, summary in component.get('parameters', {}).items():
+            _insert_parameter(
+                connection, package_path, candidate_id,
+                component['owner_key'], component['component_id'],
+                component['role'], 'fitted', name, summary,
+            )
+    for target_key, target in analysis.get('targets', {}).items():
+        for name, summary in target.items():
+            if _is_summary(summary):
+                _insert_parameter(
+                    connection, package_path, candidate_id, target_key,
+                    '', 'target', 'derived', name, summary,
+                )
+        for role, field in (
+            ('stellar', 'stellar_components'), ('disk', 'disk_components')
+        ):
+            for component in target.get(field, ()):
+                for name, summary in component.items():
+                    if _is_summary(summary):
+                        _insert_parameter(
+                            connection, package_path, candidate_id, target_key,
+                            component['component_id'], role, 'derived', name,
+                            summary,
+                        )
+
+
+def _insert_parameter(connection, package_path, candidate_id, target_key,
+                      component_id, role, quantity_scope, name, summary):
+    connection.execute(
+        '''
+        INSERT INTO fit_parameters VALUES (
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        )
+        ''',
+        (
+            package_path, candidate_id, target_key, component_id, role,
+            quantity_scope, name, summary['median'], summary.get('minus'),
+            summary.get('plus'), summary.get('unit'),
+        ),
+    )
+
+
+def _is_summary(value):
+    return isinstance(value, dict) and 'median' in value
+
+
 def _package_input_fingerprint(package):
     paths = set(package.glob('*-rawphot.txt'))
     topology = package / 'joint-fit.yml'
@@ -390,6 +541,7 @@ def _summary(connection):
     for label, table in (
         ('packages', 'fit_packages'), ('targets', 'fit_targets'),
         ('candidates', 'fit_candidates'), ('components', 'fit_components'),
+        ('parameters', 'fit_parameters'),
     ):
         counts[label] = connection.execute(
             'SELECT count(*) FROM {}'.format(table)
