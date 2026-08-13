@@ -11,7 +11,12 @@ import numpy as np
 from . import config as cfg
 from . import utils
 from .analysis import ANALYSIS_SCHEMA, FitAnalysis
-from .candidate_library import CandidateLibrary, FitSelection
+from .candidate_library import (
+    CandidateLibrary,
+    FitSelection,
+    fit_fingerprint,
+    input_fingerprint,
+)
 from .candidate_search import CandidateSearch
 from .dataset import FitDataset, canonical_fit_source
 from .likelihood import FitProblem
@@ -50,7 +55,11 @@ class FitCoordinator:
         if existing_is_current and not force:
             posterior = existing.posterior
         else:
-            work_name = candidate.storage_name.rsplit('--', 1)[-1]
+            work_name = '{}-{}-{}'.format(
+                candidate.storage_name.rsplit('--', 1)[-1],
+                input_fingerprint(dataset)[:8],
+                fit_fingerprint(fit_state)[:8],
+            )
             work_directory = self.library.fits_directory / '.work' / work_name
             work_directory.mkdir(parents=True, exist_ok=True)
             # MultiNest's Fortran filenames are limited to about 100

@@ -73,6 +73,24 @@ def test_coordinator_commits_then_reuses_current_candidate(tmp_path):
     assert '/fits/.work/' in sampler.calls[0][2]
 
 
+def test_changed_inputs_use_a_fresh_resumable_work_directory(tmp_path):
+    dataset = _fit_dataset(tmp_path)
+    candidate = sdf.model_selection.ModelCandidate.for_single_target(
+        dataset.targets[0].key, ('kurucz-0.0',)
+    )
+    sampler = FakeSampler()
+    coordinator = sdf.coordinator.FitCoordinator(tmp_path, sampler=sampler)
+    coordinator.fit_candidate(dataset, candidate)
+    with open(dataset.observations[0].source, 'a', encoding='utf-8') as handle:
+        handle.write('changed input\n')
+
+    coordinator.fit_candidate(dataset, candidate)
+
+    assert len(sampler.calls) == 2
+    assert sampler.calls[0][2] != sampler.calls[1][2]
+    assert all('/fits/.work/' in call[2] for call in sampler.calls)
+
+
 def test_coordinator_reanalyses_old_candidate_without_resampling(tmp_path):
     dataset = _fit_dataset(tmp_path)
     candidate = sdf.model_selection.ModelCandidate.for_single_target(
