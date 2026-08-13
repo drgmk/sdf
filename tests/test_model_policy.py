@@ -19,6 +19,7 @@ def _target(name, spectral_type):
     [
         ('F3V', ('phoenix_sol',), ('modbb_disk_r',)),
         ('DA2', ('koester_wd',), ('bb_disk_r',)),
+        ('DC8', ('koester_wd',), ('bb_disk_r',)),
         ('L2', ('phoenix_cool',), ('modbb_disk_r',)),
         ('M7V', ('phoenix_cool', 'phoenix_sol'), ('modbb_disk_r',)),
         ('dM8', ('phoenix_cool', 'phoenix_sol'), ('modbb_disk_r',)),

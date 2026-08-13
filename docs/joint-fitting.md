@@ -99,13 +99,27 @@ from the compact retained candidates. The page follows `fits/selection.json`,
 shows the default fit first, and includes scoped photometry, component/system
 models, and residuals. It does not need the native MultiNest output.
 
-The HD 113766 package is the first end-to-end joint rehearsal. Result-database
-writing and indexed sample generation are intentionally not enabled yet.
+The HD 113766 package is the first end-to-end joint rehearsal. HD 283750 plus
+its wide DC8 companion HD 283750B is the mixed-family rehearsal: two fully
+resolved observation scopes fitted explicitly with `phoenix_sol` and
+`koester_wd`. The latter verifies mixed main-sequence/white-dwarf compilation,
+sampling, retained ownership, analysis, and plotting. Because the 124-arcsec
+pair has no shared measurements, its likelihood correctly factorizes; it is a
+model-family and ownership test rather than a composite-photometry test.
+
+The HD 283750 rehearsal also demonstrates that current atmosphere-grid `logg`
+and flux normalization priors are independent. Its SED and radii are sensible,
+but the fitted gravity medians imply unphysical masses for both stars. Do not
+interpret broadband-only `logg` scientifically until SDF gains family-specific
+stellar mass/radius priors or deliberately treats gravity as a nuisance
+parameter.
+
+Result-database writing and indexed sample generation are intentionally not
+enabled yet.
 Requesting database output for a joint package raises a clear error rather
 than silently writing a single-target-shaped legacy result. The next milestone
 is a rebuildable result index, followed by fit-selection commands and the
-operator workflow. A normal-star/white-dwarf package remains the second
-hierarchy-aware validation case.
+operator workflow.
 
 The first result-index implementation can build a disposable SQLite query view
 of all retained joint candidates below an export root:
