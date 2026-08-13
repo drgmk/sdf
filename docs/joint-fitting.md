@@ -94,12 +94,33 @@ code revision and dirty flag are provenance.
 The branch can discover, compile, sample, retain, and reuse joint candidates.
 It supports resolved/composite photometry, colours, upper limits, and spectra.
 Analysis uses each stellar or disk component's owner and each target's own
-parallax.
+parallax. Every joint-package run also writes a standalone Bokeh `index.html`
+from the compact retained candidates. The page follows `fits/selection.json`,
+shows the default fit first, and includes scoped photometry, component/system
+models, and residuals. It does not need the native MultiNest output.
 
-Joint HTML/plot generation and result-database writing are intentionally not
-enabled yet. They require the remaining hierarchy-aware presentation/index
-work; requesting those legacy outputs for a joint package raises a clear
-error rather than silently producing single-target results.
+The HD 113766 package is the first end-to-end joint rehearsal. Result-database
+writing and indexed sample generation are intentionally not enabled yet.
+Requesting database output for a joint package raises a clear error rather
+than silently writing a single-target-shaped legacy result. The next milestone
+is a rebuildable result index, followed by fit-selection commands and the
+operator workflow. A normal-star/white-dwarf package remains the second
+hierarchy-aware validation case.
+
+The first result-index implementation can build a disposable SQLite query view
+of all retained joint candidates below an export root:
+
+```shell
+sdf-index rebuild /path/to/export
+sdf-index verify /path/to/export
+```
+
+The default database is `/path/to/export/sdf-results.sqlite`; use `--database`
+to place it elsewhere. The index records packages, canonical target identities,
+candidates, component ownership, evidence, input freshness, and display/default
+selection. It contains no irreplaceable state and can always be rebuilt from
+the package-local `fits` directories. Automatic index updates, fit-selection
+commands, and `sdf-sample` integration are the next implementation slice.
 
 Run the regression suite with:
 

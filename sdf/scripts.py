@@ -1,6 +1,8 @@
 import os
 import glob
 import argparse
+from dataclasses import asdict
+import json
 
 # from pympler import summary, muppy, tracker
 
@@ -15,6 +17,7 @@ from sdf import config as cfg
 from sdf.dataset import discover_fit_sources
 from sdf.coordinator import fit_package
 from sdf.joint_plotting import write_joint_results_page
+from sdf.result_index import ResultIndex
 
 
 def sdf_fit():
@@ -100,11 +103,10 @@ def sdf_fit():
                 print(source)
 
                 if is_joint:
-                    if args.www or args.update_www or \
-                            args.dbwrite or args.update_db:
+                    if args.dbwrite or args.update_db:
                         raise NotImplementedError(
-                            'joint-fit web/database output will follow the '
-                            'hierarchy-aware analysis layer'
+                            'joint-fit database output requires the result '
+                            'index and is not implemented yet'
                         )
                     fit_package(
                         source,
@@ -174,6 +176,32 @@ def sdf_sample():
         print("Cleaning up")
         www.cleanup_sample_dirs()
         www.cleanup_calibration_dirs()
+
+
+def sdf_index():
+    """Build or verify the retained-fit query index."""
+
+    parser = argparse.ArgumentParser(
+        description='Manage the rebuildable SDF result index'
+    )
+    subparsers = parser.add_subparsers(dest='command', required=True)
+    for command in ('rebuild', 'verify'):
+        subparser = subparsers.add_parser(command)
+        subparser.add_argument('root', help='Root containing exported packages')
+        subparser.add_argument(
+            '--database', help='Index path (default: ROOT/sdf-results.sqlite)'
+        )
+    args = parser.parse_args()
+    root = os.path.abspath(args.root)
+    database = args.database or os.path.join(root, 'sdf-results.sqlite')
+    index = ResultIndex(database)
+    if args.command == 'rebuild':
+        print(json.dumps(asdict(index.rebuild(root)), sort_keys=True))
+        return
+    problems = index.verify(root)
+    if problems:
+        parser.exit(1, '\n'.join(problems) + '\n')
+    print(json.dumps(asdict(index.summary()), sort_keys=True))
 
 
 def sdf_cleanup():

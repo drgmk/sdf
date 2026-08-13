@@ -20,6 +20,7 @@ setup(
     entry_points={
         'console_scripts': ['sdf-fit=sdf.scripts:sdf_fit',
                             'sdf-sample=sdf.scripts:sdf_sample',
+                            'sdf-index=sdf.scripts:sdf_index',
                             'sdf-cleanup=sdf.scripts:sdf_cleanup']
         },
     zip_safe=False
