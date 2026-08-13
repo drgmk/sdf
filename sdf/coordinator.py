@@ -21,16 +21,22 @@ from .candidate_search import CandidateSearch
 from .dataset import FitDataset, canonical_fit_source
 from .likelihood import FitProblem
 from .model_policy import resolve_package_policies
+from .result_index import ResultIndex
 from .samplers import MultiNestSampler, PosteriorRun
 
 
 class FitCoordinator:
     """Run candidates while keeping scientific and storage layers separate."""
 
-    def __init__(self, package_directory, sampler=None, provenance=None):
+    def __init__(self, package_directory, sampler=None, provenance=None,
+                 result_index=None):
         self.package_directory = Path(package_directory).expanduser().resolve()
         self.library = CandidateLibrary(self.package_directory)
         self.sampler = sampler or MultiNestSampler()
+        self.result_index = (
+            ResultIndex.find_for_package(self.package_directory)
+            if result_index is None else result_index
+        )
         self.provenance = _default_provenance()
         self.provenance.update(provenance or {})
 
@@ -81,7 +87,7 @@ class FitCoordinator:
             asdict(item) if hasattr(item, '__dataclass_fields__') else item
             for item in policy
         ]
-        return self.library.commit(
+        result = self.library.commit(
             dataset,
             candidate,
             posterior,
@@ -91,6 +97,8 @@ class FitCoordinator:
             provenance=self.provenance,
             fit_state=fit_state,
         )
+        self._update_result_index()
+        return result
 
     def evidence_guided(self, dataset, search, threshold=None, force=False):
         """Fit roots and expand every evidence-supported child branch."""
@@ -157,6 +165,11 @@ class FitCoordinator:
             self.library.write_selection(FitSelection(
                 default=ranked[0], displayed=ranked
             ))
+            self._update_result_index()
+
+    def _update_result_index(self):
+        if self.result_index is not None:
+            self.result_index.update_package(self.package_directory)
 
 
 def fit_package(source, *, sampler=None, force=False, nospec=False,

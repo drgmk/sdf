@@ -119,8 +119,10 @@ The default database is `/path/to/export/sdf-results.sqlite`; use `--database`
 to place it elsewhere. The index records packages, canonical target identities,
 candidates, component ownership, evidence, input freshness, and display/default
 selection. It contains no irreplaceable state and can always be rebuilt from
-the package-local `fits` directories. Automatic index updates, fit-selection
-commands, and `sdf-sample` integration are the next implementation slice.
+the package-local `fits` directories. Once that default index exists, fitting
+a package anywhere below its recorded root refreshes that package's rows
+transactionally. SDF does not create an index implicitly. Fit-selection
+commands and `sdf-sample` integration are the next implementation slice.
 
 Run the regression suite with:
 

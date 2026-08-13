@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -64,13 +65,57 @@ class ResultIndex:
         return summary
 
     def summary(self):
-        with _connect(self.path) as connection:
+        with _connection(self.path) as connection:
             return _summary(connection)
+
+    @classmethod
+    def find_for_package(cls, package):
+        """Find the nearest existing default index containing ``package``."""
+
+        package = Path(package).expanduser().resolve()
+        for parent in (package, *package.parents):
+            path = parent / 'sdf-results.sqlite'
+            if path.is_file():
+                index = cls(path)
+                try:
+                    root = index.root()
+                except (sqlite3.DatabaseError, TypeError, ValueError):
+                    continue
+                if package == root or root in package.parents:
+                    return index
+        return None
+
+    def root(self):
+        """Return the export root recorded by the index."""
+
+        with _connection(self.path) as connection:
+            row = connection.execute(
+                "SELECT value FROM index_metadata WHERE key = 'root'"
+            ).fetchone()
+        if row is None:
+            raise ValueError('{} is not an SDF result index'.format(self.path))
+        return Path(row[0]).resolve()
+
+    def update_package(self, package):
+        """Transactionally refresh one package after a fit or selection."""
+
+        package = Path(package).expanduser().resolve()
+        root = self.root()
+        if package != root and root not in package.parents:
+            raise ValueError('{} is outside index root {}'.format(package, root))
+        package_path = package.relative_to(root).as_posix()
+        with _connection(self.path) as connection:
+            connection.execute(
+                'DELETE FROM fit_packages WHERE path = ?', (package_path,)
+            )
+            if tuple((package / 'fits').glob('*/result.json')):
+                _index_package(connection, root, package)
+        return self.summary()
 
     def candidates_for_target(self, target_key):
         """Return indexed candidate rows for a canonical target identity."""
 
-        with _connect(self.path) as connection:
+        with _connection(self.path) as connection:
             rows = connection.execute(
                 '''
                 SELECT DISTINCT c.*, s.position AS display_position,
@@ -96,7 +141,7 @@ class ResultIndex:
         if not self.path.is_file():
             return ('result index does not exist: {}'.format(self.path),)
         problems = []
-        with _connect(self.path) as connection:
+        with _connection(self.path) as connection:
             integrity = connection.execute('PRAGMA integrity_check').fetchone()[0]
             if integrity != 'ok':
                 problems.append('SQLite integrity check: {}'.format(integrity))
@@ -132,10 +177,20 @@ class ResultIndex:
 
 
 def _connect(path):
-    connection = sqlite3.connect(path)
+    connection = sqlite3.connect(path, timeout=30)
     connection.row_factory = sqlite3.Row
     connection.execute('PRAGMA foreign_keys = ON')
     return connection
+
+
+@contextmanager
+def _connection(path):
+    connection = _connect(path)
+    try:
+        with connection:
+            yield connection
+    finally:
+        connection.close()
 
 
 def _create_schema(connection):

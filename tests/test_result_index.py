@@ -84,3 +84,32 @@ def test_verify_reports_missing_index(tmp_path):
     assert index.verify() == (
         'result index does not exist: {}'.format(index.path),
     )
+
+
+def test_coordinator_updates_nearest_existing_default_index(tmp_path):
+    index = sdf.result_index.ResultIndex(tmp_path / 'sdf-results.sqlite')
+    assert index.rebuild(tmp_path).candidates == 0
+    package = tmp_path / 'nested' / 'package'
+    package.mkdir(parents=True)
+    dataset = _fit_dataset(package)
+    candidate = sdf.model_selection.ModelCandidate.for_single_target(
+        dataset.targets[0].key, ('kurucz-0.0',)
+    )
+
+    coordinator = sdf.coordinator.FitCoordinator(
+        package, sampler=FakeSampler()
+    )
+    result = coordinator.fit_candidate(dataset, candidate)
+
+    assert coordinator.result_index.path == index.path
+    assert index.summary().candidates == 1
+    assert index.candidates_for_target(dataset.targets[0].key)[0][
+        'candidate_id'
+    ] == result.candidate_id
+
+
+def test_no_result_index_is_created_implicitly(tmp_path):
+    package, _, _ = _retained_package(tmp_path)
+
+    assert sdf.result_index.ResultIndex.find_for_package(package) is None
+    assert not (tmp_path / 'sdf-results.sqlite').exists()
