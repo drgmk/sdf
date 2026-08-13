@@ -222,6 +222,26 @@ def sdf_fits():
     render_parser = subparsers.add_parser('render')
     render_parser.add_argument('package')
     render_parser.add_argument('--output')
+    render_parser.add_argument(
+        '--fit', action='append', dest='fits',
+        help='Render only this retained fit (repeat for several tabs)',
+    )
+    fit_parser = subparsers.add_parser('fit')
+    fit_parser.add_argument('package')
+    fit_parser.add_argument(
+        '--stellar', action='append', required=True, type=_model_assignment,
+        metavar='TARGET=MODEL',
+    )
+    fit_parser.add_argument(
+        '--disk', action='append', default=[], type=_model_assignment,
+        metavar='TARGET=MODEL',
+    )
+    fit_parser.add_argument('--force', action='store_true')
+    fit_parser.add_argument('--no-spectra', action='store_true')
+    refit_parser = subparsers.add_parser('refit')
+    refit_parser.add_argument('package')
+    refit_parser.add_argument('fit')
+    refit_parser.add_argument('--no-spectra', action='store_true')
     args = parser.parse_args()
     manager = FitManager(args.package)
 
@@ -253,7 +273,31 @@ def sdf_fits():
         print(json.dumps(asdict(selection), sort_keys=True))
         return
 
-    print(manager.render(args.output))
+    if args.command == 'fit':
+        result = manager.fit_exact(
+            args.stellar, args.disk, force=args.force,
+            nospec=args.no_spectra,
+        )
+        manager.render()
+        print(result.path.name)
+        return
+
+    if args.command == 'refit':
+        result = manager.refit(args.fit, nospec=args.no_spectra)
+        manager.render()
+        print(result.path.name)
+        return
+
+    print(manager.render(args.output, fits=args.fits))
+
+
+def _model_assignment(value):
+    owner, separator, model_name = value.rpartition('=')
+    if not separator or not owner.strip() or not model_name.strip():
+        raise argparse.ArgumentTypeError(
+            'model assignment must be TARGET=MODEL'
+        )
+    return owner.strip(), model_name.strip()
 
 
 def sdf_cleanup():

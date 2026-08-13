@@ -20,7 +20,7 @@ from .dataset import FitDataset, canonical_fit_source
 
 
 def write_joint_results_page(package_directory, output=None, *, dataset=None,
-                             inline=True):
+                             inline=True, candidate_ids=None):
     """Write a standalone candidate-review page for one joint package."""
 
     package_directory = canonical_fit_source(package_directory)
@@ -33,25 +33,32 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
     if not candidates:
         raise ValueError('joint package has no retained candidates to plot')
 
-    try:
-        selection = library.read_selection()
-        order = list(selection.displayed)
-        order.extend(
-            candidate.candidate_id for candidate in candidates
-            if candidate.candidate_id not in order
-        )
-        default = selection.default
-    except FileNotFoundError:
-        order = [
-            candidate.candidate_id for candidate in sorted(
-                candidates,
-                key=lambda value: _sortable_evidence(value),
-                reverse=True,
-            )
-        ]
+    if candidate_ids is not None:
+        order = list(candidate_ids)
+        if not order:
+            raise ValueError('at least one candidate is required for preview')
         default = order[0]
+    else:
+        try:
+            selection = library.read_selection()
+            order = list(selection.displayed)
+            default = selection.default
+        except FileNotFoundError:
+            order = [
+                candidate.candidate_id for candidate in sorted(
+                    candidates,
+                    key=lambda value: _sortable_evidence(value),
+                    reverse=True,
+                )
+            ]
+            default = order[0]
 
     by_id = {candidate.candidate_id: candidate for candidate in candidates}
+    missing = set(order) - set(by_id)
+    if missing:
+        raise ValueError('unknown candidates for plot: {}'.format(
+            ', '.join(sorted(missing))
+        ))
     ordered = [by_id[candidate_id] for candidate_id in order]
     owner_labels = _owner_labels(ordered[0])
     title = ' + '.join(owner_labels.values()) or package_directory.name

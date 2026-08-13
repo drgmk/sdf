@@ -131,6 +131,8 @@ sdf-fits list /path/to/package
 sdf-fits select /path/to/package \
   --default FIT-REFERENCE --display FIT-REFERENCE [FIT-REFERENCE ...]
 sdf-fits render /path/to/package
+sdf-fits render /path/to/package --fit FIT-REFERENCE \
+  --output /tmp/fit-preview.html
 ```
 
 `list` prints the candidate storage names used as concise fit references,
@@ -139,6 +141,25 @@ UI. A full candidate ID or an unambiguous storage-name prefix can also be used
 as a reference. Selecting a new default automatically puts it first in the
 displayed tabs, regenerates `index.html`, and refreshes an existing result
 index. It does not run a fit.
+
+An explicit model combination can be fitted without changing the public
+selection. Repeat `--disk` to request more than one disk component:
+
+```shell
+sdf-fits fit /path/to/package \
+  --stellar 'HD 113766A=phoenix_sol' \
+  --stellar 'HD 113766B=phoenix_sol' \
+  --disk 'HD 113766A=modbb_disk_r' \
+  --disk 'HD 113766A=modbb_disk_r'
+```
+
+Every physical contributor must have exactly one `--stellar` assignment.
+Targets can be identified by canonical SIMBAD name, SDB ID, or the stored
+identity key. The command reuses an identical current candidate unless
+`--force` is supplied. To force a fresh MultiNest run for an already retained
+candidate, use `sdf-fits refit PACKAGE FIT-REFERENCE`. Both fitting commands
+remain synchronous; the operator service will put the same operations behind
+the fit-job queue.
 
 Run the regression suite with:
 

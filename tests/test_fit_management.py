@@ -1,8 +1,10 @@
 from .context import sdf
 from .test_coordinator import FakeSampler, _fit_dataset
+import pytest
 import sdf.coordinator
 import sdf.fit_management
 import sdf.model_selection
+import sdf.result_index
 
 
 def _two_candidates(tmp_path):
@@ -63,3 +65,80 @@ def test_select_updates_existing_result_index(tmp_path):
     assert rows[0]['candidate_id'] == first.candidate_id
     assert rows[0]['is_default'] == 1
     assert rows[0]['display_position'] == 0
+
+
+def test_exact_candidate_resolves_target_identity_and_disk_ownership(tmp_path):
+    dataset = _fit_dataset(tmp_path)
+
+    candidate, policies = sdf.fit_management.exact_candidate(
+        dataset,
+        stellar=(('Test', 'kurucz-0.0'),),
+        disks=(
+            ('sdb-test', 'modbb_disk_r'),
+            ('simbad:Test', 'modbb_disk_r'),
+        ),
+    )
+
+    assert candidate.model_names == (
+        'kurucz-0.0', 'modbb_disk_r', 'modbb_disk_r'
+    )
+    assert {component.owner_key for component in candidate.components} == {
+        'simbad:Test'
+    }
+    assert policies[0].search_mode == 'exact'
+    assert policies[0].max_disks == 2
+    assert policies[0].origin == 'explicit'
+
+
+def test_exact_candidate_requires_one_stellar_model_per_target(tmp_path):
+    dataset = _fit_dataset(tmp_path)
+
+    with pytest.raises(ValueError, match='stellar model missing for: Test'):
+        sdf.fit_management.exact_candidate(dataset, stellar=())
+
+
+def test_refit_forces_sampler_for_current_candidate(tmp_path):
+    dataset, first, _ = _two_candidates(tmp_path)
+    sampler = FakeSampler()
+    manager = sdf.fit_management.FitManager(tmp_path)
+
+    result = manager.refit(
+        first.path.name, sampler=sampler, dataset=dataset
+    )
+
+    assert result.candidate_id == first.candidate_id
+    assert len(sampler.calls) == 1
+
+
+def test_fit_exact_retains_explicit_policy(tmp_path):
+    dataset = _fit_dataset(tmp_path)
+    sampler = FakeSampler()
+    manager = sdf.fit_management.FitManager(tmp_path)
+
+    result = manager.fit_exact(
+        stellar=(('Test', 'kurucz-0.0'),),
+        sampler=sampler,
+        dataset=dataset,
+    )
+
+    assert len(sampler.calls) == 1
+    assert result.metadata['policy']['targets'][0]['search_mode'] == 'exact'
+    assert result.metadata['policy']['targets'][0]['origin'] == 'explicit'
+
+
+def test_preview_does_not_change_or_expand_public_selection(tmp_path):
+    dataset, first, second = _two_candidates(tmp_path)
+    manager = sdf.fit_management.FitManager(tmp_path)
+    manager.select(default=first.path.name, displayed=(first.path.name,))
+
+    public = manager.render(tmp_path / 'public.html', dataset=dataset)
+    preview = manager.render(
+        tmp_path / 'preview.html', fits=(second.path.name,), dataset=dataset
+    )
+
+    public_html = public.read_text(encoding='utf-8')
+    preview_html = preview.read_text(encoding='utf-8')
+    assert first.metadata['display_name'] in public_html
+    assert second.metadata['display_name'] not in public_html
+    assert second.metadata['display_name'] in preview_html
+    assert manager.library.read_selection().displayed == (first.candidate_id,)

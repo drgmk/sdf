@@ -6,7 +6,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .candidate_library import CandidateLibrary, FitSelection
+from .coordinator import FitCoordinator
+from .dataset import FitDataset
 from .joint_plotting import write_joint_results_page
+from .model_policy import (
+    ModelFamilyRegistry, TargetModelPolicy, resolve_package_policies,
+)
+from .model_selection import ModelCandidate, ModelComponentSpec
 from .result_index import ResultIndex
 
 
@@ -126,7 +132,122 @@ class FitManager:
             raise ValueError('unknown fit reference: {}'.format(reference))
         raise ValueError('ambiguous fit reference: {}'.format(reference))
 
-    def render(self, output=None):
+    def render(self, output=None, fits=None, dataset=None):
+        candidate_ids = None
+        if fits is not None:
+            candidate_ids = tuple(self.resolve(reference) for reference in fits)
         return write_joint_results_page(
-            self.package_directory, output=output
+            self.package_directory, output=output,
+            candidate_ids=candidate_ids, dataset=dataset,
         )
+
+    def fit_exact(self, stellar, disks=(), *, force=False, nospec=False,
+                  sampler=None, dataset=None):
+        """Fit one explicitly owned model combination and retain it."""
+
+        dataset = dataset or FitDataset.from_package(
+            self.package_directory, nospec=nospec
+        )
+        candidate, policies = exact_candidate(
+            dataset, stellar, disks,
+            package_directory=self.package_directory,
+        )
+        coordinator = FitCoordinator(
+            self.package_directory, sampler=sampler
+        )
+        return coordinator.fit_candidate(
+            dataset, candidate, policy=policies, force=force
+        )
+
+    def refit(self, reference, *, nospec=False, sampler=None, dataset=None):
+        """Force a fresh sampler run for one retained candidate."""
+
+        candidate_id = self.resolve(reference)
+        stored = self.library.find(candidate_id)
+        candidate = ModelCandidate(components=tuple(
+            ModelComponentSpec(**component)
+            for component in stored.metadata['components']
+        ))
+        dataset = dataset or FitDataset.from_package(
+            self.package_directory, nospec=nospec
+        )
+        policy = stored.metadata.get('policy', {}).get('targets', ())
+        coordinator = FitCoordinator(
+            self.package_directory, sampler=sampler
+        )
+        return coordinator.fit_candidate(
+            dataset, candidate, policy=policy, force=True
+        )
+
+
+def exact_candidate(dataset, stellar, disks=(), registry=None,
+                    package_directory=None):
+    """Build and validate one exact hierarchy-owned candidate."""
+
+    registry = registry or ModelFamilyRegistry.from_config()
+    targets = {target.key: target for target in dataset.targets}
+    aliases = {}
+    for target in dataset.targets:
+        for alias in (target.key, target.main_id, target.sdbid):
+            if alias is not None:
+                aliases.setdefault(_normalized(alias), set()).add(target.key)
+
+    def owner_key(reference):
+        matches = aliases.get(_normalized(reference), set())
+        if not matches:
+            raise ValueError('unknown target reference: {}'.format(reference))
+        if len(matches) != 1:
+            raise ValueError('ambiguous target reference: {}'.format(reference))
+        return next(iter(matches))
+
+    stellar_by_owner = {}
+    for owner, model_name in stellar:
+        key = owner_key(owner)
+        registry.require(model_name, 'stellar')
+        if key in stellar_by_owner:
+            raise ValueError(
+                'target {} has more than one stellar model'.format(owner)
+            )
+        stellar_by_owner[key] = model_name
+    missing = set(targets) - set(stellar_by_owner)
+    if missing:
+        raise ValueError('stellar model missing for: {}'.format(
+            ', '.join(targets[key].main_id or key for key in sorted(missing))
+        ))
+
+    disk_models = []
+    for owner, model_name in disks:
+        key = owner_key(owner)
+        registry.require(model_name, 'disk')
+        disk_models.append((key, model_name))
+    disk_models.sort()
+    owned_models = [
+        (key, stellar_by_owner[key]) for key in sorted(targets)
+    ] + disk_models
+    candidate = ModelCandidate.from_owned_models(owned_models)
+
+    defaults = {
+        policy.target_key: policy
+        for policy in resolve_package_policies(
+            dataset, package_directory or Path('__no_package_policy__')
+        )
+    }
+    policies = []
+    for key in sorted(targets):
+        owned_disks = [
+            model_name for owner, model_name in disk_models if owner == key
+        ]
+        policies.append(TargetModelPolicy(
+            target_key=key,
+            stellar_models=(stellar_by_owner[key],),
+            disk_models=tuple(sorted(set(owned_disks))),
+            max_disks=len(owned_disks),
+            search_mode='exact',
+            reddening=defaults[key].reddening,
+            origin='explicit',
+        ))
+    return candidate, tuple(policies)
+
+
+def _normalized(value):
+    return ' '.join(str(value).split()).casefold()
