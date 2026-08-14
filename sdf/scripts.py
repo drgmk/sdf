@@ -3,6 +3,7 @@ import glob
 import argparse
 from dataclasses import asdict
 import json
+from pathlib import Path
 
 # from pympler import summary, muppy, tracker
 
@@ -22,6 +23,7 @@ from sdf.result_index import ResultIndex
 from sdf.operator_jobs import run_next_job, run_worker
 from sdf.operator_state import OperatorState
 from sdf.operator_server import serve_operator
+from sdf.sample_products import write_sample_products
 
 
 def sdf_fit():
@@ -158,7 +160,35 @@ def sdf_sample():
                         help='Update calibration plots')
     parser.add_argument('--cleanup', '-c', action='store_true',
                         help='Remove unneccessary sample dirs')
+    parser.add_argument(
+        '--index',
+        help='Use retained joint-fit index instead of legacy result tables',
+    )
+    parser.add_argument(
+        '--output-root',
+        help='Sample output root (default: configured www_root/samples)',
+    )
+    parser.add_argument(
+        '--sed-base-url',
+        help='Base URL containing package pages (default: configured sdb_url)',
+    )
     args = parser.parse_args()
+
+    if args.index and (args.tables or args.plots):
+        sample_names = args.samples or db.get_samples()
+        output_root = Path(
+            args.output_root or (cfg.file['www_root'] + 'samples')
+        )
+        index = ResultIndex(args.index)
+        for sample in sample_names:
+            print("Updating indexed sample {}".format(sample))
+            write_sample_products(
+                index, sample, db.sample_targets(sample),
+                output_root / sample,
+                table=args.tables, plots=args.plots,
+                sed_base_url=args.sed_base_url or cfg.www['sdb_url'],
+            )
+        return
 
     if args.tables:
         print("Updating sample tables")

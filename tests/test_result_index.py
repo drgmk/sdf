@@ -1,5 +1,7 @@
 import sqlite3
 
+import pytest
+
 from .context import sdf
 from .test_coordinator import FakeSampler, _fit_dataset
 import sdf.candidate_library
@@ -31,7 +33,7 @@ def test_rebuild_indexes_candidate_targets_components_and_selection(tmp_path):
 
     summary = index.rebuild(tmp_path)
 
-    assert summary == sdf.result_index.IndexSummary(1, 1, 1, 1, 5)
+    assert summary == sdf.result_index.IndexSummary(1, 1, 1, 1, 1, 5)
     rows = index.candidates_for_target(dataset.targets[0].key)
     assert len(rows) == 1
     assert rows[0]['candidate_id'] == result.candidate_id
@@ -52,6 +54,25 @@ def test_rebuild_indexes_candidate_targets_components_and_selection(tmp_path):
         ('derived', 'radius_at_1pc_m'),
     }
     assert index.verify(tmp_path) == ()
+
+
+def test_default_package_can_be_found_by_observation_scope(tmp_path):
+    package, dataset, result = _retained_package(tmp_path)
+    index = sdf.result_index.ResultIndex(tmp_path / 'results.sqlite')
+    index.rebuild(tmp_path)
+    observation_id = dataset.observations[0].observation_id
+
+    packages = index.default_packages((observation_id,))
+    observations = index.observations_for_packages(('package',))
+
+    assert packages[0]['package_path'] == 'package'
+    assert packages[0]['default_candidate_id'] == result.candidate_id
+    assert observations == ({
+        'package_path': 'package',
+        'observation_id': observation_id,
+        'target_key': dataset.targets[0].key,
+        'position': 0,
+    },)
 
 
 def test_rebuild_marks_candidate_data_stale_after_input_change(tmp_path):
@@ -101,6 +122,21 @@ def test_rebuilt_index_passes_integrity_check(tmp_path):
 
     with sqlite3.connect(index.path) as connection:
         assert connection.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
+
+
+def test_old_index_schema_requests_rebuild(tmp_path):
+    _retained_package(tmp_path)
+    index = sdf.result_index.ResultIndex(tmp_path / 'results.sqlite')
+    index.rebuild(tmp_path)
+    with sqlite3.connect(index.path) as connection:
+        connection.execute(
+            "UPDATE index_metadata SET value = '1' "
+            "WHERE key = 'schema_version'"
+        )
+
+    with pytest.raises(ValueError, match='rebuild the index'):
+        index.default_packages()
+    assert any('rebuild the index' in problem for problem in index.verify())
 
 
 def test_verify_reports_missing_index(tmp_path):

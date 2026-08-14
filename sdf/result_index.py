@@ -13,13 +13,14 @@ import sqlite3
 import tempfile
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
 class IndexSummary:
     packages: int
     targets: int
+    observations: int
     candidates: int
     components: int
     parameters: int
@@ -67,6 +68,7 @@ class ResultIndex:
 
     def summary(self):
         with _connection(self.path) as connection:
+            _require_current_schema(connection)
             return _summary(connection)
 
     @classmethod
@@ -106,6 +108,7 @@ class ResultIndex:
             raise ValueError('{} is outside index root {}'.format(package, root))
         package_path = package.relative_to(root).as_posix()
         with _connection(self.path) as connection:
+            _require_current_schema(connection)
             connection.execute(
                 'DELETE FROM fit_packages WHERE path = ?', (package_path,)
             )
@@ -190,6 +193,86 @@ class ResultIndex:
             ).fetchall()
         return tuple(dict(row) for row in rows)
 
+    def default_packages(self, identifiers=None):
+        """Return default candidate artifacts for matched systems/packages."""
+
+        with _connection(self.path) as connection:
+            _require_current_schema(connection)
+            if identifiers is None:
+                where = ''
+            else:
+                identifiers = tuple(dict.fromkeys(
+                    str(value) for value in identifiers
+                ))
+                if not identifiers:
+                    return ()
+                connection.execute(
+                    'CREATE TEMP TABLE requested_packages '
+                    '(value TEXT PRIMARY KEY)'
+                )
+                connection.executemany(
+                    'INSERT INTO requested_packages VALUES (?)',
+                    ((value,) for value in identifiers),
+                )
+                where = '''
+                    WHERE EXISTS (
+                        SELECT 1 FROM fit_targets AS t
+                        JOIN requested_packages AS requested
+                          ON requested.value IN (
+                              t.target_key, t.main_id, t.sdbid
+                          )
+                        WHERE t.package_path = p.path
+                    ) OR EXISTS (
+                        SELECT 1 FROM fit_observations AS o
+                        JOIN requested_packages AS requested
+                          ON requested.value = o.observation_id
+                        WHERE o.package_path = p.path
+                    )
+                '''
+            rows = connection.execute(
+                '''
+                SELECT p.path AS package_path, p.default_candidate_id,
+                       p.input_fingerprint, p.updated_at,
+                       c.result_path, c.display_name, c.evidence,
+                       c.evidence_error, c.data_current, c.completed_at
+                FROM fit_packages AS p
+                JOIN fit_candidates AS c
+                  ON c.package_path = p.path
+                 AND c.candidate_id = p.default_candidate_id
+                {where}
+                ORDER BY p.path
+                '''.format(where=where)
+            ).fetchall()
+        return tuple(dict(row) for row in rows)
+
+    def observations_for_packages(self, package_paths):
+        """Return observation scopes and ordered physical contributors."""
+
+        package_paths = tuple(dict.fromkeys(str(path) for path in package_paths))
+        if not package_paths:
+            return ()
+        with _connection(self.path) as connection:
+            _require_current_schema(connection)
+            connection.execute(
+                'CREATE TEMP TABLE requested_package_paths '
+                '(value TEXT PRIMARY KEY)'
+            )
+            connection.executemany(
+                'INSERT INTO requested_package_paths VALUES (?)',
+                ((value,) for value in package_paths),
+            )
+            rows = connection.execute(
+                '''
+                SELECT o.package_path, o.observation_id, o.target_key,
+                       o.position
+                FROM fit_observations AS o
+                JOIN requested_package_paths AS requested
+                  ON requested.value = o.package_path
+                ORDER BY o.package_path, o.observation_id, o.position
+                '''
+            ).fetchall()
+        return tuple(dict(row) for row in rows)
+
     def verify(self, root=None):
         """Return human-readable consistency problems, or an empty tuple."""
 
@@ -200,6 +283,10 @@ class ResultIndex:
             integrity = connection.execute('PRAGMA integrity_check').fetchone()[0]
             if integrity != 'ok':
                 problems.append('SQLite integrity check: {}'.format(integrity))
+            try:
+                _require_current_schema(connection)
+            except ValueError as error:
+                problems.append(str(error))
             indexed_root = Path(connection.execute(
                 "SELECT value FROM index_metadata WHERE key = 'root'"
             ).fetchone()[0])
@@ -238,6 +325,18 @@ def _connect(path):
     return connection
 
 
+def _require_current_schema(connection):
+    row = connection.execute(
+        "SELECT value FROM index_metadata WHERE key = 'schema_version'"
+    ).fetchone()
+    actual = None if row is None else int(row[0])
+    if actual != SCHEMA_VERSION:
+        raise ValueError(
+            'result index schema is {}; expected {} (rebuild the index)'.
+            format(actual, SCHEMA_VERSION)
+        )
+
+
 @contextmanager
 def _connection(path):
     connection = _connect(path)
@@ -274,6 +373,17 @@ def _create_schema(connection):
         );
         CREATE INDEX fit_targets_identity ON fit_targets(target_key);
         CREATE INDEX fit_targets_sdbid ON fit_targets(sdbid);
+
+        CREATE TABLE fit_observations (
+            package_path TEXT NOT NULL REFERENCES fit_packages(path)
+                ON DELETE CASCADE,
+            observation_id TEXT NOT NULL,
+            target_key TEXT NOT NULL,
+            position INTEGER NOT NULL,
+            PRIMARY KEY (package_path, observation_id, position)
+        );
+        CREATE INDEX fit_observations_identity
+            ON fit_observations(observation_id);
 
         CREATE TABLE fit_candidates (
             package_path TEXT NOT NULL REFERENCES fit_packages(path)
@@ -409,6 +519,7 @@ def _index_package(connection, root, package):
         ),
     )
     targets = {}
+    observations = {}
     for path, result in zip(result_paths, results):
         posterior = result['posterior']
         connection.execute(
@@ -444,6 +555,16 @@ def _index_package(connection, root, package):
         for target_key, target in result.get('analysis', {}).get(
                 'targets', {}).items():
             targets[target_key] = target
+        for scope in result.get('analysis', {}).get('data_scopes', ()):
+            observation_id = scope['observation_id']
+            contributors = tuple(scope.get('contributors', ()))
+            previous = observations.setdefault(observation_id, contributors)
+            if previous != contributors:
+                raise ValueError(
+                    '{} has inconsistent contributors for {}'.format(
+                        package, observation_id,
+                    )
+                )
         _index_parameters(
             connection, package_path, result['candidate_id'],
             result.get('analysis', {}),
@@ -455,6 +576,14 @@ def _index_package(connection, root, package):
             (
                 package_path, target_key, target.get('main_id'),
                 target.get('sdbid'),
+            ),
+        )
+    for observation_id, contributors in sorted(observations.items()):
+        connection.executemany(
+            'INSERT INTO fit_observations VALUES (?, ?, ?, ?)',
+            (
+                (package_path, observation_id, target_key, position)
+                for position, target_key in enumerate(contributors)
             ),
         )
     labels = selection.get('labels', {})
@@ -540,6 +669,7 @@ def _summary(connection):
     counts = {}
     for label, table in (
         ('packages', 'fit_packages'), ('targets', 'fit_targets'),
+        ('observations', 'fit_observations'),
         ('candidates', 'fit_candidates'), ('components', 'fit_components'),
         ('parameters', 'fit_parameters'),
     ):

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ projection.name }} — SDF sample</title>
+  <style>
+    * { box-sizing:border-box; }
+    body { margin:0; background:#f5f7fa; color:#172033;
+      font-family:ui-sans-serif,system-ui,-apple-system,sans-serif; }
+    main { width:min(1500px,100%); margin:auto; padding:18px; overflow:hidden; }
+    header { display:flex; justify-content:space-between; align-items:flex-start;
+      gap:12px; }
+    h1 { margin:0; } a { color:#285ea8; text-decoration:none; }
+    .muted { color:#526071; } .warning { color:#8a5200; }
+    table { width:100%; border-collapse:collapse; background:white;
+      border:1px solid #dfe5ec; margin-top:16px; font-size:14px; }
+    th,td { text-align:left; vertical-align:top; border-bottom:1px solid #e6ebf0;
+      padding:9px; }
+    th { color:#526071; } code { font-size:12px; }
+    .badge { border-radius:10px; background:#e9f1fb; padding:2px 7px;
+      font-size:11px; white-space:nowrap; }
+    .context { background:#edf0f3; color:#637083; }
+    details { margin:3px 0; } summary { cursor:pointer; }
+    footer { color:#526071; font-size:12px; margin-top:14px; }
+  </style>
+</head>
+<body><main>
+  <header><div><h1>{{ projection.name }}</h1><p class="muted">{{ projection.systems|length }} fitted systems · {{ projection.target_count }} physical contributors</p></div><nav><a href="hr.html">HR and disks</a> · <a href="{{ projection.name }}.xml">VOTable</a></nav></header>
+  {% if projection.unmatched %}<p class="warning">No indexed fit for: {{ projection.unmatched|join(', ') }}</p>{% endif %}
+  <table><thead><tr><th>System</th><th>Physical target</th><th>Stellar fit</th><th>Distance</th><th>Owned disks</th></tr></thead><tbody>
+  {% for row in rows %}<tr>
+    <td><a href="{{ row.system.url }}">{{ row.system.label }}</a><br><code>{{ row.system.package_path }}</code>{% if not row.system.data_current %}<br><span class="badge context">input changed</span>{% endif %}</td>
+    <td>{{ row.target.label }}<br><code>{{ row.target.sdbid or row.target.target_key }}</code><br>{% if row.target.direct_member %}<span class="badge">sample member</span>{% else %}<span class="badge context">system context</span>{% endif %}</td>
+    <td>{% if row.star %}{{ row.star.model_name }}<br>Teff {{ row.star.temperature_k|summary }} K<br>L {{ row.star.luminosity_lsun|summary }} L☉{% else %}—{% endif %}</td>
+    <td>{% if row.target.distance_pc %}{{ '%.1f'|format(row.target.distance_pc) }} pc{% else %}—{% endif %}</td>
+    <td>{% if row.target.disks %}{% for disk in row.target.disks %}<details><summary>{{ disk.model_name }} · {{ disk.temperature_k|summary }} K</summary>f={{ disk.fractional_luminosity|summary }}<br>Rbb={{ disk.blackbody_radius_au|summary }} au<br><code>{{ disk.component_id }}</code></details>{% endfor %}{% else %}—{% endif %}</td>
+  </tr>{% endfor %}
+  </tbody></table>
+  <footer>generated {{ creation_time }}</footer>
+</main></body></html>

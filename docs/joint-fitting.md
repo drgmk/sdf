@@ -157,13 +157,11 @@ interpret broadband-only `logg` scientifically until SDF gains family-specific
 stellar mass/radius priors or deliberately treats gravity as a nuisance
 parameter.
 
-Legacy result-database writing and indexed sample generation are intentionally
-not enabled yet.
-Requesting database output for a joint package raises a clear error rather
-than silently writing a single-target-shaped legacy result. The replacement
-result index, fit-selection commands, persistent policy, loopback operator
-service, and asynchronous fit-job queue are available. The main remaining
-workflow milestone is hierarchy-aware sample generation.
+Legacy result-database writing remains intentionally disabled for joint
+packages. Requesting it raises a clear error rather than silently writing a
+single-target-shaped result. The replacement result index, fit-selection
+commands, persistent policy, loopback operator service, asynchronous fit-job
+queue, and the first hierarchy-aware sample products are available.
 
 The first result-index implementation can build a disposable SQLite query view
 of all retained joint candidates below an export root:
@@ -177,16 +175,40 @@ The default database is `/path/to/export/sdf-results.sqlite`; use `--database`
 to place it elsewhere. The index records packages, canonical target identities,
 candidates, component ownership, evidence, input freshness, and display/default
 selection. Fitted and derived scalar quantities are indexed per physical target
-and owned model component. The `default_targets()` and `default_parameters()`
-query APIs accept sample-sized lists of SIMBAD names, SDB IDs, or canonical
-keys; these are the data boundary for migrating `sdf-sample`.
+and owned model component. The `default_targets()`, `default_parameters()`, and
+`default_packages()` query APIs accept sample-sized lists of SIMBAD names, SDB
+IDs, canonical keys, or composite observation IDs. Observation rows retain
+their ordered physical contributors, so a sample entry for an unresolved `AB`
+measurement can find the package and expose both A and B without treating
+either as a direct sample member.
 
 The index contains no irreplaceable state and can always be rebuilt from the
 package-local `fits` directories. Once that default index exists, fitting a
 package anywhere below its recorded root refreshes that package's rows
-transactionally. SDF does not create an index implicitly. Reworking the sample
-tables and plots to represent multiple physical targets and owned components is
-the remaining `sdf-sample` integration step.
+transactionally. SDF does not create an index implicitly; rebuild it when SDF
+reports that its disposable schema is out of date. Hierarchy-aware sample
+products are available through an explicit indexed path:
+
+```shell
+sdf-sample --index /path/to/export/sdf-results.sqlite \
+  --samples reasons --tables --plots \
+  --output-root /path/to/www/samples \
+  --sed-base-url https://example.test/seds
+```
+
+Sample membership still comes from SDB. Fitted values come from the default
+candidate in the disposable SDF index. The generated table has one row per
+physical contributor, marks direct sample members separately from system
+context, and keeps disks under their physical owner. Its VOTable follows the
+same projection. The plots currently provide a hierarchy-aware HR diagram and
+owned-disk fractional luminosity versus temperature; points link back to their
+retained SED page.
+
+Without `--index`, `sdf-sample` retains the old MySQL-shaped implementation.
+The indexed path does not yet replace the legacy raw-photometry CSV or
+flux/size plots. Those need compact candidate products for model predictions
+in the requested instrument bands rather than reconstructing legacy result
+objects or querying the old result tables.
 
 Retained fits can be inspected and presented without rerunning MultiNest:
 

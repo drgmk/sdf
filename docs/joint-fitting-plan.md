@@ -773,9 +773,20 @@ The result index, rebuild/verification commands, fit library, selection
 commands, shared SED page, persistent policy state, functional drawer controls,
 and asynchronous job boundary are implemented. Operator policy/job state uses
 a separate `sdf-operator.sqlite`: it is durable operational state, whereas
-`sdf-results.sqlite` remains a disposable materialized view. The main remaining
-work is the hierarchy-aware `sdf-sample` migration, followed by operational
-hardening of the worker if concurrent use requires it.
+`sdf-results.sqlite` remains a disposable materialized view.
+
+The first hierarchy-aware `sdf-sample --index` path is also implemented. The
+index now records composite observation scopes and their ordered contributors.
+Sample IDs may therefore resolve either physical targets or unresolved
+observations. The new HTML table and VOTable show direct members plus physical
+system context, stellar results, and explicitly owned disks. The new Bokeh
+plots provide an HR diagram and disk fractional luminosity versus temperature.
+The legacy path remains the fallback when `--index` is omitted.
+
+Completing phase 6 now means deciding whether the legacy raw-photometry CSV is
+still useful, and adding the compact per-band model predictions needed to
+replace flux/size plots without rebuilding old `Result` objects. Operational
+worker hardening can follow if concurrent use requires it.
 
 ### Phase 7: optional samplers and performance
 

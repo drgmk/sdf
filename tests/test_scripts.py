@@ -98,3 +98,36 @@ def test_sdf_fits_serve_passes_actor_and_state(monkeypatch, tmp_path):
         'state_path': str(tmp_path / 'operator.sqlite'),
         'actor': 'Grant', 'host': '127.0.0.1', 'port': 8123,
     })]
+
+
+def test_sdf_sample_uses_indexed_hierarchy_products(monkeypatch, tmp_path):
+    calls = []
+    index_path = tmp_path / 'sdf-results.sqlite'
+    output_root = tmp_path / 'samples'
+    monkeypatch.setattr(
+        sys, 'argv', [
+            'sdf-sample', '--samples', 'reasons', '--tables', '--plots',
+            '--index', str(index_path), '--output-root', str(output_root),
+            '--sed-base-url', 'https://example.test/seds',
+        ],
+    )
+    monkeypatch.setattr(
+        sdf.scripts.db, 'sample_targets', lambda sample: ['HD 123', 'HD 456']
+    )
+    monkeypatch.setattr(
+        sdf.scripts, 'write_sample_products',
+        lambda *args, **kwargs: calls.append((args, kwargs)),
+    )
+
+    sdf.scripts.sdf_sample()
+
+    assert len(calls) == 1
+    args, kwargs = calls[0]
+    assert isinstance(args[0], sdf.result_index.ResultIndex)
+    assert args[1:] == (
+        'reasons', ['HD 123', 'HD 456'], output_root / 'reasons'
+    )
+    assert kwargs == {
+        'table': True, 'plots': True,
+        'sed_base_url': 'https://example.test/seds',
+    }
