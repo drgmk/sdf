@@ -22,6 +22,7 @@ setup(
                             'sdf-fits=sdf.scripts:sdf_fits',
                             'sdf-sample=sdf.scripts:sdf_sample',
                             'sdf-index=sdf.scripts:sdf_index',
+                            'sdf-jobs=sdf.scripts:sdf_jobs',
                             'sdf-cleanup=sdf.scripts:sdf_cleanup']
         },
     zip_safe=False

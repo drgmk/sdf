@@ -19,6 +19,9 @@ from sdf.coordinator import fit_package
 from sdf.fit_management import FitManager
 from sdf.joint_plotting import write_joint_results_page
 from sdf.result_index import ResultIndex
+from sdf.operator_jobs import run_next_job, run_worker
+from sdf.operator_state import OperatorState
+from sdf.operator_server import serve_operator
 
 
 def sdf_fit():
@@ -246,6 +249,12 @@ def sdf_fits():
     refit_parser.add_argument('package')
     refit_parser.add_argument('fit')
     refit_parser.add_argument('--no-spectra', action='store_true')
+    serve_parser = subparsers.add_parser('serve')
+    serve_parser.add_argument('package')
+    serve_parser.add_argument('--state')
+    serve_parser.add_argument('--actor')
+    serve_parser.add_argument('--host', default='127.0.0.1')
+    serve_parser.add_argument('--port', type=int, default=8765)
     args = parser.parse_args()
     manager = FitManager(args.package)
 
@@ -267,6 +276,13 @@ def sdf_fits():
                 fit.reference, evidence, ', '.join(flags) or '-',
                 fit.display_name,
             ))
+        return
+
+    if args.command == 'serve':
+        serve_operator(
+            args.package, state_path=args.state, actor=args.actor,
+            host=args.host, port=args.port,
+        )
         return
 
     if args.command == 'select':
@@ -295,6 +311,31 @@ def sdf_fits():
     print(manager.render(
         args.output, fits=args.fits, operator=args.operator,
     ))
+
+
+def sdf_jobs():
+    """Inspect or run the asynchronous operator fit queue."""
+
+    parser = argparse.ArgumentParser(description='Manage queued SDF fit jobs')
+    parser.add_argument('--state', required=True, help='Operator-state SQLite')
+    subparsers = parser.add_subparsers(dest='command', required=True)
+    list_parser = subparsers.add_parser('list')
+    list_parser.add_argument('--status')
+    run_parser = subparsers.add_parser('run')
+    run_parser.add_argument('--once', action='store_true')
+    run_parser.add_argument('--poll-seconds', type=float, default=5.0)
+    args = parser.parse_args()
+    state = OperatorState(args.state).initialize()
+    if args.command == 'list':
+        print(json.dumps([
+            asdict(job) for job in state.jobs(status=args.status)
+        ], indent=2))
+        return
+    if args.once:
+        job = run_next_job(state, raise_errors=True)
+        print('no queued jobs' if job is None else 'completed {}'.format(job.id))
+        return
+    run_worker(state, poll_seconds=args.poll_seconds)
 
 
 def _model_assignment(value):

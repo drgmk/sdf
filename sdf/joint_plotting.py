@@ -16,7 +16,9 @@ from bokeh.plotting import figure
 
 from .candidate_library import CandidateLibrary
 from .dataset import FitDataset, canonical_fit_source
+from .model_policy import ModelFamilyRegistry, resolve_package_policies
 from .sed_page import (
+    add_operator_policy,
     candidate_page_rows,
     observation_page_rows,
     render_sed_page,
@@ -25,7 +27,9 @@ from .sed_page import (
 
 
 def write_joint_results_page(package_directory, output=None, *, dataset=None,
-                             inline=True, candidate_ids=None, operator=False):
+                             inline=True, candidate_ids=None, operator=False,
+                             policy_store=None, operator_api=None,
+                             operator_token=None, operator_actor=None):
     """Write a standalone candidate-review page for one joint package."""
 
     package_directory = canonical_fit_source(package_directory)
@@ -38,24 +42,29 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
     if not candidates:
         raise ValueError('joint package has no retained candidates to plot')
 
+    try:
+        selection = library.read_selection()
+    except FileNotFoundError:
+        selection = None
+    ranked_ids = [
+        candidate.candidate_id for candidate in sorted(
+            candidates, key=_sortable_evidence, reverse=True,
+        )
+    ]
+    public_default = (
+        selection.default if selection is not None else ranked_ids[0]
+    )
     if candidate_ids is not None:
         order = list(candidate_ids)
         if not order:
             raise ValueError('at least one candidate is required for preview')
-        default = order[0]
+        default = public_default
     else:
-        try:
-            selection = library.read_selection()
+        if selection is not None:
             order = list(selection.displayed)
             default = selection.default
-        except FileNotFoundError:
-            order = [
-                candidate.candidate_id for candidate in sorted(
-                    candidates,
-                    key=lambda value: _sortable_evidence(value),
-                    reverse=True,
-                )
-            ]
+        else:
+            order = ranked_ids
             default = order[0]
 
     by_id = {candidate.candidate_id: candidate for candidate in candidates}
@@ -78,17 +87,40 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
             ),
             title='Fit {}'.format(rank),
         ))
-    active = next(
-        (index for index, candidate in enumerate(ordered)
-         if candidate.candidate_id == default),
-        0,
-    )
+    active = next((
+        index for index, candidate in enumerate(ordered)
+        if candidate.candidate_id == default
+    ), 0)
     tabs = Tabs(tabs=panels, active=active, sizing_mode='stretch_width')
     plot_script, plot_div = components(tabs)
     target_rows = target_page_rows(dataset, package_directory)
     candidate_rows = candidate_page_rows(
         ordered, owner_labels, default, package_directory, dataset,
+        displayed_ids=order,
     )
+    available_rows = ()
+    queued_jobs = ()
+    if operator:
+        registry = ModelFamilyRegistry.from_config()
+        policies = resolve_package_policies(
+            dataset, package_directory, registry=registry,
+            policy_store=policy_store,
+        )
+        if operator_actor is None and policy_store is not None:
+            operator_actor = policy_store.last_actor()
+        add_operator_policy(
+            target_rows, policies, registry, policy_store=policy_store,
+            package_directory=package_directory, actor=operator_actor,
+        )
+        available_rows = candidate_page_rows(
+            sorted(candidates, key=_sortable_evidence, reverse=True),
+            owner_labels, default, package_directory, dataset,
+            displayed_ids=order,
+        )
+        if policy_store is not None:
+            queued_jobs = policy_store.jobs(
+                package=package_directory, status='queued',
+            )
     html = render_sed_page(
         title=title,
         plot_script=plot_script,
@@ -99,6 +131,11 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
         default_candidate=default,
         inline=inline,
         operator=operator,
+        available_fits=available_rows,
+        operator_api=operator_api,
+        operator_token=operator_token,
+        operator_actor=operator_actor,
+        queued_jobs=queued_jobs,
     )
     default_name = 'operator.html' if operator else 'index.html'
     output = (

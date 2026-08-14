@@ -72,3 +72,29 @@ def test_sdf_fits_can_render_operator_extension(monkeypatch, tmp_path):
     assert calls == [
         ('init', str(tmp_path)), ('render', None, None, True),
     ]
+
+
+def test_sdf_fits_serve_passes_actor_and_state(monkeypatch, tmp_path):
+    calls = []
+
+    monkeypatch.setattr(
+        sys, 'argv', [
+            'sdf-fits', 'serve', str(tmp_path), '--state',
+            str(tmp_path / 'operator.sqlite'), '--actor', 'Grant',
+            '--port', '8123',
+        ],
+    )
+    monkeypatch.setattr(
+        sdf.scripts, 'FitManager', lambda package: object(),
+    )
+    monkeypatch.setattr(
+        sdf.scripts, 'serve_operator',
+        lambda package, **kwargs: calls.append((package, kwargs)),
+    )
+
+    sdf.scripts.sdf_fits()
+
+    assert calls == [(str(tmp_path), {
+        'state_path': str(tmp_path / 'operator.sqlite'),
+        'actor': 'Grant', 'host': '127.0.0.1', 'port': 8123,
+    })]

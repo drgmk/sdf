@@ -28,11 +28,10 @@ dataset/candidate/problem boundaries, local MultiNest callbacks, joint-package
 discovery and projections, compact candidate artifacts, SIMBAD-keyed portable
 policy, deterministic candidate search, orchestration, hierarchy-aware
 analysis, joint plotting, fit selection commands, and a rebuildable result
-index. Single-file fitting still follows the legacy facade. The current slice
-is the operator workflow: a shared public/operator SED page now provides the
-presentation boundary, ahead of persistent policy controls and the fit-job
-queue. See `joint-fitting.md` for the runnable development interface and
-current boundary.
+index. Single-file fitting still follows the legacy facade. The operator slice
+now has a shared public/operator SED page, persistent policy controls, retained
+fit selection, and a fit-job queue/worker boundary. See `joint-fitting.md` for
+the runnable development interface and current boundary.
 
 The SDB export contract remains deliberately small:
 
@@ -508,10 +507,11 @@ without inventing per-component photometry for unresolved measurements.
 
 ### Central policy store
 
-Operator policy should be centralized rather than written into one of many
-target folders.  A SQLite store is sufficient and can share infrastructure
-with the result index and fit-job queue.  Policy is normally target-global and
-keyed by canonical SIMBAD identity; a package-scoped exception can be allowed
+Operator policy is centralized rather than written into one of many target
+folders. A small `sdf-operator.sqlite` store owns policy and the fit-job queue.
+It is separate from the rebuildable `sdf-results.sqlite`, since operator state
+must not disappear during an index rebuild. Policy is normally target-global
+and keyed by canonical SIMBAD identity; a package-scoped exception is used
 when the same object genuinely needs different treatment in a particular
 analysis.
 
@@ -770,9 +770,12 @@ appear when code and tests establish a real boundary.
 - Provide index rebuild and verification commands.
 
 The result index, rebuild/verification commands, fit library, selection
-commands, and shared SED page are implemented. Remaining work is the central
-policy/job state, functional drawer controls, asynchronous execution, and the
-hierarchy-aware `sdf-sample` migration.
+commands, shared SED page, persistent policy state, functional drawer controls,
+and asynchronous job boundary are implemented. Operator policy/job state uses
+a separate `sdf-operator.sqlite`: it is durable operational state, whereas
+`sdf-results.sqlite` remains a disposable materialized view. The main remaining
+work is the hierarchy-aware `sdf-sample` migration, followed by operational
+hardening of the worker if concurrent use requires it.
 
 ### Phase 7: optional samplers and performance
 

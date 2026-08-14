@@ -173,13 +173,15 @@ class FitCoordinator:
 
 
 def fit_package(source, *, sampler=None, force=False, nospec=False,
-                provenance=None):
+                provenance=None, policy_store=None):
     """Fit a discovered package using its resolved portable policy."""
 
     source = canonical_fit_source(source)
     dataset = FitDataset.from_path(source, nospec=nospec)
     package_directory = source if source.is_dir() else source.parent
-    policies = resolve_package_policies(dataset, package_directory)
+    policies = resolve_package_policies(
+        dataset, package_directory, policy_store=policy_store,
+    )
     modes = {policy.search_mode for policy in policies}
     if len(modes) != 1:
         raise ValueError(

@@ -111,9 +111,36 @@ styling:
 sdf-fits render /path/to/package --operator
 ```
 
-This writes `operator.html` by default. At present the drawer exposes the
-component/candidate structure as a development shell; persistent policy edits
-and fit actions still require the planned local/authenticated service.
+This writes a read-only `operator.html` development view by default. To make
+the same drawer interactive, run the loopback-only operator service:
+
+```shell
+sdf-fits serve /path/to/package --actor Grant
+```
+
+The drawer edits one physical contributor at a time, prefills actor and reason,
+and saves global policy unless the package already needs a package-specific
+exception. Saving queues a fit and returns immediately. Repeated edits to the
+same package coalesce into one queued job. The retained default fit seeds any
+otherwise-missing package policy when the service first opens; this preserves
+an explicit white-dwarf or cool-star choice even when the exported rawphot
+metadata lacks a spectral type. `Use automatic` removes that exception.
+
+The service also lists every retained candidate. `Preview` does not change the
+public selection; `shown` controls the public tabs, and `Make default` changes
+the default fit immediately without running MultiNest.
+
+Slow jobs are processed separately:
+
+```shell
+sdf-jobs --state /path/to/sdf-operator.sqlite list --status queued
+sdf-jobs --state /path/to/sdf-operator.sqlite run
+```
+
+Use `run --once` for a single queued job. The operator database defaults beside
+the nearest `sdf-results.sqlite`, or in the package's parent when no result
+index exists. It is intentionally separate from the rebuildable result index,
+so rebuilding result queries cannot erase policy or job state.
 
 The HD 113766 package is the first end-to-end joint rehearsal. HD 283750 plus
 its wide DC8 companion HD 283750B is the mixed-family rehearsal: two fully
@@ -134,9 +161,9 @@ Legacy result-database writing and indexed sample generation are intentionally
 not enabled yet.
 Requesting database output for a joint package raises a clear error rather
 than silently writing a single-target-shaped legacy result. The replacement
-result index and fit-selection commands are available. The remaining operator
-milestone is persistent policy and job handling, followed by hierarchy-aware
-sample generation.
+result index, fit-selection commands, persistent policy, loopback operator
+service, and asynchronous fit-job queue are available. The main remaining
+workflow milestone is hierarchy-aware sample generation.
 
 The first result-index implementation can build a disposable SQLite query view
 of all retained joint candidates below an export root:

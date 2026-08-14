@@ -3,6 +3,7 @@ import pytest
 from .context import sdf
 import sdf.dataset
 import sdf.model_policy
+import sdf.operator_state
 
 
 def _target(name, spectral_type):
@@ -72,3 +73,43 @@ def test_package_policy_rejects_wrong_model_role(tmp_path):
 
     with pytest.raises(sdf.utils.SdfError, match='disk model, not stellar'):
         sdf.model_policy.resolve_package_policies(dataset, tmp_path)
+
+
+def test_operator_global_then_package_then_operator_exception_precedence(
+        tmp_path):
+    target = _target('HD 1', 'F3V')
+    dataset = sdf.dataset.FitDataset(targets=(target,), observations=())
+    state = sdf.operator_state.OperatorState(tmp_path / 'operator.sqlite')
+    package = tmp_path / 'package'
+    package.mkdir()
+    state.save_policy_and_queue(
+        sdf.model_policy.TargetModelPolicy(
+            target.key, ('phoenix_cool',), max_disks=0,
+        ),
+        package=package, actor='Grant', reason='Global cool-star choice',
+    )
+    (package / 'sdf-fit.yml').write_text(
+        'targets:\n  HD 1:\n    stellar_models: [phoenix_sol]\n'
+        '    max_disks: 0\n',
+        encoding='utf-8',
+    )
+
+    package_policy = sdf.model_policy.resolve_package_policies(
+        dataset, package, policy_store=state,
+    )[0]
+    assert package_policy.stellar_models == ('phoenix_sol',)
+    assert package_policy.origin == 'package'
+
+    state.save_policy_and_queue(
+        sdf.model_policy.TargetModelPolicy(
+            target.key, ('koester_wd',), disk_models=('bb_disk_r',),
+            max_disks=0,
+        ),
+        package=package, scope='package', actor='Grant',
+        reason='This package resolves the WD component',
+    )
+    exception = sdf.model_policy.resolve_package_policies(
+        dataset, package, policy_store=state,
+    )[0]
+    assert exception.stellar_models == ('koester_wd',)
+    assert exception.origin == 'operator-package'

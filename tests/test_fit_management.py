@@ -141,6 +141,8 @@ def test_preview_does_not_change_or_expand_public_selection(tmp_path):
     assert first.metadata['display_name'] in public_html
     assert second.metadata['display_name'] not in public_html
     assert second.metadata['display_name'] in preview_html
+    assert 'data-candidate="{}"'.format(second.path.name) in preview_html
+    assert '<span class="default-badge">default</span>' not in preview_html
     assert manager.library.read_selection().displayed == (first.candidate_id,)
 
 

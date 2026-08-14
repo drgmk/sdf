@@ -12,7 +12,8 @@ from bokeh.resources import CDN, INLINE
 
 def render_sed_page(*, title, plot_script, plot_div, targets, candidates,
                     observations, default_candidate, inline=True,
-                    operator=False):
+                    operator=False, available_fits=(), operator_api=None,
+                    operator_token=None, operator_actor=None, queued_jobs=()):
     """Render one SED document, optionally extended with operator controls."""
 
     env = jinja2.Environment(
@@ -30,6 +31,11 @@ def render_sed_page(*, title, plot_script, plot_div, targets, candidates,
         observations=observations,
         default_candidate=default_candidate,
         operator=operator,
+        available_fits=available_fits,
+        operator_api=operator_api,
+        operator_token=operator_token,
+        operator_actor=operator_actor,
+        queued_jobs=queued_jobs,
         bokeh_js=resources.render_js(),
         bokeh_css=resources.render_css(),
         creation_time=datetime.now(timezone.utc).strftime('%d/%m/%y %X'),
@@ -75,11 +81,15 @@ def target_page_rows(dataset, package_directory):
 
 
 def candidate_page_rows(candidates, labels, default_candidate,
-                        package_directory, dataset):
+                        package_directory, dataset, displayed_ids=None):
     """Project retained fits and component-aware result links."""
 
     package_directory = Path(package_directory)
     rows = []
+    displayed_ids = (
+        {candidate.candidate_id for candidate in candidates}
+        if displayed_ids is None else set(displayed_ids)
+    )
     for index, candidate in enumerate(candidates, start=1):
         evidence = candidate.posterior.evidence
         analysis = candidate.metadata['analysis']
@@ -122,10 +132,59 @@ def candidate_page_rows(candidates, labels, default_candidate,
             'chi_squared': analysis.get('chi_squared'),
             'current': candidate.is_current(dataset),
             'default': candidate.candidate_id == default_candidate,
+            'displayed': candidate.candidate_id in displayed_ids,
             'components': components,
             'links': links,
+            'preview_url': '?' + urlencode({'fit': candidate.path.name}),
         })
     return rows
+
+
+def add_operator_policy(targets, policies, registry, *, policy_store=None,
+                        package_directory=None, actor=None):
+    """Add editable policy state without changing the public projection."""
+
+    policies = {policy.target_key: policy for policy in policies}
+    for target in targets:
+        policy = policies[target['key']]
+        record = (
+            None if policy_store is None else
+            policy_store.policy(target['key'], package=package_directory)
+        )
+        if policy.origin in {'package', 'operator-package'}:
+            save_scope = 'package'
+        else:
+            save_scope = 'global'
+        target['policy'] = {
+            'stellar_model': policy.stellar_models[0],
+            'stellar_models': policy.stellar_models,
+            'disk_model': policy.disk_models[0] if policy.disk_models else '',
+            'disk_models': policy.disk_models,
+            'max_disks': policy.max_disks,
+            'search_mode': policy.search_mode,
+            'reddening': policy.reddening,
+            'origin': policy.origin,
+            'save_scope': save_scope,
+            'resettable': policy.origin in {'operator', 'operator-package'},
+            'reason': (
+                record.reason if record is not None else
+                _suggested_reason(target['label'], policy)
+            ),
+        }
+        target['stellar_options'] = registry.names('stellar')
+        target['disk_options'] = registry.names('disk')
+        target['operator_actor'] = actor or ''
+    return targets
+
+
+def _suggested_reason(label, policy):
+    stellar = ' / '.join(policy.stellar_models)
+    if policy.max_disks:
+        disks = ' / '.join(policy.disk_models)
+        return 'Use {} for {}; allow up to {} {} disk component(s)'.format(
+            stellar, label, policy.max_disks, disks,
+        )
+    return 'Use {} for {}; do not fit a disk'.format(stellar, label)
 
 
 def observation_page_rows(dataset, package_directory):

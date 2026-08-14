@@ -62,6 +62,23 @@
       margin-top:12px; }
     .operator-target,.operator-fit { border:1px solid var(--line);
       border-radius:6px; padding:9px; margin-top:7px; }
+    .operator-form { display:grid; grid-template-columns:1fr 1fr; gap:8px;
+      margin-top:9px; }
+    .operator-form label { color:var(--muted); font-size:12px; }
+    .operator-form select,.operator-form input { display:block; width:100%;
+      margin-top:3px; border:1px solid #bdc8d6; border-radius:5px;
+      padding:6px; background:white; color:var(--ink); font:inherit; }
+    .operator-form .wide { grid-column:1 / -1; }
+    .operator-actions { display:flex; align-items:center; gap:7px;
+      flex-wrap:wrap; grid-column:1 / -1; }
+    .operator-status { min-height:18px; color:var(--muted); font-size:12px; }
+    .operator-status.error { color:#a12622; }
+    .fit-actions { display:flex; align-items:center; gap:7px; flex-wrap:wrap;
+      margin-top:7px; font-size:13px; }
+    .queue-note { background:#fff7df; border:1px solid #ead59b;
+      border-radius:6px; padding:8px; margin-top:9px; }
+    button[disabled],input[disabled],select[disabled] { cursor:not-allowed;
+      opacity:.55; }
     footer { color:var(--muted); font-size:12px; padding:14px 4px 4px; }
     @media (max-width:760px) {
       .sed-title-row { display:block; }
@@ -131,13 +148,31 @@
   {% if operator %}
   <aside id="fit-controls" class="operator-drawer" hidden aria-label="Fit controls">
     <div class="drawer-head"><div><h2>Fit controls</h2><p class="muted">Model policy and retained fits for this package.</p></div><button id="close-fit-controls" type="button" aria-label="Close fit controls">×</button></div>
+    {% if not operator_api %}<p class="queue-note">This rendered page is read-only. Use <code>sdf-fits serve</code> to save choices and queue fits.</p>{% endif %}
+    {% for job in queued_jobs %}<p class="queue-note">Fit job {{ job.id }} queued{% if job.reason %}: {{ job.reason }}{% endif %}</p>{% endfor %}
     <section class="operator-section">
       <h2>Physical contributors</h2>
-      {% for target in targets %}<div class="operator-target" data-target-key="{{ target.key }}"><strong>{{ target.label }}</strong><p class="muted">Stellar and disk model policy will be edited here.</p></div>{% endfor %}
+      {% for target in targets %}
+      <div class="operator-target" data-target-key="{{ target.key }}">
+        <strong>{{ target.label }}</strong>
+        <p class="muted">{{ target.policy.origin }} policy</p>
+        <form class="operator-form policy-form" data-target-label="{{ target.label }}">
+          <input type="hidden" name="target_key" value="{{ target.key }}">
+          <input type="hidden" name="scope" value="{{ target.policy.save_scope }}">
+          <label>Stellar model<select name="stellar_model"{% if not operator_api %} disabled{% endif %}>{% for model in target.stellar_options %}<option value="{{ model }}"{% if model == target.policy.stellar_model %} selected{% endif %}>{{ model }}</option>{% endfor %}</select></label>
+          <label>Disk model<select name="disk_model"{% if not operator_api %} disabled{% endif %}><option value=""{% if not target.policy.disk_model %} selected{% endif %}>not used</option>{% for model in target.disk_options %}<option value="{{ model }}"{% if model == target.policy.disk_model %} selected{% endif %}>{{ model }}</option>{% endfor %}</select></label>
+          <label>Maximum disks<input name="max_disks" type="number" min="0" max="5" value="{{ target.policy.max_disks }}"{% if not operator_api %} disabled{% endif %}></label>
+          <label>Search<select name="search_mode"{% if not operator_api %} disabled{% endif %}><option value="evidence-guided"{% if target.policy.search_mode == 'evidence-guided' %} selected{% endif %}>evidence guided</option><option value="exhaustive"{% if target.policy.search_mode == 'exhaustive' %} selected{% endif %}>exhaustive</option></select></label>
+          <label class="wide">Actor<input name="actor" value="{{ target.operator_actor }}" autocomplete="name"{% if not operator_api %} disabled{% endif %}></label>
+          <label class="wide">Reason<input name="reason" value="{{ target.policy.reason }}"{% if not operator_api %} disabled{% endif %}></label>
+          <div class="operator-actions"><button type="submit"{% if not operator_api %} disabled{% endif %}>Save and queue fit</button>{% if target.policy.resettable %}<button class="reset-policy" type="button"{% if not operator_api %} disabled{% endif %}>Use automatic</button>{% endif %}<span class="operator-status" role="status"></span></div>
+        </form>
+      </div>
+      {% endfor %}
     </section>
     <section class="operator-section">
       <h2>Available fits</h2>
-      {% for fit in candidates %}<div class="operator-fit" data-fit-reference="{{ fit.reference }}"><strong>{{ fit.components|map(attribute='model')|join(' + ') }}</strong>{% if fit.default %} <span class="default-badge">default</span>{% endif %}<p class="muted">Evidence {% if fit.evidence is not none %}{{ '%.2f'|format(fit.evidence) }}{% else %}not available{% endif %}</p></div>{% endfor %}
+      {% for fit in available_fits %}<div class="operator-fit" data-fit-reference="{{ fit.reference }}"><strong>{{ fit.components|map(attribute='model')|join(' + ') }}</strong>{% if fit.default %} <span class="default-badge">default</span>{% endif %}<p class="muted">Evidence {% if fit.evidence is not none %}{{ '%.2f'|format(fit.evidence) }}{% else %}not available{% endif %}{% if not fit.current %} · input changed{% endif %}</p><div class="fit-actions"><a href="{{ fit.preview_url }}">Preview</a><label><input class="display-fit" type="checkbox"{% if fit.displayed %} checked{% endif %}{% if fit.default or not operator_api %} disabled{% endif %}> shown</label>{% if not fit.default %}<button class="default-fit" type="button"{% if not operator_api %} disabled{% endif %}>Make default</button>{% endif %}<span class="operator-status" role="status"></span></div></div>{% endfor %}
     </section>
   </aside>
   {% endif %}
@@ -148,6 +183,8 @@
 {% if operator %}
 <script>
 (() => {
+  const api = {{ operator_api|tojson }};
+  const token = {{ operator_token|tojson }};
   const drawer = document.getElementById('fit-controls');
   const open = document.getElementById('open-fit-controls');
   const close = document.getElementById('close-fit-controls');
@@ -155,6 +192,62 @@
   open.addEventListener('click', () => setOpen(true));
   close.addEventListener('click', () => setOpen(false));
   document.addEventListener('keydown', event => { if (event.key === 'Escape') setOpen(false); });
+  if (sessionStorage.getItem('sdf-fit-controls-open') === 'yes') {
+    sessionStorage.removeItem('sdf-fit-controls-open'); setOpen(true);
+  }
+  const reloadOpen = () => {
+    sessionStorage.setItem('sdf-fit-controls-open', 'yes'); location.reload();
+  };
+  const send = async (path, payload) => {
+    const response = await fetch(api + path, {
+      method: 'POST', headers: {'Content-Type': 'application/json', 'X-SDF-Token': token},
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Request failed');
+    return result;
+  };
+  document.querySelectorAll('.policy-form').forEach(form => {
+    const status = form.querySelector('.operator-status');
+    const actor = form.elements.actor;
+    if (!actor.value) actor.value = localStorage.getItem('sdf-operator-actor') || '';
+    form.addEventListener('submit', async event => {
+      event.preventDefault(); status.classList.remove('error'); status.textContent = 'Saving…';
+      const values = Object.fromEntries(new FormData(form));
+      values.max_disks = Number(values.max_disks);
+      try {
+        const result = await send('/policy', values);
+        localStorage.setItem('sdf-operator-actor', values.actor);
+        status.textContent = `Saved; fit job ${result.job_id} queued`;
+        setTimeout(reloadOpen, 350);
+      } catch (error) { status.classList.add('error'); status.textContent = error.message; }
+    });
+    const reset = form.querySelector('.reset-policy');
+    if (reset) reset.addEventListener('click', async () => {
+      status.classList.remove('error'); status.textContent = 'Resetting…';
+      const values = Object.fromEntries(new FormData(form));
+      try {
+        const result = await send('/policy/reset', values);
+        localStorage.setItem('sdf-operator-actor', values.actor);
+        status.textContent = `Reset; fit job ${result.job_id} queued`;
+        setTimeout(reloadOpen, 350);
+      } catch (error) { status.classList.add('error'); status.textContent = error.message; }
+    });
+  });
+  document.querySelectorAll('.operator-fit').forEach(card => {
+    const reference = card.dataset.fitReference;
+    const status = card.querySelector('.operator-status');
+    const shown = card.querySelector('.display-fit');
+    if (shown && !shown.disabled) shown.addEventListener('change', async () => {
+      try { await send('/selection', {reference, action: 'display', displayed: shown.checked}); reloadOpen(); }
+      catch (error) { shown.checked = !shown.checked; status.classList.add('error'); status.textContent = error.message; }
+    });
+    const makeDefault = card.querySelector('.default-fit');
+    if (makeDefault) makeDefault.addEventListener('click', async () => {
+      try { await send('/selection', {reference, action: 'default'}); reloadOpen(); }
+      catch (error) { status.classList.add('error'); status.textContent = error.message; }
+    });
+  });
 })();
 </script>
 {% endif %}

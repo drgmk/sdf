@@ -128,50 +128,87 @@ def automatic_policy(target, registry=None):
     )
 
 
-def resolve_package_policies(dataset, package_directory, registry=None):
-    """Apply optional portable `sdf-fit.yml` over automatic defaults."""
+def resolve_package_policies(dataset, package_directory, registry=None,
+                             policy_store=None):
+    """Resolve automatic, central, portable, and package-scoped policy."""
 
     registry = registry or ModelFamilyRegistry.from_config()
     policies = {
         target.key: automatic_policy(target, registry=registry)
         for target in dataset.targets
     }
+    if policy_store is not None:
+        _apply_operator_policies(
+            policies, policy_store.global_policies(policies), registry,
+            origin='operator',
+        )
     path = Path(package_directory) / 'sdf-fit.yml'
-    if not path.is_file():
-        return tuple(policies[key] for key in sorted(policies))
-    payload = _read_policy(path)
-    by_name = {
-        _normalize_name(target.main_id): target
-        for target in dataset.targets if target.main_id is not None
-    }
-    unknown = set(payload) - set(by_name)
-    if unknown:
-        raise utils.SdfError(
-            'sdf-fit.yml contains targets not in this dataset: {}'.format(
-                ', '.join(sorted(unknown))
+    if path.is_file():
+        payload = _read_policy(path)
+        by_name = {
+            _normalize_name(target.main_id): target
+            for target in dataset.targets if target.main_id is not None
+        }
+        unknown = set(payload) - set(by_name)
+        if unknown:
+            raise utils.SdfError(
+                'sdf-fit.yml contains targets not in this dataset: {}'.format(
+                    ', '.join(sorted(unknown))
+                )
             )
-        )
-    for name, values in payload.items():
-        target = by_name[name]
-        current = policies[target.key]
-        stellar_models = tuple(
-            values.get('stellar_models', current.stellar_models)
-        )
-        disk_models = tuple(values.get('disk_models', current.disk_models))
-        for model_name in stellar_models:
-            registry.require(model_name, 'stellar')
-        for model_name in disk_models:
-            registry.require(model_name, 'disk')
-        policies[target.key] = replace(
-            current,
-            stellar_models=stellar_models,
-            disk_models=disk_models,
-            max_disks=values.get('max_disks', current.max_disks),
-            search_mode=values.get('search_mode', current.search_mode),
-            reddening=values.get('reddening', current.reddening),
-            origin='package',
+        for name, values in payload.items():
+            target = by_name[name]
+            current = policies[target.key]
+            policies[target.key] = _validated_replace(
+                current, registry,
+                stellar_models=values.get(
+                    'stellar_models', current.stellar_models
+                ),
+                disk_models=values.get('disk_models', current.disk_models),
+                max_disks=values.get('max_disks', current.max_disks),
+                search_mode=values.get('search_mode', current.search_mode),
+                reddening=values.get('reddening', current.reddening),
+                origin='package',
+            )
+    if policy_store is not None:
+        _apply_operator_policies(
+            policies,
+            policy_store.scoped_policies(policies, package_directory),
+            registry, origin='operator-package',
         )
     return tuple(policies[key] for key in sorted(policies))
+
+
+def _apply_operator_policies(policies, records, registry, origin):
+    for target_key, record in records.items():
+        if target_key not in policies:
+            continue
+        policy = record.policy
+        policies[target_key] = _validated_replace(
+            policies[target_key], registry,
+            stellar_models=policy.stellar_models,
+            disk_models=policy.disk_models,
+            max_disks=policy.max_disks,
+            search_mode=policy.search_mode,
+            reddening=policy.reddening,
+            origin=origin,
+        )
+
+
+def _validated_replace(current, registry, **values):
+    for model_name in values['stellar_models']:
+        registry.require(model_name, 'stellar')
+    for model_name in values['disk_models']:
+        registry.require(model_name, 'disk')
+    return replace(
+        current,
+        stellar_models=tuple(values['stellar_models']),
+        disk_models=tuple(values['disk_models']),
+        max_disks=values['max_disks'],
+        search_mode=values['search_mode'],
+        reddening=values['reddening'],
+        origin=values['origin'],
+    )
 
 
 def _is_late_m(spectral_type):
