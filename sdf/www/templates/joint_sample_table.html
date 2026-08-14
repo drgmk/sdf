@@ -26,7 +26,7 @@
   </style>
 </head>
 <body><main>
-  <header><div><h1>{{ projection.name }}</h1><p class="muted">{{ projection.systems|length }} fitted systems · {{ projection.target_count }} physical contributors</p></div><nav><a href="hr.html">HR and disks</a> · <a href="{{ projection.name }}.xml">VOTable</a></nav></header>
+  <header><div><h1>{{ projection.name }}</h1><p class="muted">{{ projection.systems|length }} fitted systems · {{ projection.target_count }} physical contributors</p></div><nav>{% if has_plots %}<a href="hr.html">HR and disks</a>{% endif %}{% if has_flux_size %} · <a href="fnuvsr.html">Flux and size</a>{% endif %}{% if has_plots %} · {% endif %}<a href="{{ projection.name }}.xml">VOTable</a>{% if has_photometry %} · <a href="{{ projection.name }}_photometry.csv">Photometry</a>{% endif %}</nav></header>
   {% if projection.unmatched %}<p class="warning">No indexed fit for: {{ projection.unmatched|join(', ') }}</p>{% endif %}
   <table><thead><tr><th>System</th><th>Physical target</th><th>Stellar fit</th><th>Distance</th><th>Owned disks</th></tr></thead><tbody>
   {% for row in rows %}<tr>

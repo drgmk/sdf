@@ -783,10 +783,14 @@ system context, stellar results, and explicitly owned disks. The new Bokeh
 plots provide an HR diagram and disk fractional luminosity versus temperature.
 The legacy path remains the fallback when `--index` is omitted.
 
-Completing phase 6 now means deciding whether the legacy raw-photometry CSV is
-still useful, and adding the compact per-band model predictions needed to
-replace flux/size plots without rebuilding old `Result` objects. Operational
-worker hardening can follow if concurrent use requires it.
+The indexed path now also writes a hierarchy-aware long-form photometry CSV.
+Observed-band totals and component intervals come directly from retained
+analysis arrays. Flux/size plots synthesize the legacy planning bands from the
+already retained median component spectra; no extra fixed-band arrays or old
+`Result` reconstruction are needed. Disk contrast sums only stellar components
+owned by the disk host. This completes the planned indexed replacement for the
+legacy sample products. Operational worker hardening can follow if concurrent
+use requires it.
 
 ### Phase 7: optional samplers and performance
 

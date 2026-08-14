@@ -200,15 +200,23 @@ Sample membership still comes from SDB. Fitted values come from the default
 candidate in the disposable SDF index. The generated table has one row per
 physical contributor, marks direct sample members separately from system
 context, and keeps disks under their physical owner. Its VOTable follows the
-same projection. The plots currently provide a hierarchy-aware HR diagram and
-owned-disk fractional luminosity versus temperature; points link back to their
-retained SED page.
+same projection. The long-form photometry CSV has one row per observed datum
+and fitted component, with explicit observation contributors, component owner,
+flags, observed flux, total-model posterior interval, and component-model
+posterior interval. This avoids variable component columns and remains usable
+for single stars, resolved components, and composite measurements.
+
+The plots provide a hierarchy-aware HR diagram, owned-disk fractional
+luminosity versus temperature, and disk flux/size planning plots in the legacy
+MIRI, PACS 70, and 880-micron bands. The latter convolve the retained median
+component spectra with SDF filters on demand, so arbitrary-band products do not
+inflate candidate artifacts. Disk/star contrast uses stellar spectra belonging
+to the disk's physical owner. Plot points link back to their retained SED page.
 
 Without `--index`, `sdf-sample` retains the old MySQL-shaped implementation.
-The indexed path does not yet replace the legacy raw-photometry CSV or
-flux/size plots. Those need compact candidate products for model predictions
-in the requested instrument bands rather than reconstructing legacy result
-objects or querying the old result tables.
+The indexed path now replaces the summary table, VOTable, photometry CSV, HR
+and disk plots, and flux/size plots without reconstructing old `Result` objects
+or querying legacy result tables.
 
 Retained fits can be inspected and presented without rerunning MultiNest:
 

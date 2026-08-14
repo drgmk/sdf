@@ -1,3 +1,4 @@
+import csv
 from dataclasses import replace
 
 import numpy as np
@@ -6,6 +7,7 @@ from .context import sdf
 from .test_coordinator import FakeSampler, _fit_dataset
 from .test_result_index import _retained_package
 import sdf.sample_products
+import sdf.sample_diagnostics
 
 
 def _retained_binary_package(tmp_path):
@@ -114,12 +116,16 @@ def test_writers_create_hierarchy_table_votable_and_plots(tmp_path):
     )
 
     assert projection.target_count == 1
-    assert set(outputs) == {'table', 'votable', 'plots'}
+    assert set(outputs) == {
+        'table', 'votable', 'photometry', 'plots', 'flux_size',
+    }
     html = outputs['table'].read_text(encoding='utf-8')
     assert 'Physical target' in html
     assert 'sample member' in html
     assert outputs['votable'].is_file()
+    assert outputs['photometry'].is_file()
     assert 'Bokeh' in outputs['plots'].read_text(encoding='utf-8')
+    assert 'Bokeh' in outputs['flux_size'].read_text(encoding='utf-8')
 
 
 def test_composite_member_includes_both_contributors_and_owned_disk(tmp_path):
@@ -137,3 +143,42 @@ def test_composite_member_includes_both_contributors_and_owned_disk(tmp_path):
     assert not any(target.direct_member for target in system.targets)
     assert len(system.targets[0].disks) == 1
     assert system.targets[1].disks == ()
+
+
+def test_photometry_csv_is_long_form_and_keeps_component_ownership(tmp_path):
+    _retained_binary_package(tmp_path)
+    index = sdf.result_index.ResultIndex(tmp_path / 'sdf-results.sqlite')
+    index.rebuild(tmp_path)
+    projection = sdf.sample_products.project_sample(
+        index, 'binary-sample', ('sdb-AB',)
+    )
+    path = tmp_path / 'photometry.csv'
+
+    sdf.sample_diagnostics.write_photometry_csv(projection, path)
+
+    with path.open(encoding='utf-8', newline='') as handle:
+        rows = list(csv.DictReader(handle))
+    assert len(rows) == 3
+    assert {row['role'] for row in rows} == {'stellar', 'disk'}
+    assert {row['owner_key'] for row in rows} == {'simbad:A', 'simbad:B'}
+    assert {row['contributors'] for row in rows} == {'simbad:A;simbad:B'}
+    assert all(float(row['model_total_median_jy']) > 0 for row in rows)
+
+
+def test_flux_size_projection_uses_owned_stellar_and_disk_spectra(tmp_path):
+    _retained_binary_package(tmp_path)
+    index = sdf.result_index.ResultIndex(tmp_path / 'sdf-results.sqlite')
+    index.rebuild(tmp_path)
+    projection = sdf.sample_products.project_sample(
+        index, 'binary-sample', ('sdb-AB',)
+    )
+
+    rows = sdf.sample_diagnostics.flux_size_rows(projection)
+
+    assert {row['band'] for row in rows} == {
+        band.name for band in sdf.sample_diagnostics.FLUX_SIZE_BANDS
+    }
+    assert {row['target'] for row in rows} == {'A'}
+    assert all(row['disk_flux_mjy'] > 0 for row in rows)
+    assert all(row['stellar_flux_mjy'] > 0 for row in rows)
+    assert all(row['radius_arcsec'] > 0 for row in rows)

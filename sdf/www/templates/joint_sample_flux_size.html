@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ projection.name }} flux and size — SDF</title>
+  {{ bokeh_css|safe }}{{ bokeh_js|safe }}
+  <style>
+    * { box-sizing:border-box; }
+    body { margin:0; background:#f5f7fa; color:#172033;
+      font-family:ui-sans-serif,system-ui,-apple-system,sans-serif; }
+    main { width:min(1500px,100%); margin:auto; padding:14px; overflow:hidden; }
+    header { display:flex; justify-content:space-between; align-items:center; }
+    h1 { margin:0; } a { color:#285ea8; text-decoration:none; }
+    .note, footer { color:#526071; font-size:12px; }
+  </style>
+</head>
+<body><main>
+  <header><h1>{{ projection.name }} — disk flux and size</h1><a href="index.html">table</a></header>
+  <p class="note">Vertical lines show the approximate PSF FWHM. Horizontal lines show approximate point-source sensitivity on flux panels and the corresponding Gaussian-beam surface brightness. Grey triangles are system context.</p>
+  {{ plot_div|safe }}
+  <footer>generated {{ creation_time }}</footer>
+</main>{{ plot_script|safe }}</body>
+</html>

@@ -17,6 +17,8 @@ from bokeh.resources import CDN
 import jinja2
 import numpy as np
 
+from .sample_diagnostics import write_flux_size_plot, write_photometry_csv
+
 
 @dataclass(frozen=True)
 class SampleDisk:
@@ -81,6 +83,7 @@ class SampleProjection:
     identifiers: tuple[str, ...] | None
     systems: tuple[SampleSystem, ...]
     unmatched: tuple[str, ...]
+    root: Path
 
     @property
     def target_count(self):
@@ -174,7 +177,7 @@ def project_sample(index, name, identifiers=None, *, output_directory=None,
         ))
     return SampleProjection(
         name=name, identifiers=identifiers, systems=tuple(systems),
-        unmatched=tuple(sorted(requested - matched)),
+        unmatched=tuple(sorted(requested - matched)), root=root,
     )
 
 
@@ -188,16 +191,28 @@ def write_sample_products(index, sample, identifiers, output_directory, *,
     )
     outputs = {}
     if table:
-        outputs['table'] = write_sample_table(projection, output_directory)
         outputs['votable'] = write_sample_votable(
             projection, output_directory / '{}.xml'.format(sample)
         )
+        outputs['photometry'] = write_photometry_csv(
+            projection,
+            output_directory / '{}_photometry.csv'.format(sample),
+        )
     if plots:
         outputs['plots'] = write_sample_plots(projection, output_directory)
+        outputs['flux_size'] = write_flux_size_plot(
+            projection, output_directory
+        )
+    if table:
+        outputs['table'] = write_sample_table(
+            projection, output_directory,
+            has_photometry=True, has_plots=plots, has_flux_size=plots,
+        )
     return projection, outputs
 
 
-def write_sample_table(projection, output_directory):
+def write_sample_table(projection, output_directory, *, has_photometry=False,
+                       has_plots=False, has_flux_size=False):
     output_directory = Path(output_directory)
     rows = []
     for system in projection.systems:
@@ -209,6 +224,8 @@ def write_sample_table(projection, output_directory):
             })
     table = _render_template(
         'joint_sample_table.html', projection=projection, rows=rows,
+        has_photometry=has_photometry, has_plots=has_plots,
+        has_flux_size=has_flux_size,
     )
     path = output_directory / 'index.html'
     path.write_text(table, encoding='utf-8')
