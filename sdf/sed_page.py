@@ -4,14 +4,17 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+import re
 from urllib.parse import urlencode
 
 import jinja2
 from bokeh.resources import CDN, INLINE
 
+from . import utils
+
 
 def render_sed_page(*, title, plot_script, plot_div, targets, candidates,
-                    observations, default_candidate, inline=True,
+                    observations, systems, default_candidate, inline=True,
                     operator=False, available_fits=(), operator_api=None,
                     operator_token=None, operator_actor=None, queued_jobs=()):
     """Render one SED document, optionally extended with operator controls."""
@@ -22,6 +25,9 @@ def render_sed_page(*, title, plot_script, plot_div, targets, candidates,
     )
     template = env.get_template('joint_sed_page.html')
     resources = INLINE if inline else CDN
+    default_fit = next((
+        candidate for candidate in candidates if candidate['default']
+    ), candidates[0] if candidates else None)
     return template.render(
         title=title,
         plot_script=plot_script,
@@ -29,7 +35,9 @@ def render_sed_page(*, title, plot_script, plot_div, targets, candidates,
         targets=targets,
         candidates=candidates,
         observations=observations,
+        systems=systems,
         default_candidate=default_candidate,
+        default_fit=default_fit,
         operator=operator,
         available_fits=available_fits,
         operator_api=operator_api,
@@ -81,7 +89,8 @@ def target_page_rows(dataset, package_directory):
 
 
 def candidate_page_rows(candidates, labels, default_candidate,
-                        package_directory, dataset, displayed_ids=None):
+                        package_directory, dataset, displayed_ids=None,
+                        component_labels=None, owner_colours=None):
     """Project retained fits and component-aware result links."""
 
     package_directory = Path(package_directory)
@@ -90,6 +99,8 @@ def candidate_page_rows(candidates, labels, default_candidate,
         {candidate.candidate_id for candidate in candidates}
         if displayed_ids is None else set(displayed_ids)
     )
+    component_labels = component_labels or {}
+    owner_colours = owner_colours or {}
     for index, candidate in enumerate(candidates, start=1):
         evidence = candidate.posterior.evidence
         analysis = candidate.metadata['analysis']
@@ -98,6 +109,11 @@ def candidate_page_rows(candidates, labels, default_candidate,
             components.append({
                 'owner': labels.get(
                     component['owner_key'], component['owner_key']
+                ),
+                'owner_key': component['owner_key'],
+                'component': component_labels.get(component['owner_key']),
+                'colour': owner_colours.get(
+                    component['owner_key'], '#64748b'
                 ),
                 'role': component['role'],
                 'model': component['model_name'],
@@ -123,6 +139,7 @@ def candidate_page_rows(candidates, labels, default_candidate,
                     'label': label,
                     'url': path.relative_to(package_directory).as_posix(),
                 })
+        shorthand = _fit_shorthand(components)
         rows.append({
             'tab': index,
             'candidate_id': candidate.candidate_id,
@@ -134,6 +151,7 @@ def candidate_page_rows(candidates, labels, default_candidate,
             'default': candidate.candidate_id == default_candidate,
             'displayed': candidate.candidate_id in displayed_ids,
             'components': components,
+            'shorthand': shorthand,
             'links': links,
             'preview_url': '?' + urlencode({'fit': candidate.path.name}),
         })
@@ -195,15 +213,136 @@ def observation_page_rows(dataset, package_directory):
         target.key: target.main_id or target.sdbid or target.key
         for target in dataset.targets
     }
-    return [{
-        'observation_id': observation.observation_id,
-        'contributors': [
-            target_labels.get(key, key) for key in observation.contributor_keys
-        ],
-        'input_file': Path(observation.source).relative_to(
-            package_directory
-        ).as_posix(),
-    } for observation in dataset.observations]
+    targets_by_key = {target.key: target for target in dataset.targets}
+    rows = []
+    for observation in dataset.observations:
+        target = targets_by_key.get(observation.target_key)
+        if target is not None:
+            keywords = target.keywords
+        else:
+            try:
+                keywords = utils.get_sdb_keywords(observation.source)
+            except (OSError, ValueError):
+                keywords = {}
+        main_id = _clean(keywords.get('main_id'))
+        ra = _number(keywords.get('raj2000'))
+        dec = _number(keywords.get('dej2000'))
+        parallax = _number(keywords.get('plx_value'))
+        rows.append({
+            'observation_id': observation.observation_id,
+            'target_key': observation.target_key,
+            'contributor_keys': list(observation.contributor_keys),
+            'contributors': [
+                target_labels.get(key, key)
+                for key in observation.contributor_keys
+            ],
+            'label': main_id or observation.observation_id,
+            'spectral_type': _clean(keywords.get('sp_type')),
+            'distance_pc': (
+                None if parallax is None or parallax <= 0 else
+                1000.0 / parallax
+            ),
+            'input_file': Path(observation.source).relative_to(
+                package_directory
+            ).as_posix(),
+            'external_links': _external_links(main_id, ra, dec),
+        })
+    return rows
+
+
+def system_page_rows(targets, observations):
+    """Build a compact hierarchy projection and owner component labels."""
+
+    targets_by_key = {target['key']: target for target in targets}
+    component_labels = {}
+    systems = []
+    grouped = set()
+    for observation in observations:
+        contributor_keys = observation['contributor_keys']
+        if len(contributor_keys) < 2:
+            continue
+        children = [
+            targets_by_key[key] for key in contributor_keys
+            if key in targets_by_key
+        ]
+        if len(children) < 2:
+            continue
+        child_components = _component_tokens(
+            observation['label'], [child['label'] for child in children]
+        )
+        child_rows = []
+        for child, component in zip(children, child_components):
+            child = dict(child)
+            child['component'] = component
+            component_labels[child['key']] = component
+            child_rows.append(child)
+            grouped.add(child['key'])
+        root_component = ''.join(child_components)
+        if not all(re.fullmatch(r'[A-Z]+', value or '')
+                   for value in child_components):
+            root_component = 'system'
+        systems.append({
+            'component': root_component,
+            'label': observation['label'],
+            'spectral_type': observation['spectral_type'],
+            'distance_pc': observation['distance_pc'],
+            'input_file': observation['input_file'],
+            'external_links': observation['external_links'],
+            'children': child_rows,
+        })
+
+    for target in targets:
+        if target['key'] in grouped:
+            continue
+        row = dict(target)
+        row['component'] = None
+        systems.append(row | {'children': []})
+
+    return systems, component_labels
+
+
+def _component_tokens(parent, children):
+    parent_key = re.sub(r'\s+', '', parent or '').casefold()
+    tokens = []
+    for child in children:
+        child_key = re.sub(r'\s+', '', child or '')
+        folded = child_key.casefold()
+        suffix = child_key[len(parent_key):] if folded.startswith(parent_key) \
+            else ''
+        if not re.fullmatch(r'[A-Za-z]{1,3}', suffix):
+            match = re.search(r'(?:\s|\d)([A-Z]{1,2})$', child or '')
+            suffix = match.group(1) if match else ''
+        tokens.append(suffix.upper())
+    if any(not token for token in tokens) or len(set(tokens)) != len(tokens):
+        return [None] * len(children)
+    return tokens
+
+
+def _fit_shorthand(components):
+    grouped = {}
+    order = []
+    for component in components:
+        key = component['owner_key']
+        if key not in grouped:
+            grouped[key] = {'stellar': 0, 'disk': 0, 'row': component}
+            order.append(key)
+        grouped[key][component['role']] += 1
+    parts = []
+    for key in order:
+        values = grouped[key]
+        owner = values['row']['component']
+        if owner is None and len(order) > 1:
+            owner = values['row']['owner']
+        symbols = '★' * values['stellar'] + '○' * values['disk']
+        parts.append({
+            'owner': owner,
+            'symbols': symbols,
+            'colour': values['row']['colour'],
+            'title': '{}: {} stellar, {} disk'.format(
+                values['row']['owner'], values['stellar'], values['disk']
+            ),
+        })
+    return parts
 
 
 def _target_source(package_directory, target, observation):

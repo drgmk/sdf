@@ -102,6 +102,12 @@ models, residuals, target inputs, fit products, and external resources. It does
 not need the native MultiNest output. Physical contributors and observed
 scopes are separate: resolved scopes share the contributor colour, while
 composite scopes use a neutral system colour and plot the summed model.
+The public layout keeps the SED above the fold in a legacy-sized central
+column. A compact left rail projects composite observations as a hierarchy,
+without displaying SDB identifiers, and the fit tabs use `★`/`○` shorthand
+for stellar and disk components (for example `A ★○ · B ★`). Per-owner summary
+blocks repeat the plot colours and carry the physical results and product
+links, so the plot itself does not need a large legend.
 
 The operator view is an extension of this same document rather than a second
 page design. It adds a right-hand drawer while retaining the public content and

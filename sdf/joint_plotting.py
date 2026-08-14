@@ -22,6 +22,7 @@ from .sed_page import (
     candidate_page_rows,
     observation_page_rows,
     render_sed_page,
+    system_page_rows,
     target_page_rows,
 )
 
@@ -75,17 +76,27 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
         ))
     ordered = [by_id[candidate_id] for candidate_id in order]
     owner_labels = _owner_labels(ordered[0])
-    title = ' + '.join(owner_labels.values()) or package_directory.name
+    owner_colours = _owner_colour_map(owner_labels)
+    target_rows = target_page_rows(dataset, package_directory)
+    for target in target_rows:
+        target['colour'] = owner_colours.get(target['key'], '#64748b')
+    observation_rows = observation_page_rows(dataset, package_directory)
+    systems, component_labels = system_page_rows(
+        target_rows, observation_rows
+    )
+    title = _system_title(systems, owner_labels, package_directory)
 
     panels = []
-    for rank, candidate in enumerate(ordered, start=1):
-        label = _candidate_label(candidate, owner_labels)
+    for candidate in ordered:
         panels.append(TabPanel(
             child=_candidate_panel(
-                candidate, dataset, owner_labels,
+                candidate, dataset, owner_labels, component_labels,
+                owner_colours,
                 is_default=candidate.candidate_id == default,
             ),
-            title='Fit {}'.format(rank),
+            title=_candidate_shorthand_text(
+                candidate, owner_labels, component_labels
+            ),
         ))
     active = next((
         index for index, candidate in enumerate(ordered)
@@ -93,10 +104,10 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
     ), 0)
     tabs = Tabs(tabs=panels, active=active, sizing_mode='stretch_width')
     plot_script, plot_div = components(tabs)
-    target_rows = target_page_rows(dataset, package_directory)
     candidate_rows = candidate_page_rows(
         ordered, owner_labels, default, package_directory, dataset,
         displayed_ids=order,
+        component_labels=component_labels, owner_colours=owner_colours,
     )
     available_rows = ()
     queued_jobs = ()
@@ -116,6 +127,7 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
             sorted(candidates, key=_sortable_evidence, reverse=True),
             owner_labels, default, package_directory, dataset,
             displayed_ids=order,
+            component_labels=component_labels, owner_colours=owner_colours,
         )
         if policy_store is not None:
             queued_jobs = policy_store.jobs(
@@ -127,7 +139,8 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
         plot_div=plot_div,
         targets=target_rows,
         candidates=candidate_rows,
-        observations=observation_page_rows(dataset, package_directory),
+        observations=observation_rows,
+        systems=systems,
         default_candidate=default,
         inline=inline,
         operator=operator,
@@ -145,7 +158,8 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
     return output
 
 
-def _candidate_panel(candidate, dataset, owner_labels, is_default=False):
+def _candidate_panel(candidate, dataset, owner_labels, component_labels,
+                     owner_colours, is_default=False):
     arrays = candidate.analysis_arrays
     required = {
         'observed_flux', 'observed_uncertainty', 'observed_upper_limit',
@@ -163,10 +177,6 @@ def _candidate_panel(candidate, dataset, owner_labels, is_default=False):
 
     scopes = candidate.metadata['analysis']['data_scopes']
     scope_labels = _scope_labels(scopes, candidate)
-    owner_colours = {
-        owner: Category10[10][index % 10]
-        for index, owner in enumerate(owner_labels)
-    }
     scope_colours = _scope_colours(scopes, owner_colours)
     x_range, y_range = _plot_ranges(arrays)
     sed = figure(
@@ -174,7 +184,7 @@ def _candidate_panel(candidate, dataset, owner_labels, is_default=False):
         x_axis_label='Wavelength (μm)', y_axis_label='Flux density (Jy)',
         x_range=x_range, y_range=y_range,
         tools='pan,wheel_zoom,box_zoom,reset,save',
-        active_scroll='wheel_zoom', height=560,
+        active_scroll='wheel_zoom', height=430,
         sizing_mode='stretch_width', toolbar_location='above',
     )
     residual_limit = _residual_limit(arrays['residual'])
@@ -183,7 +193,7 @@ def _candidate_panel(candidate, dataset, owner_labels, is_default=False):
         y_axis_label='Residual (σ)', x_axis_label='Wavelength (μm)',
         y_range=Range1d(-residual_limit, residual_limit),
         tools='pan,wheel_zoom,box_zoom,reset,save',
-        active_scroll='wheel_zoom', height=260,
+        active_scroll='wheel_zoom', height=160,
         sizing_mode='stretch_width', toolbar_location='above',
     )
     for value, dash in ((0, 'solid'), (-3, 'dashed'), (3, 'dashed')):
@@ -193,8 +203,7 @@ def _candidate_panel(candidate, dataset, owner_labels, is_default=False):
         ))
 
     _add_spectra(
-        sed, candidate, scopes, scope_labels, scope_colours,
-        owner_labels, owner_colours,
+        sed, candidate, scopes, scope_colours, owner_colours,
     )
     for scope in scopes:
         _add_scope_data(
@@ -205,14 +214,11 @@ def _candidate_panel(candidate, dataset, owner_labels, is_default=False):
     for plot in (sed, residual):
         plot.grid.grid_line_alpha = 0.18
         plot.outline_line_color = '#d1d5db'
-        if plot.legend:
-            plot.legend.click_policy = 'hide'
-            plot.legend.label_text_font_size = '9pt'
-            plot.add_layout(plot.legend[0], 'right')
 
     return column(
         Div(text=_candidate_header(
-            candidate, dataset, owner_labels, is_default=is_default
+            candidate, dataset, owner_labels, component_labels,
+            owner_colours, is_default=is_default
         ), sizing_mode='stretch_width'),
         sed,
         residual,
@@ -220,8 +226,7 @@ def _candidate_panel(candidate, dataset, owner_labels, is_default=False):
     )
 
 
-def _add_spectra(fig, candidate, scopes, scope_labels, scope_colours,
-                 owner_labels, owner_colours):
+def _add_spectra(fig, candidate, scopes, scope_colours, owner_colours):
     arrays = candidate.analysis_arrays
     wavelength = arrays['spectrum_wavelength_micron']
     components = arrays['component_spectrum_median']
@@ -229,17 +234,11 @@ def _add_spectra(fig, candidate, scopes, scope_labels, scope_colours,
 
     for index, component in enumerate(metadata):
         owner = component['owner_key']
-        label = '{} {} {}'.format(
-            owner_labels.get(owner, owner),
-            component['model_name'],
-            component['role'],
-        )
         fig.line(
             wavelength, components[index],
             color=owner_colours.get(owner, '#6b7280'),
             line_width=1.5, line_alpha=0.6,
             line_dash='dashed' if component['role'] == 'stellar' else 'dotted',
-            legend_label=label,
         )
 
     seen = set()
@@ -257,7 +256,6 @@ def _add_spectra(fig, candidate, scopes, scope_labels, scope_colours,
             wavelength, combined,
             color=scope_colours[observation_id], line_width=3,
             line_alpha=0.82,
-            legend_label='{} model'.format(scope_labels[observation_id]),
         )
 
 
@@ -290,7 +288,6 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
         renderer = sed.scatter(
             'wavelength', 'observed', source=source, marker='circle', size=8,
             color=colour, line_color='white', line_width=0.7,
-            legend_label='{} data'.format(label),
         )
         _add_hover(sed, renderer)
         error_ok = source.data['lower'] > 0
@@ -314,7 +311,6 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
         renderer = sed.scatter(
             'wavelength', 'observed', source=source, marker='x', size=9,
             color=colour, alpha=0.3,
-            legend_label='{} ignored'.format(label),
         )
         _add_hover(sed, renderer)
 
@@ -329,7 +325,6 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
             'wavelength', 'observed', source=source,
             marker='inverted_triangle', size=10, color=colour,
             alpha='alpha',
-            legend_label='{} upper limit'.format(label),
         )
         _add_hover(sed, renderer)
 
@@ -344,7 +339,6 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
             'wavelength', 'predicted', source=source,
             marker='diamond', size=7, fill_alpha=0,
             line_color=colour, line_width=1.4,
-            legend_label='{} predicted'.format(label),
         )
         _add_hover(sed, renderer)
 
@@ -357,7 +351,7 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
         )
         renderer = residual.scatter(
             'wavelength', 'residual', source=source, marker='circle', size=7,
-            color=colour, legend_label=label,
+            color=colour,
         )
         _add_hover(residual, renderer)
 
@@ -392,7 +386,8 @@ def _add_hover(fig, renderer):
     ))
 
 
-def _candidate_header(candidate, dataset, owner_labels, is_default=False):
+def _candidate_header(candidate, dataset, owner_labels, component_labels,
+                      owner_colours, is_default=False):
     evidence = candidate.posterior.evidence
     evidence_error = candidate.posterior.evidence_error
     evidence_text = 'not available' if evidence is None else '{:.2f}'.format(evidence)
@@ -400,31 +395,158 @@ def _candidate_header(candidate, dataset, owner_labels, is_default=False):
         evidence_text += ' ± {:.2f}'.format(evidence_error)
     analysis = candidate.metadata['analysis']
     rows = []
-    for component in candidate.metadata['components']:
+    analysis_components = {
+        component['component_id']: component
+        for component in analysis.get('components', ())
+    }
+    target_summaries = analysis.get('targets', {})
+    for owner, label in owner_labels.items():
+        components = [
+            component for component in candidate.metadata['components']
+            if component['owner_key'] == owner
+        ]
+        if not components:
+            continue
+        summary = target_summaries.get(owner, {})
+        derived = {
+            component['component_id']: component
+            for role in ('stellar_components', 'disk_components')
+            for component in summary.get(role, ())
+        }
+        details = []
+        disk_index = 0
+        for component in components:
+            if component['role'] == 'stellar':
+                prefix = '★'
+                values = _stellar_summary(
+                    analysis_components.get(component['component_id'], {}),
+                    derived.get(component['component_id'], {}),
+                )
+            else:
+                disk_index += 1
+                prefix = '○{}'.format(disk_index) if sum(
+                    value['role'] == 'disk' for value in components
+                ) > 1 else '○'
+                values = _disk_summary(
+                    derived.get(component['component_id'], {})
+                )
+            details.append(
+                '<div style="margin-top:3px"><strong>{}</strong> '
+                '<span style="color:#475569">{}</span>{}</div>'.format(
+                    prefix, escape(component['model_name']),
+                    ' · ' + ' · '.join(values) if values else '',
+                )
+            )
+        short = component_labels.get(owner) or label
+        symbols = '★' * sum(
+            component['role'] == 'stellar' for component in components
+        ) + '○' * sum(component['role'] == 'disk' for component in components)
+        colour = owner_colours.get(owner, '#64748b')
         rows.append(
-            '<tr><td>{}</td><td>{}</td><td>{}</td></tr>'.format(
-                escape(owner_labels.get(
-                    component['owner_key'], component['owner_key']
-                )),
-                escape(component['role']), escape(component['model_name']),
+            '<div style="border-left:4px solid {};padding:3px 8px;min-width:0">'
+            '<strong>{} {}</strong><span style="color:#64748b"> · {}</span>'
+            '{}</div>'.format(
+                colour, escape(str(short)), symbols, escape(label),
+                ''.join(details),
             )
         )
-    badge = ' <span class="default-badge">default</span>' if is_default else ''
+    badge = (
+        ' <span style="background:#dff3e4;color:#176b37;border-radius:10px;'
+        'padding:2px 7px;font-size:11px">default</span>'
+        if is_default else ''
+    )
     status = 'current input' if candidate.is_current(dataset) else 'input changed'
+    product_links = _candidate_product_links(candidate)
     return '''
-<section class="candidate-head">
-  <h2 style="margin:0 0 6px;font-size:18px">{}{}</h2>
-  <p>Evidence {} · χ² {:.1f} · {} residuals · {}</p>
-  <table class="component-table">
-    <thead><tr><th>Owner</th><th>Role</th><th>Model</th></tr></thead>
-    <tbody>{}</tbody>
-  </table>
+<section style="background:white;border:1px solid #dfe5ec;border-radius:7px;
+padding:8px 10px;margin:0 0 6px;font:13px ui-sans-serif,system-ui,sans-serif">
+  <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+    <strong style="font-size:15px">Fit results{}</strong>
+    <span style="color:#526071">ln Z {} · χ² {:.1f} · {} residuals · {} · {}</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+gap:5px;margin-top:7px">{}</div>
+  <div style="color:#64748b;margin-top:7px;font-size:12px">★ star · ○ disk ·
+  <span style="font-weight:700">●</span> observed · ◇ model photometry ·
+  ▼ upper limit · × ignored · dashed/dotted component curves</div>
 </section>
 '''.format(
-        escape(_candidate_label(candidate, owner_labels)), badge,
-        evidence_text, analysis['chi_squared'], analysis['n_residuals'],
-        status, ''.join(rows),
+        badge, evidence_text, analysis['chi_squared'],
+        analysis['n_residuals'], status, product_links, ''.join(rows),
     )
+
+
+def _candidate_product_links(candidate):
+    directory = 'fits/{}/'.format(candidate.path.name)
+    links = [
+        ('result', directory + 'result.json'),
+        ('posterior', directory + candidate.metadata['posterior']['file']),
+    ]
+    for label, filename in (
+        ('fit', 'corner.png'), ('derived', 'distributions.png'),
+    ):
+        if (candidate.path / filename).is_file():
+            links.append((label, directory + filename))
+    return ' '.join(
+        '<a style="color:#285ea8;text-decoration:none" href="{}">{}</a>'.format(
+            escape(url), escape(label)
+        ) for label, url in links
+    )
+
+
+def _stellar_summary(component, derived):
+    values = []
+    parameters = component.get('parameters', {})
+    if 'Teff' in parameters:
+        values.append('T<sub>eff</sub> {}'.format(
+            _format_summary(parameters['Teff'], 'K', digits=0)
+        ))
+    if 'luminosity_lsun' in derived:
+        values.append('L {}'.format(
+            _format_summary(derived['luminosity_lsun'], 'L<sub>☉</sub>')
+        ))
+    if 'radius_rsun' in derived:
+        values.append('R {}'.format(
+            _format_summary(derived['radius_rsun'], 'R<sub>☉</sub>')
+        ))
+    return values
+
+
+def _disk_summary(derived):
+    values = []
+    if 'temperature_k' in derived:
+        values.append('T {}'.format(
+            _format_summary(derived['temperature_k'], 'K', digits=0)
+        ))
+    if 'blackbody_radius_au' in derived:
+        values.append('R<sub>BB</sub> {}'.format(
+            _format_summary(derived['blackbody_radius_au'], 'au')
+        ))
+    if 'fractional_luminosity' in derived:
+        values.append('L<sub>d</sub>/L<sub>★</sub> {}'.format(
+            _format_summary(derived['fractional_luminosity'], '')
+        ))
+    return values
+
+
+def _format_summary(summary, unit, digits=2):
+    median = summary.get('median')
+    if median is None or not np.isfinite(median):
+        return '—'
+    minus = summary.get('minus')
+    plus = summary.get('plus')
+    if abs(median) >= 1e4 or (median != 0 and abs(median) < 1e-2):
+        number = '{:.2g}'.format(median)
+        uncertainty = None
+    else:
+        number = '{:.{}f}'.format(median, digits)
+        uncertainty = None
+        if (minus is not None and plus is not None and
+                np.isfinite(minus) and np.isfinite(plus)):
+            uncertainty = (minus + plus) / 2
+    if uncertainty is not None:
+        number += ' ± {:.{}f}'.format(uncertainty, digits)
+    return '{}{}'.format(number, ' ' + unit if unit else '')
 
 
 def _owner_labels(candidate):
@@ -433,6 +555,40 @@ def _owner_labels(candidate):
         key: values.get('main_id') or values.get('sdbid') or key
         for key, values in targets.items()
     }
+
+
+def _owner_colour_map(owner_labels):
+    return {
+        owner: Category10[10][index % 10]
+        for index, owner in enumerate(owner_labels)
+    }
+
+
+def _candidate_shorthand_text(candidate, owner_labels, component_labels):
+    grouped = {}
+    order = []
+    for component in candidate.metadata['components']:
+        owner = component['owner_key']
+        if owner not in grouped:
+            grouped[owner] = {'stellar': 0, 'disk': 0}
+            order.append(owner)
+        grouped[owner][component['role']] += 1
+    parts = []
+    for owner in order:
+        values = grouped[owner]
+        label = component_labels.get(owner)
+        if label is None and len(order) > 1:
+            label = owner_labels.get(owner, owner)
+        symbols = '★' * values['stellar'] + '○' * values['disk']
+        parts.append('{} {}'.format(label, symbols) if label else symbols)
+    return ' · '.join(parts)
+
+
+def _system_title(systems, owner_labels, package_directory):
+    if len(systems) == 1 and systems[0].get('label'):
+        return systems[0]['label']
+    labels = [system.get('label') for system in systems if system.get('label')]
+    return ' + '.join(labels or owner_labels.values()) or package_directory.name
 
 
 def _candidate_label(candidate, owner_labels):

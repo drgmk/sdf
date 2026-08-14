@@ -3,6 +3,7 @@ from .test_coordinator import FakeSampler, _fit_dataset
 import sdf.coordinator
 import sdf.joint_plotting
 import sdf.model_selection
+import sdf.sed_page
 
 
 def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
@@ -22,12 +23,15 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
 
     assert output == tmp_path / 'index.html'
     assert 'Bokeh' in html
-    assert 'Test: kurucz-0.0' in html
-    assert 'Evidence 0.00' in html
+    assert 'aria-label="Default fit"' in html
+    assert '>★</span>' in html
+    assert 'kurucz-0.0' in html
+    assert 'ln Z 0.00' in html
     assert 'Residual' in html
     assert 'current input' in html
-    assert 'Physical contributors' in html
-    assert 'Observed scopes' in html
+    assert '<h2>System</h2>' in html
+    assert '>Results</a>' not in html
+    assert '>Data</a>' not in html
     assert 'result.json' in html
     assert 'posterior-' in html
     assert 'fit-controls' not in html
@@ -69,3 +73,34 @@ def test_scope_colours_reuse_owner_colour_only_for_resolved_observations():
     assert colours['A'] == 'blue'
     assert colours['B'] == 'orange'
     assert colours['AB'] not in {'blue', 'orange'}
+
+
+def test_system_projection_builds_compact_component_hierarchy():
+    targets = [
+        {
+            'key': 'a', 'label': 'HD 123A', 'colour': 'blue',
+            'spectral_type': 'F5V', 'distance_pc': 10.0,
+            'input_file': 'a.txt', 'external_links': [],
+        },
+        {
+            'key': 'b', 'label': 'HD 123B', 'colour': 'orange',
+            'spectral_type': 'K0V', 'distance_pc': 10.0,
+            'input_file': 'b.txt', 'external_links': [],
+        },
+    ]
+    observations = [{
+        'label': 'HD 123', 'contributor_keys': ['a', 'b'],
+        'spectral_type': None, 'distance_pc': 10.0,
+        'input_file': 'ab.txt', 'external_links': [],
+    }]
+
+    systems, labels = sdf.sed_page.system_page_rows(
+        targets, observations
+    )
+
+    assert len(systems) == 1
+    assert systems[0]['component'] == 'AB'
+    assert [child['component'] for child in systems[0]['children']] == [
+        'A', 'B'
+    ]
+    assert labels == {'a': 'A', 'b': 'B'}

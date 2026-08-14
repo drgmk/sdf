@@ -7,51 +7,64 @@
   {{ bokeh_css|safe }}
   {{ bokeh_js|safe }}
   <style>
-    :root { color-scheme: light; --ink:#172033; --muted:#526071;
-      --line:#dfe5ec; --soft:#f5f7fa; --accent:#285ea8; }
+    :root { color-scheme:light; --ink:#172033; --muted:#526071;
+      --line:#dce3ea; --soft:#f3f5f7; --accent:#285ea8; }
     * { box-sizing:border-box; }
     body { margin:0; background:var(--soft); color:var(--ink);
       font-family:ui-sans-serif,system-ui,-apple-system,sans-serif; }
     a { color:var(--accent); text-decoration:none; }
     a:hover { text-decoration:underline; }
-    .sed-shell { width:min(1600px,100%); margin:0 auto; padding:10px; }
-    .sed-head,.candidate-head,.target-card,.scope-card,.operator-drawer {
+    .sed-shell { width:min(1120px,100%); margin:0 auto; padding:8px; }
+    .sed-head,.system-card,.operator-drawer {
       background:white; border:1px solid var(--line); border-radius:8px; }
-    .sed-head { padding:14px 18px; }
-    .sed-title-row { display:flex; align-items:flex-start; gap:12px;
+    .sed-head { padding:9px 12px; margin-bottom:7px; }
+    .sed-title-row { display:flex; align-items:center; gap:12px;
       justify-content:space-between; }
-    h1 { margin:0; font-size:24px; }
-    h2 { margin:0 0 8px; font-size:18px; }
+    .title-group { display:flex; align-items:center; gap:12px; min-width:0;
+      flex-wrap:wrap; }
+    h1 { margin:0; font-size:22px; line-height:1.15; }
+    h2 { margin:0 0 8px; font-size:15px; }
     p { margin:4px 0; }
     .muted { color:var(--muted); }
+    .default-config { display:flex; align-items:center; gap:5px; flex-wrap:wrap;
+      color:var(--muted); font-size:12px; }
+    .config-chip { display:inline-flex; align-items:center; gap:4px;
+      border:1px solid var(--line); border-left:4px solid var(--chip-colour);
+      border-radius:12px; padding:2px 7px 2px 6px; color:var(--ink);
+      background:#f8fafc; font-weight:600; white-space:nowrap; }
     .page-actions { display:flex; gap:7px; flex-wrap:wrap; }
     button,.page-action { border:1px solid #bdc8d6; border-radius:5px;
       padding:6px 10px; background:white; color:var(--ink); font:inherit;
       cursor:pointer; }
     button:hover,.page-action:hover { background:#eef3f8; text-decoration:none; }
-    .target-grid,.scope-grid { display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:8px;
-      margin-top:10px; }
-    .target-card,.scope-card { padding:10px 12px; }
-    .target-card h2,.scope-card h2 { font-size:15px; margin:0 0 4px; }
-    .link-row { display:flex; flex-wrap:wrap; gap:8px; margin-top:7px;
-      font-size:13px; }
-    .fit-table,.component-table { border-collapse:collapse; width:100%;
-      margin-top:12px; font-size:13px; }
-    .fit-table th,.fit-table td,.component-table th,.component-table td {
-      border-bottom:1px solid #e6ebf0; text-align:left; padding:7px 8px;
-      vertical-align:top; }
-    .fit-table th,.component-table th { color:var(--muted); font-weight:600; }
-    .fit-components { display:flex; gap:5px; flex-wrap:wrap; }
-    .fit-component { background:#edf2f7; border-radius:10px; padding:2px 7px;
-      white-space:nowrap; }
+    .content-grid { display:grid; grid-template-columns:190px minmax(0,1fr);
+      align-items:start; gap:7px; }
+    .system-card { padding:10px; position:sticky; top:8px; font-size:12px; }
+    .system-tree + .system-tree { border-top:1px solid var(--line);
+      margin-top:9px; padding-top:9px; }
+    .system-node { min-width:0; }
+    .system-node.child { position:relative; margin:7px 0 0 13px;
+      padding-left:14px; border-left:1px solid #cbd5e1; }
+    .system-node.child::before { content:""; position:absolute; left:0; top:11px;
+      width:9px; border-top:1px solid #cbd5e1; }
+    .node-head { display:flex; align-items:center; gap:5px; min-width:0; }
+    .component-token { flex:0 0 auto; min-width:26px; border-radius:11px;
+      padding:2px 6px; text-align:center; font-weight:700; background:#edf2f7;
+      border:1px solid #d6dee8; }
+    .child .component-token { border-left:4px solid var(--node-colour);
+      padding-left:4px; }
+    .node-label { min-width:0; overflow-wrap:anywhere; font-weight:650; }
+    .node-meta { color:var(--muted); margin:3px 0 0 31px; line-height:1.3; }
+    .system-links { display:flex; gap:6px; flex-wrap:wrap; margin:4px 0 0 31px;
+      font-size:11px; }
+    .archive-links { border-top:1px dotted var(--line); margin-top:7px;
+      padding-top:6px; }
+    .main-column { min-width:0; }
     .default-badge { background:#dff3e4; color:#176b37; border-radius:10px;
       padding:2px 7px; font-size:11px; white-space:nowrap; }
     .stale-badge { background:#fff0cf; color:#7a4b00; border-radius:10px;
       padding:2px 7px; font-size:11px; white-space:nowrap; }
-    .plot-region { margin-top:8px; }
-    .candidate-head { padding:12px 16px; margin:8px; }
-    .candidate-head p { color:var(--muted); }
+    .plot-region { min-width:0; }
     .operator-drawer { position:fixed; z-index:1000; right:10px; top:10px;
       bottom:10px; width:min(430px,calc(100vw - 20px)); padding:16px;
       overflow:auto; box-shadow:0 12px 35px rgba(23,32,51,.22); }
@@ -79,11 +92,15 @@
       border-radius:6px; padding:8px; margin-top:9px; }
     button[disabled],input[disabled],select[disabled] { cursor:not-allowed;
       opacity:.55; }
-    footer { color:var(--muted); font-size:12px; padding:14px 4px 4px; }
-    @media (max-width:760px) {
+    footer { color:var(--muted); font-size:11px; padding:9px 4px 3px;
+      text-align:right; }
+    @media (max-width:800px) {
       .sed-title-row { display:block; }
       .page-actions { margin-top:10px; }
-      .fit-table { display:block; overflow-x:auto; }
+      .content-grid { grid-template-columns:1fr; }
+      .system-card { position:static; }
+      .system-tree { display:inline-block; vertical-align:top; min-width:220px;
+        margin-right:12px; }
     }
   </style>
 </head>
@@ -91,59 +108,44 @@
 <main class="sed-shell">
   <header class="sed-head">
     <div class="sed-title-row">
-      <div>
+      <div class="title-group">
         <h1>{{ title }}</h1>
-        <p class="muted">SED fits for {{ targets|length }} physical contributor{% if targets|length != 1 %}s{% endif %} and {{ observations|length }} observed scope{% if observations|length != 1 %}s{% endif %}.</p>
+        {% if default_fit %}<div class="default-config" aria-label="Default fit" data-candidate="{{ default_fit.reference }}"><span>Default</span>{% for part in default_fit.shorthand %}<span class="config-chip" style="--chip-colour:{{ part.colour }}" title="{{ part.title }}">{% if part.owner %}{{ part.owner }} {% endif %}{{ part.symbols }}</span>{% endfor %}</div>{% endif %}
       </div>
       <nav class="page-actions" aria-label="SED actions">
-        <a class="page-action" href="#fits">Results</a>
-        <a class="page-action" href="#observations">Data</a>
         {% if operator %}<button id="open-fit-controls" type="button" aria-controls="fit-controls" aria-expanded="false">Fit controls</button>{% endif %}
       </nav>
     </div>
-    <section class="target-grid" aria-label="Physical contributors">
-      {% for target in targets %}
-      <article class="target-card">
-        <h2>{{ target.label }}</h2>
-        <p class="muted">{% if target.sdbid %}<code>{{ target.sdbid }}</code>{% endif %}{% if target.spectral_type %} · {{ target.spectral_type }}{% endif %}{% if target.distance_pc %} · d={{ '%.1f'|format(target.distance_pc) }} pc{% endif %}</p>
-        <div class="link-row">
-          {% if target.input_file %}<a href="{{ target.input_file }}">data</a>{% endif %}
-          {% for link in target.external_links %}<a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.label }}</a>{% endfor %}
-        </div>
-      </article>
-      {% endfor %}
-    </section>
-    <section id="observations" class="scope-grid" aria-label="Observed scopes">
-      {% for observation in observations %}
-      <article class="scope-card">
-        <h2>{{ observation.observation_id }}</h2>
-        <p class="muted">sees {{ observation.contributors|join(' + ') }}</p>
-        <div class="link-row"><a href="{{ observation.input_file }}">raw photometry</a></div>
-      </article>
-      {% endfor %}
-    </section>
-    <section id="fits">
-      <table class="fit-table">
-        <thead><tr><th>Tab</th><th>Components</th><th>Evidence</th><th>χ²</th><th>Input</th><th>Products</th></tr></thead>
-        <tbody>
-        {% for fit in candidates %}
-          <tr data-candidate="{{ fit.reference }}">
-            <td>{{ fit.tab }} {% if fit.default %}<span class="default-badge">default</span>{% endif %}</td>
-            <td><div class="fit-components">{% for component in fit.components %}<span class="fit-component">{{ component.owner }}: {{ component.model }}</span>{% endfor %}</div></td>
-            <td>{% if fit.evidence is not none %}{{ '%.2f'|format(fit.evidence) }}{% else %}—{% endif %}</td>
-            <td>{% if fit.chi_squared is not none %}{{ '%.1f'|format(fit.chi_squared) }}{% else %}—{% endif %}</td>
-            <td>{% if fit.current %}current{% else %}<span class="stale-badge">changed</span>{% endif %}</td>
-            <td><div class="link-row">{% for link in fit.links %}<a href="{{ link.url }}">{{ link.label }}</a>{% endfor %}</div></td>
-          </tr>
-        {% endfor %}
-        </tbody>
-      </table>
-    </section>
   </header>
 
-  <section class="plot-region" aria-label="SED plots">
-    {{ plot_div|safe }}
-  </section>
+  <div class="content-grid">
+    <aside class="system-card" aria-label="System information">
+      <h2>System</h2>
+      {% for system in systems %}
+      <section class="system-tree">
+        <div class="system-node root">
+          <div class="node-head"><span class="component-token">{{ system.component or '★' }}</span><span class="node-label">{% if system.external_links %}<a href="{{ system.external_links[0].url }}" target="_blank" rel="noopener">{{ system.label }}</a>{% else %}{{ system.label }}{% endif %}</span></div>
+          {% if system.spectral_type or system.distance_pc %}<div class="node-meta">{% if system.spectral_type %}{{ system.spectral_type }}{% endif %}{% if system.spectral_type and system.distance_pc %} · {% endif %}{% if system.distance_pc %}d={{ '%.1f'|format(system.distance_pc) }} pc{% endif %}</div>{% endif %}
+          <div class="system-links">{% if system.input_file %}<a href="{{ system.input_file }}">data</a>{% endif %}{% for link in system.external_links %}{% if link.label == 'SIMBAD' %}<a href="{{ link.url }}" target="_blank" rel="noopener">SIMBAD</a>{% endif %}{% endfor %}</div>
+          {% if system.external_links|length > 1 %}<div class="system-links archive-links">{% for link in system.external_links %}{% if link.label != 'SIMBAD' %}<a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.label }}</a>{% endif %}{% endfor %}</div>{% endif %}
+        </div>
+        {% for child in system.children %}
+        <div class="system-node child" style="--node-colour:{{ child.colour or '#64748b' }}">
+          <div class="node-head"><span class="component-token">{{ child.component or '★' }}</span><span class="node-label">{% if child.external_links %}<a href="{{ child.external_links[0].url }}" target="_blank" rel="noopener">{{ child.label }}</a>{% else %}{{ child.label }}{% endif %}</span></div>
+          {% if child.spectral_type or child.distance_pc %}<div class="node-meta">{% if child.spectral_type %}{{ child.spectral_type }}{% endif %}{% if child.spectral_type and child.distance_pc %} · {% endif %}{% if child.distance_pc %}d={{ '%.1f'|format(child.distance_pc) }} pc{% endif %}</div>{% endif %}
+          <div class="system-links">{% if child.input_file %}<a href="{{ child.input_file }}">data</a>{% endif %}{% for link in child.external_links %}{% if link.label == 'SIMBAD' %}<a href="{{ link.url }}" target="_blank" rel="noopener">SIMBAD</a>{% endif %}{% endfor %}</div>
+        </div>
+        {% endfor %}
+      </section>
+      {% endfor %}
+    </aside>
+
+    <section class="main-column">
+      <section class="plot-region" aria-label="SED plots">
+        {{ plot_div|safe }}
+      </section>
+    </section>
+  </div>
 
   {% if operator %}
   <aside id="fit-controls" class="operator-drawer" hidden aria-label="Fit controls">
@@ -172,7 +174,7 @@
     </section>
     <section class="operator-section">
       <h2>Available fits</h2>
-      {% for fit in available_fits %}<div class="operator-fit" data-fit-reference="{{ fit.reference }}"><strong>{{ fit.components|map(attribute='model')|join(' + ') }}</strong>{% if fit.default %} <span class="default-badge">default</span>{% endif %}<p class="muted">Evidence {% if fit.evidence is not none %}{{ '%.2f'|format(fit.evidence) }}{% else %}not available{% endif %}{% if not fit.current %} · input changed{% endif %}</p><div class="fit-actions"><a href="{{ fit.preview_url }}">Preview</a><label><input class="display-fit" type="checkbox"{% if fit.displayed %} checked{% endif %}{% if fit.default or not operator_api %} disabled{% endif %}> shown</label>{% if not fit.default %}<button class="default-fit" type="button"{% if not operator_api %} disabled{% endif %}>Make default</button>{% endif %}<span class="operator-status" role="status"></span></div></div>{% endfor %}
+      {% for fit in available_fits %}<div class="operator-fit" data-fit-reference="{{ fit.reference }}"><strong>{% for part in fit.shorthand %}{% if part.owner %}{{ part.owner }} {% endif %}{{ part.symbols }}{% if not loop.last %} · {% endif %}{% endfor %}</strong>{% if fit.default %} <span class="default-badge">default</span>{% endif %}<p class="muted">Evidence {% if fit.evidence is not none %}{{ '%.2f'|format(fit.evidence) }}{% else %}not available{% endif %}{% if not fit.current %} · input changed{% endif %}</p><div class="fit-actions"><a href="{{ fit.preview_url }}">Preview</a><label><input class="display-fit" type="checkbox"{% if fit.displayed %} checked{% endif %}{% if fit.default or not operator_api %} disabled{% endif %}> shown</label>{% if not fit.default %}<button class="default-fit" type="button"{% if not operator_api %} disabled{% endif %}>Make default</button>{% endif %}<span class="operator-status" role="status"></span></div></div>{% endfor %}
     </section>
   </aside>
   {% endif %}
