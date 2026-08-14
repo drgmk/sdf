@@ -58,8 +58,9 @@ target's spectral type. Disk support is never inferred from stellar class;
 `max_disks` is a search limit, not a requirement to fit disks.
 
 The whole package currently needs one search mode. `evidence-guided` and
-`exhaustive` are runnable. `exact` and `posterior-only` are represented in
-policy but still need an explicit candidate CLI/API input.
+`exhaustive` are runnable, and `sdf-fits fit` provides an explicit exact-model
+CLI/API path. `posterior-only` remains represented in policy but does not yet
+have a dedicated command.
 
 ## Outputs
 
@@ -97,7 +98,22 @@ Analysis uses each stellar or disk component's owner and each target's own
 parallax. Every joint-package run also writes a standalone Bokeh `index.html`
 from the compact retained candidates. The page follows `fits/selection.json`,
 shows the default fit first, and includes scoped photometry, component/system
-models, and residuals. It does not need the native MultiNest output.
+models, residuals, target inputs, fit products, and external resources. It does
+not need the native MultiNest output. Physical contributors and observed
+scopes are separate: resolved scopes share the contributor colour, while
+composite scopes use a neutral system colour and plot the summed model.
+
+The operator view is an extension of this same document rather than a second
+page design. It adds a right-hand drawer while retaining the public content and
+styling:
+
+```shell
+sdf-fits render /path/to/package --operator
+```
+
+This writes `operator.html` by default. At present the drawer exposes the
+component/candidate structure as a development shell; persistent policy edits
+and fit actions still require the planned local/authenticated service.
 
 The HD 113766 package is the first end-to-end joint rehearsal. HD 283750 plus
 its wide DC8 companion HD 283750B is the mixed-family rehearsal: two fully
@@ -114,12 +130,13 @@ interpret broadband-only `logg` scientifically until SDF gains family-specific
 stellar mass/radius priors or deliberately treats gravity as a nuisance
 parameter.
 
-Result-database writing and indexed sample generation are intentionally not
-enabled yet.
+Legacy result-database writing and indexed sample generation are intentionally
+not enabled yet.
 Requesting database output for a joint package raises a clear error rather
-than silently writing a single-target-shaped legacy result. The next milestone
-is a rebuildable result index, followed by fit-selection commands and the
-operator workflow.
+than silently writing a single-target-shaped legacy result. The replacement
+result index and fit-selection commands are available. The remaining operator
+milestone is persistent policy and job handling, followed by hierarchy-aware
+sample generation.
 
 The first result-index implementation can build a disposable SQLite query view
 of all retained joint candidates below an export root:

@@ -6,21 +6,26 @@ from html import escape
 from pathlib import Path
 
 import numpy as np
-from bokeh.embed import file_html
+from bokeh.embed import components
 from bokeh.layouts import column
 from bokeh.models import (
     ColumnDataSource, Div, HoverTool, Range1d, Span, TabPanel, Tabs,
 )
 from bokeh.palettes import Category10
 from bokeh.plotting import figure
-from bokeh.resources import CDN, INLINE
 
 from .candidate_library import CandidateLibrary
 from .dataset import FitDataset, canonical_fit_source
+from .sed_page import (
+    candidate_page_rows,
+    observation_page_rows,
+    render_sed_page,
+    target_page_rows,
+)
 
 
 def write_joint_results_page(package_directory, output=None, *, dataset=None,
-                             inline=True, candidate_ids=None):
+                             inline=True, candidate_ids=None, operator=False):
     """Write a standalone candidate-review page for one joint package."""
 
     package_directory = canonical_fit_source(package_directory)
@@ -79,17 +84,26 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
         0,
     )
     tabs = Tabs(tabs=panels, active=active, sizing_mode='stretch_width')
-    page = column(
-        Div(text=_page_header(title, ordered, dataset, default),
-            sizing_mode='stretch_width'),
-        tabs,
-        sizing_mode='stretch_width',
+    plot_script, plot_div = components(tabs)
+    target_rows = target_page_rows(dataset, package_directory)
+    candidate_rows = candidate_page_rows(
+        ordered, owner_labels, default, package_directory, dataset,
     )
-    html = file_html(
-        page, INLINE if inline else CDN,
-        title='{} — SDF joint fits'.format(title),
+    html = render_sed_page(
+        title=title,
+        plot_script=plot_script,
+        plot_div=plot_div,
+        targets=target_rows,
+        candidates=candidate_rows,
+        observations=observation_page_rows(dataset, package_directory),
+        default_candidate=default,
+        inline=inline,
+        operator=operator,
     )
-    output = Path(output) if output is not None else package_directory / 'index.html'
+    default_name = 'operator.html' if operator else 'index.html'
+    output = (
+        Path(output) if output is not None else package_directory / default_name
+    )
     output.write_text(html, encoding='utf-8')
     return output
 
@@ -112,14 +126,11 @@ def _candidate_panel(candidate, dataset, owner_labels, is_default=False):
 
     scopes = candidate.metadata['analysis']['data_scopes']
     scope_labels = _scope_labels(scopes, candidate)
-    scope_colours = {
-        observation_id: Category10[10][index % 10]
-        for index, observation_id in enumerate(scope_labels)
-    }
     owner_colours = {
         owner: Category10[10][index % 10]
         for index, owner in enumerate(owner_labels)
     }
+    scope_colours = _scope_colours(scopes, owner_colours)
     x_range, y_range = _plot_ranges(arrays)
     sed = figure(
         x_axis_type='log', y_axis_type='log',
@@ -344,52 +355,6 @@ def _add_hover(fig, renderer):
     ))
 
 
-def _page_header(title, candidates, dataset, default):
-    rows = []
-    labels = _owner_labels(candidates[0])
-    for index, candidate in enumerate(candidates, start=1):
-        evidence = candidate.posterior.evidence
-        evidence_text = '—' if evidence is None else '{:.2f}'.format(evidence)
-        chi_squared = candidate.metadata['analysis'].get('chi_squared')
-        chi_text = '—' if chi_squared is None else '{:.1f}'.format(chi_squared)
-        status = 'current' if candidate.is_current(dataset) else 'input changed'
-        default_text = ' <span class="default-badge">default</span>' \
-            if candidate.candidate_id == default else ''
-        rows.append(
-            '<tr><td>{}</td><td>{}{}</td><td>{}</td><td>{}</td><td>{}</td></tr>'.
-            format(
-                index, escape(_candidate_label(candidate, labels)),
-                default_text, evidence_text, chi_text, status,
-            )
-        )
-    return '''
-<style>
-  :root {{ color-scheme: light; }}
-  body {{ margin: 0; background: #f5f7fa; color: #172033;
-          font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }}
-  .joint-head, .candidate-head {{ background: white; border: 1px solid #dfe5ec;
-          border-radius: 8px; padding: 14px 18px; margin: 10px 8px; }}
-  .joint-head h1 {{ margin: 0 0 4px; font-size: 24px; }}
-  .joint-head p, .candidate-head p {{ margin: 4px 0; color: #526071; }}
-  .fit-table, .component-table {{ border-collapse: collapse; width: 100%;
-          margin-top: 12px; font-size: 13px; }}
-  .fit-table th, .fit-table td, .component-table th, .component-table td {{
-          border-bottom: 1px solid #e6ebf0; text-align: left; padding: 6px 8px; }}
-  .fit-table th, .component-table th {{ color: #526071; font-weight: 600; }}
-  .default-badge {{ background: #dff3e4; color: #176b37; border-radius: 10px;
-          padding: 2px 7px; font-size: 11px; white-space: nowrap; }}
-</style>
-<section class="joint-head">
-  <h1>{}</h1>
-  <p>Retained joint fits. Select a candidate tab to compare its scoped SED and residuals.</p>
-  <table class="fit-table">
-    <thead><tr><th>Tab</th><th>Candidate</th><th>Evidence</th><th>χ²</th><th>Input</th></tr></thead>
-    <tbody>{}</tbody>
-  </table>
-</section>
-'''.format(escape(title), ''.join(rows))
-
-
 def _candidate_header(candidate, dataset, owner_labels, is_default=False):
     evidence = candidate.posterior.evidence
     evidence_error = candidate.posterior.evidence_error
@@ -464,6 +429,27 @@ def _scope_labels(scopes, candidate):
                 for key in scope['contributors']
             )
     return labels
+
+
+def _scope_colours(scopes, owner_colours):
+    """Keep resolved observations tied to their physical contributor colour."""
+
+    composite_colours = ('#334155', '#7c3aed', '#a16207', '#0f766e')
+    colours = {}
+    composite_index = 0
+    for scope in scopes:
+        observation_id = scope['observation_id']
+        if observation_id in colours:
+            continue
+        contributors = tuple(scope['contributors'])
+        if len(contributors) == 1 and contributors[0] in owner_colours:
+            colours[observation_id] = owner_colours[contributors[0]]
+        else:
+            colours[observation_id] = composite_colours[
+                composite_index % len(composite_colours)
+            ]
+            composite_index += 1
+    return colours
 
 
 def _plot_ranges(arrays):

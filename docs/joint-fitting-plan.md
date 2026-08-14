@@ -26,11 +26,13 @@ and input state so that it can be understood and its analysis regenerated.
 Implementation is underway on `codex/joint-fitting`. The branch now has the
 dataset/candidate/problem boundaries, local MultiNest callbacks, joint-package
 discovery and projections, compact candidate artifacts, SIMBAD-keyed portable
-policy, deterministic candidate search, orchestration, and an initial
-hierarchy-aware analysis layer. Single-file fitting still follows the legacy
-facade. The main remaining vertical slice is joint plotting/HTML and indexing
-for the operator/downstream workflow; see `joint-fitting.md` for the runnable
-development interface and current boundary.
+policy, deterministic candidate search, orchestration, hierarchy-aware
+analysis, joint plotting, fit selection commands, and a rebuildable result
+index. Single-file fitting still follows the legacy facade. The current slice
+is the operator workflow: a shared public/operator SED page now provides the
+presentation boundary, ahead of persistent policy controls and the fit-job
+queue. See `joint-fitting.md` for the runnable development interface and
+current boundary.
 
 The SDB export contract remains deliberately small:
 
@@ -488,11 +490,21 @@ should be low-friction; auto filled actor/reason fields, minimal clicks.
 
 ### Public versus operator pages
 
-Current SED pages are static public products.  Public pages must remain
-read-only.  The same page can reveal operator controls only when served with
-an authenticated/local backend endpoint, or an operator-specific SDF/SDB page
-can embed the result plot and controls.  Static generation alone cannot safely
-persist a choice or launch a fit.
+Current SED pages are static public products and remain read-only. The joint
+result renderer uses one template and one set of component-aware projections
+for both audiences. Operator mode adds a right-hand controls drawer to that
+same page; it is not a separately designed application. The static operator
+page is a useful rendering/development shell, but persistence and job launch
+must be supplied by an authenticated or local backend endpoint.
+
+For multiple systems, the page distinguishes physical contributors from
+observed scopes. Each physical contributor has its own identity, input, and
+external links. A resolved observation uses that contributor's plot colour;
+an unresolved/composite observation gets a neutral system colour and is
+labelled by the contributors it sees. Candidate plots show thin owner-coloured
+component spectra and thicker scope-level total spectra, with photometry and
+residuals grouped by observed scope. This keeps the plot scientifically honest
+without inventing per-component photometry for unresolved measurements.
 
 ### Central policy store
 
@@ -756,6 +768,11 @@ appear when code and tests establish a real boundary.
 - Keep public SED pages read-only.
 - Change `sdf-sample` to query the default candidate through the result index.
 - Provide index rebuild and verification commands.
+
+The result index, rebuild/verification commands, fit library, selection
+commands, and shared SED page are implemented. Remaining work is the central
+policy/job state, functional drawer controls, asynchronous execution, and the
+hierarchy-aware `sdf-sample` migration.
 
 ### Phase 7: optional samplers and performance
 

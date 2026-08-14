@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} — SDF</title>
+  {{ bokeh_css|safe }}
+  {{ bokeh_js|safe }}
+  <style>
+    :root { color-scheme: light; --ink:#172033; --muted:#526071;
+      --line:#dfe5ec; --soft:#f5f7fa; --accent:#285ea8; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--soft); color:var(--ink);
+      font-family:ui-sans-serif,system-ui,-apple-system,sans-serif; }
+    a { color:var(--accent); text-decoration:none; }
+    a:hover { text-decoration:underline; }
+    .sed-shell { width:min(1600px,100%); margin:0 auto; padding:10px; }
+    .sed-head,.candidate-head,.target-card,.scope-card,.operator-drawer {
+      background:white; border:1px solid var(--line); border-radius:8px; }
+    .sed-head { padding:14px 18px; }
+    .sed-title-row { display:flex; align-items:flex-start; gap:12px;
+      justify-content:space-between; }
+    h1 { margin:0; font-size:24px; }
+    h2 { margin:0 0 8px; font-size:18px; }
+    p { margin:4px 0; }
+    .muted { color:var(--muted); }
+    .page-actions { display:flex; gap:7px; flex-wrap:wrap; }
+    button,.page-action { border:1px solid #bdc8d6; border-radius:5px;
+      padding:6px 10px; background:white; color:var(--ink); font:inherit;
+      cursor:pointer; }
+    button:hover,.page-action:hover { background:#eef3f8; text-decoration:none; }
+    .target-grid,.scope-grid { display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:8px;
+      margin-top:10px; }
+    .target-card,.scope-card { padding:10px 12px; }
+    .target-card h2,.scope-card h2 { font-size:15px; margin:0 0 4px; }
+    .link-row { display:flex; flex-wrap:wrap; gap:8px; margin-top:7px;
+      font-size:13px; }
+    .fit-table,.component-table { border-collapse:collapse; width:100%;
+      margin-top:12px; font-size:13px; }
+    .fit-table th,.fit-table td,.component-table th,.component-table td {
+      border-bottom:1px solid #e6ebf0; text-align:left; padding:7px 8px;
+      vertical-align:top; }
+    .fit-table th,.component-table th { color:var(--muted); font-weight:600; }
+    .fit-components { display:flex; gap:5px; flex-wrap:wrap; }
+    .fit-component { background:#edf2f7; border-radius:10px; padding:2px 7px;
+      white-space:nowrap; }
+    .default-badge { background:#dff3e4; color:#176b37; border-radius:10px;
+      padding:2px 7px; font-size:11px; white-space:nowrap; }
+    .stale-badge { background:#fff0cf; color:#7a4b00; border-radius:10px;
+      padding:2px 7px; font-size:11px; white-space:nowrap; }
+    .plot-region { margin-top:8px; }
+    .candidate-head { padding:12px 16px; margin:8px; }
+    .candidate-head p { color:var(--muted); }
+    .operator-drawer { position:fixed; z-index:1000; right:10px; top:10px;
+      bottom:10px; width:min(430px,calc(100vw - 20px)); padding:16px;
+      overflow:auto; box-shadow:0 12px 35px rgba(23,32,51,.22); }
+    .operator-drawer[hidden] { display:none; }
+    .drawer-head { display:flex; justify-content:space-between; gap:10px;
+      align-items:flex-start; }
+    .operator-section { border-top:1px solid var(--line); padding-top:12px;
+      margin-top:12px; }
+    .operator-target,.operator-fit { border:1px solid var(--line);
+      border-radius:6px; padding:9px; margin-top:7px; }
+    footer { color:var(--muted); font-size:12px; padding:14px 4px 4px; }
+    @media (max-width:760px) {
+      .sed-title-row { display:block; }
+      .page-actions { margin-top:10px; }
+      .fit-table { display:block; overflow-x:auto; }
+    }
+  </style>
+</head>
+<body class="sed-page{% if operator %} operator-mode{% endif %}">
+<main class="sed-shell">
+  <header class="sed-head">
+    <div class="sed-title-row">
+      <div>
+        <h1>{{ title }}</h1>
+        <p class="muted">SED fits for {{ targets|length }} physical contributor{% if targets|length != 1 %}s{% endif %} and {{ observations|length }} observed scope{% if observations|length != 1 %}s{% endif %}.</p>
+      </div>
+      <nav class="page-actions" aria-label="SED actions">
+        <a class="page-action" href="#fits">Results</a>
+        <a class="page-action" href="#observations">Data</a>
+        {% if operator %}<button id="open-fit-controls" type="button" aria-controls="fit-controls" aria-expanded="false">Fit controls</button>{% endif %}
+      </nav>
+    </div>
+    <section class="target-grid" aria-label="Physical contributors">
+      {% for target in targets %}
+      <article class="target-card">
+        <h2>{{ target.label }}</h2>
+        <p class="muted">{% if target.sdbid %}<code>{{ target.sdbid }}</code>{% endif %}{% if target.spectral_type %} · {{ target.spectral_type }}{% endif %}{% if target.distance_pc %} · d={{ '%.1f'|format(target.distance_pc) }} pc{% endif %}</p>
+        <div class="link-row">
+          {% if target.input_file %}<a href="{{ target.input_file }}">data</a>{% endif %}
+          {% for link in target.external_links %}<a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.label }}</a>{% endfor %}
+        </div>
+      </article>
+      {% endfor %}
+    </section>
+    <section id="observations" class="scope-grid" aria-label="Observed scopes">
+      {% for observation in observations %}
+      <article class="scope-card">
+        <h2>{{ observation.observation_id }}</h2>
+        <p class="muted">sees {{ observation.contributors|join(' + ') }}</p>
+        <div class="link-row"><a href="{{ observation.input_file }}">raw photometry</a></div>
+      </article>
+      {% endfor %}
+    </section>
+    <section id="fits">
+      <table class="fit-table">
+        <thead><tr><th>Tab</th><th>Components</th><th>Evidence</th><th>χ²</th><th>Input</th><th>Products</th></tr></thead>
+        <tbody>
+        {% for fit in candidates %}
+          <tr data-candidate="{{ fit.reference }}">
+            <td>{{ fit.tab }} {% if fit.default %}<span class="default-badge">default</span>{% endif %}</td>
+            <td><div class="fit-components">{% for component in fit.components %}<span class="fit-component">{{ component.owner }}: {{ component.model }}</span>{% endfor %}</div></td>
+            <td>{% if fit.evidence is not none %}{{ '%.2f'|format(fit.evidence) }}{% else %}—{% endif %}</td>
+            <td>{% if fit.chi_squared is not none %}{{ '%.1f'|format(fit.chi_squared) }}{% else %}—{% endif %}</td>
+            <td>{% if fit.current %}current{% else %}<span class="stale-badge">changed</span>{% endif %}</td>
+            <td><div class="link-row">{% for link in fit.links %}<a href="{{ link.url }}">{{ link.label }}</a>{% endfor %}</div></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </header>
+
+  <section class="plot-region" aria-label="SED plots">
+    {{ plot_div|safe }}
+  </section>
+
+  {% if operator %}
+  <aside id="fit-controls" class="operator-drawer" hidden aria-label="Fit controls">
+    <div class="drawer-head"><div><h2>Fit controls</h2><p class="muted">Model policy and retained fits for this package.</p></div><button id="close-fit-controls" type="button" aria-label="Close fit controls">×</button></div>
+    <section class="operator-section">
+      <h2>Physical contributors</h2>
+      {% for target in targets %}<div class="operator-target" data-target-key="{{ target.key }}"><strong>{{ target.label }}</strong><p class="muted">Stellar and disk model policy will be edited here.</p></div>{% endfor %}
+    </section>
+    <section class="operator-section">
+      <h2>Available fits</h2>
+      {% for fit in candidates %}<div class="operator-fit" data-fit-reference="{{ fit.reference }}"><strong>{{ fit.components|map(attribute='model')|join(' + ') }}</strong>{% if fit.default %} <span class="default-badge">default</span>{% endif %}<p class="muted">Evidence {% if fit.evidence is not none %}{{ '%.2f'|format(fit.evidence) }}{% else %}not available{% endif %}</p></div>{% endfor %}
+    </section>
+  </aside>
+  {% endif %}
+
+  <footer>generated {{ creation_time }} UTC</footer>
+</main>
+{{ plot_script|safe }}
+{% if operator %}
+<script>
+(() => {
+  const drawer = document.getElementById('fit-controls');
+  const open = document.getElementById('open-fit-controls');
+  const close = document.getElementById('close-fit-controls');
+  const setOpen = value => { drawer.hidden = !value; open.setAttribute('aria-expanded', String(value)); };
+  open.addEventListener('click', () => setOpen(true));
+  close.addEventListener('click', () => setOpen(false));
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') setOpen(false); });
+})();
+</script>
+{% endif %}
+</body>
+</html>

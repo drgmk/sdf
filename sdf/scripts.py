@@ -223,6 +223,10 @@ def sdf_fits():
     render_parser.add_argument('package')
     render_parser.add_argument('--output')
     render_parser.add_argument(
+        '--operator', action='store_true',
+        help='Render the shared page with the local operator drawer',
+    )
+    render_parser.add_argument(
         '--fit', action='append', dest='fits',
         help='Render only this retained fit (repeat for several tabs)',
     )
@@ -288,7 +292,9 @@ def sdf_fits():
         print(result.path.name)
         return
 
-    print(manager.render(args.output, fits=args.fits))
+    print(manager.render(
+        args.output, fits=args.fits, operator=args.operator,
+    ))
 
 
 def _model_assignment(value):

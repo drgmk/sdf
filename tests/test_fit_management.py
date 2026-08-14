@@ -142,3 +142,15 @@ def test_preview_does_not_change_or_expand_public_selection(tmp_path):
     assert second.metadata['display_name'] not in public_html
     assert second.metadata['display_name'] in preview_html
     assert manager.library.read_selection().displayed == (first.candidate_id,)
+
+
+def test_fit_manager_can_render_operator_extension(tmp_path):
+    dataset, first, _ = _two_candidates(tmp_path)
+    manager = sdf.fit_management.FitManager(tmp_path)
+    manager.select(default=first.path.name, displayed=(first.path.name,))
+
+    output = manager.render(
+        tmp_path / 'operator.html', dataset=dataset, operator=True,
+    )
+
+    assert 'id="fit-controls"' in output.read_text(encoding='utf-8')

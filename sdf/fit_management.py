@@ -132,13 +132,13 @@ class FitManager:
             raise ValueError('unknown fit reference: {}'.format(reference))
         raise ValueError('ambiguous fit reference: {}'.format(reference))
 
-    def render(self, output=None, fits=None, dataset=None):
+    def render(self, output=None, fits=None, dataset=None, operator=False):
         candidate_ids = None
         if fits is not None:
             candidate_ids = tuple(self.resolve(reference) for reference in fits)
         return write_joint_results_page(
             self.package_directory, output=output,
-            candidate_ids=candidate_ids, dataset=dataset,
+            candidate_ids=candidate_ids, dataset=dataset, operator=operator,
         )
 
     def fit_exact(self, stellar, disks=(), *, force=False, nospec=False,

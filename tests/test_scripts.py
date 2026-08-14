@@ -49,3 +49,26 @@ def test_joint_fit_rejects_legacy_database_output(
 
     with pytest.raises(NotImplementedError, match='result index'):
         sdf.scripts.sdf_fit()
+
+
+def test_sdf_fits_can_render_operator_extension(monkeypatch, tmp_path):
+    calls = []
+
+    class FakeManager:
+        def __init__(self, package):
+            calls.append(('init', package))
+
+        def render(self, output=None, fits=None, operator=False):
+            calls.append(('render', output, fits, operator))
+            return tmp_path / 'operator.html'
+
+    monkeypatch.setattr(
+        sys, 'argv', ['sdf-fits', 'render', str(tmp_path), '--operator']
+    )
+    monkeypatch.setattr(sdf.scripts, 'FitManager', FakeManager)
+
+    sdf.scripts.sdf_fits()
+
+    assert calls == [
+        ('init', str(tmp_path)), ('render', None, None, True),
+    ]
