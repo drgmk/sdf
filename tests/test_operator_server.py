@@ -21,11 +21,12 @@ def test_operator_page_contains_live_policy_and_all_retained_fits(tmp_path):
 
     html = service.render_page()
 
-    assert 'Save and queue fit' in html
+    assert html.count('Queue system fit') == 1
+    assert 'sdf-jobs --state PATH run' in html
     assert 'test-token' in html
     assert first.path.name in html
     assert second.path.name in html
-    assert 'Use automatic' not in html
+    assert 'class="reset-policy"' not in html
 
 
 def test_policy_save_prefills_a_reason_and_queues_without_fitting(tmp_path):
@@ -48,6 +49,31 @@ def test_policy_save_prefills_a_reason_and_queues_without_fitting(tmp_path):
     assert record.policy.stellar_models == ('kurucz-0.0',)
     assert record.reason.startswith('Use kurucz-0.0 for Test')
     assert service.state.jobs()[0].status == 'queued'
+
+
+def test_system_save_updates_choices_and_queues_one_package_fit(tmp_path):
+    service, dataset, _, _ = _service(tmp_path)
+    target = dataset.targets[0]
+
+    result = service.save_system({
+        'actor': 'Grant',
+        'reason': 'Use the disk model for the system',
+        'changes': [{
+            'target_key': target.key,
+            'scope': 'global',
+            'stellar_model': 'kurucz-0.0',
+            'disk_model': 'modbb_disk_r',
+            'max_disks': 1,
+            'search_mode': 'evidence-guided',
+        }],
+    })
+
+    record = service.state.policy(target.key)
+    jobs = service.state.jobs()
+    assert result == {'job_id': jobs[0].id, 'status': 'queued'}
+    assert record.policy.max_disks == 1
+    assert len(jobs) == 1
+    assert jobs[0].payload == {'target_keys': [target.key]}
 
 
 def test_selection_actions_do_not_run_a_fit(tmp_path):

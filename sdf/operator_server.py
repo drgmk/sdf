@@ -118,6 +118,70 @@ class OperatorService:
         self.actor = actor
         return {'job_id': job_id, 'status': 'queued'}
 
+    def save_system(self, payload):
+        """Save changed contributor policies and queue one system fit."""
+
+        dataset = self.dataset()
+        targets = {target.key: target for target in dataset.targets}
+        actor = str(payload.get('actor') or self.actor).strip()
+        if not actor:
+            raise ValueError('actor is required')
+        changes = payload.get('changes', ())
+        if not isinstance(changes, list):
+            raise ValueError('system policy changes must be a list')
+        policies = []
+        resets = []
+        seen = set()
+        registry = ModelFamilyRegistry.from_config()
+        for change in changes:
+            if not isinstance(change, dict):
+                raise ValueError('each system policy change must be an object')
+            target_key = str(change.get('target_key', ''))
+            if target_key not in targets:
+                raise ValueError(
+                    'unknown physical contributor {}'.format(target_key)
+                )
+            if target_key in seen:
+                raise ValueError(
+                    'duplicate physical contributor {}'.format(target_key)
+                )
+            seen.add(target_key)
+            scope = _scope(change.get('scope'))
+            if change.get('reset'):
+                resets.append((target_key, scope))
+                continue
+            stellar_model = str(change.get('stellar_model', '')).strip()
+            disk_model = str(change.get('disk_model', '')).strip()
+            try:
+                max_disks = int(change.get('max_disks'))
+            except (TypeError, ValueError) as error:
+                raise ValueError('maximum disks must be an integer') from error
+            search_mode = str(change.get('search_mode', 'evidence-guided'))
+            registry.require(stellar_model, 'stellar')
+            disk_models = () if not disk_model else (disk_model,)
+            for model_name in disk_models:
+                registry.require(model_name, 'disk')
+            policies.append((TargetModelPolicy(
+                target_key=target_key, stellar_models=(stellar_model,),
+                disk_models=disk_models, max_disks=max_disks,
+                search_mode=search_mode, origin='operator',
+            ), targets[target_key].main_id, scope))
+        reason = str(payload.get('reason', '')).strip()
+        if not reason:
+            labels = [
+                target.main_id or target.sdbid or target.key
+                for target in dataset.targets
+            ]
+            reason = 'Update model choices and fit {}'.format(
+                ' + '.join(labels)
+            )
+        job_id = self.state.save_system_and_queue(
+            policies, resets, package=self.package, actor=actor,
+            reason=reason, target_keys=targets,
+        )
+        self.actor = actor
+        return {'job_id': job_id, 'status': 'queued'}
+
     def reset_policy(self, payload):
         dataset = self.dataset()
         targets = {target.key: target for target in dataset.targets}
@@ -234,6 +298,8 @@ class _OperatorHandler(SimpleHTTPRequestHandler):
             path = urlparse(self.path).path
             if path == '/api/policy':
                 result = self.service.save_policy(payload)
+            elif path == '/api/system-policy':
+                result = self.service.save_system(payload)
             elif path == '/api/policy/reset':
                 result = self.service.reset_policy(payload)
             elif path == '/api/selection':

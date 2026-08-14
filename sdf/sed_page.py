@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import math
 from pathlib import Path
 import re
 from urllib.parse import urlencode
@@ -58,6 +59,11 @@ def target_page_rows(dataset, package_directory):
         observation.target_key: observation
         for observation in dataset.observations
     }
+    system_positions = [
+        (_number(target.keywords.get('raj2000')),
+         _number(target.keywords.get('dej2000')))
+        for target in dataset.targets
+    ]
     rows = []
     for target in dataset.targets:
         keywords = target.keywords
@@ -69,6 +75,7 @@ def target_page_rows(dataset, package_directory):
         )
         observation = observation_by_target.get(target.key)
         source = _target_source(package_directory, target, observation)
+        search_radius = _search_radius_arcsec(ra, dec, system_positions)
         rows.append({
             'key': target.key,
             'main_id': target.main_id,
@@ -83,7 +90,9 @@ def target_page_rows(dataset, package_directory):
                     package_directory
                 ).as_posix()
             ),
-            'external_links': _external_links(target.main_id, ra, dec),
+            'external_links': _external_links(
+                target.main_id, ra, dec, radius_arcsec=search_radius,
+            ),
         })
     return rows
 
@@ -214,6 +223,13 @@ def observation_page_rows(dataset, package_directory):
         for target in dataset.targets
     }
     targets_by_key = {target.key: target for target in dataset.targets}
+    target_positions = {
+        target.key: (
+            _number(target.keywords.get('raj2000')),
+            _number(target.keywords.get('dej2000')),
+        )
+        for target in dataset.targets
+    }
     rows = []
     for observation in dataset.observations:
         target = targets_by_key.get(observation.target_key)
@@ -228,6 +244,9 @@ def observation_page_rows(dataset, package_directory):
         ra = _number(keywords.get('raj2000'))
         dec = _number(keywords.get('dej2000'))
         parallax = _number(keywords.get('plx_value'))
+        search_radius = _search_radius_arcsec(
+            ra, dec, target_positions.values()
+        )
         rows.append({
             'observation_id': observation.observation_id,
             'target_key': observation.target_key,
@@ -237,6 +256,9 @@ def observation_page_rows(dataset, package_directory):
                 for key in observation.contributor_keys
             ],
             'label': main_id or observation.observation_id,
+            'ra_deg': ra,
+            'dec_deg': dec,
+            'search_radius_arcsec': search_radius,
             'spectral_type': _clean(keywords.get('sp_type')),
             'distance_pc': (
                 None if parallax is None or parallax <= 0 else
@@ -245,7 +267,9 @@ def observation_page_rows(dataset, package_directory):
             'input_file': Path(observation.source).relative_to(
                 package_directory
             ).as_posix(),
-            'external_links': _external_links(main_id, ra, dec),
+            'external_links': _external_links(
+                main_id, ra, dec, radius_arcsec=search_radius,
+            ),
         })
     return rows
 
@@ -355,7 +379,7 @@ def _target_source(package_directory, target, observation):
     return None
 
 
-def _external_links(main_id, ra, dec):
+def _external_links(main_id, ra, dec, radius_arcsec=20.0):
     links = []
     if main_id:
         links.append({
@@ -368,6 +392,9 @@ def _external_links(main_id, ra, dec):
         return links
     coordinate = '{} {}'.format(ra, dec)
     comma_coordinate = '{},{}'.format(ra, dec)
+    radius_arcsec = max(1.0, float(radius_arcsec))
+    spitzer_radius = max(180.0, radius_arcsec)
+    esasky_fov = max(0.25, 2.4 * radius_arcsec / 3600.0)
     links.extend([
         {
             'label': 'CDS',
@@ -378,7 +405,7 @@ def _external_links(main_id, ra, dec):
         {
             'label': 'CASSIS',
             'url': 'https://cassis.sirtf.com/atlas/cgi/radec.py?' + urlencode({
-                'ra': ra, 'dec': dec, 'radius': 20,
+                'ra': ra, 'dec': dec, 'radius': round(radius_arcsec, 2),
             }),
         },
         {
@@ -395,7 +422,8 @@ def _external_links(main_id, ra, dec):
             'url': (
                 'https://sha.ipac.caltech.edu/applications/Spitzer/SHA/?' +
                 urlencode({
-                    'api': 'search', 'searchoption': 'POSITION', 'sr': '180s',
+                    'api': 'search', 'searchoption': 'POSITION',
+                    'sr': '{:g}s'.format(spitzer_radius),
                     'WorldPt': '{};{};EQ_J2000'.format(ra, dec),
                     'execute': 'true',
                 })
@@ -411,12 +439,36 @@ def _external_links(main_id, ra, dec):
         {
             'label': 'ESASky',
             'url': 'https://sky.esa.int/?' + urlencode({
-                'action': 'goto', 'fov': '0.25', 'cooframe': 'J2000',
+                'action': 'goto', 'fov': '{:g}'.format(esasky_fov),
+                'cooframe': 'J2000',
                 'sci': 'true', 'hips': 'AllWISE color', 'target': coordinate,
             }),
         },
     ])
     return links
+
+
+def _angular_separation_arcsec(ra1, dec1, ra2, dec2):
+    ra1, dec1, ra2, dec2 = map(math.radians, (ra1, dec1, ra2, dec2))
+    delta_ra = ra2 - ra1
+    delta_dec = dec2 - dec1
+    value = (
+        math.sin(delta_dec / 2) ** 2 +
+        math.cos(dec1) * math.cos(dec2) * math.sin(delta_ra / 2) ** 2
+    )
+    angle = 2 * math.asin(min(1.0, math.sqrt(value)))
+    return math.degrees(angle) * 3600.0
+
+
+def _search_radius_arcsec(ra, dec, positions):
+    if ra is None or dec is None:
+        return 20.0
+    separations = [
+        _angular_separation_arcsec(ra, dec, other_ra, other_dec)
+        for other_ra, other_dec in positions
+        if other_ra is not None and other_dec is not None
+    ]
+    return max(20.0, (max(separations) + 10.0) if separations else 20.0)
 
 
 def _clean(value):

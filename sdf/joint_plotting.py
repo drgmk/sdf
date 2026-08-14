@@ -7,9 +7,10 @@ from pathlib import Path
 
 import numpy as np
 from bokeh.embed import components
-from bokeh.layouts import column
+from bokeh.layouts import column, gridplot
 from bokeh.models import (
-    ColumnDataSource, Div, HoverTool, Range1d, Span, TabPanel, Tabs,
+    ColumnDataSource, Div, HoverTool, InlineStyleSheet, Range1d, Span,
+    TabPanel, Tabs,
 )
 from bokeh.palettes import Category10
 from bokeh.plotting import figure
@@ -25,6 +26,9 @@ from .sed_page import (
     system_page_rows,
     target_page_rows,
 )
+
+
+GOLDEN_RATIO = (1 + np.sqrt(5)) / 2
 
 
 def write_joint_results_page(package_directory, output=None, *, dataset=None,
@@ -102,7 +106,12 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
         index for index, candidate in enumerate(ordered)
         if candidate.candidate_id == default
     ), 0)
-    tabs = Tabs(tabs=panels, active=active, sizing_mode='stretch_width')
+    tabs = Tabs(
+        tabs=panels, active=active, sizing_mode='stretch_width',
+        stylesheets=[InlineStyleSheet(css='''
+          :host { --base-font: ui-sans-serif, system-ui, sans-serif; }
+        ''')],
+    )
     plot_script, plot_div = components(tabs)
     candidate_rows = candidate_page_rows(
         ordered, owner_labels, default, package_directory, dataset,
@@ -184,17 +193,17 @@ def _candidate_panel(candidate, dataset, owner_labels, component_labels,
         x_axis_label='Wavelength (μm)', y_axis_label='Flux density (Jy)',
         x_range=x_range, y_range=y_range,
         tools='pan,wheel_zoom,box_zoom,reset,save',
-        active_scroll='wheel_zoom', height=430,
-        sizing_mode='stretch_width', toolbar_location='above',
+        active_scroll='wheel_zoom', aspect_ratio=GOLDEN_RATIO,
+        sizing_mode='stretch_width',
     )
     residual_limit = _residual_limit(arrays['residual'])
     residual = figure(
-        x_axis_type='log', x_range=sed.x_range,
-        y_axis_label='Residual (σ)', x_axis_label='Wavelength (μm)',
+        x_axis_type='log', x_axis_location='above', x_range=sed.x_range,
+        y_axis_label='Residual (σ)',
         y_range=Range1d(-residual_limit, residual_limit),
         tools='pan,wheel_zoom,box_zoom,reset,save',
         active_scroll='wheel_zoom', height=160,
-        sizing_mode='stretch_width', toolbar_location='above',
+        sizing_mode='stretch_width',
     )
     for value, dash in ((0, 'solid'), (-3, 'dashed'), (3, 'dashed')):
         residual.add_layout(Span(
@@ -214,14 +223,33 @@ def _candidate_panel(candidate, dataset, owner_labels, component_labels,
     for plot in (sed, residual):
         plot.grid.grid_line_alpha = 0.18
         plot.outline_line_color = '#d1d5db'
+    if sed.legend:
+        sed.legend.location = 'top_left'
+        sed.legend.orientation = 'horizontal'
+        sed.legend.background_fill_alpha = 0.78
+        sed.legend.border_line_alpha = 0.25
+        sed.legend.label_text_font_size = '9pt'
+        sed.legend.glyph_width = 18
+        sed.legend.padding = 4
+        sed.legend.spacing = 8
+
+    plots = gridplot(
+        [[sed], [residual]], toolbar_location='above', merge_tools=True,
+        sizing_mode='stretch_width',
+    )
 
     return column(
-        Div(text=_candidate_header(
-            candidate, dataset, owner_labels, component_labels,
-            owner_colours, is_default=is_default
-        ), sizing_mode='stretch_width'),
-        sed,
-        residual,
+        Div(
+            text=_candidate_header(
+                candidate, dataset, owner_labels, component_labels,
+                owner_colours, is_default=is_default,
+            ),
+            sizing_mode='stretch_width', styles={'width': '100%'},
+            stylesheets=[InlineStyleSheet(css='''
+              .bk-clearfix { display: block !important; width: 100%; }
+            ''')],
+        ),
+        plots,
         sizing_mode='stretch_width',
     )
 
@@ -286,8 +314,9 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
             predicted[active], residual_values[active], filters[active], label,
         )
         renderer = sed.scatter(
-            'wavelength', 'observed', source=source, marker='circle', size=8,
+            'wavelength', 'observed', source=source, marker='circle', size=12,
             color=colour, line_color='white', line_width=0.7,
+            legend_label='data',
         )
         _add_hover(sed, renderer)
         error_ok = source.data['lower'] > 0
@@ -309,7 +338,7 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
             label,
         )
         renderer = sed.scatter(
-            'wavelength', 'observed', source=source, marker='x', size=9,
+            'wavelength', 'observed', source=source, marker='x', size=13.5,
             color=colour, alpha=0.3,
         )
         _add_hover(sed, renderer)
@@ -325,6 +354,7 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
             'wavelength', 'observed', source=source,
             marker='inverted_triangle', size=10, color=colour,
             alpha='alpha',
+            legend_label='upper lim.',
         )
         _add_hover(sed, renderer)
 
@@ -337,8 +367,9 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
         )
         renderer = sed.scatter(
             'wavelength', 'predicted', source=source,
-            marker='diamond', size=7, fill_alpha=0,
+            marker='circle', size=10.5, fill_alpha=0,
             line_color=colour, line_width=1.4,
+            legend_label='model',
         )
         _add_hover(sed, renderer)
 
@@ -350,7 +381,7 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
             residual_values[residual_ok], filters[residual_ok], label,
         )
         renderer = residual.scatter(
-            'wavelength', 'residual', source=source, marker='circle', size=7,
+            'wavelength', 'residual', source=source, marker='circle', size=10.5,
             color=colour,
         )
         _add_hover(residual, renderer)
@@ -415,6 +446,9 @@ def _candidate_header(candidate, dataset, owner_labels, component_labels,
         }
         details = []
         disk_index = 0
+        disk_count = sum(
+            component['role'] == 'disk' for component in components
+        )
         for component in components:
             if component['role'] == 'stellar':
                 prefix = '★'
@@ -424,17 +458,18 @@ def _candidate_header(candidate, dataset, owner_labels, component_labels,
                 )
             else:
                 disk_index += 1
-                prefix = '○{}'.format(disk_index) if sum(
-                    value['role'] == 'disk' for value in components
-                ) > 1 else '○'
+                prefix = '○{}'.format(disk_index) if disk_count > 1 else '○'
                 values = _disk_summary(
                     derived.get(component['component_id'], {})
                 )
             details.append(
-                '<div style="margin-top:3px"><strong>{}</strong> '
-                '<span style="color:#475569">{}</span>{}</div>'.format(
+                '<div style="margin:5px 0 0 14px">'
+                '<div><strong>{}</strong> '
+                '<span style="color:#475569">{}</span></div>'
+                '<div style="margin:2px 0 0 19px;color:#334155">{}</div>'
+                '</div>'.format(
                     prefix, escape(component['model_name']),
-                    ' · ' + ' · '.join(values) if values else '',
+                    ' · '.join(values) if values else '—',
                 )
             )
         short = component_labels.get(owner) or label
@@ -443,8 +478,9 @@ def _candidate_header(candidate, dataset, owner_labels, component_labels,
         ) + '○' * sum(component['role'] == 'disk' for component in components)
         colour = owner_colours.get(owner, '#64748b')
         rows.append(
-            '<div style="border-left:4px solid {};padding:3px 8px;min-width:0">'
-            '<strong>{} {}</strong><span style="color:#64748b"> · {}</span>'
+            '<div style="border-left:4px solid {};padding:4px 9px;min-width:0">'
+            '<div><strong>{} {}</strong>'
+            '<span style="color:#64748b"> · {}</span></div>'
             '{}</div>'.format(
                 colour, escape(str(short)), symbols, escape(label),
                 ''.join(details),
@@ -459,16 +495,16 @@ def _candidate_header(candidate, dataset, owner_labels, component_labels,
     product_links = _candidate_product_links(candidate)
     return '''
 <section style="background:white;border:1px solid #dfe5ec;border-radius:7px;
-padding:8px 10px;margin:0 0 6px;font:13px ui-sans-serif,system-ui,sans-serif">
+padding:8px 10px;margin:0 0 6px;width:100%;max-width:none;
+font:13px ui-sans-serif,system-ui,sans-serif">
   <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
     <strong style="font-size:15px">Fit results{}</strong>
     <span style="color:#526071">ln Z {} · χ² {:.1f} · {} residuals · {} · {}</span>
   </div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
-gap:5px;margin-top:7px">{}</div>
-  <div style="color:#64748b;margin-top:7px;font-size:12px">★ star · ○ disk ·
-  <span style="font-weight:700">●</span> observed · ◇ model photometry ·
-  ▼ upper limit · × ignored · dashed/dotted component curves</div>
+gap:7px;margin-top:7px">{}</div>
+  <div style="color:#64748b;margin-top:7px;font-size:12px">
+  ★ stellar component · ○ disk component</div>
 </section>
 '''.format(
         badge, evidence_text, analysis['chi_squared'],
@@ -501,9 +537,9 @@ def _stellar_summary(component, derived):
         values.append('T<sub>eff</sub> {}'.format(
             _format_summary(parameters['Teff'], 'K', digits=0)
         ))
-    if 'luminosity_lsun' in derived:
-        values.append('L {}'.format(
-            _format_summary(derived['luminosity_lsun'], 'L<sub>☉</sub>')
+    if 'logg' in parameters:
+        values.append('log(g) {}'.format(
+            _format_summary(parameters['logg'], '')
         ))
     if 'radius_rsun' in derived:
         values.append('R {}'.format(

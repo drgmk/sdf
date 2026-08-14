@@ -107,7 +107,10 @@ column. A compact left rail projects composite observations as a hierarchy,
 without displaying SDB identifiers, and the fit tabs use `★`/`○` shorthand
 for stellar and disk components (for example `A ★○ · B ★`). Per-owner summary
 blocks repeat the plot colours and carry the physical results and product
-links, so the plot itself does not need a large legend.
+links. The plot keeps only a small in-panel legend for data, model photometry,
+and upper limits; component and total-model lines stay out of it. The SED and
+residual panels share one toolbar and x range, following the established SDF
+axis layout.
 
 The operator view is an extension of this same document rather than a second
 page design. It adds a right-hand drawer while retaining the public content and
@@ -124,10 +127,11 @@ the same drawer interactive, run the loopback-only operator service:
 sdf-fits serve /path/to/package --actor Grant
 ```
 
-The drawer edits one physical contributor at a time, prefills actor and reason,
-and saves global policy unless the package already needs a package-specific
-exception. Saving queues a fit and returns immediately. Repeated edits to the
-same package coalesce into one queued job. The retained default fit seeds any
+The drawer exposes model choices for each physical contributor, but actor,
+reason, and the queue action apply once to the system. Changed contributor
+policies are saved transactionally and produce one package fit job. Policy is
+global unless the package already needs a package-specific exception. The
+retained default fit seeds any
 otherwise-missing package policy when the service first opens; this preserves
 an explicit white-dwarf or cool-star choice even when the exported rawphot
 metadata lacks a spectral type. `Use automatic` removes that exception.
@@ -136,7 +140,8 @@ The service also lists every retained candidate. `Preview` does not change the
 public selection; `shown` controls the public tabs, and `Make default` changes
 the default fit immediately without running MultiNest.
 
-Slow jobs are processed separately:
+Slow jobs are processed separately; `sdf-fits serve` does not itself consume
+CPU by running the queue:
 
 ```shell
 sdf-jobs --state /path/to/sdf-operator.sqlite list --status queued

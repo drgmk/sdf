@@ -1,5 +1,6 @@
 from .context import sdf
 from .test_coordinator import FakeSampler, _fit_dataset
+from urllib.parse import parse_qs, urlparse
 import sdf.coordinator
 import sdf.joint_plotting
 import sdf.model_selection
@@ -27,6 +28,7 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     assert '>★</span>' in html
     assert 'kurucz-0.0' in html
     assert 'ln Z 0.00' in html
+    assert 'log(g)' in html
     assert 'Residual' in html
     assert 'current input' in html
     assert '<h2>System</h2>' in html
@@ -104,3 +106,22 @@ def test_system_projection_builds_compact_component_hierarchy():
         'A', 'B'
     ]
     assert labels == {'a': 'A', 'b': 'B'}
+
+
+def test_external_search_radii_expand_for_wide_systems():
+    radius = sdf.sed_page._search_radius_arcsec(
+        10.0, -20.0, ((10.0, -20.0), (10.1, -20.0))
+    )
+    links = {
+        link['label']: link['url']
+        for link in sdf.sed_page._external_links(
+            'HD 123', 10.0, -20.0, radius_arcsec=radius
+        )
+    }
+
+    cassis = parse_qs(urlparse(links['CASSIS']).query)
+    spitzer = parse_qs(urlparse(links['Spitzer']).query)
+    esasky = parse_qs(urlparse(links['ESASky']).query)
+    assert float(cassis['radius'][0]) > 340.0
+    assert float(spitzer['sr'][0][:-1]) > 340.0
+    assert float(esasky['fov'][0]) > radius * 2 / 3600.0

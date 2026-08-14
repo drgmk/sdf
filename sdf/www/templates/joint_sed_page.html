@@ -75,6 +75,9 @@
       margin-top:12px; }
     .operator-target,.operator-fit { border:1px solid var(--line);
       border-radius:6px; padding:9px; margin-top:7px; }
+    .operator-target.pending-reset { background:#f8fafc; border-style:dashed; }
+    #system-fit-form { position:sticky; top:-1px; z-index:2; background:white;
+      border-bottom:1px solid var(--line); padding:2px 0 10px; }
     .operator-form { display:grid; grid-template-columns:1fr 1fr; gap:8px;
       margin-top:9px; }
     .operator-form label { color:var(--muted); font-size:12px; }
@@ -151,9 +154,15 @@
   <aside id="fit-controls" class="operator-drawer" hidden aria-label="Fit controls">
     <div class="drawer-head"><div><h2>Fit controls</h2><p class="muted">Model policy and retained fits for this package.</p></div><button id="close-fit-controls" type="button" aria-label="Close fit controls">×</button></div>
     {% if not operator_api %}<p class="queue-note">This rendered page is read-only. Use <code>sdf-fits serve</code> to save choices and queue fits.</p>{% endif %}
+    {% if operator_api %}<p class="queue-note">This page queues fits. Run <code>sdf-jobs --state PATH run</code> separately, using the operator-state path printed by <code>sdf-fits serve</code>, to process them.</p>{% endif %}
     {% for job in queued_jobs %}<p class="queue-note">Fit job {{ job.id }} queued{% if job.reason %}: {{ job.reason }}{% endif %}</p>{% endfor %}
     <section class="operator-section">
       <h2>Physical contributors</h2>
+      <form id="system-fit-form" class="operator-form">
+        <label class="wide">Actor<input name="actor" value="{{ operator_actor or '' }}" autocomplete="name"{% if not operator_api %} disabled{% endif %}></label>
+        <label class="wide">Reason<input name="reason" value="Update model choices and fit {{ title }}"{% if not operator_api %} disabled{% endif %}></label>
+        <div class="operator-actions"><button type="submit"{% if not operator_api %} disabled{% endif %}>Queue system fit</button><span class="operator-status" role="status"></span></div>
+      </form>
       {% for target in targets %}
       <div class="operator-target" data-target-key="{{ target.key }}">
         <strong>{{ target.label }}</strong>
@@ -165,9 +174,7 @@
           <label>Disk model<select name="disk_model"{% if not operator_api %} disabled{% endif %}><option value=""{% if not target.policy.disk_model %} selected{% endif %}>not used</option>{% for model in target.disk_options %}<option value="{{ model }}"{% if model == target.policy.disk_model %} selected{% endif %}>{{ model }}</option>{% endfor %}</select></label>
           <label>Maximum disks<input name="max_disks" type="number" min="0" max="5" value="{{ target.policy.max_disks }}"{% if not operator_api %} disabled{% endif %}></label>
           <label>Search<select name="search_mode"{% if not operator_api %} disabled{% endif %}><option value="evidence-guided"{% if target.policy.search_mode == 'evidence-guided' %} selected{% endif %}>evidence guided</option><option value="exhaustive"{% if target.policy.search_mode == 'exhaustive' %} selected{% endif %}>exhaustive</option></select></label>
-          <label class="wide">Actor<input name="actor" value="{{ target.operator_actor }}" autocomplete="name"{% if not operator_api %} disabled{% endif %}></label>
-          <label class="wide">Reason<input name="reason" value="{{ target.policy.reason }}"{% if not operator_api %} disabled{% endif %}></label>
-          <div class="operator-actions"><button type="submit"{% if not operator_api %} disabled{% endif %}>Save and queue fit</button>{% if target.policy.resettable %}<button class="reset-policy" type="button"{% if not operator_api %} disabled{% endif %}>Use automatic</button>{% endif %}<span class="operator-status" role="status"></span></div>
+          {% if target.policy.resettable %}<div class="operator-actions"><button class="reset-policy" type="button"{% if not operator_api %} disabled{% endif %}>Use automatic</button><span class="muted reset-note"></span></div>{% endif %}
         </form>
       </div>
       {% endfor %}
@@ -209,32 +216,52 @@
     if (!response.ok) throw new Error(result.error || 'Request failed');
     return result;
   };
-  document.querySelectorAll('.policy-form').forEach(form => {
-    const status = form.querySelector('.operator-status');
-    const actor = form.elements.actor;
-    if (!actor.value) actor.value = localStorage.getItem('sdf-operator-actor') || '';
-    form.addEventListener('submit', async event => {
-      event.preventDefault(); status.classList.remove('error'); status.textContent = 'Saving…';
-      const values = Object.fromEntries(new FormData(form));
-      values.max_disks = Number(values.max_disks);
-      try {
-        const result = await send('/policy', values);
-        localStorage.setItem('sdf-operator-actor', values.actor);
-        status.textContent = `Saved; fit job ${result.job_id} queued`;
-        setTimeout(reloadOpen, 350);
-      } catch (error) { status.classList.add('error'); status.textContent = error.message; }
+  const policyForms = Array.from(document.querySelectorAll('.policy-form'));
+  policyForms.forEach(form => {
+    form.dataset.dirty = 'no';
+    form.dataset.reset = 'no';
+    form.addEventListener('submit', event => event.preventDefault());
+    form.querySelectorAll('select,input[type="number"]').forEach(control => {
+      control.addEventListener('change', () => { form.dataset.dirty = 'yes'; });
     });
     const reset = form.querySelector('.reset-policy');
-    if (reset) reset.addEventListener('click', async () => {
-      status.classList.remove('error'); status.textContent = 'Resetting…';
-      const values = Object.fromEntries(new FormData(form));
-      try {
-        const result = await send('/policy/reset', values);
-        localStorage.setItem('sdf-operator-actor', values.actor);
-        status.textContent = `Reset; fit job ${result.job_id} queued`;
-        setTimeout(reloadOpen, 350);
-      } catch (error) { status.classList.add('error'); status.textContent = error.message; }
+    if (reset) reset.addEventListener('click', () => {
+      const pending = form.dataset.reset !== 'yes';
+      form.dataset.reset = pending ? 'yes' : 'no';
+      form.dataset.dirty = 'yes';
+      form.closest('.operator-target').classList.toggle('pending-reset', pending);
+      form.querySelectorAll('select,input[type="number"]').forEach(control => {
+        control.disabled = pending || !api;
+      });
+      reset.textContent = pending ? 'Keep override' : 'Use automatic';
+      const note = form.querySelector('.reset-note');
+      if (note) note.textContent = pending ? 'will use automatic policy' : '';
     });
+  });
+  const systemForm = document.getElementById('system-fit-form');
+  const systemStatus = systemForm.querySelector('.operator-status');
+  const actor = systemForm.elements.actor;
+  if (!actor.value) actor.value = localStorage.getItem('sdf-operator-actor') || '';
+  systemForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    systemStatus.classList.remove('error');
+    systemStatus.textContent = 'Saving choices…';
+    const shared = Object.fromEntries(new FormData(systemForm));
+    const changes = policyForms.filter(form => form.dataset.dirty === 'yes').map(form => {
+      const values = Object.fromEntries(new FormData(form));
+      values.max_disks = Number(values.max_disks);
+      values.reset = form.dataset.reset === 'yes';
+      return values;
+    });
+    try {
+      const result = await send('/system-policy', {...shared, changes});
+      localStorage.setItem('sdf-operator-actor', shared.actor);
+      systemStatus.textContent = `System fit job ${result.job_id} queued`;
+      setTimeout(reloadOpen, 350);
+    } catch (error) {
+      systemStatus.classList.add('error');
+      systemStatus.textContent = error.message;
+    }
   });
   document.querySelectorAll('.operator-fit').forEach(card => {
     const reference = card.dataset.fitReference;

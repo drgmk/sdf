@@ -149,42 +149,47 @@ class OperatorState:
                               scope='global', actor, reason):
         """Save one choice and coalesce a pending package refit."""
 
+        return self.save_system_and_queue(
+            ((policy, main_id, scope),), package=package,
+            actor=actor, reason=reason,
+        )
+
+    def save_system_and_queue(self, policies=(), resets=(), *, package,
+                              actor, reason, target_keys=()):
+        """Apply system policy changes and enqueue one package fit."""
+
         self.initialize()
+        policies = tuple(policies)
+        resets = tuple(resets)
+        touched = set(target_keys)
+        touched.update(policy.target_key for policy, _, _ in policies)
+        touched.update(target_key for target_key, _ in resets)
+        if not touched:
+            raise ValueError('a system fit needs at least one target')
         package_path = str(Path(package).expanduser().resolve())
-        stored_scope = '' if scope == 'global' else _package_scope(package)
         now = _now()
         with _connection(self.path) as connection:
-            connection.execute(
-                '''
-                INSERT INTO fit_policy (
-                    target_key, scope, main_id, stellar_models, disk_models,
-                    max_disks, search_mode, reddening, actor, reason, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(target_key, scope) DO UPDATE SET
-                    main_id = excluded.main_id,
-                    stellar_models = excluded.stellar_models,
-                    disk_models = excluded.disk_models,
-                    max_disks = excluded.max_disks,
-                    search_mode = excluded.search_mode,
-                    reddening = excluded.reddening,
-                    actor = excluded.actor,
-                    reason = excluded.reason,
-                    updated_at = excluded.updated_at
-                ''',
-                (
-                    policy.target_key, stored_scope, main_id,
-                    json.dumps(policy.stellar_models),
-                    json.dumps(policy.disk_models), policy.max_disks,
-                    policy.search_mode, int(policy.reddening), actor, reason,
-                    now,
-                ),
-            )
+            for policy, main_id, scope in policies:
+                stored_scope = (
+                    '' if scope == 'global' else _package_scope(package)
+                )
+                _save_policy(
+                    connection, policy, stored_scope, main_id,
+                    actor, reason, now,
+                )
+            for target_key, scope in resets:
+                stored_scope = (
+                    '' if scope == 'global' else _package_scope(package)
+                )
+                connection.execute(
+                    'DELETE FROM fit_policy WHERE target_key = ? AND scope = ?',
+                    (target_key, stored_scope),
+                )
             self._remember_actor(connection, actor)
-            job_id = _queue_job(
+            return _queue_job(
                 connection, package_path, 'policy-refit',
-                {'target_keys': [policy.target_key]}, actor, reason, now,
+                {'target_keys': sorted(touched)}, actor, reason, now,
             )
-        return job_id
 
     def seed_policy(self, policy, *, package, main_id=None):
         """Recover a missing package policy from its retained default fit."""
@@ -214,21 +219,10 @@ class OperatorState:
 
     def reset_policy_and_queue(self, target_key, *, package, scope='global',
                                actor, reason):
-        self.initialize()
-        stored_scope = '' if scope == 'global' else _package_scope(package)
-        package_path = str(Path(package).expanduser().resolve())
-        now = _now()
-        with _connection(self.path) as connection:
-            connection.execute(
-                'DELETE FROM fit_policy WHERE target_key = ? AND scope = ?',
-                (target_key, stored_scope),
-            )
-            self._remember_actor(connection, actor)
-            job_id = _queue_job(
-                connection, package_path, 'policy-refit',
-                {'target_keys': [target_key]}, actor, reason, now,
-            )
-        return job_id
+        return self.save_system_and_queue(
+            resets=((target_key, scope),), package=package,
+            actor=actor, reason=reason,
+        )
 
     def jobs(self, *, package=None, status=None):
         clauses = []
@@ -330,6 +324,34 @@ def default_operator_state(package, explicit=None):
         return OperatorState(index.path.with_name('sdf-operator.sqlite'))
     package = Path(package).expanduser().resolve()
     return OperatorState(package.parent / 'sdf-operator.sqlite')
+
+
+def _save_policy(connection, policy, stored_scope, main_id, actor, reason,
+                 now):
+    connection.execute(
+        '''
+        INSERT INTO fit_policy (
+            target_key, scope, main_id, stellar_models, disk_models,
+            max_disks, search_mode, reddening, actor, reason, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(target_key, scope) DO UPDATE SET
+            main_id = excluded.main_id,
+            stellar_models = excluded.stellar_models,
+            disk_models = excluded.disk_models,
+            max_disks = excluded.max_disks,
+            search_mode = excluded.search_mode,
+            reddening = excluded.reddening,
+            actor = excluded.actor,
+            reason = excluded.reason,
+            updated_at = excluded.updated_at
+        ''',
+        (
+            policy.target_key, stored_scope, main_id,
+            json.dumps(policy.stellar_models),
+            json.dumps(policy.disk_models), policy.max_disks,
+            policy.search_mode, int(policy.reddening), actor, reason, now,
+        ),
+    )
 
 
 def _queue_job(connection, package_path, action, payload, actor, reason, now):
