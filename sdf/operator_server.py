@@ -71,11 +71,11 @@ class OperatorService:
                 main_id=targets[target_key].main_id,
             )
 
-    def render_page(self, fits=None):
+    def render_page(self, fits=None, operator_api='/api'):
         output = FitManager(self.package).render(
             self.package / 'operator.html', fits=fits, operator=True,
             dataset=self.dataset(),
-            policy_store=self.state, operator_api='/api',
+            policy_store=self.state, operator_api=operator_api,
             operator_token=self.token, operator_actor=self.actor,
         )
         return output.read_text(encoding='utf-8')

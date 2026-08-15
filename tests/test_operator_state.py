@@ -114,3 +114,21 @@ def test_seed_recovers_retained_policy_without_queue_or_overwrite(tmp_path):
     assert record.policy.stellar_models == ('phoenix_sol',)
     assert record.scope == str(package.resolve())
     assert state.jobs() == ()
+
+
+def test_interrupted_running_job_is_recovered_for_restart(tmp_path):
+    state = sdf.operator_state.OperatorState(tmp_path / 'operator.sqlite')
+    package = tmp_path / 'package'
+    package.mkdir()
+    state.queue_package(
+        package, target_keys=('simbad:Test',), actor='sdf watcher',
+        reason='Fit changed data',
+    )
+    state.claim_next()
+
+    assert state.recover_running_jobs() == 1
+
+    job = state.jobs()[0]
+    assert job.status == 'queued'
+    assert job.started_at is None
+    assert job.error == 'worker stopped before completion'

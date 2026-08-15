@@ -56,6 +56,50 @@ def test_rebuild_indexes_candidate_targets_components_and_selection(tmp_path):
     assert index.verify(tmp_path) == ()
 
 
+def test_rebuild_indexes_exported_package_before_it_is_fit(tmp_path):
+    from .test_dataset import _write_rawphot
+
+    package = tmp_path / 'unfit'
+    package.mkdir()
+    _write_rawphot(
+        package / 'target-rawphot.txt',
+        sdbid='sdb-unfit', main_id='HD 456',
+    )
+    index = sdf.result_index.ResultIndex(tmp_path / 'results.sqlite')
+
+    summary = index.rebuild(tmp_path)
+    rows = index.catalog_packages()
+
+    assert summary == sdf.result_index.IndexSummary(1, 1, 1, 0, 0, 0)
+    assert rows == ({
+        'package_path': 'unfit',
+        'input_fingerprint': rows[0]['input_fingerprint'],
+        'default_candidate_id': None,
+        'updated_at': rows[0]['updated_at'],
+        'candidate_count': 0,
+        'has_current_candidate': 0,
+        'default_current': 0,
+        'target_labels': ('HD 456',),
+        'sdbids': ('sdb-unfit',),
+        'status': 'unfit',
+    },)
+    assert index.catalog_packages(query='456') == rows
+    assert index.catalog_packages(identifiers=('sdb-unfit',)) == rows
+
+
+def test_catalog_status_becomes_stale_after_input_change(tmp_path):
+    package, dataset, _ = _retained_package(tmp_path)
+    index = sdf.result_index.ResultIndex(tmp_path / 'results.sqlite')
+    index.rebuild(tmp_path)
+    assert index.catalog_packages()[0]['status'] == 'current'
+
+    with open(dataset.observations[0].source, 'a', encoding='utf-8') as handle:
+        handle.write('changed input\n')
+    index.update_package(package)
+
+    assert index.catalog_packages()[0]['status'] == 'stale'
+
+
 def test_default_package_can_be_found_by_observation_scope(tmp_path):
     package, dataset, result = _retained_package(tmp_path)
     index = sdf.result_index.ResultIndex(tmp_path / 'results.sqlite')
@@ -144,6 +188,22 @@ def test_verify_reports_missing_index(tmp_path):
 
     assert index.verify() == (
         'result index does not exist: {}'.format(index.path),
+    )
+
+
+def test_verify_reports_new_exported_package_after_rebuild(tmp_path):
+    from .test_dataset import _write_rawphot
+
+    index = sdf.result_index.ResultIndex(tmp_path / 'results.sqlite')
+    index.rebuild(tmp_path)
+    package = tmp_path / 'later'
+    package.mkdir()
+    _write_rawphot(
+        package / 'later-rawphot.txt', sdbid='later', main_id='HD 789'
+    )
+
+    assert index.verify(tmp_path) == (
+        'exported package absent from index: later',
     )
 
 

@@ -22,7 +22,7 @@ from sdf.joint_plotting import write_joint_results_page
 from sdf.result_index import ResultIndex
 from sdf.operator_jobs import run_next_job, run_worker
 from sdf.operator_state import OperatorState
-from sdf.operator_server import serve_operator
+from sdf.catalog_server import serve_catalog
 from sdf.sample_products import write_sample_products
 
 
@@ -242,7 +242,7 @@ def sdf_fits():
     """Inspect and select retained package fits."""
 
     parser = argparse.ArgumentParser(
-        description='Manage retained fits for one SDF package'
+        description='Manage retained fits and the SDF export catalog'
     )
     subparsers = parser.add_subparsers(dest='command', required=True)
     list_parser = subparsers.add_parser('list')
@@ -280,12 +280,33 @@ def sdf_fits():
     refit_parser.add_argument('fit')
     refit_parser.add_argument('--no-spectra', action='store_true')
     serve_parser = subparsers.add_parser('serve')
-    serve_parser.add_argument('package')
+    serve_parser.add_argument(
+        'package', metavar='EXPORT_ROOT',
+        help='SDB export root containing all fitting packages',
+    )
     serve_parser.add_argument('--state')
     serve_parser.add_argument('--actor')
     serve_parser.add_argument('--host', default='127.0.0.1')
     serve_parser.add_argument('--port', type=int, default=8765)
+    serve_parser.add_argument('--index')
+    serve_parser.add_argument('--rebuild-index', action='store_true')
+    serve_parser.add_argument('--no-worker', action='store_true')
+    serve_parser.add_argument('--no-watch', action='store_true')
+    serve_parser.add_argument('--autofit-existing', action='store_true')
+    serve_parser.add_argument('--poll-seconds', type=float, default=5.0)
     args = parser.parse_args()
+
+    if args.command == 'serve':
+        serve_catalog(
+            args.package, index_path=args.index, state_path=args.state,
+            actor=args.actor, rebuild=args.rebuild_index,
+            host=args.host, port=args.port,
+            worker=not args.no_worker, watch=not args.no_watch,
+            autofit_existing=args.autofit_existing,
+            poll_seconds=args.poll_seconds,
+        )
+        return
+
     manager = FitManager(args.package)
 
     if args.command == 'list':
@@ -306,13 +327,6 @@ def sdf_fits():
                 fit.reference, evidence, ', '.join(flags) or '-',
                 fit.display_name,
             ))
-        return
-
-    if args.command == 'serve':
-        serve_operator(
-            args.package, state_path=args.state, actor=args.actor,
-            host=args.host, port=args.port,
-        )
         return
 
     if args.command == 'select':

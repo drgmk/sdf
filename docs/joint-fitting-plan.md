@@ -775,6 +775,23 @@ and asynchronous job boundary are implemented. Operator policy/job state uses
 a separate `sdf-operator.sqlite`: it is durable operational state, whereas
 `sdf-results.sqlite` remains a disposable materialized view.
 
+The catalog-wide operational layer is also implemented. `sdf-fits serve`
+opens one service over an SDB export root rather than one service per package.
+The catalog indexes fitted and unfit exports, provides search, fit-state views,
+sample snapshots, system pages, and a persistent global job view. One isolated
+worker is supervised by the web process, and a cheap polling watcher refreshes
+only added, changed, or removed packages. New/stale exports are queued without
+changing their model policy; the pre-existing backlog is opt-in. Running jobs
+are recovered to `queued` after a worker restart.
+
+Sample membership currently comes from the newest completed export manifest
+for each sample. This correctly treats a sample as a view over the common
+export catalog, but is a snapshot rather than a live SDB query. Search covers
+current exported SIMBAD names, SDB IDs, target keys, and observation IDs.
+Richer aliases require SDB to export them. SDF-to-SDB editing is deliberately
+outside this phase: the service does not yet exclude photometry or otherwise
+mutate the source database.
+
 The first hierarchy-aware `sdf-sample --index` path is also implemented. The
 index now records composite observation scopes and their ordered contributors.
 Sample IDs may therefore resolve either physical targets or unresolved
@@ -789,8 +806,10 @@ analysis arrays. Flux/size plots synthesize the legacy planning bands from the
 already retained median component spectra; no extra fixed-band arrays or old
 `Result` reconstruction are needed. Disk contrast sums only stellar components
 owned by the disk host. This completes the planned indexed replacement for the
-legacy sample products. Operational worker hardening can follow if concurrent
-use requires it.
+legacy sample products and the first single-service operator workflow.
+Multiple simultaneous fitting workers, live SDB sample membership, richer
+alias export, and SDF-to-SDB edits remain possible later extensions rather than
+requirements for this slice.
 
 ### Phase 7: optional samplers and performance
 

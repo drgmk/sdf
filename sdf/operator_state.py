@@ -224,6 +224,24 @@ class OperatorState:
             actor=actor, reason=reason,
         )
 
+    def queue_package(self, package, *, target_keys, actor, reason,
+                      remember_actor=False):
+        """Queue an automatic package fit without changing model policy."""
+
+        self.initialize()
+        target_keys = tuple(dict.fromkeys(str(value) for value in target_keys))
+        if not target_keys:
+            raise ValueError('a package fit needs at least one target')
+        package_path = str(Path(package).expanduser().resolve())
+        now = _now()
+        with _connection(self.path) as connection:
+            if remember_actor:
+                self._remember_actor(connection, actor)
+            return _queue_job(
+                connection, package_path, 'automatic-fit',
+                {'target_keys': sorted(target_keys)}, actor, reason, now,
+            )
+
     def jobs(self, *, package=None, status=None):
         clauses = []
         values = []
@@ -282,6 +300,21 @@ class OperatorState:
             )
             if cursor.rowcount != 1:
                 raise ValueError('fit job {} is not running'.format(job_id))
+
+    def recover_running_jobs(self):
+        """Return interrupted jobs to the queue when a sole worker starts."""
+
+        with _connection(self.path) as connection:
+            cursor = connection.execute(
+                '''
+                UPDATE fit_jobs
+                SET status = 'queued', started_at = NULL,
+                    completed_at = NULL,
+                    error = 'worker stopped before completion'
+                WHERE status = 'running'
+                '''
+            )
+            return cursor.rowcount
 
     def last_actor(self):
         if not self.path.is_file():

@@ -1,0 +1,7 @@
+{% extends "catalog_base.html" %}
+{% block content %}
+<h1>{{ sample.name }}</h1>
+<p class="muted">{{ sample.identifiers|length }} direct sample targets from export run #{{ sample.run_id }}. System rows include any fitted or observational context exported with them.</p>
+{% set packages = packages %}{% include "catalog_package_table.html" %}
+{% if unmatched %}<h2>Not found in the current export index</h2><p class="code">{{ unmatched|join(', ') }}</p>{% endif %}
+{% endblock %}

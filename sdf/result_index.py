@@ -8,12 +8,12 @@ from datetime import datetime, timezone
 from hashlib import sha256
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePath
 import sqlite3
 import tempfile
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 @dataclass(frozen=True)
@@ -112,8 +112,117 @@ class ResultIndex:
             connection.execute(
                 'DELETE FROM fit_packages WHERE path = ?', (package_path,)
             )
-            if tuple((package / 'fits').glob('*/result.json')):
+            if _is_package(package):
                 _index_package(connection, root, package)
+        return self.summary()
+
+    def catalog_packages(self, query=None, identifiers=None):
+        """Return every exported package with a compact fit-state summary."""
+
+        with _connection(self.path) as connection:
+            _require_current_schema(connection)
+            clauses = []
+            values = []
+            if query:
+                clauses.append('''
+                    (
+                        lower(p.path) LIKE ?
+                        OR EXISTS (
+                            SELECT 1 FROM fit_targets AS t
+                            WHERE t.package_path = p.path AND (
+                                lower(t.target_key) LIKE ?
+                                OR lower(COALESCE(t.main_id, '')) LIKE ?
+                                OR lower(COALESCE(t.sdbid, '')) LIKE ?
+                            )
+                        )
+                        OR EXISTS (
+                            SELECT 1 FROM fit_observations AS o
+                            WHERE o.package_path = p.path
+                              AND lower(o.observation_id) LIKE ?
+                        )
+                    )
+                ''')
+                pattern = '%{}%'.format(str(query).lower())
+                values.extend((pattern,) * 5)
+            if identifiers is not None:
+                identifiers = tuple(dict.fromkeys(
+                    str(value) for value in identifiers
+                ))
+                if not identifiers:
+                    return ()
+                connection.execute(
+                    'CREATE TEMP TABLE requested_catalog_identifiers '
+                    '(value TEXT PRIMARY KEY)'
+                )
+                connection.executemany(
+                    'INSERT INTO requested_catalog_identifiers VALUES (?)',
+                    ((value,) for value in identifiers),
+                )
+                clauses.append('''
+                    (
+                        EXISTS (
+                            SELECT 1 FROM fit_targets AS t
+                            JOIN requested_catalog_identifiers AS requested
+                              ON requested.value IN (
+                                  t.target_key, t.main_id, t.sdbid
+                              )
+                            WHERE t.package_path = p.path
+                        )
+                        OR EXISTS (
+                            SELECT 1 FROM fit_observations AS o
+                            JOIN requested_catalog_identifiers AS requested
+                              ON requested.value = o.observation_id
+                            WHERE o.package_path = p.path
+                        )
+                    )
+                ''')
+            where = '' if not clauses else 'WHERE ' + ' AND '.join(clauses)
+            rows = connection.execute(
+                '''
+                SELECT p.path AS package_path, p.input_fingerprint,
+                       p.default_candidate_id, p.updated_at,
+                       COUNT(DISTINCT c.candidate_id) AS candidate_count,
+                       COALESCE(MAX(c.data_current), 0) AS has_current_candidate,
+                       COALESCE(MAX(CASE
+                           WHEN c.candidate_id = p.default_candidate_id
+                           THEN c.data_current ELSE 0 END), 0)
+                           AS default_current,
+                       GROUP_CONCAT(DISTINCT COALESCE(
+                           t.main_id, t.sdbid, t.target_key
+                       )) AS target_labels,
+                       GROUP_CONCAT(DISTINCT t.sdbid) AS sdbids
+                FROM fit_packages AS p
+                LEFT JOIN fit_candidates AS c ON c.package_path = p.path
+                LEFT JOIN fit_targets AS t ON t.package_path = p.path
+                {where}
+                GROUP BY p.path
+                ORDER BY lower(COALESCE(
+                    MIN(t.main_id), MIN(t.sdbid), p.path
+                )), p.path
+                '''.format(where=where),
+                values,
+            ).fetchall()
+        return tuple(_catalog_row(row) for row in rows)
+
+    def package_fingerprints(self):
+        """Return the indexed current-input fingerprint by package path."""
+
+        with _connection(self.path) as connection:
+            _require_current_schema(connection)
+            rows = connection.execute(
+                'SELECT path, input_fingerprint FROM fit_packages'
+            )
+            return {row['path']: row['input_fingerprint'] for row in rows}
+
+    def remove_package(self, package_path):
+        """Remove a package that no longer exists below the export root."""
+
+        clean = PurePath(str(package_path)).as_posix()
+        with _connection(self.path) as connection:
+            _require_current_schema(connection)
+            connection.execute(
+                'DELETE FROM fit_packages WHERE path = ?', (clean,)
+            )
         return self.summary()
 
     def candidates_for_target(self, target_key):
@@ -315,6 +424,23 @@ class ResultIndex:
                     problems.append('indexed candidate absent from scan: {}'.format(
                         path
                     ))
+            indexed_packages = {
+                row['path'] for row in connection.execute(
+                    'SELECT path FROM fit_packages'
+                )
+            }
+            discovered_packages = {
+                path.relative_to(root).as_posix()
+                for path in _discover_packages(root)
+            }
+            for path in sorted(discovered_packages - indexed_packages):
+                problems.append('exported package absent from index: {}'.format(
+                    path
+                ))
+            for path in sorted(indexed_packages - discovered_packages):
+                problems.append('indexed package absent from export: {}'.format(
+                    path
+                ))
         return tuple(problems)
 
 
@@ -484,7 +610,23 @@ def _discover_results(root):
 
 
 def _discover_packages(root):
-    return tuple(sorted({path.parents[2] for path in _discover_results(root)}))
+    packages = {path.parent for path in root.rglob('*-rawphot.txt')}
+    packages.update(path.parents[2] for path in _discover_results(root))
+    return tuple(sorted(path for path in packages if _is_package(path)))
+
+
+def discover_packages(root):
+    """Return every current exported fitting-package directory."""
+
+    return _discover_packages(Path(root).expanduser().resolve())
+
+
+def _is_package(path):
+    path = Path(path)
+    return (
+        any(path.glob('*-rawphot.txt'))
+        or any((path / 'fits').glob('*/result.json'))
+    )
 
 
 def _index_package(connection, root, package):
@@ -518,8 +660,9 @@ def _index_package(connection, root, package):
             datetime.now(timezone.utc).isoformat(),
         ),
     )
-    targets = {}
-    observations = {}
+    targets, observations = _current_package_structure(
+        package, allow_empty=bool(results)
+    )
     for path, result in zip(result_paths, results):
         posterior = result['posterior']
         connection.execute(
@@ -554,7 +697,9 @@ def _index_package(connection, root, package):
             targets.setdefault(component['owner_key'], {})
         for target_key, target in result.get('analysis', {}).get(
                 'targets', {}).items():
-            targets[target_key] = target
+            current = targets.setdefault(target_key, {})
+            current.setdefault('main_id', target.get('main_id'))
+            current.setdefault('sdbid', target.get('sdbid'))
         for scope in result.get('analysis', {}).get('data_scopes', ()):
             observation_id = scope['observation_id']
             contributors = tuple(scope.get('contributors', ()))
@@ -592,6 +737,34 @@ def _index_package(connection, root, package):
             'INSERT INTO fit_selection VALUES (?, ?, ?, ?)',
             (package_path, position, candidate_id, labels.get(candidate_id)),
         )
+
+
+def _current_package_structure(package, *, allow_empty=False):
+    """Load current exported identities independently of retained results."""
+
+    from .dataset import FitDataset
+
+    targets = {}
+    observations = {}
+    if not any(package.glob('*-rawphot.txt')):
+        return targets, observations
+    try:
+        dataset = FitDataset.from_path(package, nospec=True)
+    except (OSError, TypeError, ValueError):
+        if allow_empty:
+            return targets, observations
+        raise
+    if dataset is None:
+        return targets, observations
+    for target in dataset.targets:
+        targets[target.key] = {
+            'main_id': target.main_id,
+            'sdbid': target.sdbid,
+        }
+    for observation in dataset.observations:
+        observations[observation.observation_id] = \
+            tuple(observation.contributor_keys)
+    return targets, observations
 
 
 def _read_selection(package):
@@ -665,6 +838,12 @@ def _package_input_fingerprint(package):
     return digest.hexdigest()
 
 
+def package_input_fingerprint(package):
+    """Return the content fingerprint used for fit freshness."""
+
+    return _package_input_fingerprint(Path(package).expanduser().resolve())
+
+
 def _summary(connection):
     counts = {}
     for label, table in (
@@ -677,3 +856,22 @@ def _summary(connection):
             'SELECT count(*) FROM {}'.format(table)
         ).fetchone()[0]
     return IndexSummary(**counts)
+
+
+def _catalog_row(row):
+    value = dict(row)
+    value['target_labels'] = tuple(
+        label for label in (value['target_labels'] or '').split(',') if label
+    )
+    value['sdbids'] = tuple(
+        label for label in (value['sdbids'] or '').split(',') if label
+    )
+    if value['candidate_count'] == 0:
+        value['status'] = 'unfit'
+    elif value['default_candidate_id'] is None:
+        value['status'] = 'needs selection'
+    elif not value['default_current']:
+        value['status'] = 'stale'
+    else:
+        value['status'] = 'current'
+    return value

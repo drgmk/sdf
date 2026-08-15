@@ -1,0 +1,7 @@
+{% extends "catalog_base.html" %}
+{% block content %}
+<h1>Fit jobs</h1><p class="muted">Slow fits run outside HTTP requests and remain visible here across server restarts.</p>
+<div class="table-wrap"><table><thead><tr><th>Job</th><th>System</th><th>Status</th><th>Requested</th><th>Actor / reason</th><th>Error</th></tr></thead><tbody>
+{% for job in jobs %}<tr><td class="code">#{{ job.id }}</td><td><a href="/system/{{ job.package|urlencode }}/">{{ job.package }}</a></td><td><span class="status {{ job.status }}">{{ job.status }}</span></td><td>{{ job.created_at }}</td><td>{{ job.actor }}<br><span class="muted">{{ job.reason }}</span></td><td>{{ job.error or '—' }}</td></tr>{% else %}<tr><td colspan="6" class="muted">No fit jobs yet.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

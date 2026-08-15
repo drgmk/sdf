@@ -120,12 +120,28 @@ styling:
 sdf-fits render /path/to/package --operator
 ```
 
-This writes a read-only `operator.html` development view by default. To make
-the same drawer interactive, run the loopback-only operator service:
+This writes a read-only `operator.html` development view by default. For normal
+operation, run one loopback-only service over the whole SDB export root:
 
 ```shell
-sdf-fits serve /path/to/package --actor Grant
+sdf-fits serve /path/to/export --actor Grant
 ```
+
+The catalog home page includes every currently exported fitting package,
+including unfit systems. It provides target/SDB-ID search, fit-state filters,
+sample views sourced from the latest completed SDB export manifests, a global
+job list, and links to the shared public/operator SED page for each fitted
+system. An unfit system instead gets a low-friction initial-fit action with a
+pre-filled reason.
+
+By default the same process supervises one isolated fit worker and watches the
+export tree for new or changed rawphot/topology inputs. New and stale packages
+are indexed and queued automatically; the existing unfit backlog is left alone
+unless `--autofit-existing` is supplied. Useful development controls are
+`--no-worker`, `--no-watch`, `--rebuild-index`, and `--poll-seconds`. Interrupted
+`running` jobs return to the queue when the sole worker restarts. The result
+index defaults to `/path/to/export/sdf-results.sqlite` and durable policy/job
+state to `/path/to/export/sdf-operator.sqlite`.
 
 The drawer exposes model choices for each physical contributor, but actor,
 reason, and the queue action apply once to the system. Changed contributor
@@ -140,18 +156,17 @@ The service also lists every retained candidate. `Preview` does not change the
 public selection; `shown` controls the public tabs, and `Make default` changes
 the default fit immediately without running MultiNest.
 
-Slow jobs are processed separately; `sdf-fits serve` does not itself consume
-CPU by running the queue:
+The standalone job command remains useful for inspection or headless worker
+operation when the catalog service is started with `--no-worker`:
 
 ```shell
 sdf-jobs --state /path/to/sdf-operator.sqlite list --status queued
 sdf-jobs --state /path/to/sdf-operator.sqlite run
 ```
 
-Use `run --once` for a single queued job. The operator database defaults beside
-the nearest `sdf-results.sqlite`, or in the package's parent when no result
-index exists. It is intentionally separate from the rebuildable result index,
-so rebuilding result queries cannot erase policy or job state.
+Use `run --once` for a single queued job. The operator database is intentionally
+separate from the rebuildable result index, so rebuilding result queries cannot
+erase policy or job state.
 
 The HD 113766 package is the first end-to-end joint rehearsal. HD 283750 plus
 its wide DC8 companion HD 283750B is the mixed-family rehearsal: two fully
@@ -171,8 +186,9 @@ parameter.
 Legacy result-database writing remains intentionally disabled for joint
 packages. Requesting it raises a clear error rather than silently writing a
 single-target-shaped result. The replacement result index, fit-selection
-commands, persistent policy, loopback operator service, asynchronous fit-job
-queue, and the first hierarchy-aware sample products are available.
+commands, persistent policy, catalog-wide loopback service, supervised fit-job
+queue, export watcher, and hierarchy-aware sample products are available. SDF
+does not yet write photometry decisions or other edits back to SDB.
 
 The first result-index implementation can build a disposable SQLite query view
 of all retained joint candidates below an export root:

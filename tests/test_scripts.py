@@ -74,7 +74,7 @@ def test_sdf_fits_can_render_operator_extension(monkeypatch, tmp_path):
     ]
 
 
-def test_sdf_fits_serve_passes_actor_and_state(monkeypatch, tmp_path):
+def test_sdf_fits_serve_starts_catalog_worker_and_watcher(monkeypatch, tmp_path):
     calls = []
 
     monkeypatch.setattr(
@@ -88,15 +88,19 @@ def test_sdf_fits_serve_passes_actor_and_state(monkeypatch, tmp_path):
         sdf.scripts, 'FitManager', lambda package: object(),
     )
     monkeypatch.setattr(
-        sdf.scripts, 'serve_operator',
+        sdf.scripts, 'serve_catalog',
         lambda package, **kwargs: calls.append((package, kwargs)),
     )
 
     sdf.scripts.sdf_fits()
 
     assert calls == [(str(tmp_path), {
+        'index_path': None,
         'state_path': str(tmp_path / 'operator.sqlite'),
-        'actor': 'Grant', 'host': '127.0.0.1', 'port': 8123,
+        'actor': 'Grant', 'rebuild': False,
+        'host': '127.0.0.1', 'port': 8123,
+        'worker': True, 'watch': True, 'autofit_existing': False,
+        'poll_seconds': 5.0,
     })]
 
 

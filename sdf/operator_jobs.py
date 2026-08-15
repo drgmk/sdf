@@ -31,9 +31,15 @@ def run_next_job(state, *, sampler=None, raise_errors=False):
     return job
 
 
-def run_worker(state, *, poll_seconds=5.0):
+def run_worker(state, *, poll_seconds=5.0, stop_event=None,
+               recover=True):
     """Continuously drain the queue without coupling work to HTTP requests."""
 
-    while True:
+    if recover:
+        state.recover_running_jobs()
+    while stop_event is None or not stop_event.is_set():
         if run_next_job(state) is None:
-            time.sleep(poll_seconds)
+            if stop_event is None:
+                time.sleep(poll_seconds)
+            else:
+                stop_event.wait(poll_seconds)
