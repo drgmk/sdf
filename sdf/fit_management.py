@@ -149,7 +149,7 @@ class FitManager:
                   sampler=None, dataset=None):
         """Fit one explicitly owned model combination and retain it."""
 
-        dataset = dataset or FitDataset.from_package(
+        dataset = dataset or FitDataset.from_path(
             self.package_directory, nospec=nospec
         )
         candidate, policies = exact_candidate(
@@ -172,7 +172,7 @@ class FitManager:
             ModelComponentSpec(**component)
             for component in stored.metadata['components']
         ))
-        dataset = dataset or FitDataset.from_package(
+        dataset = dataset or FitDataset.from_path(
             self.package_directory, nospec=nospec
         )
         policy = stored.metadata.get('policy', {}).get('targets', ())

@@ -1,10 +1,32 @@
 from .context import sdf
 from .test_coordinator import FakeSampler, _fit_dataset
+from .test_dataset import _write_rawphot
 from urllib.parse import parse_qs, urlparse
 import sdf.coordinator
 import sdf.joint_plotting
 import sdf.model_selection
 import sdf.sed_page
+
+
+def test_results_page_loads_ordinary_single_file_package(tmp_path):
+    package = tmp_path / 'single'
+    package.mkdir()
+    _write_rawphot(
+        package / 'target-rawphot.txt',
+        sdbid='sdb-single', main_id='HD 123',
+    )
+    dataset = sdf.dataset.FitDataset.from_path(package)
+    candidate = sdf.model_selection.ModelCandidate.for_single_target(
+        dataset.targets[0].key, ('phoenix_sol',)
+    )
+    sdf.coordinator.FitCoordinator(
+        package, sampler=FakeSampler()
+    ).fit_candidate(dataset, candidate)
+
+    output = sdf.joint_plotting.write_joint_results_page(package)
+
+    assert output == package / 'index.html'
+    assert 'HD 123' in output.read_text(encoding='utf-8')
 
 
 def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):

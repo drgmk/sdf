@@ -29,7 +29,7 @@ class OperatorService:
         self._seed_retained_policy()
 
     def dataset(self):
-        return self._dataset_override or FitDataset.from_package(self.package)
+        return self._dataset_override or FitDataset.from_path(self.package)
 
     def _seed_retained_policy(self):
         manager = FitManager(self.package)

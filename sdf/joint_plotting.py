@@ -35,13 +35,12 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
                              inline=True, candidate_ids=None, operator=False,
                              policy_store=None, operator_api=None,
                              operator_token=None, operator_actor=None):
-    """Write a standalone candidate-review page for one joint package."""
+    """Write a standalone candidate-review page for one fitting package."""
 
-    package_directory = canonical_fit_source(package_directory)
-    if not package_directory.is_dir():
-        package_directory = package_directory.parent
+    source = canonical_fit_source(package_directory)
+    package_directory = source if source.is_dir() else source.parent
     if dataset is None:
-        dataset = FitDataset.from_package(package_directory)
+        dataset = FitDataset.from_path(source)
     library = CandidateLibrary(package_directory)
     candidates = library.candidates()
     if not candidates:

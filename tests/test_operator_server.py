@@ -1,7 +1,27 @@
 from .context import sdf
+from .test_dataset import _write_rawphot
 from .test_fit_management import _two_candidates
 import sdf.operator_server
 import sdf.operator_state
+
+
+def test_operator_service_loads_ordinary_single_file_package(tmp_path):
+    package = tmp_path / 'single'
+    package.mkdir()
+    _write_rawphot(
+        package / 'target-rawphot.txt',
+        sdbid='sdb-single', main_id='HD 123',
+    )
+    service = sdf.operator_server.OperatorService(
+        package,
+        sdf.operator_state.OperatorState(tmp_path / 'operator.sqlite'),
+        actor='Grant', token='test-token',
+    )
+
+    dataset = service.dataset()
+
+    assert dataset.targets[0].main_id == 'HD 123'
+    assert dataset.observations[0].observation_id == 'sdb-single'
 
 
 def _service(tmp_path):
