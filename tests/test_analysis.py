@@ -169,3 +169,73 @@ def test_analysis_rejects_posterior_for_another_problem():
 
     with pytest.raises(ValueError, match='parameter names'):
         sdf.analysis.FitAnalysis.run(problem, posterior)
+
+
+def test_spectral_analysis_retains_fitted_flux_and_bounds_predictions():
+    target = sdf.dataset.TargetIdentity(
+        key='simbad:A', main_id='A', sdbid='A', keywords={}
+    )
+    cached_model = sdf.model.PhotModel.read_model('kurucz-0.0')
+    filter_name = next(
+        name for name, bases in zip(
+            cached_model.filters, cached_model.colour_bases
+        ) if len(bases) == 0
+    )
+    photometry = sdf.photometry.Photometry(
+        filters=np.array([filter_name]), fnujy=np.array([1.0]),
+        e_fnujy=np.array([0.1]), upperlim=np.array([False]),
+        ignore=np.array([False]), bibcode=np.array(['test']),
+    )
+    observed = sdf.spectrum.ObsSpectrum(
+        wavelength=np.array([8.0, 9.0, 10.0]),
+        fnujy=np.array([1.0, 1.1, 1.2]),
+        e_fnujy=np.array([0.1, 0.1, 0.1]),
+        bibcode='test', instrument='test', segment_id='SL1',
+        resolving_power=100.0,
+    )
+    dataset = sdf.dataset.FitDataset(
+        targets=(target,),
+        observations=(
+            sdf.dataset.Observation(
+                observation_id='A', source='/tmp/A-rawphot.txt',
+                target_key=target.key, contributor_keys=(target.key,),
+                photometry=photometry,
+            ),
+            sdf.dataset.Observation(
+                observation_id='irs:1:SL1', source='/tmp/irs.fits',
+                target_key=None, contributor_keys=(target.key,),
+                spectra=(observed,), kind='spectrum', product_id='irs:1',
+                segment_id='SL1',
+            ),
+        ),
+    )
+    candidate = sdf.model_selection.ModelCandidate.for_single_target(
+        target.key, ('kurucz-0.0',)
+    )
+    problem = sdf.likelihood.FitProblem.compile(dataset, candidate)
+    midpoint = problem.transform_prior(np.repeat(0.5, problem.ndim))
+    posterior = sdf.samplers.PosteriorRun(
+        samples=np.repeat(
+            midpoint[None, :],
+            sdf.analysis.PREDICTION_SAMPLES_MAX + 44,
+            axis=0,
+        ),
+        parameter_names=problem.parameter_names,
+        sampler='test',
+    )
+
+    analysis = sdf.analysis.FitAnalysis.run(problem, posterior)
+
+    normalization = midpoint[-1]
+    assert analysis.summary['prediction_samples'] == \
+        sdf.analysis.PREDICTION_SAMPLES_MAX
+    assert np.allclose(
+        analysis.arrays['observed_flux_native'][1:], observed.fnujy
+    )
+    assert np.allclose(
+        analysis.arrays['observed_flux'][1:],
+        observed.fnujy * normalization,
+    )
+    spectral_scope = analysis.summary['data_scopes'][1]
+    assert spectral_scope['product_id'] == 'irs:1'
+    assert spectral_scope['segment_id'] == 'SL1'

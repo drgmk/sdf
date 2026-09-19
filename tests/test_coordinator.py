@@ -6,6 +6,7 @@ import numpy as np
 from .context import sdf
 from .test_likelihood import _dataset
 from .test_dataset import _write_rawphot
+import sdf.analysis
 import sdf.candidate_search
 import sdf.coordinator
 import sdf.model_policy
@@ -101,14 +102,16 @@ def test_coordinator_reanalyses_old_candidate_without_resampling(tmp_path):
     first = coordinator.fit_candidate(dataset, candidate)
     result_path = first.path / 'result.json'
     payload = result_path.read_text(encoding='utf-8').replace(
-        '"schema": 2', '"schema": 1'
+        '"schema": {}'.format(sdf.analysis.ANALYSIS_SCHEMA),
+        '"schema": 1',
     )
     result_path.write_text(payload, encoding='utf-8')
 
     refreshed = coordinator.fit_candidate(dataset, candidate)
 
     assert len(sampler.calls) == 1
-    assert refreshed.metadata['analysis']['schema'] == 2
+    assert refreshed.metadata['analysis']['schema'] == \
+        sdf.analysis.ANALYSIS_SCHEMA
     assert 'component_spectrum_median' in refreshed.analysis_arrays
 
 

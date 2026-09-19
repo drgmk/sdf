@@ -309,7 +309,8 @@ class ObsSpectrum(Spectrum):
     """
     def __init__(self, wavelength=None, nu_hz=None, fnujy=None,
                  e_fnujy=None, e_absolute=None, bibcode=None,
-                 instrument=None, irradiance=None):
+                 instrument=None, irradiance=None, segment_id=None,
+                 product_id=None, resolving_power=None):
         self.wavelength = wavelength
         self.nu_hz = nu_hz
         self.fnujy = fnujy
@@ -318,6 +319,9 @@ class ObsSpectrum(Spectrum):
         self.bibcode = bibcode
         self.instrument = instrument
         self.irradiance = irradiance
+        self.segment_id = segment_id
+        self.product_id = product_id
+        self.resolving_power = resolving_power
     
         # fill wavelength/frequency if possible
         if self.wavelength is None and self.nu_hz is not None:
@@ -377,6 +381,8 @@ class ObsSpectrum(Spectrum):
                 if np.any(ok) > 0:
                     s = ObsSpectrum()
                     s.instrument = 'Spitzer IRS '+module_names[i]
+                    s.segment_id = module_names[i]
+                    s.resolving_power = 100.0
                     s.wavelength = t['wavelength'].data[ok]
                     s.nu_hz = c_micron / t['wavelength'].data[ok]
                     s.fnujy = t['flux'].data[ok] \
@@ -404,6 +410,8 @@ class ObsSpectrum(Spectrum):
             self.e_fnujy = t['error (RMS+SYS)'].data[ok]
             self.bibcode = '2011ApJS..196....8L'
             self.instrument = 'Spitzer IRS'
+            self.segment_id = 'IRS'
+            self.resolving_power = 100.0
             self.sort('wave')
             return self,
 
@@ -452,6 +460,8 @@ class ObsSpectrum(Spectrum):
                 if np.any(ok) > 0:
                     s = ObsSpectrum()
                     s.instrument = 'Spitzer IRS '+mod
+                    s.segment_id = mod
+                    s.resolving_power = 600.0
                     s.wavelength = t['wavelength'].data[ok]
                     s.nu_hz = c_micron / t['wavelength'].data[ok]
                     s.fnujy = t['flux'].data[ok]
@@ -479,6 +489,8 @@ class ObsSpectrum(Spectrum):
             self.e_fnujy = t['flux_error'].data[ok]
             self.bibcode = '2015ApJS..218...21L'
             self.instrument = 'Spitzer IRS'
+            self.segment_id = 'IRS-HR'
+            self.resolving_power = 600.0
             self.sort('wave')
             return self,
 
@@ -513,6 +525,7 @@ class ObsSpectrum(Spectrum):
         self.e_fnujy = e[ok]
         self.bibcode = file
         self.instrument = '?'
+        self.segment_id = 'spectrum'
         self.sort('wave')
         return self,
 
@@ -542,6 +555,7 @@ class ObsSpectrum(Spectrum):
         self.e_fnujy = enu.value
         self.bibcode = file
         self.instrument = 'IRTF/SpeX'
+        self.segment_id = 'spectrum'
         self.sort('wave')
         return self,
 
@@ -555,7 +569,7 @@ class ObsSpectrum(Spectrum):
         first (which will fail).
         """
         
-        if type_ == 'irsstare':
+        if type_ in ('irsstare', 'cassis-irs', 'cassis_irs'):
             try:
                 return ObsSpectrum.read_cassis_lores(file, module_split=module_split)
             except:

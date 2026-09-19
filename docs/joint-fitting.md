@@ -37,6 +37,47 @@ Omitted observations self-map. The SDB IDs only connect files inside the
 package. SDF resolves model ownership and saved policy to canonical SIMBAD
 names when loading it.
 
+An optional `spectra.yml` adds spectra without embedding installation-specific
+paths in rawphot metadata:
+
+```yaml
+version: 1
+spectra:
+  - id: cassis-irs:14982144:preferred
+    file: spectra/cassis_yaaar_spcfw_14982144t.fits
+    format: cassis-irs
+    contributors:
+      - component-a-sdbid
+      - component-b-sdbid
+```
+
+Files must be below the package directory. An optional `sha256` verifies the
+asset before fitting. `contributors` are independent of the rawphot scopes,
+so an unresolved spectrum can see A and B while resolved photometry remains
+separate. All segments inherit the product contributors by default. Rare
+module-specific cases can override ownership or eligibility:
+
+```yaml
+    segment_overrides:
+      SL1:
+        contributors: [component-a-sdbid]
+      LL1:
+        include: false
+```
+
+The CASSIS reader forms independently normalized SL/LL or SH/LH segment
+observations. Generic `csv` spectra use wavelength (micron), flux density (Jy),
+and uncertainty (Jy) as their first three columns. Several products may be
+listed and all included products are fitted; there is no implicit first-file
+selection. `--no-spectra` ignores both this manifest and legacy rawphot
+spectrum keywords.
+
+For segments with resolving-power metadata, model grids are convolved once at
+fit compilation and then sampled at the observed wavelengths. The prepared
+model is cached across candidates. A grid already coarser than the observation
+is interpolated rather than spuriously sharpened and is marked under-resolved
+in the preparation metadata.
+
 An optional `sdf-fit.yml` applies portable model policy by SIMBAD name:
 
 ```yaml

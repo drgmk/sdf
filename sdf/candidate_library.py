@@ -237,13 +237,25 @@ def input_fingerprint(dataset):
     """Hash portable package inputs rather than their absolute locations."""
 
     paths = {Path(observation.source) for observation in dataset.observations}
-    for parent in {path.parent for path in paths}:
-        topology = parent / 'joint-fit.yml'
-        if topology.is_file():
-            paths.add(topology)
+    paths.update(Path(value) for value in dataset.manifests)
+    if dataset.manifests:
+        root = Path(dataset.manifests[0]).parent
+    elif len(paths) == 1:
+        root = next(iter(paths)).parent
+    else:
+        root = Path(os.path.commonpath([str(path) for path in paths]))
+        if root.is_file():
+            root = root.parent
+
+    def portable_name(path):
+        try:
+            return path.relative_to(root).as_posix()
+        except ValueError:
+            return path.name
+
     digest = sha256()
-    for path in sorted(paths, key=lambda value: value.name):
-        digest.update(path.name.encode('utf-8'))
+    for path in sorted(paths, key=portable_name):
+        digest.update(portable_name(path).encode('utf-8'))
         digest.update(b'\0')
         digest.update(path.read_bytes())
         digest.update(b'\0')

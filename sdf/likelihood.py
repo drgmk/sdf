@@ -76,12 +76,18 @@ class FitProblem:
                 for parameter in model_parameters
             )
         for observation in self.dataset.observations:
-            names.extend(
-                'observation:{}.spectrum:{}.norm'.format(
-                    observation.observation_id, index + 1
+            if observation.kind == 'spectrum' and observation.segment_id:
+                names.extend(
+                    'observation:{}.norm'.format(observation.observation_id)
+                    for _ in observation.spectra
                 )
-                for index in range(len(observation.spectra))
-            )
+            else:
+                names.extend(
+                    'observation:{}.spectrum:{}.norm'.format(
+                        observation.observation_id, index + 1
+                    )
+                    for index in range(len(observation.spectra))
+                )
         if len(names) != self.ndim:
             raise ValueError(
                 'qualified parameter count does not match fitting dimension'

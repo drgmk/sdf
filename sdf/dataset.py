@@ -12,6 +12,7 @@ import yaml
 from . import photometry
 from . import spectrum
 from . import utils
+from .spectral_manifest import read_spectra_manifest
 
 
 @dataclass(frozen=True)
@@ -50,16 +51,20 @@ class Observation:
 
     observation_id: str
     source: str
-    target_key: str
+    target_key: str | None
     contributor_keys: tuple[str, ...]
-    photometry: photometry.Photometry
+    photometry: photometry.Photometry | None = None
     spectra: tuple[spectrum.ObsSpectrum, ...] = ()
+    kind: str = 'photometry'
+    product_id: str | None = None
+    segment_id: str | None = None
 
     @property
     def data(self):
         """Return the legacy tuple consumed by SDF's model machinery."""
 
-        return (self.photometry,) + self.spectra
+        values = () if self.photometry is None else (self.photometry,)
+        return values + self.spectra
 
 
 @dataclass(frozen=True)
@@ -68,6 +73,7 @@ class FitDataset:
 
     targets: tuple[TargetIdentity, ...]
     observations: tuple[Observation, ...]
+    manifests: tuple[str, ...] = ()
 
     @classmethod
     def from_rawphot(cls, rawphot, nospec=False):
@@ -78,15 +84,11 @@ class FitDataset:
             return None
         target, rawphot, observed_photometry, observed_spectra = loaded
         observation_id = target.sdbid or target.main_id or target.key
-        observation = Observation(
-            observation_id=observation_id,
-            source=rawphot,
-            target_key=target.key,
-            contributor_keys=(target.key,),
-            photometry=observed_photometry,
-            spectra=observed_spectra,
+        observations = _observations_for_loaded_rawphot(
+            observation_id, target, rawphot, observed_photometry,
+            observed_spectra, (target.key,),
         )
-        return cls(targets=(target,), observations=(observation,))
+        return cls(targets=(target,), observations=observations)
 
     @classmethod
     def from_package(cls, directory, nospec=False):
@@ -94,15 +96,21 @@ class FitDataset:
 
         directory = Path(directory).expanduser().resolve()
         topology_path = directory / 'joint-fit.yml'
-        if not topology_path.is_file():
-            raise utils.SdfError(
-                'joint-fit.yml not found in {}'.format(directory)
-            )
-        topology = _read_joint_fit(topology_path)
+        topology = (
+            _read_joint_fit(topology_path) if topology_path.is_file() else {}
+        )
+        spectra_path = directory / 'spectra.yml'
+        spectra_manifest = (
+            None if nospec or not spectra_path.is_file() else
+            read_spectra_manifest(spectra_path)
+        )
 
         loaded_by_id = {}
         for rawphot in sorted(directory.glob('*-rawphot.txt')):
-            loaded = _load_rawphot(rawphot, nospec=nospec)
+            loaded = _load_rawphot(
+                rawphot,
+                nospec=nospec or spectra_manifest is not None,
+            )
             if loaded is None:
                 keywords = utils.get_sdb_keywords(rawphot)
                 target = TargetIdentity.from_keywords(
@@ -148,30 +156,33 @@ class FitDataset:
                 contributor = loaded_by_id[contributor_id][0]
                 physical_targets[contributor.key] = contributor
                 contributor_keys.append(contributor.key)
-            # A physical contributor need not have a resolved observation of
-            # its own.  Keep its identity for models referenced by composite
-            # scopes, but do not manufacture an empty likelihood block.
-            if observed_photometry is None:
-                continue
-            observations.append(Observation(
-                observation_id=observation_id,
-                source=source,
-                target_key=target.key,
-                contributor_keys=tuple(contributor_keys),
-                photometry=observed_photometry,
-                spectra=observed_spectra,
+            observations.extend(_observations_for_loaded_rawphot(
+                observation_id, target, source, observed_photometry,
+                observed_spectra, tuple(contributor_keys),
+            ))
+
+        if spectra_manifest is not None:
+            observations.extend(_manifest_spectral_observations(
+                spectra_manifest, loaded_by_id, physical_targets,
             ))
 
         if not observations:
             raise utils.SdfError(
-                'joint package contains no usable photometry observations'
+                'fit package contains no usable photometry or spectra'
             )
 
+        manifest_paths = [topology_path]
+        if not nospec:
+            manifest_paths.append(spectra_path)
+        manifests = tuple(
+            str(path) for path in manifest_paths if path.is_file()
+        )
         return cls(
             targets=tuple(
                 physical_targets[key] for key in sorted(physical_targets)
             ),
             observations=tuple(observations),
+            manifests=manifests,
         )
 
     @classmethod
@@ -246,7 +257,10 @@ def canonical_fit_source(source):
     if not source.exists():
         raise utils.SdfError('fit input does not exist: {}'.format(source))
     if source.is_dir():
-        if (source / 'joint-fit.yml').is_file():
+        if (
+            (source / 'joint-fit.yml').is_file() or
+            (source / 'spectra.yml').is_file()
+        ):
             return source
         rawphot = sorted(source.glob('*-rawphot.txt'))
         if len(rawphot) == 1:
@@ -260,7 +274,10 @@ def canonical_fit_source(source):
         raise utils.SdfError(
             'fit input is not a rawphot file: {}'.format(source)
         )
-    if (source.parent / 'joint-fit.yml').is_file():
+    if (
+        (source.parent / 'joint-fit.yml').is_file() or
+        (source.parent / 'spectra.yml').is_file()
+    ):
         return source.parent
     return source
 
@@ -271,7 +288,11 @@ def discover_fit_sources(paths):
     sources = {}
     for value in paths:
         path = Path(value).expanduser().resolve()
-        if path.is_dir() and not (path / 'joint-fit.yml').is_file():
+        if (
+            path.is_dir() and
+            not (path / 'joint-fit.yml').is_file() and
+            not (path / 'spectra.yml').is_file()
+        ):
             candidates = path.rglob('*-rawphot.txt')
         else:
             candidates = (path,)
@@ -284,9 +305,6 @@ def discover_fit_sources(paths):
 def _load_rawphot(rawphot, nospec=False):
     rawphot = os.path.abspath(os.fspath(rawphot))
     observed_photometry = photometry.Photometry.read_sdb_file(rawphot)
-    if observed_photometry is None or np.all(observed_photometry.ignore):
-        return None
-
     keywords = utils.get_sdb_keywords(rawphot)
     target = TargetIdentity.from_keywords(keywords, source=rawphot)
     observed_spectra = ()
@@ -296,7 +314,145 @@ def _load_rawphot(rawphot, nospec=False):
         )
         if values is not None:
             observed_spectra = tuple(values)
+    no_photometry = (
+        observed_photometry is None or np.all(observed_photometry.ignore)
+    )
+    if no_photometry and not observed_spectra:
+        return None
     return target, rawphot, observed_photometry, observed_spectra
+
+
+def _observations_for_loaded_rawphot(
+        observation_id, target, source, observed_photometry,
+        observed_spectra, contributor_keys):
+    """Split legacy rawphot contents into independently owned scopes."""
+
+    observations = []
+    if observed_photometry is not None:
+        observations.append(Observation(
+            observation_id=observation_id,
+            source=source,
+            target_key=target.key,
+            contributor_keys=contributor_keys,
+            photometry=observed_photometry,
+        ))
+    used_segments = set()
+    for index, value in enumerate(observed_spectra, start=1):
+        segment_id = _spectrum_segment_id(value, index, used_segments)
+        product_id = '{}:legacy-spectrum'.format(observation_id)
+        value.product_id = product_id
+        value.segment_id = segment_id
+        observations.append(Observation(
+            observation_id='{}:{}'.format(product_id, segment_id),
+            source=source,
+            target_key=target.key,
+            contributor_keys=contributor_keys,
+            spectra=(value,),
+            kind='spectrum',
+            product_id=product_id,
+            segment_id=segment_id,
+        ))
+    return tuple(observations)
+
+
+def _manifest_spectral_observations(
+        manifest, loaded_by_id, physical_targets):
+    observations = []
+    for definition in manifest.spectra:
+        if not definition.include:
+            continue
+        missing = set(definition.contributors) - set(loaded_by_id)
+        for override in definition.segment_overrides.values():
+            if override.contributors is not None:
+                missing.update(
+                    set(override.contributors) - set(loaded_by_id)
+                )
+        if missing:
+            raise utils.SdfError(
+                'spectrum {} references missing contributors: {}'.format(
+                    definition.spectrum_id, ', '.join(sorted(missing))
+                )
+            )
+        values = spectrum.ObsSpectrum.read_file_of_type(
+            str(definition.path), type_=definition.format,
+            module_split=True,
+        )
+        if not values:
+            raise utils.SdfError(
+                'spectrum {} contains no usable segments'.format(
+                    definition.spectrum_id
+                )
+            )
+        used_segments = set()
+        seen_overrides = set()
+        for index, value in enumerate(values, start=1):
+            segment_id = _spectrum_segment_id(
+                value, index, used_segments
+            )
+            override = definition.segment_overrides.get(segment_id)
+            if override is not None:
+                seen_overrides.add(segment_id)
+            include = (
+                True if override is None or override.include is None else
+                override.include
+            )
+            if not include:
+                continue
+            contributor_ids = (
+                definition.contributors
+                if override is None or override.contributors is None else
+                override.contributors
+            )
+            contributor_keys = []
+            for contributor_id in contributor_ids:
+                target = loaded_by_id[contributor_id][0]
+                physical_targets[target.key] = target
+                contributor_keys.append(target.key)
+            value.product_id = definition.spectrum_id
+            value.segment_id = segment_id
+            observations.append(Observation(
+                observation_id='{}:{}'.format(
+                    definition.spectrum_id, segment_id
+                ),
+                source=str(definition.path),
+                target_key=None,
+                contributor_keys=tuple(contributor_keys),
+                spectra=(value,),
+                kind='spectrum',
+                product_id=definition.spectrum_id,
+                segment_id=segment_id,
+            ))
+        unknown_overrides = (
+            set(definition.segment_overrides) - seen_overrides
+        )
+        if unknown_overrides:
+            raise utils.SdfError(
+                'spectrum {} has overrides for missing segments: {}'.format(
+                    definition.spectrum_id,
+                    ', '.join(sorted(unknown_overrides)),
+                )
+            )
+    return observations
+
+
+def _spectrum_segment_id(value, index, used):
+    candidate = getattr(value, 'segment_id', None)
+    if candidate is None:
+        candidate = getattr(value, 'segment', None)
+    if candidate is None:
+        instrument = getattr(value, 'instrument', None)
+        if instrument:
+            candidate = str(instrument).replace('Spitzer IRS ', '').strip()
+    if not candidate:
+        candidate = 'segment-{}'.format(index)
+    candidate = str(candidate).strip().replace(' ', '-')
+    base = candidate
+    ordinal = 2
+    while candidate in used:
+        candidate = '{}-{}'.format(base, ordinal)
+        ordinal += 1
+    used.add(candidate)
+    return candidate
 
 
 def _read_joint_fit(path):

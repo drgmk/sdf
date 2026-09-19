@@ -934,6 +934,100 @@ class SpecModel(Model):
         # and update the hashed version
         self.fill_log_fnujy_sr_hashed()
 
+    def prepare_for_spectrum(self, wavelength, resolving_power=None):
+        """Prepare this grid once for an observed spectral segment.
+
+        A segment with explicit resolving power is compared with a model that
+        has first been convolved to that resolution and sampled at the
+        observed wavelengths.  If the model grid is already coarser than the
+        requested response it cannot be sharpened, so the established
+        interpolation behavior is retained and recorded on the prepared
+        model.
+        """
+
+        wavelength = np.asarray(wavelength, dtype=float)
+        order = np.argsort(self.wavelength)
+        if not np.array_equal(order, np.arange(len(order))):
+            self.wavelength = self.wavelength[order]
+            self.fnujy_sr = self.fnujy_sr[order]
+        native_resolution = self.sampling_resolution()
+        target_resolution = _representative_resolution(resolving_power)
+        if (
+            target_resolution is None or
+            native_resolution <= target_resolution
+        ):
+            self.interp_to_wavelengths(wavelength)
+            self.resolution_match = {
+                'method': 'interpolate',
+                'native_resolving_power': native_resolution,
+                'target_resolving_power': target_resolution,
+                'under_resolved': (
+                    target_resolution is not None and
+                    native_resolution < target_resolution
+                ),
+            }
+            return
+
+        if np.ndim(resolving_power) == 0:
+            response = float(resolving_power)
+        else:
+            response = np.asarray(resolving_power, dtype=float)
+        kernel = utils.spectral_resample_matrix(
+            self.wavelength,
+            wavelength,
+            response,
+            native_resolving_power=native_resolution,
+        )
+        output_shape = (len(wavelength),) + self.fnujy_sr.shape[1:]
+        flattened = self.fnujy_sr.reshape(len(self.wavelength), -1)
+        self.wavelength = wavelength
+        self.fnujy_sr = np.asarray(kernel @ flattened).reshape(output_shape)
+        self.i = np.arange(len(self.wavelength))
+        self.n_i = len(self.i)
+        self.fill_log_fnujy_sr_hashed()
+        self.resolution_match = {
+            'method': 'gaussian_convolution',
+            'native_resolving_power': native_resolution,
+            'target_resolving_power': target_resolution,
+            'under_resolved': False,
+        }
+
+    def sampling_resolution(self):
+        """Return the median resolving power represented by this grid."""
+
+        wavelength = np.sort(np.asarray(self.wavelength, dtype=float))
+        midpoint = 0.5 * (wavelength[1:] + wavelength[:-1])
+        return float(np.median(midpoint / np.diff(wavelength)))
+
+
+def _representative_resolution(value):
+    if value is None:
+        return None
+    values = np.asarray(value, dtype=float)
+    if np.any(~np.isfinite(values)) or np.any(values <= 0):
+        raise utils.SdfError(
+            'spectral resolving power must be finite and positive'
+        )
+    return float(np.median(values))
+
+
+def _resolution_cache_key(value):
+    if value is None:
+        return None
+    values = np.asarray(value, dtype=float)
+    if values.ndim == 0:
+        return float(values)
+    return tuple(float(item) for item in values)
+
+
+@lru_cache(maxsize=32)
+def _prepared_spec_model(name, wavelengths, resolving_power):
+    prepared = SpecModel.read_model(name).copy()
+    prepared.prepare_for_spectrum(
+        np.asarray(wavelengths, dtype=float), resolving_power,
+    )
+    return prepared
+
 
 def model_fluxes(m, param, obs_nel, phot_only=False, projection=None):
     """Get model fluxes and put in arrays.
@@ -1233,8 +1327,11 @@ def get_models(obs, names):
                 fmod = fmod + (phmod, )
             
             if isinstance(o, spectrum.ObsSpectrum):
-                spmod = sp.copy()
-                spmod.interp_to_wavelengths(o.wavelength)
+                spmod = _prepared_spec_model(
+                    name,
+                    tuple(float(value) for value in o.wavelength),
+                    _resolution_cache_key(o.resolving_power),
+                ).copy()
                 omod = omod + (spmod, )
                 
         # always want a full spectrum in full model, but only one

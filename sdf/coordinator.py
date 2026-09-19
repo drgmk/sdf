@@ -257,6 +257,7 @@ def _fit_state(candidate, sampler):
         'model_files': model_files,
         'model_normalization_range': cfg.fitting['model_om_range'],
         'spectrum_normalization_range': cfg.fitting['spectra_norm_range'],
+        'spectral_model_preparation': 'gaussian-lsf-v1',
         'sampler': type(sampler).__name__,
         'sampler_options': {
             'n_live_points': cfg.fitting['n_live'],

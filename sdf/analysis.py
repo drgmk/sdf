@@ -12,7 +12,8 @@ from . import config as cfg
 from . import fitting
 from . import model
 
-ANALYSIS_SCHEMA = 2
+ANALYSIS_SCHEMA = 3
+PREDICTION_SAMPLES_MAX = 256
 
 
 @dataclass(frozen=True)
@@ -42,11 +43,25 @@ class FitAnalysis:
         observed = fitting.concat_obs(problem.observations)
         obs_nel = observed[5].astype(int)
 
-        prediction_samples = np.empty((len(samples), len(residuals)))
-        component_samples = np.empty((
-            len(samples), len(problem.candidate.components), len(residuals)
+        # Spectrum calibration parameters multiply the observed segment in
+        # the likelihood. Retain that fitted representation for plots and
+        # residual inspection, while preserving the native arrays separately.
+        spectrum_norm = np.take(
+            np.append(median_parameters, 1.0), observed[4]
+        )
+        observed_flux = observed[0] * spectrum_norm
+        observed_uncertainty = observed[1] * spectrum_norm
+
+        prediction_indices = _prediction_indices(len(samples))
+        prediction_samples = np.empty((
+            len(prediction_indices), len(residuals)
         ))
-        for index, parameters in enumerate(samples):
+        component_samples = np.empty((
+            len(prediction_indices), len(problem.candidate.components),
+            len(residuals)
+        ))
+        for index, sample_index in enumerate(prediction_indices):
+            parameters = samples[sample_index]
             prediction, components = model.model_fluxes(
                 problem.models, parameters, obs_nel,
                 projection=problem.projection,
@@ -68,13 +83,16 @@ class FitAnalysis:
             'parameters': parameter_summary,
             'chi_squared': float(np.sum(np.square(residuals))),
             'n_residuals': int(len(residuals)),
+            'prediction_samples': int(len(prediction_indices)),
             'data_scopes': _data_scopes(problem.dataset, obs_nel),
             'components': _component_summaries(problem, samples),
             'targets': _target_summaries(problem, samples),
         }
         arrays = {
-            'observed_flux': observed[0],
-            'observed_uncertainty': observed[1],
+            'observed_flux': observed_flux,
+            'observed_uncertainty': observed_uncertainty,
+            'observed_flux_native': observed[0],
+            'observed_uncertainty_native': observed[1],
             'observed_upper_limit': observed[2],
             'observed_ignore': observed[3],
             'wavelength_micron': wavelengths,
@@ -299,16 +317,36 @@ def _data_scopes(dataset, obs_nel):
     for observation in dataset.observations:
         for value in observation.data:
             element_stop = element_start + int(obs_nel[data_index])
-            scopes.append({
+            scope = {
                 'observation_id': observation.observation_id,
                 'contributors': list(observation.contributor_keys),
                 'kind': type(value).__name__,
                 'element_start': element_start,
                 'element_stop': element_stop,
-            })
+            }
+            if observation.kind == 'spectrum':
+                scope.update({
+                    'product_id': observation.product_id,
+                    'segment_id': observation.segment_id,
+                    'instrument': getattr(value, 'instrument', None),
+                    'resolving_power': getattr(
+                        value, 'resolving_power', None
+                    ),
+                })
+            scopes.append(scope)
             data_index += 1
             element_start = element_stop
     return scopes
+
+
+def _prediction_indices(count):
+    """Use a deterministic bounded posterior subset for prediction bands."""
+
+    if count <= PREDICTION_SAMPLES_MAX:
+        return np.arange(count, dtype=int)
+    return np.linspace(
+        0, count - 1, PREDICTION_SAMPLES_MAX, dtype=int
+    )
 
 
 def _summary(values):

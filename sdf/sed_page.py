@@ -58,6 +58,7 @@ def target_page_rows(dataset, package_directory):
     observation_by_target = {
         observation.target_key: observation
         for observation in dataset.observations
+        if observation.kind == 'photometry'
     }
     system_positions = [
         (_number(target.keywords.get('raj2000')),
@@ -232,6 +233,8 @@ def observation_page_rows(dataset, package_directory):
     }
     rows = []
     for observation in dataset.observations:
+        if observation.kind != 'photometry':
+            continue
         target = targets_by_key.get(observation.target_key)
         if target is not None:
             keywords = target.keywords

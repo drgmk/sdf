@@ -305,6 +305,13 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
     filters = np.asarray(arrays['filter'][indices]).astype(str)
     usable_x = np.isfinite(wavelength) & (wavelength > 0)
 
+    if scope['kind'] == 'ObsSpectrum':
+        _add_spectral_scope_data(
+            sed, residual, wavelength, observed, uncertainty, predicted,
+            residual_values, ignored, usable_x, label, colour,
+        )
+        return
+
     normal = usable_x & np.isfinite(observed) & (observed > 0) & ~upper_limit
     active = normal & ~ignored
     if np.any(active):
@@ -384,6 +391,42 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
             color=colour,
         )
         _add_hover(residual, renderer)
+
+
+def _add_spectral_scope_data(
+        sed, residual, wavelength, observed, uncertainty, predicted,
+        residual_values, ignored, usable_x, label, colour):
+    """Draw a spectral segment as traces rather than photometric points."""
+
+    usable = (
+        usable_x & np.isfinite(observed) & (observed > 0) &
+        np.isfinite(predicted) & (predicted > 0) & ~ignored
+    )
+    if not np.any(usable):
+        return
+    source = _point_source(
+        wavelength[usable], observed[usable], uncertainty[usable],
+        predicted[usable], residual_values[usable],
+        np.repeat('spectrum', np.sum(usable)), label,
+    )
+    observed_renderer = sed.line(
+        'wavelength', 'observed', source=source,
+        color=colour, line_width=1.5, line_alpha=0.78,
+    )
+    predicted_renderer = sed.line(
+        'wavelength', 'predicted', source=source,
+        color=colour, line_width=2.2, line_alpha=0.95,
+        line_dash='dashed',
+    )
+    residual_renderer = residual.line(
+        'wavelength', 'residual', source=source,
+        color=colour, line_width=1.35, line_alpha=0.85,
+    )
+    for plot, renderer in (
+        (sed, observed_renderer), (sed, predicted_renderer),
+        (residual, residual_renderer),
+    ):
+        _add_hover(plot, renderer)
 
 
 def _point_source(wavelength, observed, uncertainty, predicted, residual,
@@ -656,6 +699,8 @@ def _scope_labels(scopes, candidate):
                 targets.get(key, {}).get('main_id') or key
                 for key in scope['contributors']
             )
+        if scope.get('segment_id'):
+            labels[observation_id] += ' · {}'.format(scope['segment_id'])
     return labels
 
 
