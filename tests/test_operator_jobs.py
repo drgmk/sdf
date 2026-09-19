@@ -35,13 +35,14 @@ def test_worker_runs_fit_outside_request_and_completes_job(
 
     monkeypatch.setattr(sdf.operator_jobs, 'FitManager', FakeManager)
 
-    job = sdf.operator_jobs.run_next_job(state)
+    job = sdf.operator_jobs.run_next_job(state, worker_id='worker-1')
 
     assert job.package_path == str(package.resolve())
     assert calls[0] == (
         'fit', str(package.resolve()), {'sampler': None, 'policy_store': state},
     )
     assert state.jobs()[0].status == 'completed'
+    assert state.jobs()[0].worker_id == 'worker-1'
 
 
 def test_worker_records_failure_without_losing_job(tmp_path, monkeypatch):

@@ -778,11 +778,13 @@ a separate `sdf-operator.sqlite`: it is durable operational state, whereas
 The catalog-wide operational layer is also implemented. `sdf-fits serve`
 opens one service over an SDB export root rather than one service per package.
 The catalog indexes fitted and unfit exports, provides search, fit-state views,
-sample snapshots, system pages, and a persistent global job view. One isolated
-worker is supervised by the web process, and a cheap polling watcher refreshes
-only added, changed, or removed packages. New/stale exports are queued without
-changing their model policy; the pre-existing backlog is opt-in. Running jobs
-are recovered to `queued` after a worker restart.
+sample snapshots, system pages, and a persistent global job view. A configurable
+pool of isolated worker processes is supervised by the web process, and a cheap
+polling watcher refreshes only added, changed, or removed packages. Atomic
+claims allow parallel fitting across systems but serialize jobs for any one
+package. New/stale exports are queued without changing their model policy; the
+pre-existing backlog is opt-in. Running jobs are recovered to `queued` at
+service startup, or per worker if one pool process fails.
 
 Sample membership currently comes from the newest completed export manifest
 for each sample. This correctly treats a sample as a view over the common

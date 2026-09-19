@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 from threading import Thread
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -78,3 +79,59 @@ def test_catalog_http_routes_and_rejects_bad_token(tmp_path):
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_catalog_runtime_starts_requested_isolated_worker_pool(
+        tmp_path, monkeypatch):
+    processes = []
+    threads = []
+
+    class FakeProcess:
+        def __init__(self, *, target, args, name, daemon):
+            self.target = target
+            self.args = args
+            self.name = name
+            self.daemon = daemon
+            self.pid = 1000 + len(processes)
+            processes.append(self)
+
+        def start(self):
+            pass
+
+        def is_alive(self):
+            return True
+
+        def join(self, timeout=None):
+            pass
+
+    class FakeThread:
+        def __init__(self, *, target, name, daemon):
+            self.target = target
+            self.name = name
+            self.daemon = daemon
+            threads.append(self)
+
+        def start(self):
+            pass
+
+        def join(self, timeout=None):
+            pass
+
+    state = sdf.catalog_server.OperatorState(
+        tmp_path / 'operator.sqlite'
+    ).initialize()
+    monkeypatch.setattr(sdf.catalog_server.multiprocessing, 'Process', FakeProcess)
+    monkeypatch.setattr(sdf.catalog_server, 'Thread', FakeThread)
+    runtime = sdf.catalog_server.CatalogRuntime(
+        SimpleNamespace(state=state), workers=3, watch=False,
+    )
+
+    runtime.start()
+
+    assert [process.name for process in processes] == [
+        'sdf-fit-worker-1', 'sdf-fit-worker-2', 'sdf-fit-worker-3',
+    ]
+    assert len({process.args[-1] for process in processes}) == 3
+    assert all(process.args[-1] in runtime.worker_ids.values()
+               for process in processes)
+    assert [thread.name for thread in threads] == ['sdf-worker-supervisor']

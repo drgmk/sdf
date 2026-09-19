@@ -14,6 +14,8 @@ class ExportSample:
     run_id: int
     manifest_path: Path
     completed_at: str | None
+    sample_date: str | None = None
+    note: str | None = None
 
 
 class ExportCatalog:
@@ -23,9 +25,9 @@ class ExportCatalog:
         self.root = Path(root).expanduser().resolve()
 
     def samples(self):
-        """Return the newest completed manifest for every exported sample."""
+        """Return sample views represented by the current export root."""
 
-        samples = {}
+        manifests = []
         for path in sorted(self.root.glob('export-*-manifest.json')):
             try:
                 payload = json.loads(path.read_text(encoding='utf-8'))
@@ -35,6 +37,40 @@ class ExportCatalog:
                 continue
             if payload.get('status') != 'completed':
                 continue
+            manifests.append((int(payload.get('run_id', 0)), path, payload))
+
+        snapshots = [
+            value for value in manifests
+            if isinstance(value[2].get('samples'), list)
+        ]
+        if snapshots:
+            run_id, path, payload = max(snapshots, key=lambda value: value[0])
+            samples = []
+            for row in payload['samples']:
+                if not isinstance(row, dict):
+                    continue
+                name = row.get('name')
+                identifiers = row.get('sdbids')
+                if (
+                    not isinstance(name, str) or not name.strip()
+                    or not isinstance(identifiers, list)
+                ):
+                    continue
+                samples.append(ExportSample(
+                    name=name.strip(),
+                    identifiers=tuple(dict.fromkeys(
+                        str(value) for value in identifiers
+                    )),
+                    run_id=run_id,
+                    manifest_path=path,
+                    completed_at=payload.get('completed_at'),
+                    sample_date=row.get('sample_date'),
+                    note=row.get('note'),
+                ))
+            return tuple(sorted(samples, key=lambda value: value.name.lower()))
+
+        samples = {}
+        for run_id, path, payload in manifests:
             selection = payload.get('selection', {})
             if selection.get('kind') != 'sample':
                 continue
@@ -49,7 +85,7 @@ class ExportCatalog:
                 identifiers=tuple(dict.fromkeys(
                     str(value) for value in identifiers
                 )),
-                run_id=int(payload.get('run_id', 0)),
+                run_id=run_id,
                 manifest_path=path,
                 completed_at=payload.get('completed_at'),
             )

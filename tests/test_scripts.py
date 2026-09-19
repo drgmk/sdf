@@ -6,6 +6,72 @@ from .context import sdf
 import sdf.scripts
 
 
+@pytest.mark.parametrize(
+    ('entrypoint', 'argv', 'expected'),
+    (
+        (
+            sdf.scripts.sdf_index,
+            ['sdf-index', '--help'],
+            ('rebuild', 'verify', 'disposable SQLite index', 'Examples:'),
+        ),
+        (
+            sdf.scripts.sdf_fits,
+            ['sdf-fits', '--help'],
+            ('serve', 'select', 'catalog-wide operator UI', 'Examples:'),
+        ),
+        (
+            sdf.scripts.sdf_jobs,
+            ['sdf-jobs', '--help'],
+            ('list', 'run', 'asynchronous SDF operator fit queue', 'Examples:'),
+        ),
+    ),
+)
+def test_new_cli_top_level_help_is_operational(
+        monkeypatch, capsys, entrypoint, argv, expected):
+    monkeypatch.setattr(sys, 'argv', argv)
+
+    with pytest.raises(SystemExit) as exit_info:
+        entrypoint()
+
+    assert exit_info.value.code == 0
+    output = capsys.readouterr().out
+    for text in expected:
+        assert text in output
+
+
+@pytest.mark.parametrize(
+    ('argv', 'expected'),
+    (
+        (
+            ['sdf-fits', 'select', '--help'],
+            ('does not run a fit', '--default FIT', '--display FIT'),
+        ),
+        (
+            ['sdf-fits', 'fit', '--help'],
+            ('exactly one stellar model', 'TARGET=MODEL', 'Examples:'),
+        ),
+        (
+            ['sdf-fits', 'serve', '--help'],
+            (
+                'Existing unfit packages are not queued',
+                '--autofit-existing', '--workers N',
+            ),
+        ),
+    ),
+)
+def test_sdf_fits_subcommand_help_explains_effects(
+        monkeypatch, capsys, argv, expected):
+    monkeypatch.setattr(sys, 'argv', argv)
+
+    with pytest.raises(SystemExit) as exit_info:
+        sdf.scripts.sdf_fits()
+
+    assert exit_info.value.code == 0
+    output = capsys.readouterr().out
+    for text in expected:
+        assert text in output
+
+
 def test_joint_fit_allows_www_and_writes_page(tmp_path, monkeypatch):
     (tmp_path / 'joint-fit.yml').write_text(
         'version: 1\nobservations: {}\n', encoding='utf-8'
@@ -99,9 +165,31 @@ def test_sdf_fits_serve_starts_catalog_worker_and_watcher(monkeypatch, tmp_path)
         'state_path': str(tmp_path / 'operator.sqlite'),
         'actor': 'Grant', 'rebuild': False,
         'host': '127.0.0.1', 'port': 8123,
-        'worker': True, 'watch': True, 'autofit_existing': False,
+        'worker': True, 'workers': 1,
+        'watch': True, 'autofit_existing': False,
         'poll_seconds': 5.0,
     })]
+
+
+def test_sdf_fits_serve_passes_parallel_worker_count(monkeypatch, tmp_path):
+    calls = []
+
+    monkeypatch.setattr(
+        sys, 'argv', [
+            'sdf-fits', 'serve', str(tmp_path), '--workers', '4',
+            '--no-watch',
+        ],
+    )
+    monkeypatch.setattr(sdf.scripts, 'FitManager', lambda package: object())
+    monkeypatch.setattr(
+        sdf.scripts, 'serve_catalog',
+        lambda package, **kwargs: calls.append(kwargs),
+    )
+
+    sdf.scripts.sdf_fits()
+
+    assert calls[0]['workers'] == 4
+    assert calls[0]['worker'] is True
 
 
 def test_sdf_sample_uses_indexed_hierarchy_products(monkeypatch, tmp_path):

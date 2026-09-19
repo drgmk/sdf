@@ -12,6 +12,7 @@ import mimetypes
 import multiprocessing
 from pathlib import Path, PurePosixPath
 import secrets
+import signal
 from threading import Event, Thread
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
@@ -204,7 +205,7 @@ def make_catalog_server(root, *, index_path=None, state_path=None, actor=None,
 
 def serve_catalog(root, *, index_path=None, state_path=None, actor=None,
                   rebuild=False, host='127.0.0.1', port=8765,
-                  worker=True, watch=True, autofit_existing=False,
+                  worker=True, workers=1, watch=True, autofit_existing=False,
                   poll_seconds=5.0):
     server = make_catalog_server(
         root, index_path=index_path, state_path=state_path, actor=actor,
@@ -215,7 +216,7 @@ def serve_catalog(root, *, index_path=None, state_path=None, actor=None,
     print('Result index: {}'.format(server.catalog_service.index.path))
     print('Operator state: {}'.format(server.catalog_service.state.path))
     runtime = CatalogRuntime(
-        server.catalog_service, worker=worker, watch=watch,
+        server.catalog_service, worker=worker, workers=workers, watch=watch,
         autofit_existing=autofit_existing, poll_seconds=poll_seconds,
     )
     runtime.start()
@@ -229,24 +230,34 @@ def serve_catalog(root, *, index_path=None, state_path=None, actor=None,
 
 
 class CatalogRuntime:
-    """Supervise the optional watcher thread and isolated fit worker."""
+    """Supervise the optional watcher thread and isolated fit workers."""
 
-    def __init__(self, service, *, worker=True, watch=True,
+    def __init__(self, service, *, worker=True, workers=1, watch=True,
                  autofit_existing=False, poll_seconds=5.0):
         self.service = service
         self.worker_enabled = worker
+        self.worker_count = int(workers) if worker else 0
+        if self.worker_count < 0 or (worker and self.worker_count == 0):
+            raise ValueError('workers must be a positive integer')
         self.watch_enabled = watch
         self.autofit_existing = autofit_existing
         self.poll_seconds = poll_seconds
         self.stop_event = multiprocessing.Event()
         self.watch_stop = Event()
-        self.worker_process = None
+        self.worker_processes = {}
+        self.worker_ids = {}
         self.watch_thread = None
         self.supervisor_thread = None
 
     def start(self):
         if self.worker_enabled:
-            self._start_worker()
+            # No workers exist yet, so global recovery is safe. Subsequent
+            # restarts recover only work owned by the failed pool slot.
+            recovered = self.service.state.recover_running_jobs()
+            if recovered:
+                print('Recovered {} interrupted fit job(s)'.format(recovered))
+            for slot in range(self.worker_count):
+                self._start_worker(slot)
             self.supervisor_thread = Thread(
                 target=self._supervise_worker,
                 name='sdf-worker-supervisor', daemon=True,
@@ -276,36 +287,50 @@ class CatalogRuntime:
             self.watch_thread.join(timeout=self.poll_seconds + 1)
         if self.supervisor_thread is not None:
             self.supervisor_thread.join(timeout=self.poll_seconds + 1)
-        if self.worker_process is not None:
-            self.worker_process.join(timeout=self.poll_seconds + 1)
-            if self.worker_process.is_alive():
-                self.worker_process.terminate()
-                self.worker_process.join(timeout=2)
+        for process in self.worker_processes.values():
+            process.join(timeout=self.poll_seconds + 1)
+        for process in self.worker_processes.values():
+            if process.is_alive():
+                process.terminate()
+                process.join(timeout=2)
 
-    def _start_worker(self):
-        self.worker_process = multiprocessing.Process(
+    def _start_worker(self, slot):
+        worker_id = '{}-{}'.format(id(self), slot + 1)
+        process = multiprocessing.Process(
             target=_worker_main,
             args=(str(self.service.state.path), self.stop_event,
-                  self.poll_seconds),
-            name='sdf-fit-worker', daemon=False,
+                  self.poll_seconds, worker_id),
+            name='sdf-fit-worker-{}'.format(slot + 1), daemon=False,
         )
-        self.worker_process.start()
-        print('Fit worker: pid {}'.format(self.worker_process.pid))
+        process.start()
+        self.worker_processes[slot] = process
+        self.worker_ids[slot] = worker_id
+        print('Fit worker {}: pid {}'.format(slot + 1, process.pid))
 
     def _supervise_worker(self):
         while not self.watch_stop.wait(self.poll_seconds):
             if self.stop_event.is_set():
                 return
-            if self.worker_process is not None \
-                    and not self.worker_process.is_alive():
-                print('Fit worker stopped; restarting')
-                self._start_worker()
+            for slot, process in tuple(self.worker_processes.items()):
+                if process.is_alive():
+                    continue
+                worker_id = self.worker_ids[slot]
+                recovered = self.service.state.recover_running_jobs(
+                    worker_id=worker_id
+                )
+                print('Fit worker {} stopped; recovered {} job(s); restarting'.
+                      format(slot + 1, recovered))
+                self._start_worker(slot)
 
 
-def _worker_main(state_path, stop_event, poll_seconds):
+def _worker_main(state_path, stop_event, poll_seconds, worker_id):
+    # The parent service owns shutdown and signals workers through stop_event.
+    # Ignoring terminal interrupts here avoids one traceback per pool process.
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
     run_worker(
         OperatorState(state_path).initialize(),
         poll_seconds=poll_seconds, stop_event=stop_event,
+        recover=False, worker_id=worker_id,
     )
 
 

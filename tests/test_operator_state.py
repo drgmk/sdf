@@ -1,3 +1,5 @@
+import sqlite3
+
 from .context import sdf
 import sdf.model_policy
 import sdf.operator_state
@@ -132,3 +134,108 @@ def test_interrupted_running_job_is_recovered_for_restart(tmp_path):
     assert job.status == 'queued'
     assert job.started_at is None
     assert job.error == 'worker stopped before completion'
+
+
+def test_workers_claim_different_packages_concurrently(tmp_path):
+    state = sdf.operator_state.OperatorState(tmp_path / 'operator.sqlite')
+    first = tmp_path / 'first'
+    second = tmp_path / 'second'
+    first.mkdir()
+    second.mkdir()
+    for package in (first, second):
+        state.queue_package(
+            package, target_keys=('simbad:{}'.format(package.name),),
+            actor='sdf watcher', reason='Fit new data',
+        )
+
+    one = state.claim_next(worker_id='worker-1')
+    two = state.claim_next(worker_id='worker-2')
+
+    assert {one.package_path, two.package_path} == {
+        str(first.resolve()), str(second.resolve()),
+    }
+    assert {one.worker_id, two.worker_id} == {'worker-1', 'worker-2'}
+
+
+def test_second_job_for_running_package_waits_for_first(tmp_path):
+    state = sdf.operator_state.OperatorState(tmp_path / 'operator.sqlite')
+    first = tmp_path / 'first'
+    second = tmp_path / 'second'
+    first.mkdir()
+    second.mkdir()
+    state.queue_package(
+        first, target_keys=('simbad:A',), actor='Grant', reason='First fit',
+    )
+    running = state.claim_next(worker_id='worker-1')
+    state.save_policy_and_queue(
+        _policy('simbad:A'), package=first, actor='Grant',
+        reason='Changed policy during fit',
+    )
+    state.queue_package(
+        second, target_keys=('simbad:B',), actor='Grant',
+        reason='Independent fit',
+    )
+
+    independent = state.claim_next(worker_id='worker-2')
+    assert independent.package_path == str(second.resolve())
+    assert state.claim_next(worker_id='worker-3') is None
+
+    state.finish(running.id)
+    waiting = state.claim_next(worker_id='worker-3')
+    assert waiting.package_path == str(first.resolve())
+
+
+def test_recovery_can_be_limited_to_failed_worker(tmp_path):
+    state = sdf.operator_state.OperatorState(tmp_path / 'operator.sqlite')
+    for name in ('first', 'second'):
+        package = tmp_path / name
+        package.mkdir()
+        state.queue_package(
+            package, target_keys=('simbad:{}'.format(name),),
+            actor='sdf watcher', reason='Fit new data',
+        )
+    state.claim_next(worker_id='worker-1')
+    state.claim_next(worker_id='worker-2')
+
+    assert state.recover_running_jobs(worker_id='worker-1') == 1
+    assert len(state.jobs(status='queued')) == 1
+    running = state.jobs(status='running')
+    assert len(running) == 1
+    assert running[0].worker_id == 'worker-2'
+
+
+def test_version_one_operator_database_is_migrated_in_place(tmp_path):
+    path = tmp_path / 'operator.sqlite'
+    with sqlite3.connect(path) as connection:
+        connection.executescript('''
+            CREATE TABLE operator_metadata (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            INSERT INTO operator_metadata VALUES ('schema_version', '1');
+            CREATE TABLE fit_jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                package_path TEXT NOT NULL,
+                action TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                status TEXT NOT NULL,
+                actor TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                started_at TEXT,
+                completed_at TEXT,
+                error TEXT
+            );
+        ''')
+
+    sdf.operator_state.OperatorState(path).initialize()
+
+    with sqlite3.connect(path) as connection:
+        version = connection.execute(
+            "SELECT value FROM operator_metadata WHERE key = 'schema_version'"
+        ).fetchone()[0]
+        columns = {
+            row[1] for row in connection.execute('PRAGMA table_info(fit_jobs)')
+        }
+    assert version == '2'
+    assert 'worker_id' in columns

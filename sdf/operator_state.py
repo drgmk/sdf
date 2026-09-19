@@ -12,7 +12,7 @@ import sqlite3
 from .model_policy import TargetModelPolicy
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -38,6 +38,7 @@ class FitJob:
     started_at: str | None
     completed_at: str | None
     error: str | None
+    worker_id: str | None
 
 
 class OperatorState:
@@ -79,10 +80,13 @@ class OperatorState:
                     created_at TEXT NOT NULL,
                     started_at TEXT,
                     completed_at TEXT,
-                    error TEXT
+                    error TEXT,
+                    worker_id TEXT
                 );
                 CREATE INDEX IF NOT EXISTS fit_jobs_status
                     ON fit_jobs(status, id);
+                CREATE INDEX IF NOT EXISTS fit_jobs_active_package
+                    ON fit_jobs(status, package_path);
             ''')
             row = connection.execute(
                 "SELECT value FROM operator_metadata "
@@ -92,6 +96,21 @@ class OperatorState:
                 connection.execute(
                     'INSERT INTO operator_metadata VALUES (?, ?)',
                     ('schema_version', str(SCHEMA_VERSION)),
+                )
+            elif int(row['value']) == 1:
+                columns = {
+                    value['name'] for value in connection.execute(
+                        'PRAGMA table_info(fit_jobs)'
+                    )
+                }
+                if 'worker_id' not in columns:
+                    connection.execute(
+                        'ALTER TABLE fit_jobs ADD COLUMN worker_id TEXT'
+                    )
+                connection.execute(
+                    "UPDATE operator_metadata SET value = ? "
+                    "WHERE key = 'schema_version'",
+                    (str(SCHEMA_VERSION),),
                 )
             elif int(row['value']) != SCHEMA_VERSION:
                 raise ValueError(
@@ -259,30 +278,36 @@ class OperatorState:
             ).fetchall()
         return tuple(_fit_job(row) for row in rows)
 
-    def claim_next(self):
-        """Atomically claim the oldest queued fit job."""
+    def claim_next(self, *, worker_id=None):
+        """Atomically claim work not already running for the same package."""
 
         self.initialize()
         connection = _connect(self.path)
         try:
             connection.execute('BEGIN IMMEDIATE')
             row = connection.execute(
-                "SELECT * FROM fit_jobs WHERE status = 'queued' "
-                'ORDER BY id LIMIT 1'
+                "SELECT queued.* FROM fit_jobs AS queued "
+                "WHERE queued.status = 'queued' AND NOT EXISTS ("
+                "SELECT 1 FROM fit_jobs AS running "
+                "WHERE running.status = 'running' "
+                "AND running.package_path = queued.package_path) "
+                'ORDER BY queued.id LIMIT 1'
             ).fetchone()
             if row is None:
                 connection.commit()
                 return None
             started_at = _now()
             connection.execute(
-                "UPDATE fit_jobs SET status = 'running', started_at = ? "
+                "UPDATE fit_jobs SET status = 'running', started_at = ?, "
+                "worker_id = ? "
                 'WHERE id = ?',
-                (started_at, row['id']),
+                (started_at, worker_id, row['id']),
             )
             connection.commit()
             values = dict(row)
             values['status'] = 'running'
             values['started_at'] = started_at
+            values['worker_id'] = worker_id
             return _fit_job(values)
         finally:
             connection.close()
@@ -301,18 +326,25 @@ class OperatorState:
             if cursor.rowcount != 1:
                 raise ValueError('fit job {} is not running'.format(job_id))
 
-    def recover_running_jobs(self):
-        """Return interrupted jobs to the queue when a sole worker starts."""
+    def recover_running_jobs(self, *, worker_id=None):
+        """Return interrupted jobs, optionally for one worker, to the queue."""
 
         with _connection(self.path) as connection:
+            where = "status = 'running'"
+            values = []
+            if worker_id is not None:
+                where += ' AND worker_id = ?'
+                values.append(worker_id)
             cursor = connection.execute(
                 '''
                 UPDATE fit_jobs
                 SET status = 'queued', started_at = NULL,
                     completed_at = NULL,
-                    error = 'worker stopped before completion'
-                WHERE status = 'running'
-                '''
+                    error = 'worker stopped before completion',
+                    worker_id = NULL
+                WHERE {}
+                '''.format(where),
+                values,
             )
             return cursor.rowcount
 
@@ -448,6 +480,7 @@ def _fit_job(row):
         actor=row['actor'], reason=row['reason'],
         created_at=row['created_at'], started_at=row['started_at'],
         completed_at=row['completed_at'], error=row['error'],
+        worker_id=row['worker_id'],
     )
 
 

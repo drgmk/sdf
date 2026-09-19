@@ -216,14 +216,49 @@ def sdf_index():
     """Build or verify the retained-fit query index."""
 
     parser = argparse.ArgumentParser(
-        description='Manage the rebuildable SDF result index'
+        description=(
+            'Build or check the disposable SQLite index of retained SDF fits.\n\n'
+            'The index makes catalog and sample queries fast by projecting '
+            'package-local fit results below an SDB export root. It contains '
+            'no operator policy or job state and can always be rebuilt.'
+        ),
+        epilog=(
+            'Examples:\n'
+            '  sdf-index rebuild /data/sdb/export\n'
+            '  sdf-index verify /data/sdb/export\n'
+            '  sdf-index rebuild /data/sdb/export --database /data/index.sqlite'
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subparsers = parser.add_subparsers(dest='command', required=True)
-    for command in ('rebuild', 'verify'):
-        subparser = subparsers.add_parser(command)
-        subparser.add_argument('root', help='Root containing exported packages')
+    commands = (
+        (
+            'rebuild',
+            'Rebuild the index from current package-local retained fits.',
+            'Existing rebuildable index contents are replaced. Retained fit '
+            'artifacts and the separate operator-state database are unchanged.',
+        ),
+        (
+            'verify',
+            'Check the index against its export root and retained fits.',
+            'Print the current index summary when it is valid; otherwise print '
+            'each problem and exit with status 1.',
+        ),
+    )
+    for command, summary, detail in commands:
+        subparser = subparsers.add_parser(
+            command,
+            help=summary,
+            description=summary + '\n\n' + detail,
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
         subparser.add_argument(
-            '--database', help='Index path (default: ROOT/sdf-results.sqlite)'
+            'root', metavar='EXPORT_ROOT',
+            help='SDB export root containing fitting-package directories',
+        )
+        subparser.add_argument(
+            '--database', metavar='PATH',
+            help='index SQLite path (default: EXPORT_ROOT/sdf-results.sqlite)',
         )
     args = parser.parse_args()
     root = os.path.abspath(args.root)
@@ -242,58 +277,179 @@ def sdf_fits():
     """Inspect and select retained package fits."""
 
     parser = argparse.ArgumentParser(
-        description='Manage retained fits and the SDF export catalog'
+        description=(
+            'Fit, inspect, present, or serve retained SDF fitting packages.\n\n'
+            'Package commands operate on one directory exported by SDB. The '
+            'serve command operates on the complete export root and provides '
+            'the catalog-wide operator UI, fit queue, and export watcher.'
+        ),
+        epilog=(
+            'Examples:\n'
+            '  sdf-fits serve /data/sdb/export --actor Grant\n'
+            '  sdf-fits list /data/sdb/export/sdbid-v3-...\n'
+            '  sdf-fits render /data/sdb/export/sdbid-v3-... --operator\n'
+            '  sdf-fits select PACKAGE --default FIT --display FIT OTHER_FIT\n\n'
+            'Run `sdf-fits COMMAND --help` for command-specific details.'
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subparsers = parser.add_subparsers(dest='command', required=True)
-    list_parser = subparsers.add_parser('list')
-    list_parser.add_argument('package')
-    list_parser.add_argument('--json', action='store_true')
-    select_parser = subparsers.add_parser('select')
-    select_parser.add_argument('package')
-    select_parser.add_argument('--default')
-    select_parser.add_argument('--display', nargs='+')
-    render_parser = subparsers.add_parser('render')
-    render_parser.add_argument('package')
-    render_parser.add_argument('--output')
+    list_parser = _sdf_fits_command(
+        subparsers, 'list',
+        'List all retained candidate fits for one package.',
+        'Shows the fit reference, evidence, default/display state, and model '
+        'summary. Fit references may be full IDs, storage names, or '
+        'unambiguous prefixes.',
+    )
+    _package_argument(list_parser)
+    list_parser.add_argument(
+        '--json', action='store_true',
+        help='write the complete candidate records as indented JSON',
+    )
+    select_parser = _sdf_fits_command(
+        subparsers, 'select',
+        'Choose the default fit and the fits shown on the public page.',
+        'Updates fits/selection.json, regenerates the package page, and '
+        'refreshes a discoverable result index. This does not run a fit.',
+    )
+    _package_argument(select_parser)
+    select_parser.add_argument(
+        '--default', metavar='FIT',
+        help='fit reference to make the default; retain the current default if omitted',
+    )
+    select_parser.add_argument(
+        '--display', nargs='+', metavar='FIT',
+        help='replace the displayed fit-tab list; retain the current list if omitted',
+    )
+    render_parser = _sdf_fits_command(
+        subparsers, 'render',
+        'Regenerate or preview the HTML SED page for one package.',
+        'Uses the retained compact fit artifacts; MultiNest is not rerun. By '
+        'default the package selection controls the tabs.',
+    )
+    _package_argument(render_parser)
+    render_parser.add_argument(
+        '--output', metavar='PATH',
+        help='HTML output path (default: PACKAGE/index.html or operator.html)',
+    )
     render_parser.add_argument(
         '--operator', action='store_true',
         help='Render the shared page with the local operator drawer',
     )
     render_parser.add_argument(
         '--fit', action='append', dest='fits',
-        help='Render only this retained fit (repeat for several tabs)',
+        metavar='FIT',
+        help='render only this retained fit; repeat for several tabs',
     )
-    fit_parser = subparsers.add_parser('fit')
-    fit_parser.add_argument('package')
+    fit_parser = _sdf_fits_command(
+        subparsers, 'fit',
+        'Synchronously fit one explicit model combination.',
+        'Assign exactly one stellar model to every physical contributor. '
+        'Repeat --disk to add multiple disk components to an owner. An '
+        'identical current candidate is reused unless --force is supplied.',
+        examples=(
+            "sdf-fits fit PACKAGE --stellar 'HD 113766A=phoenix_sol' "
+            "--stellar 'HD 113766B=phoenix_sol'",
+            "sdf-fits fit PACKAGE --stellar 'HD 113766A=phoenix_sol' "
+            "--disk 'HD 113766A=modbb_disk_r'",
+        ),
+    )
+    _package_argument(fit_parser)
     fit_parser.add_argument(
         '--stellar', action='append', required=True, type=_model_assignment,
         metavar='TARGET=MODEL',
+        help='stellar model owned by TARGET; repeat once per physical contributor',
     )
     fit_parser.add_argument(
         '--disk', action='append', default=[], type=_model_assignment,
         metavar='TARGET=MODEL',
+        help='disk model owned by TARGET; repeat for each requested disk component',
     )
-    fit_parser.add_argument('--force', action='store_true')
-    fit_parser.add_argument('--no-spectra', action='store_true')
-    refit_parser = subparsers.add_parser('refit')
-    refit_parser.add_argument('package')
-    refit_parser.add_argument('fit')
-    refit_parser.add_argument('--no-spectra', action='store_true')
-    serve_parser = subparsers.add_parser('serve')
+    fit_parser.add_argument(
+        '--force', action='store_true',
+        help='rerun the sampler even when this exact current candidate exists',
+    )
+    fit_parser.add_argument(
+        '--no-spectra', action='store_true',
+        help='exclude spectra from the fitted dataset',
+    )
+    refit_parser = _sdf_fits_command(
+        subparsers, 'refit',
+        'Rerun the sampler for one retained candidate.',
+        'Reuses the retained candidate model definition, replaces that exact '
+        'candidate artifact, and regenerates the package page.',
+    )
+    _package_argument(refit_parser)
+    refit_parser.add_argument(
+        'fit', metavar='FIT',
+        help='full candidate ID, storage name, display name, or unambiguous prefix',
+    )
+    refit_parser.add_argument(
+        '--no-spectra', action='store_true',
+        help='exclude spectra from the fitted dataset',
+    )
+    serve_parser = _sdf_fits_command(
+        subparsers, 'serve',
+        'Serve the catalog-wide SDF operator UI and fitting loop.',
+        'Starts a localhost web UI over every package in EXPORT_ROOT. By '
+        'default it also supervises one fit worker and watches for new or '
+        'changed SDB exports. Existing unfit packages are not queued unless '
+        '--autofit-existing is supplied. Use --workers to fit independent '
+        'systems concurrently; one package is never run by two workers.',
+        examples=(
+            'sdf-fits serve /data/sdb/export --actor Grant',
+            'sdf-fits serve /data/sdb/export --workers 4 --autofit-existing',
+            'sdf-fits serve /data/sdb/export --no-worker --no-watch',
+        ),
+    )
     serve_parser.add_argument(
         'package', metavar='EXPORT_ROOT',
         help='SDB export root containing all fitting packages',
     )
-    serve_parser.add_argument('--state')
-    serve_parser.add_argument('--actor')
-    serve_parser.add_argument('--host', default='127.0.0.1')
-    serve_parser.add_argument('--port', type=int, default=8765)
-    serve_parser.add_argument('--index')
-    serve_parser.add_argument('--rebuild-index', action='store_true')
-    serve_parser.add_argument('--no-worker', action='store_true')
-    serve_parser.add_argument('--no-watch', action='store_true')
-    serve_parser.add_argument('--autofit-existing', action='store_true')
-    serve_parser.add_argument('--poll-seconds', type=float, default=5.0)
+    serve_parser.add_argument(
+        '--state', metavar='PATH',
+        help='durable policy/job SQLite path (default: EXPORT_ROOT/sdf-operator.sqlite)',
+    )
+    serve_parser.add_argument(
+        '--actor',
+        help='initial operator name; defaults to the last actor stored in --state',
+    )
+    serve_parser.add_argument(
+        '--host', default='127.0.0.1',
+        help='bind host (default: 127.0.0.1)',
+    )
+    serve_parser.add_argument(
+        '--port', type=int, default=8765,
+        help='TCP port (default: 8765)',
+    )
+    serve_parser.add_argument(
+        '--index', metavar='PATH',
+        help='rebuildable result-index SQLite path (default: EXPORT_ROOT/sdf-results.sqlite)',
+    )
+    serve_parser.add_argument(
+        '--rebuild-index', action='store_true',
+        help='rebuild the result index from retained fits before serving',
+    )
+    serve_parser.add_argument(
+        '--no-worker', action='store_true',
+        help='do not start the supervised asynchronous fit worker',
+    )
+    serve_parser.add_argument(
+        '--workers', type=_positive_int, default=1, metavar='N',
+        help='fit up to N independent systems concurrently (default: 1)',
+    )
+    serve_parser.add_argument(
+        '--no-watch', action='store_true',
+        help='do not watch the export root for new or changed packages',
+    )
+    serve_parser.add_argument(
+        '--autofit-existing', action='store_true',
+        help='queue the existing unfit backlog when the export watcher starts',
+    )
+    serve_parser.add_argument(
+        '--poll-seconds', type=float, default=5.0, metavar='SECONDS',
+        help='worker and export-watcher polling interval (default: 5)',
+    )
     args = parser.parse_args()
 
     if args.command == 'serve':
@@ -301,7 +457,8 @@ def sdf_fits():
             args.package, index_path=args.index, state_path=args.state,
             actor=args.actor, rebuild=args.rebuild_index,
             host=args.host, port=args.port,
-            worker=not args.no_worker, watch=not args.no_watch,
+            worker=not args.no_worker, workers=args.workers,
+            watch=not args.no_watch,
             autofit_existing=args.autofit_existing,
             poll_seconds=args.poll_seconds,
         )
@@ -360,14 +517,55 @@ def sdf_fits():
 def sdf_jobs():
     """Inspect or run the asynchronous operator fit queue."""
 
-    parser = argparse.ArgumentParser(description='Manage queued SDF fit jobs')
-    parser.add_argument('--state', required=True, help='Operator-state SQLite')
+    parser = argparse.ArgumentParser(
+        description=(
+            'Inspect or run the asynchronous SDF operator fit queue.\n\n'
+            'This is mainly useful with `sdf-fits serve --no-worker`, for '
+            'headless workers, and for queue diagnostics. Only one worker '
+            'should consume a given operator-state database.'
+        ),
+        epilog=(
+            'Examples:\n'
+            '  sdf-jobs --state /data/sdb/export/sdf-operator.sqlite list\n'
+            '  sdf-jobs --state /data/sdb/export/sdf-operator.sqlite list --status queued\n'
+            '  sdf-jobs --state /data/sdb/export/sdf-operator.sqlite run --once\n'
+            '  sdf-jobs --state /data/sdb/export/sdf-operator.sqlite run'
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        '--state', required=True, metavar='PATH',
+        help='durable operator policy and fit-job SQLite database',
+    )
     subparsers = parser.add_subparsers(dest='command', required=True)
-    list_parser = subparsers.add_parser('list')
-    list_parser.add_argument('--status')
-    run_parser = subparsers.add_parser('run')
-    run_parser.add_argument('--once', action='store_true')
-    run_parser.add_argument('--poll-seconds', type=float, default=5.0)
+    list_parser = subparsers.add_parser(
+        'list',
+        help='List queued and completed fit jobs as JSON.',
+        description=(
+            'List fit jobs newest first as indented JSON. Filter by an exact '
+            'status when diagnosing the queue.'
+        ),
+    )
+    list_parser.add_argument(
+        '--status', choices=('queued', 'running', 'completed', 'failed'),
+        help='show only jobs with this status',
+    )
+    run_parser = subparsers.add_parser(
+        'run',
+        help='Run fit jobs from the queue.',
+        description=(
+            'Claim and run queued jobs serially. On startup, jobs left running '
+            'by an interrupted sole worker are returned to the queue.'
+        ),
+    )
+    run_parser.add_argument(
+        '--once', action='store_true',
+        help='run at most one queued job and exit',
+    )
+    run_parser.add_argument(
+        '--poll-seconds', type=float, default=5.0, metavar='SECONDS',
+        help='queue polling interval for the continuous worker (default: 5)',
+    )
     args = parser.parse_args()
     state = OperatorState(args.state).initialize()
     if args.command == 'list':
@@ -389,6 +587,36 @@ def _model_assignment(value):
             'model assignment must be TARGET=MODEL'
         )
     return owner.strip(), model_name.strip()
+
+
+def _positive_int(value):
+    try:
+        parsed = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError('must be a positive integer') from error
+    if parsed < 1:
+        raise argparse.ArgumentTypeError('must be a positive integer')
+    return parsed
+
+
+def _sdf_fits_command(subparsers, name, summary, detail, examples=()):
+    epilog = None
+    if examples:
+        epilog = 'Examples:\n  ' + '\n  '.join(examples)
+    return subparsers.add_parser(
+        name,
+        help=summary,
+        description=summary + '\n\n' + detail,
+        epilog=epilog,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+
+def _package_argument(parser):
+    parser.add_argument(
+        'package', metavar='PACKAGE',
+        help='fitting-package directory containing exported rawphot inputs',
+    )
 
 
 def sdf_cleanup():

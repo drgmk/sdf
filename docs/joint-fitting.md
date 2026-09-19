@@ -127,21 +127,39 @@ operation, run one loopback-only service over the whole SDB export root:
 sdf-fits serve /path/to/export --actor Grant
 ```
 
+For a backlog, fit independent systems concurrently with a bounded worker
+pool:
+
+```shell
+sdf-fits serve /path/to/export --actor Grant --workers 4 --autofit-existing
+```
+
 The catalog home page includes every currently exported fitting package,
 including unfit systems. It provides target/SDB-ID search, fit-state filters,
-sample views sourced from the latest completed SDB export manifests, a global
+sample views sourced from the latest complete sample-view snapshot in the SDB
+export manifests (independent of whether that run selected one target, a
+sample, or all targets), a global
 job list, and links to the shared public/operator SED page for each fitted
 system. An unfit system instead gets a low-friction initial-fit action with a
 pre-filled reason.
 
 By default the same process supervises one isolated fit worker and watches the
-export tree for new or changed rawphot/topology inputs. New and stale packages
-are indexed and queued automatically; the existing unfit backlog is left alone
-unless `--autofit-existing` is supplied. Useful development controls are
-`--no-worker`, `--no-watch`, `--rebuild-index`, and `--poll-seconds`. Interrupted
-`running` jobs return to the queue when the sole worker restarts. The result
-index defaults to `/path/to/export/sdf-results.sqlite` and durable policy/job
-state to `/path/to/export/sdf-operator.sqlite`.
+export tree for new or changed rawphot/topology inputs. `--workers N` starts N
+isolated worker processes, each fitting one system at a time. Atomic queue
+claims allow those workers to share the operator database, while package-level
+exclusion prevents an older fit and a newly requested refit of the same system
+from overlapping. Start conservatively because each MultiNest process has its
+own model arrays and memory footprint; the useful value is normally bounded by
+both CPU cores and available RAM.
+
+New and stale packages are indexed and queued automatically; the existing
+unfit backlog is left alone unless `--autofit-existing` is supplied. Useful
+development controls are `--workers`, `--no-worker`, `--no-watch`,
+`--rebuild-index`, and `--poll-seconds`. Interrupted `running` jobs return to
+the queue at service startup. If an individual pool worker fails, only that
+worker's job is recovered before its slot is restarted. The result index
+defaults to `/path/to/export/sdf-results.sqlite` and durable policy/job state
+to `/path/to/export/sdf-operator.sqlite`.
 
 The drawer exposes model choices for each physical contributor, but actor,
 reason, and the queue action apply once to the system. Changed contributor
