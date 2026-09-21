@@ -257,12 +257,23 @@ def canonical_fit_source(source):
     if not source.exists():
         raise utils.SdfError('fit input does not exist: {}'.format(source))
     if source.is_dir():
+        rawphot = sorted(source.glob('*-rawphot.txt'))
+        marked = next((
+            path for path in rawphot
+            if 'sdf_package' in _rawphot_package_keywords(path)
+        ), None)
+        if marked is not None:
+            package = _explicit_package_directory(marked)
+            if package != source:
+                raise utils.SdfError(
+                    '{} points at a different fit package'.format(marked)
+                )
+            return source
         if (
             (source / 'joint-fit.yml').is_file() or
             (source / 'spectra.yml').is_file()
         ):
             return source
-        rawphot = sorted(source.glob('*-rawphot.txt'))
         if len(rawphot) == 1:
             return rawphot[0]
         raise utils.SdfError(
@@ -274,12 +285,96 @@ def canonical_fit_source(source):
         raise utils.SdfError(
             'fit input is not a rawphot file: {}'.format(source)
         )
+    package = _explicit_package_directory(source)
+    if package is not None:
+        return package
     if (
         (source.parent / 'joint-fit.yml').is_file() or
         (source.parent / 'spectra.yml').is_file()
     ):
         return source.parent
     return source
+
+
+def _explicit_package_directory(rawphot):
+    """Resolve and validate the package pointers exported in rawphot files."""
+
+    keywords = _rawphot_package_keywords(rawphot)
+    marker = keywords.get('sdf_package')
+    if marker is None:
+        if 'spectra_manifest' in keywords:
+            raise utils.SdfError(
+                '{} has spectra_manifest without sdf_package'.format(rawphot)
+            )
+        return None
+    if marker != '.':
+        raise utils.SdfError(
+            '{} has unsupported sdf_package {!r}; expected \'.\''.format(
+                rawphot, marker
+            )
+        )
+
+    package = rawphot.parent.resolve()
+    members = sorted(package.glob('*-rawphot.txt'))
+    member_keywords = {
+        path: _rawphot_package_keywords(path) for path in members
+    }
+    incomplete = [
+        path.name for path, values in member_keywords.items()
+        if values.get('sdf_package') != '.'
+    ]
+    if incomplete:
+        raise utils.SdfError(
+            '{} has rawphot files without the same sdf_package marker: {}'.
+            format(package, ', '.join(incomplete))
+        )
+    spectra_references = {
+        values.get('spectra_manifest')
+        for values in member_keywords.values()
+    }
+    if len(spectra_references) != 1:
+        raise utils.SdfError(
+            '{} has inconsistent spectra_manifest pointers'.format(package)
+        )
+    spectra_reference = next(iter(spectra_references))
+    if spectra_reference is not None:
+        if spectra_reference != 'spectra.yml':
+            raise utils.SdfError(
+                '{} has unsupported spectra_manifest {!r}; expected '
+                "'spectra.yml'".format(rawphot, spectra_reference)
+            )
+        manifest = package / spectra_reference
+        if not manifest.is_file():
+            raise utils.SdfError(
+                '{} references missing spectra manifest {}'.format(
+                    rawphot, manifest
+                )
+            )
+    return package
+
+
+def _rawphot_package_keywords(rawphot):
+    """Read the two package pointers without parsing the full IPAC table."""
+
+    values = {}
+    with Path(rawphot).open('r', encoding='utf-8') as handle:
+        for line in handle:
+            if not line.startswith('\\'):
+                break
+            name, separator, value = line[1:].partition('=')
+            name = name.strip()
+            if not separator or name not in (
+                'sdf_package', 'spectra_manifest'
+            ):
+                continue
+            value = value.strip()
+            if (
+                len(value) >= 2 and value[0] == value[-1]
+                and value[0] in ("'", '"')
+            ):
+                value = value[1:-1]
+            values[name] = value
+    return values
 
 
 def discover_fit_sources(paths):

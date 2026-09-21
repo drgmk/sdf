@@ -7,7 +7,7 @@ import sdf.dataset
 
 
 def _write_rawphot(path, sdbid='sdbid-v3-test', main_id='HD  123',
-                   flux=1.0):
+                   flux=1.0, package=False, spectra_manifest=None):
     table = Table(
         rows=[('2MJ', flux, 0.1, 0.0, 0, 'Jy', 'test', 'note', 0)],
         names=('Band', 'Phot', 'Err', 'Sys', 'Lim', 'Unit', 'bibcode',
@@ -18,6 +18,12 @@ def _write_rawphot(path, sdbid='sdbid-v3-test', main_id='HD  123',
         'main_id': {'value': main_id},
         'sp_type': {'value': 'G2V'},
     }
+    if package:
+        table.meta['keywords']['sdf_package'] = {'value': '.'}
+    if spectra_manifest is not None:
+        table.meta['keywords']['spectra_manifest'] = {
+            'value': spectra_manifest,
+        }
     table.write(path, format='ascii.ipac')
 
 
@@ -169,3 +175,49 @@ def test_ordinary_directory_with_multiple_files_is_not_one_dataset(tmp_path):
         (tmp_path / 'one-rawphot.txt').resolve(),
         (tmp_path / 'two-rawphot.txt').resolve(),
     )
+
+
+def test_explicit_package_marker_groups_self_mapped_rawphot_files(tmp_path):
+    first = tmp_path / 'one-rawphot.txt'
+    second = tmp_path / 'two-rawphot.txt'
+    _write_rawphot(
+        first, sdbid='one', main_id='HD 1', package=True,
+    )
+    _write_rawphot(
+        second, sdbid='two', main_id='HD 2', package=True,
+    )
+
+    assert sdf.dataset.discover_fit_sources((tmp_path, first, second)) == (
+        tmp_path.resolve(),
+    )
+    dataset = sdf.dataset.FitDataset.from_path(first)
+
+    assert [target.sdbid for target in dataset.targets] == ['one', 'two']
+    assert [observation.observation_id
+            for observation in dataset.observations] == ['one', 'two']
+    assert dataset.manifests == ()
+
+
+def test_explicit_spectra_manifest_must_exist(tmp_path):
+    rawphot = tmp_path / 'one-rawphot.txt'
+    _write_rawphot(
+        rawphot, sdbid='one', main_id='HD 1', package=True,
+        spectra_manifest='spectra.yml',
+    )
+
+    with pytest.raises(
+        sdf.utils.SdfError, match='references missing spectra manifest'
+    ):
+        sdf.dataset.FitDataset.from_path(rawphot)
+
+
+def test_explicit_package_keywords_must_agree_across_members(tmp_path):
+    first = tmp_path / 'one-rawphot.txt'
+    second = tmp_path / 'two-rawphot.txt'
+    _write_rawphot(
+        first, sdbid='one', main_id='HD 1', package=True,
+    )
+    _write_rawphot(second, sdbid='two', main_id='HD 2')
+
+    with pytest.raises(sdf.utils.SdfError, match='without the same'):
+        sdf.dataset.FitDataset.from_path(first)

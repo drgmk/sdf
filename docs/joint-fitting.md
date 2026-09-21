@@ -1,9 +1,10 @@
 # Joint-fitting development workflow
 
 Joint fitting is currently being developed on `codex/joint-fitting`. Ordinary
-single-file fitting remains on the established `Result` path. A directory
-containing `joint-fit.yml`, or any rawphot file inside that directory, is
-recognized as one package and routed through the new fitting core.
+single-file fitting remains on the established `Result` path. A directory is
+recognized as one package when it contains `joint-fit.yml`, `spectra.yml`, or
+rawphot files carrying the explicit `sdf_package='.'` keyword. Any rawphot
+member resolves to that package and is routed through the new fitting core.
 
 Install the branch into the `sdf` environment after changing source:
 
@@ -22,6 +23,18 @@ package once. It uses a package-level `.sdf_lock`; unrelated rawphot files
 retain their per-file locks and existing output behavior.
 
 ## Inputs
+
+SDB package exports put this portable marker in every rawphot member:
+
+```text
+\sdf_package='.'
+```
+
+It distinguishes a package containing several self-mapped rawphot files from
+an ordinary directory of unrelated inputs. A spectral package also declares
+`spectra_manifest='spectra.yml'`; SDF requires the referenced manifest to be
+present and requires all package members to agree. These pointers contain no
+installation-specific paths.
 
 The topology file remains deliberately small:
 
