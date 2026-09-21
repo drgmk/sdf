@@ -59,6 +59,10 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     assert 'result.json' in html
     assert 'posterior-' in html
     assert 'fit-controls' not in html
+    assert 'aria-label="Search SDF catalog"' in html
+    assert 'aria-label="Footer navigation"' in html
+    assert '>sdf home</a>' in html
+    assert 'toolbar_location":"below"' in html
 
 
 def test_operator_results_page_extends_public_page_with_fit_drawer(tmp_path):

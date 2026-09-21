@@ -223,7 +223,7 @@ def _candidate_panel(candidate, dataset, owner_labels, component_labels,
         plot.grid.grid_line_alpha = 0.18
         plot.outline_line_color = '#d1d5db'
     if sed.legend:
-        sed.legend.location = 'top_left'
+        sed.legend.location = 'top_right'
         sed.legend.orientation = 'horizontal'
         sed.legend.background_fill_alpha = 0.78
         sed.legend.border_line_alpha = 0.25
@@ -233,7 +233,7 @@ def _candidate_panel(candidate, dataset, owner_labels, component_labels,
         sed.legend.spacing = 8
 
     plots = gridplot(
-        [[sed], [residual]], toolbar_location='above', merge_tools=True,
+        [[sed], [residual]], toolbar_location='below', merge_tools=True,
         sizing_mode='stretch_width',
     )
 
@@ -536,8 +536,7 @@ def _candidate_header(candidate, dataset, owner_labels, component_labels,
     status = 'current input' if candidate.is_current(dataset) else 'input changed'
     product_links = _candidate_product_links(candidate)
     return '''
-<section style="background:white;border:1px solid #dfe5ec;border-radius:7px;
-padding:8px 10px;margin:0 0 6px;width:100%;max-width:none;
+<section style="padding:8px 10px 6px;margin:0;width:100%;max-width:none;
 font:13px ui-sans-serif,system-ui,sans-serif">
   <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
     <strong style="font-size:15px">Fit results{}</strong>
