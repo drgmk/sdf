@@ -749,7 +749,7 @@ def _current_package_structure(package, *, allow_empty=False):
     if not any(package.glob('*-rawphot.txt')):
         return targets, observations
     try:
-        dataset = FitDataset.from_path(package, nospec=True)
+        dataset = FitDataset.from_path(package)
     except (OSError, TypeError, ValueError):
         if allow_empty:
             return targets, observations
@@ -823,19 +823,35 @@ def _is_summary(value):
 
 
 def _package_input_fingerprint(package):
-    paths = set(package.glob('*-rawphot.txt'))
-    topology = package / 'joint-fit.yml'
-    if topology.is_file():
-        paths.add(topology)
-    if not paths:
+    if not any(package.glob('*-rawphot.txt')):
         return None
-    digest = sha256()
-    for path in sorted(paths, key=lambda value: value.name):
-        digest.update(path.name.encode('utf-8'))
-        digest.update(b'\0')
-        digest.update(path.read_bytes())
-        digest.update(b'\0')
-    return digest.hexdigest()
+    from .candidate_library import input_fingerprint
+    from .dataset import FitDataset
+
+    try:
+        dataset = FitDataset.from_path(package)
+    except Exception:
+        # Retained candidate libraries can outlive a readable input format.
+        # Keep those libraries indexable while still tracking every package
+        # input that can affect a current fit.
+        paths = set(package.glob('*-rawphot.txt'))
+        for name in ('joint-fit.yml', 'spectra.yml'):
+            manifest = package / name
+            if manifest.is_file():
+                paths.add(manifest)
+        spectra = package / 'spectra'
+        if spectra.is_dir():
+            paths.update(path for path in spectra.rglob('*') if path.is_file())
+        digest = sha256()
+        for path in sorted(
+            paths, key=lambda value: value.relative_to(package).as_posix()
+        ):
+            digest.update(path.relative_to(package).as_posix().encode('utf-8'))
+            digest.update(b'\0')
+            digest.update(path.read_bytes())
+            digest.update(b'\0')
+        return digest.hexdigest()
+    return input_fingerprint(dataset)
 
 
 def package_input_fingerprint(package):

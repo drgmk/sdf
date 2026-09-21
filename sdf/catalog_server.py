@@ -106,7 +106,7 @@ class CatalogService:
     def queue_package(self, package_path, *, actor=None, reason=None,
                       remember_actor=True):
         directory = self.package_directory(package_path)
-        dataset = FitDataset.from_path(directory, nospec=True)
+        dataset = FitDataset.from_path(directory)
         if dataset is None:
             raise ValueError('{} has no usable observations'.format(directory))
         actor = str(actor or self.actor).strip()

@@ -33,3 +33,31 @@ def test_sync_refreshes_changed_input_without_duplicate_active_job(tmp_path):
     assert result['changed'] == ('package',)
     assert result['queued'] == ()
     assert len(service.state.jobs()) == 1
+
+
+def test_input_signature_tracks_spectral_manifest_and_asset(tmp_path):
+    package = tmp_path / 'package'
+    spectra = package / 'spectra'
+    spectra.mkdir(parents=True)
+    _write_rawphot(
+        package / 'target-rawphot.txt', sdbid='sdb-test', main_id='HD 123',
+    )
+    spectrum = spectra / 'irs.csv'
+    spectrum.write_text('wavelength,flux,error\n8,1,0.1\n', encoding='utf-8')
+    manifest = package / 'spectra.yml'
+    manifest.write_text('version: 1\nspectra: []\n', encoding='utf-8')
+
+    first = sdf.catalog_sync._input_signature(package)
+    spectrum.write_text(
+        spectrum.read_text(encoding='utf-8') + '9,1.1,0.1\n',
+        encoding='utf-8',
+    )
+    second = sdf.catalog_sync._input_signature(package)
+    manifest.write_text(
+        manifest.read_text(encoding='utf-8') + '# changed\n',
+        encoding='utf-8',
+    )
+    third = sdf.catalog_sync._input_signature(package)
+
+    assert second != first
+    assert third != second

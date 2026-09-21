@@ -9,6 +9,7 @@ import sdf.candidate_library
 import sdf.dataset
 import sdf.model_selection
 import sdf.spectral_manifest
+import sdf.result_index
 
 
 def _write_csv(path, scale=1.0):
@@ -153,6 +154,10 @@ def test_spectrum_content_and_manifest_change_input_fingerprint(tmp_path):
     )
     first = sdf.dataset.FitDataset.from_package(tmp_path)
     first_fingerprint = sdf.candidate_library.input_fingerprint(first)
+
+    assert sdf.result_index.package_input_fingerprint(
+        tmp_path
+    ) == first_fingerprint
 
     _write_csv(spectrum_path, scale=2.0)
     second = sdf.dataset.FitDataset.from_package(tmp_path)

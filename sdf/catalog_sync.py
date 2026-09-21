@@ -79,10 +79,20 @@ class CatalogSynchronizer:
 
 def _input_signature(package):
     paths = set(package.glob('*-rawphot.txt'))
-    topology = package / 'joint-fit.yml'
-    if topology.is_file():
-        paths.add(topology)
+    for name in ('joint-fit.yml', 'spectra.yml'):
+        manifest = package / name
+        if manifest.is_file():
+            paths.add(manifest)
+    spectra = package / 'spectra'
+    if spectra.is_dir():
+        paths.update(path for path in spectra.rglob('*') if path.is_file())
     return tuple(
-        (path.name, path.stat().st_size, path.stat().st_mtime_ns)
-        for path in sorted(paths, key=lambda value: value.name)
+        (
+            path.relative_to(package).as_posix(),
+            path.stat().st_size,
+            path.stat().st_mtime_ns,
+        )
+        for path in sorted(
+            paths, key=lambda value: value.relative_to(package).as_posix()
+        )
     )
