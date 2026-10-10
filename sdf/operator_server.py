@@ -8,6 +8,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
 import secrets
+import tempfile
 from urllib.parse import parse_qs, urlparse
 
 from .dataset import FitDataset
@@ -71,14 +72,25 @@ class OperatorService:
                 main_id=targets[target_key].main_id,
             )
 
-    def render_page(self, fits=None, operator_api='/api'):
-        output = FitManager(self.package).render(
-            self.package / 'operator.html', fits=fits, operator=True,
-            dataset=self.dataset(),
-            policy_store=self.state, operator_api=operator_api,
-            operator_token=self.token, operator_actor=self.actor,
-        )
-        return output.read_text(encoding='utf-8')
+    def render_page(self, fits=None, operator_api='/api', actor=None,
+                    actor_locked=False):
+        with tempfile.NamedTemporaryFile(
+            prefix='sdf-operator-', suffix='.html', delete=False
+        ) as temporary:
+            name = temporary.name
+        try:
+            output = FitManager(self.package).render(
+                name, fits=fits, operator=True, dataset=self.dataset(),
+                policy_store=self.state, operator_api=operator_api,
+                operator_token=self.token, operator_actor=actor or self.actor,
+                operator_actor_locked=actor_locked,
+            )
+            return output.read_text(encoding='utf-8')
+        finally:
+            try:
+                Path(name).unlink()
+            except FileNotFoundError:
+                pass
 
     def save_policy(self, payload):
         dataset = self.dataset()

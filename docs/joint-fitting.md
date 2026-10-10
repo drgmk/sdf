@@ -197,6 +197,14 @@ job list, and links to the shared public/operator SED page for each fitted
 system. An unfit system instead gets a low-friction initial-fit action with a
 pre-filled reason.
 
+In deployed use this operational catalog now lives below `/admin`, while the
+root page and individual `/system/...` SEDs remain public. Authenticated sample
+views live below `/samples` and retain the legacy per-sample group semantics.
+Apache can reuse the existing `.htpasswd` and `.htgroup` files; see
+[`catalog-auth.md`](catalog-auth.md) for the route model, CLI options, and a
+reverse-proxy example. Local loopback use without those options retains the
+low-friction operator workflow.
+
 By default the same process supervises one isolated fit worker and watches the
 export tree for new or changed rawphot/topology inputs. `--workers N` starts N
 isolated worker processes, each fitting one system at a time. Atomic queue

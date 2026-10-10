@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import asdict
 from functools import partial
+import getpass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -19,8 +20,12 @@ from urllib.parse import parse_qs, quote, unquote, urlparse
 import jinja2
 
 from .catalog_sync import CatalogSynchronizer
+from .catalog_auth import (
+    AuthenticationRequired, AuthorizationDenied, CatalogAuthorizer,
+)
 from .dataset import FitDataset
 from .export_catalog import ExportCatalog
+from .fit_management import FitManager
 from .operator_server import OperatorService
 from .operator_jobs import run_worker
 from .operator_state import OperatorState
@@ -31,7 +36,8 @@ class CatalogService:
     """Application operations shared by the catalog HTTP boundary."""
 
     def __init__(self, root, *, index_path=None, state_path=None, actor=None,
-                 token=None, rebuild=False):
+                 token=None, rebuild=False, auth_user_header=None,
+                 auth_group_file=None, auth_admin_group='admin'):
         self.root = Path(root).expanduser().resolve()
         if not self.root.is_dir():
             raise ValueError('catalog root is not a directory: {}'.format(
@@ -54,9 +60,13 @@ class CatalogService:
         self.state = OperatorState(
             state_path or self.root / 'sdf-operator.sqlite'
         ).initialize()
-        self.actor = actor or self.state.last_actor() or ''
+        self.actor = actor or self.state.last_actor() or getpass.getuser()
         self.token = token or secrets.token_urlsafe(24)
         self.exports = ExportCatalog(self.root)
+        self.auth = CatalogAuthorizer(
+            user_header=auth_user_header, group_file=auth_group_file,
+            admin_group=auth_admin_group, local_actor=self.actor,
+        )
         self._operators = {}
 
     def packages(self, *, query=None, identifiers=None):
@@ -129,7 +139,7 @@ class CatalogService:
         return {'job_id': job_id, 'status': 'queued'}
 
     def render_dashboard(self, query=None, *, status=None, page=1,
-                         per_page=100):
+                         per_page=100, principal=None):
         packages = self.packages(query=query)
         if status:
             packages = tuple(
@@ -144,16 +154,45 @@ class CatalogService:
             packages=packages[start:start + per_page], query=query or '',
             summary=self.summary(), samples=self.exports.samples(),
             status_filter=status or '', total=total, page=page,
-            page_count=page_count,
+            page_count=page_count, admin=True, principal=principal,
+            search_action='/admin/search', page_base='/admin',
+            system_base='/admin/system',
         )
 
-    def render_samples(self):
+    def render_public_home(self):
+        return _render(
+            'catalog_public_home.html', title='SDF', query='',
+            search_action='/search',
+        )
+
+    def render_public_search(self, query, *, page=1, per_page=100):
+        query = str(query or '').strip()
+        if not query:
+            return self.render_public_home()
+        packages = self.packages(query=query)
+        total = len(packages)
+        page_count = max(1, (total + per_page - 1) // per_page)
+        page = min(max(1, int(page)), page_count)
+        start = (page - 1) * per_page
+        return _render(
+            'catalog_public_search.html', title='Search results', query=query,
+            packages=packages[start:start + per_page], total=total,
+            page=page, page_count=page_count, search_action='/search',
+            page_base='/search', system_base='/system',
+        )
+
+    def render_samples(self, principal):
+        samples = tuple(
+            sample for sample in self.exports.samples()
+            if self.auth.can_access_sample(principal, sample.name)
+        )
         return _render(
             'catalog_samples.html', title='Samples',
-            samples=self.exports.samples(),
+            samples=samples, principal=principal, search_action='/search',
+            admin_access=self.auth.admin_group in principal.groups,
         )
 
-    def render_sample(self, name):
+    def render_sample(self, name, principal):
         sample = self.exports.sample(name)
         packages = self.packages(identifiers=sample.identifiers)
         matched = {
@@ -165,9 +204,12 @@ class CatalogService:
             unmatched=tuple(
                 value for value in sample.identifiers if value not in matched
             ),
+            principal=principal, search_action='/search',
+            system_base='/system',
+            admin_access=self.auth.admin_group in principal.groups,
         )
 
-    def render_jobs(self):
+    def render_jobs(self, principal=None):
         jobs = []
         for job in self.state.jobs():
             value = asdict(job)
@@ -178,24 +220,45 @@ class CatalogService:
             except ValueError:
                 value['package'] = job.package_path
             jobs.append(value)
-        return _render('catalog_jobs.html', title='Fit jobs', jobs=jobs)
+        return _render(
+            'catalog_jobs.html', title='Fit jobs', jobs=jobs, admin=True,
+            principal=principal, search_action='/admin/search',
+            system_base='/admin/system',
+        )
 
-    def render_package_state(self, package_path):
+    def render_package_state(self, package_path, *, actor=None, admin=False,
+                             principal=None):
         row = self.package(package_path)
         return _render(
-            'catalog_package.html',
+            'catalog_package.html' if admin else 'catalog_public_package.html',
             title=' / '.join(row['target_labels']) or row['package_path'],
-            package=row, token=self.token, actor=self.actor,
+            package=row, token=self.token, actor=actor or self.actor,
+            actor_locked=self.auth.proxy_enabled, admin=admin,
+            principal=principal,
+            search_action='/admin/search' if admin else '/search',
         )
+
+    def render_public_system(self, package_path):
+        row = self.package(package_path)
+        if row['status'] in {'unfit', 'needs selection'}:
+            return self.render_package_state(package_path)
+        page = self.package_directory(package_path) / 'index.html'
+        if not page.is_file():
+            FitManager(self.package_directory(package_path)).render()
+        return page.read_text(encoding='utf-8')
 
 
 def make_catalog_server(root, *, index_path=None, state_path=None, actor=None,
-                        token=None, rebuild=False, host='127.0.0.1', port=0):
+                        token=None, rebuild=False, host='127.0.0.1', port=0,
+                        auth_user_header=None, auth_group_file=None,
+                        auth_admin_group='admin'):
     if host not in {'127.0.0.1', 'localhost', '::1'}:
         raise ValueError('catalog service must bind to a loopback address')
     service = CatalogService(
         root, index_path=index_path, state_path=state_path, actor=actor,
-        token=token, rebuild=rebuild,
+        token=token, rebuild=rebuild, auth_user_header=auth_user_header,
+        auth_group_file=auth_group_file,
+        auth_admin_group=auth_admin_group,
     )
     handler = partial(_CatalogHandler, service=service)
     server = ThreadingHTTPServer((host, port), handler)
@@ -206,10 +269,14 @@ def make_catalog_server(root, *, index_path=None, state_path=None, actor=None,
 def serve_catalog(root, *, index_path=None, state_path=None, actor=None,
                   rebuild=False, host='127.0.0.1', port=8765,
                   worker=True, workers=1, watch=True, autofit_existing=False,
-                  poll_seconds=5.0):
+                  poll_seconds=5.0, auth_user_header=None,
+                  auth_group_file=None, auth_admin_group='admin'):
     server = make_catalog_server(
         root, index_path=index_path, state_path=state_path, actor=actor,
         rebuild=rebuild, host=host, port=port,
+        auth_user_header=auth_user_header,
+        auth_group_file=auth_group_file,
+        auth_admin_group=auth_admin_group,
     )
     address, actual_port = server.server_address[:2]
     print('SDF catalog: http://{}:{}/'.format(address, actual_port))
@@ -342,33 +409,50 @@ class _CatalogHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
         try:
+            principal = self.service.auth.principal(self.headers)
             if parsed.path == '/':
-                values = parse_qs(parsed.query)
-                query = values.get('q', [''])[0].strip()
-                status = values.get('status', [''])[0].strip()
-                page = int(values.get('page', ['1'])[0])
-                self._html(self.service.render_dashboard(
-                    query or None, status=status or None, page=page,
-                ))
+                self._html(self.service.render_public_home())
                 return
             if parsed.path == '/search':
                 values = parse_qs(parsed.query)
                 query = values.get('q', [''])[0].strip()
+                page = int(values.get('page', ['1'])[0])
+                self._html(self.service.render_public_search(query, page=page))
+                return
+            if parsed.path == '/samples':
+                self.service.auth.require_authenticated(principal)
+                self._html(self.service.render_samples(principal))
+                return
+            if parsed.path.startswith('/samples/'):
+                name = unquote(parsed.path.removeprefix('/samples/')).strip('/')
+                self.service.auth.require_sample(principal, name)
+                self._html(self.service.render_sample(name, principal))
+                return
+            if parsed.path in {'/admin', '/admin/'}:
+                self.service.auth.require_admin(principal)
+                values = parse_qs(parsed.query)
+                query = values.get('q', [''])[0].strip()
                 status = values.get('status', [''])[0].strip()
                 page = int(values.get('page', ['1'])[0])
                 self._html(self.service.render_dashboard(
                     query or None, status=status or None, page=page,
+                    principal=principal,
                 ))
                 return
-            if parsed.path == '/samples':
-                self._html(self.service.render_samples())
+            if parsed.path == '/admin/search':
+                self.service.auth.require_admin(principal)
+                values = parse_qs(parsed.query)
+                query = values.get('q', [''])[0].strip()
+                status = values.get('status', [''])[0].strip()
+                page = int(values.get('page', ['1'])[0])
+                self._html(self.service.render_dashboard(
+                    query or None, status=status or None, page=page,
+                    principal=principal,
+                ))
                 return
-            if parsed.path.startswith('/samples/'):
-                name = unquote(parsed.path.removeprefix('/samples/')).strip('/')
-                self._html(self.service.render_sample(name))
-                return
-            if parsed.path == '/jobs':
-                self._html(self.service.render_jobs())
+            if parsed.path == '/admin/jobs':
+                self.service.auth.require_admin(principal)
+                self._html(self.service.render_jobs(principal))
                 return
             if parsed.path.startswith('/target/'):
                 identifier = unquote(parsed.path.removeprefix('/target/'))
@@ -380,19 +464,38 @@ class _CatalogHandler(BaseHTTPRequestHandler):
                     )
                     self.end_headers()
                     return
-                self._html(self.service.render_dashboard(identifier),
+                self._html(self.service.render_public_search(identifier),
                            status=HTTPStatus.NOT_FOUND if not rows else HTTPStatus.OK)
                 return
             if parsed.path.startswith('/system/'):
-                package, asset = _system_parts(parsed.path)
+                package, asset = _system_parts(parsed.path, '/system/')
+                if not asset:
+                    self._html(self.service.render_public_system(package))
+                    return
+                self._static(
+                    self.service.package_directory(package), asset,
+                    public=True,
+                )
+                return
+            if parsed.path.startswith('/admin/system/'):
+                self.service.auth.require_admin(principal)
+                package, asset = _system_parts(
+                    parsed.path, '/admin/system/'
+                )
                 row = self.service.package(package)
                 if not asset:
                     if row['status'] in {'unfit', 'needs selection'}:
-                        self._html(self.service.render_package_state(package))
+                        self._html(self.service.render_package_state(
+                            package, actor=principal.username, admin=True,
+                            principal=principal,
+                        ))
                     else:
-                        prefix = _system_url(package).rstrip('/') + '/api'
+                        prefix = _system_url(
+                            package, admin=True
+                        ).rstrip('/') + '/api'
                         self._html(self.service.operator(package).render_page(
-                            operator_api=prefix
+                            operator_api=prefix, actor=principal.username,
+                            actor_locked=self.service.auth.proxy_enabled,
                         ))
                     return
                 self._static(self.service.package_directory(package), asset)
@@ -401,23 +504,33 @@ class _CatalogHandler(BaseHTTPRequestHandler):
                 self._send(HTTPStatus.NO_CONTENT, b'', 'image/x-icon')
                 return
             self._error(KeyError('page not found'), HTTPStatus.NOT_FOUND)
+        except AuthenticationRequired as error:
+            self._error(error, HTTPStatus.UNAUTHORIZED)
+        except AuthorizationDenied as error:
+            self._error(error, HTTPStatus.FORBIDDEN)
         except (KeyError, ValueError, OSError) as error:
             self._error(error, HTTPStatus.NOT_FOUND)
 
     def do_POST(self):
         parsed = urlparse(self.path)
         try:
-            package, asset = _system_parts(parsed.path)
+            principal = self.service.auth.principal(self.headers)
+            self.service.auth.require_admin(principal)
+            package, asset = _system_parts(
+                parsed.path, '/admin/system/'
+            )
             if not asset.startswith('api/'):
                 raise KeyError('unknown catalog endpoint')
             if self.headers.get('X-SDF-Token') != self.service.token:
                 raise PermissionError('invalid operator token')
             payload = self._payload()
+            payload['actor'] = principal.username
             action = asset.removeprefix('api/')
             if action == 'queue':
                 result = self.service.queue_package(
-                    package, actor=payload.get('actor'),
+                    package, actor=principal.username,
                     reason=payload.get('reason'),
+                    remember_actor=not self.service.auth.proxy_enabled,
                 )
             else:
                 operator = self.service.operator(package)
@@ -431,7 +544,9 @@ class _CatalogHandler(BaseHTTPRequestHandler):
                     raise KeyError('unknown operator endpoint')
                 result = operations[action](payload)
             self._json(result)
-        except PermissionError as error:
+        except AuthenticationRequired as error:
+            self._error(error, HTTPStatus.UNAUTHORIZED, json_response=True)
+        except (AuthorizationDenied, PermissionError) as error:
             self._error(error, HTTPStatus.FORBIDDEN, json_response=True)
         except (KeyError, ValueError, OSError, json.JSONDecodeError) as error:
             self._error(error, HTTPStatus.BAD_REQUEST, json_response=True)
@@ -442,8 +557,10 @@ class _CatalogHandler(BaseHTTPRequestHandler):
             raise ValueError('invalid request size')
         return json.loads(self.rfile.read(length))
 
-    def _static(self, directory, asset):
+    def _static(self, directory, asset, *, public=False):
         relative = _safe_relative(asset)
+        if public and relative.casefold() == 'operator.html':
+            raise KeyError('package asset not found')
         path = (directory / relative).resolve()
         if directory.resolve() not in path.parents or not path.is_file():
             raise KeyError('package asset not found')
@@ -493,12 +610,15 @@ def _safe_relative(value):
     return path.as_posix()
 
 
-def _system_url(package):
-    return '/system/{}/'.format(quote(package, safe='/'))
+def _system_url(package, admin=False):
+    prefix = '/admin/system' if admin else '/system'
+    return '{}/{}/'.format(prefix, quote(package, safe='/'))
 
 
-def _system_parts(path):
-    relative = path.removeprefix('/system/').lstrip('/')
+def _system_parts(path, prefix='/system/'):
+    if not path.startswith(prefix):
+        raise KeyError('unknown catalog endpoint')
+    relative = path.removeprefix(prefix).lstrip('/')
     if not relative:
         raise KeyError('system package is required')
     parts = relative.split('/')

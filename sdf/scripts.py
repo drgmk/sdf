@@ -399,6 +399,8 @@ def sdf_fits():
         examples=(
             'sdf-fits serve /data/sdb/export --actor Grant',
             'sdf-fits serve /data/sdb/export --workers 4 --autofit-existing',
+            'sdf-fits serve /data/sdb/export --auth-user-header X-SDF-User '
+            '--auth-group-file /srv/sdb/.htgroup',
             'sdf-fits serve /data/sdb/export --no-worker --no-watch',
         ),
     )
@@ -412,7 +414,10 @@ def sdf_fits():
     )
     serve_parser.add_argument(
         '--actor',
-        help='initial operator name; defaults to the last actor stored in --state',
+        help=(
+            'local-development operator; proxy-authenticated use records '
+            'the authenticated username'
+        ),
     )
     serve_parser.add_argument(
         '--host', default='127.0.0.1',
@@ -450,6 +455,18 @@ def sdf_fits():
         '--poll-seconds', type=float, default=5.0, metavar='SECONDS',
         help='worker and export-watcher polling interval (default: 5)',
     )
+    serve_parser.add_argument(
+        '--auth-user-header', metavar='HEADER',
+        help='trust an authenticated username from this reverse-proxy header',
+    )
+    serve_parser.add_argument(
+        '--auth-group-file', metavar='PATH',
+        help='Apache .htgroup file used for sample and administrator access',
+    )
+    serve_parser.add_argument(
+        '--auth-admin-group', default='admin', metavar='GROUP',
+        help='group allowed to configure fits (default: admin)',
+    )
     args = parser.parse_args()
 
     if args.command == 'serve':
@@ -461,6 +478,9 @@ def sdf_fits():
             watch=not args.no_watch,
             autofit_existing=args.autofit_existing,
             poll_seconds=args.poll_seconds,
+            auth_user_header=args.auth_user_header,
+            auth_group_file=args.auth_group_file,
+            auth_admin_group=args.auth_admin_group,
         )
         return
 

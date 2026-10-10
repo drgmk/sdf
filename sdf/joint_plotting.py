@@ -34,7 +34,8 @@ GOLDEN_RATIO = (1 + np.sqrt(5)) / 2
 def write_joint_results_page(package_directory, output=None, *, dataset=None,
                              inline=True, candidate_ids=None, operator=False,
                              policy_store=None, operator_api=None,
-                             operator_token=None, operator_actor=None):
+                             operator_token=None, operator_actor=None,
+                             operator_actor_locked=False):
     """Write a standalone candidate-review page for one fitting package."""
 
     source = canonical_fit_source(package_directory)
@@ -156,6 +157,7 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
         operator_api=operator_api,
         operator_token=operator_token,
         operator_actor=operator_actor,
+        operator_actor_locked=operator_actor_locked,
         queued_jobs=queued_jobs,
     )
     default_name = 'operator.html' if operator else 'index.html'

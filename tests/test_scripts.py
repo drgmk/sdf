@@ -54,7 +54,7 @@ def test_new_cli_top_level_help_is_operational(
             ['sdf-fits', 'serve', '--help'],
             (
                 'Existing unfit packages are not queued',
-                '--autofit-existing', '--workers N',
+                '--autofit-existing', '--workers N', '--auth-user-header',
             ),
         ),
     ),
@@ -168,6 +168,8 @@ def test_sdf_fits_serve_starts_catalog_worker_and_watcher(monkeypatch, tmp_path)
         'worker': True, 'workers': 1,
         'watch': True, 'autofit_existing': False,
         'poll_seconds': 5.0,
+        'auth_user_header': None, 'auth_group_file': None,
+        'auth_admin_group': 'admin',
     })]
 
 

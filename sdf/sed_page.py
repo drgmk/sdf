@@ -17,7 +17,8 @@ from . import utils
 def render_sed_page(*, title, plot_script, plot_div, targets, candidates,
                     observations, systems, default_candidate, inline=True,
                     operator=False, available_fits=(), operator_api=None,
-                    operator_token=None, operator_actor=None, queued_jobs=()):
+                    operator_token=None, operator_actor=None,
+                    operator_actor_locked=False, queued_jobs=()):
     """Render one SED document, optionally extended with operator controls."""
 
     env = jinja2.Environment(
@@ -44,6 +45,7 @@ def render_sed_page(*, title, plot_script, plot_div, targets, candidates,
         operator_api=operator_api,
         operator_token=operator_token,
         operator_actor=operator_actor,
+        operator_actor_locked=operator_actor_locked,
         queued_jobs=queued_jobs,
         bokeh_js=resources.render_js(),
         bokeh_css=resources.render_css(),

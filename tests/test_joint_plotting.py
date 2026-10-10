@@ -85,6 +85,8 @@ def test_operator_results_page_extends_public_page_with_fit_drawer(tmp_path):
     assert 'id="open-fit-controls"' in html
     assert 'data-target-key="simbad:Test"' in html
     assert 'data-fit-reference=' in html
+    assert 'action="/admin/search"' in html
+    assert 'href="/admin/jobs"' in html
 
 
 def test_scope_colours_reuse_owner_colour_only_for_resolved_observations():

@@ -125,7 +125,7 @@
         {% if default_fit %}<div class="default-config" aria-label="Default fit" data-candidate="{{ default_fit.reference }}"><span>Default</span>{% for part in default_fit.shorthand %}<span class="config-chip" style="--chip-colour:{{ part.colour }}" title="{{ part.title }}">{% if part.owner %}{{ part.owner }} {% endif %}{{ part.symbols }}</span>{% endfor %}</div>{% endif %}
       </div>
       <nav class="page-actions" aria-label="SED actions">
-        <form class="page-search" action="/search" method="get">
+        <form class="page-search" action="{% if operator %}/admin/search{% else %}/search{% endif %}" method="get">
           <input name="q" placeholder="target, component, or SDB ID" aria-label="Search SDF catalog">
           <button type="submit">Search</button>
         </form>
@@ -172,7 +172,7 @@
     <section class="operator-section">
       <h2>Physical contributors</h2>
       <form id="system-fit-form" class="operator-form">
-        <label class="wide">Actor<input name="actor" value="{{ operator_actor or '' }}" autocomplete="name"{% if not operator_api %} disabled{% endif %}></label>
+        {% if operator_actor_locked %}<div class="wide muted">Signed in as <strong>{{ operator_actor }}</strong><input name="actor" type="hidden" value="{{ operator_actor }}"></div>{% else %}<label class="wide">Actor<input name="actor" value="{{ operator_actor or '' }}" autocomplete="name"{% if not operator_api %} disabled{% endif %}></label>{% endif %}
         <label class="wide">Reason<input name="reason" value="Update model choices and fit {{ title }}"{% if not operator_api %} disabled{% endif %}></label>
         <div class="operator-actions"><button type="submit"{% if not operator_api %} disabled{% endif %}>Queue system fit</button><span class="operator-status" role="status"></span></div>
       </form>
@@ -200,7 +200,7 @@
   {% endif %}
 
   <footer class="sed-footer">
-    <nav class="footer-nav" aria-label="Footer navigation"><a href="/">sdf home</a><span aria-hidden="true">·</span><a href="/samples">samples</a></nav>
+    <nav class="footer-nav" aria-label="Footer navigation"><a href="/">sdf home</a><span aria-hidden="true">·</span><a href="/samples">samples</a>{% if operator %}<span aria-hidden="true">·</span><a href="/admin">admin</a><span aria-hidden="true">·</span><a href="/admin/jobs">jobs</a>{% endif %}</nav>
     <span>generated {{ creation_time }} UTC</span>
   </footer>
 </main>
@@ -257,7 +257,8 @@
   const systemForm = document.getElementById('system-fit-form');
   const systemStatus = systemForm.querySelector('.operator-status');
   const actor = systemForm.elements.actor;
-  if (!actor.value) actor.value = localStorage.getItem('sdf-operator-actor') || '';
+  const actorLocked = {{ operator_actor_locked|tojson }};
+  if (!actorLocked && !actor.value) actor.value = localStorage.getItem('sdf-operator-actor') || '';
   systemForm.addEventListener('submit', async event => {
     event.preventDefault();
     systemStatus.classList.remove('error');
@@ -271,7 +272,7 @@
     });
     try {
       const result = await send('/system-policy', {...shared, changes});
-      localStorage.setItem('sdf-operator-actor', shared.actor);
+      if (!actorLocked) localStorage.setItem('sdf-operator-actor', shared.actor);
       systemStatus.textContent = `System fit job ${result.job_id} queued`;
       setTimeout(reloadOpen, 350);
     } catch (error) {
