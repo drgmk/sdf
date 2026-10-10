@@ -66,6 +66,18 @@ def test_catalog_http_routes_and_rejects_bad_token(tmp_path):
     try:
         assert 'Search fitted systems' in urlopen(root + '/').read().decode()
         assert 'HD 123' in urlopen(root + '/search?q=123').read().decode()
+        sample_page = urlopen(root + '/samples/test/').read().decode()
+        assert 'Physical target' in sample_page
+        assert 'Awaiting a current fit' in sample_page
+        assert 'Bokeh' in urlopen(
+            root + '/samples/test/plots'
+        ).read().decode()
+        assert b'VOTABLE' in urlopen(
+            root + '/samples/test/sample.xml'
+        ).read()
+        assert urlopen(
+            root + '/samples/test/photometry.csv'
+        ).read().startswith(b'package,candidate_id')
         response = urlopen(root + '/target/sdb-test')
         assert response.url.endswith('/system/package/')
         assert 'Queue automatic fit' not in response.read().decode()
@@ -100,14 +112,26 @@ def test_catalog_http_routes_and_rejects_bad_token(tmp_path):
 
 def test_proxy_auth_separates_public_sample_and_admin_access(tmp_path):
     _catalog(tmp_path)
+    (tmp_path / 'export-2-manifest.json').write_text(json.dumps({
+        'schema': 'sdb-fit-package-export', 'schema_version': 2,
+        'run_id': 2, 'status': 'completed',
+        'samples': [
+            {'name': 'test', 'sdbids': ['sdb-test']},
+            {'name': 'private', 'sdbids': ['sdb-test']},
+            {'name': 'other', 'sdbids': ['sdb-test']},
+        ],
+    }), encoding='utf-8')
     groups = tmp_path / '.htgroup'
     groups.write_text(
-        'admin: grant\ntest: alice\nother: bob\n', encoding='utf-8'
+        'admin: grant\nprivate: alice\nother: bob\n', encoding='utf-8'
     )
+    public = tmp_path / 'public-samples'
+    public.write_text('test\n', encoding='utf-8')
     try:
         server = sdf.catalog_server.make_catalog_server(
             tmp_path, actor='Local', token='test-token', port=0,
             auth_user_header='X-SDF-User', auth_group_file=groups,
+            public_sample_file=public,
         )
     except PermissionError:
         pytest.skip('test environment does not permit loopback sockets')
@@ -115,8 +139,10 @@ def test_proxy_auth_separates_public_sample_and_admin_access(tmp_path):
     thread.start()
     root = 'http://127.0.0.1:{}'.format(server.server_address[1])
 
-    def read(path, user=None):
+    def read(path, user=None, cookie=None):
         headers = {} if user is None else {'X-SDF-User': user}
+        if cookie is not None:
+            headers['Cookie'] = cookie
         return urlopen(Request(root + path, headers=headers)).read().decode()
 
     def status(path, user=None):
@@ -147,17 +173,31 @@ def test_proxy_auth_separates_public_sample_and_admin_access(tmp_path):
     try:
         assert 'Search fitted systems' in read('/')
         assert 'No public fit' in read('/system/package/')
-        assert status('/samples') == 401
+        public_page = read('/samples')
+        assert 'test' in public_page
+        assert 'private' not in public_page
+        assert 'Sign in to see shared samples' in public_page
+        assert 'HD 123' in read('/samples/test')
+        assert status('/samples/private') == 401
         assert status('/admin') == 401
         assert post_status() == 401
 
-        assert 'test' in read('/samples', 'alice')
+        alice_page = read('/samples', 'alice')
+        assert 'test' in alice_page
+        assert 'private' in alice_page
+        assert 'other' not in alice_page
         assert 'HD 123' in read('/samples/test', 'alice')
+        assert 'HD 123' in read('/samples/private', 'alice')
         assert status('/admin', 'alice') == 403
         assert post_status('alice') == 403
 
-        assert 'test' not in read('/samples', 'bob')
-        assert status('/samples/test', 'bob') == 403
+        assert 'private' not in read('/samples', 'bob')
+        assert status('/samples/private', 'bob') == 403
+
+        session = server.catalog_service.auth.issue_session('alice')
+        session_page = read('/samples', cookie='sdf_session=' + session)
+        assert 'private' in session_page
+        assert 'alice' in session_page
 
         assert 'SDF catalog' in read('/admin', 'grant')
         admin_page = read('/admin/system/package/', 'grant')

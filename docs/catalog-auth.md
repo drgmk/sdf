@@ -4,15 +4,17 @@
 legacy SDB `.htpasswd` and `.htgroup` files. Apache verifies passwords; SDF
 never reads or stores them. Apache passes the authenticated username in a
 header, and SDF reads `.htgroup` to authorize sample and fit-configuration
-views.
+views. A successful sample sign-in creates a signed, expiring SDF session so
+the public and user-specific samples can share one page and one URL tree.
 
 The route boundary is:
 
 | Route | Access |
 | --- | --- |
 | `/`, `/search`, `/target/...`, `/system/...` | public |
-| `/samples` | authenticated, filtered to permitted samples |
-| `/samples/NAME` | group `NAME` or the administrator group |
+| `/samples` | public samples, plus permitted private samples when signed in |
+| `/samples/NAME` | public allowlist, group `NAME`, or administrator group |
+| `/auth/login` | Apache-authenticated handoff back to `/samples` |
 | `/admin`, `/admin/jobs`, `/admin/system/...` | administrator group |
 | `/admin/system/.../api/...` | administrator group plus the page CSRF token |
 
@@ -28,6 +30,19 @@ Group names must match exported sample names. The configured administrator
 group can access every sample. Changes to `.htgroup` are picked up without
 restarting SDF.
 
+Public access is fail-closed and explicit. Put one exact exported sample name
+per line in a separate file; blank lines and lines beginning with `#` are
+ignored:
+
+```text
+# Available without signing in
+reasons
+DEBRIS
+```
+
+Changes to this file are also picked up without restarting SDF. A missing or
+empty public-samples file does not make private samples public.
+
 Start the loopback-only application with explicit proxy authentication:
 
 ```shell
@@ -35,6 +50,7 @@ sdf-fits serve /srv/sdb/export \
   --workers 4 \
   --auth-user-header X-SDF-User \
   --auth-group-file /srv/sdb/auth/.htgroup \
+  --public-samples-file /srv/sdb/auth/public-samples \
   --auth-admin-group admin
 ```
 
@@ -52,7 +68,7 @@ proxy everything to SDF:
 # Never allow a browser to assert the trusted application identity.
 RequestHeader unset X-SDF-User early
 
-<Location "/samples">
+<Location "/auth/login">
     AuthType Basic
     AuthName "SDB samples"
     AuthUserFile /srv/sdb/auth/.htpasswd
@@ -72,6 +88,13 @@ RequestHeader unset X-SDF-User early
 ProxyPass        / http://127.0.0.1:8765/
 ProxyPassReverse / http://127.0.0.1:8765/
 ```
+
+With HTTPS, add `--auth-cookie-secure` so browsers never send the sample login
+session over a plaintext connection. `/samples` itself remains public: an
+anonymous visitor sees the explicit public allowlist, while a signed-in user
+sees the union of public samples and their current `.htgroup` memberships.
+Private direct links send anonymous visitors through `/auth/login` and return
+them to the original sample page.
 
 Keep the password and group files outside the document root. SDF continues to
 refuse non-loopback bind addresses, so the trusted identity header is only

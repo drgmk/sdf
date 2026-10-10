@@ -1,7 +1,7 @@
 {% extends "catalog_base.html" %}
 {% block content %}
-<h1>Samples</h1><p class="muted">Sample membership is read from the newest completed SDB export manifest for each sample.</p>
-<div class="table-wrap"><table><thead><tr><th>Sample</th><th>Targets</th><th>Export run</th><th>Updated</th></tr></thead><tbody>
-{% for sample in samples %}<tr><td><a class="targets" href="/samples/{{ sample.name|urlencode }}">{{ sample.name }}</a></td><td>{{ sample.identifiers|length }}</td><td>#{{ sample.run_id }}</td><td>{{ sample.completed_at or '—' }}</td></tr>{% else %}<tr><td colspan="4">No sample exports found.</td></tr>{% endfor %}
+<div class="page-head"><div><h1>Samples</h1><p class="muted">Samples available to you from the newest completed SDB export.</p></div>{% if auth_enabled and not principal.authenticated %}<a class="button" href="/auth/login?next=%2Fsamples">Sign in to see shared samples</a>{% endif %}</div>
+<div class="table-wrap"><table><thead><tr><th>Sample</th><th>Access</th><th>Targets</th><th>Updated</th></tr></thead><tbody>
+{% for row in samples %}<tr><td><a class="targets" href="/samples/{{ row.sample.name|urlencode }}/">{{ row.sample.name }}</a>{% if row.sample.note %}<br><span class="muted">{{ row.sample.note }}</span>{% endif %}</td><td><span class="badge {{ row.access }}">{{ row.access }}</span></td><td>{{ row.sample.identifiers|length }}</td><td>{{ row.sample.completed_at or '—' }}</td></tr>{% else %}<tr><td colspan="4">No samples are currently available.</td></tr>{% endfor %}
 </tbody></table></div>
 {% endblock %}

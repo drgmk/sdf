@@ -189,6 +189,27 @@ def flux_size_rows(projection, bands=FLUX_SIZE_BANDS):
 
 
 def write_flux_size_plot(projection, output_directory):
+    script, div = flux_size_plot_components(projection)
+    env = jinja2.Environment(
+        autoescape=True,
+        loader=jinja2.PackageLoader('sdf', package_path='www/templates'),
+    )
+    document = env.get_template('joint_sample_flux_size.html').render(
+        projection=projection,
+        plot_script=script,
+        plot_div=div,
+        bokeh_js=CDN.render_js(),
+        bokeh_css=CDN.render_css(),
+        creation_time=_created(),
+    )
+    path = Path(output_directory) / 'fnuvsr.html'
+    path.write_text(document, encoding='utf-8')
+    return path
+
+
+def flux_size_plot_components(projection):
+    """Return embeddable Bokeh components for disk flux/size diagnostics."""
+
     rows = flux_size_rows(projection)
     panels = {'flux': [], 'contrast': [], 'surface_brightness': []}
     for band in FLUX_SIZE_BANDS:
@@ -227,22 +248,7 @@ def write_flux_size_plot(projection, output_directory):
         ),
         sizing_mode='stretch_width',
     )
-    script, div = components(layout)
-    env = jinja2.Environment(
-        autoescape=True,
-        loader=jinja2.PackageLoader('sdf', package_path='www/templates'),
-    )
-    document = env.get_template('joint_sample_flux_size.html').render(
-        projection=projection,
-        plot_script=script,
-        plot_div=div,
-        bokeh_js=CDN.render_js(),
-        bokeh_css=CDN.render_css(),
-        creation_time=_created(),
-    )
-    path = Path(output_directory) / 'fnuvsr.html'
-    path.write_text(document, encoding='utf-8')
-    return path
+    return components(layout)
 
 
 def _flux_size_figure(rows, band, y_name, y_label, sensitivity=None):

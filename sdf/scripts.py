@@ -400,7 +400,8 @@ def sdf_fits():
             'sdf-fits serve /data/sdb/export --actor Grant',
             'sdf-fits serve /data/sdb/export --workers 4 --autofit-existing',
             'sdf-fits serve /data/sdb/export --auth-user-header X-SDF-User '
-            '--auth-group-file /srv/sdb/.htgroup',
+            '--auth-group-file /srv/sdb/.htgroup '
+            '--public-samples-file /srv/sdb/public-samples',
             'sdf-fits serve /data/sdb/export --no-worker --no-watch',
         ),
     )
@@ -467,6 +468,17 @@ def sdf_fits():
         '--auth-admin-group', default='admin', metavar='GROUP',
         help='group allowed to configure fits (default: admin)',
     )
+    serve_parser.add_argument(
+        '--public-samples-file', metavar='PATH',
+        help=(
+            'file listing exact sample names visible without signing in; '
+            'all unlisted samples remain private'
+        ),
+    )
+    serve_parser.add_argument(
+        '--auth-cookie-secure', action='store_true',
+        help='mark login-session cookies HTTPS-only (recommended in production)',
+    )
     args = parser.parse_args()
 
     if args.command == 'serve':
@@ -481,6 +493,8 @@ def sdf_fits():
             auth_user_header=args.auth_user_header,
             auth_group_file=args.auth_group_file,
             auth_admin_group=args.auth_admin_group,
+            public_sample_file=args.public_samples_file,
+            auth_cookie_secure=args.auth_cookie_secure,
         )
         return
 

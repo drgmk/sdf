@@ -214,16 +214,9 @@ def write_sample_products(index, sample, identifiers, output_directory, *,
 def write_sample_table(projection, output_directory, *, has_photometry=False,
                        has_plots=False, has_flux_size=False):
     output_directory = Path(output_directory)
-    rows = []
-    for system in projection.systems:
-        for target in system.targets:
-            rows.append({
-                'system': system,
-                'target': target,
-                'star': target.stars[0] if target.stars else None,
-            })
     table = _render_template(
-        'joint_sample_table.html', projection=projection, rows=rows,
+        'joint_sample_table.html', projection=projection,
+        rows=sample_table_rows(projection),
         has_photometry=has_photometry, has_plots=has_plots,
         has_flux_size=has_flux_size,
     )
@@ -232,7 +225,25 @@ def write_sample_table(projection, output_directory, *, has_photometry=False,
     return path
 
 
+def sample_table_rows(projection):
+    """Return one display row per physical target in a sample projection."""
+
+    return tuple({
+        'system': system,
+        'target': target,
+        'star': target.stars[0] if target.stars else None,
+    } for system in projection.systems for target in system.targets)
+
+
 def write_sample_votable(projection, path):
+    table = sample_votable(projection)
+    table.write(path, format='votable', overwrite=True)
+    return Path(path)
+
+
+def sample_votable(projection):
+    """Build the hierarchy-aware sample result table in memory."""
+
     rows = []
     for system in projection.systems:
         for target in system.targets:
@@ -267,11 +278,24 @@ def write_sample_votable(projection, path):
     )
     table = Table(rows=rows, names=names, dtype=dtypes)
     table.meta['updated'] = _created()
-    table.write(path, format='votable', overwrite=True)
-    return Path(path)
+    return table
 
 
 def write_sample_plots(projection, output_directory):
+    script, div = sample_plot_components(projection)
+    document = _render_template(
+        'joint_sample_plot.html', projection=projection,
+        plot_script=script, plot_div=div,
+        bokeh_js=CDN.render_js(), bokeh_css=CDN.render_css(),
+    )
+    path = Path(output_directory) / 'hr.html'
+    path.write_text(document, encoding='utf-8')
+    return path
+
+
+def sample_plot_components(projection):
+    """Return embeddable Bokeh components for the HR and disk plots."""
+
     hr_data = {
         'temperature': [], 'luminosity': [], 'target': [], 'system': [],
         'model': [], 'url': [], 'colour': [], 'marker': [],
@@ -309,15 +333,7 @@ def write_sample_plots(projection, output_directory):
         'Disk fractional luminosity', reverse_x=False,
     )
     layout = gridplot([[hr, disk]], sizing_mode='stretch_width')
-    script, div = components(layout)
-    document = _render_template(
-        'joint_sample_plot.html', projection=projection,
-        plot_script=script, plot_div=div,
-        bokeh_js=CDN.render_js(), bokeh_css=CDN.render_css(),
-    )
-    path = Path(output_directory) / 'hr.html'
-    path.write_text(document, encoding='utf-8')
-    return path
+    return components(layout)
 
 
 def _sample_figure(data, title, x_label, y_label, reverse_x):
@@ -409,6 +425,12 @@ def _summary_text(value, precision=2):
     template = '{:.' + str(precision) + 'g} −{:.' + str(precision) \
         + 'g}/+{:.' + str(precision) + 'g}'
     return template.format(median, minus, plus)
+
+
+def summary_text(value, precision=2):
+    """Format a retained median and asymmetric uncertainty for HTML tables."""
+
+    return _summary_text(value, precision=precision)
 
 
 def _median(value):

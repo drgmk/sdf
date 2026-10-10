@@ -168,9 +168,10 @@ def test_sdf_fits_serve_starts_catalog_worker_and_watcher(monkeypatch, tmp_path)
         'worker': True, 'workers': 1,
         'watch': True, 'autofit_existing': False,
         'poll_seconds': 5.0,
-        'auth_user_header': None, 'auth_group_file': None,
-        'auth_admin_group': 'admin',
-    })]
+            'auth_user_header': None, 'auth_group_file': None,
+            'auth_admin_group': 'admin',
+            'public_sample_file': None, 'auth_cookie_secure': False,
+        })]
 
 
 def test_sdf_fits_serve_passes_parallel_worker_count(monkeypatch, tmp_path):

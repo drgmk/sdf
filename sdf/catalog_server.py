@@ -8,6 +8,7 @@ from functools import partial
 import getpass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import io
 import json
 import mimetypes
 import multiprocessing
@@ -17,6 +18,7 @@ import signal
 from threading import Event, Thread
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
+from bokeh.resources import CDN
 import jinja2
 
 from .catalog_sync import CatalogSynchronizer
@@ -30,6 +32,13 @@ from .operator_server import OperatorService
 from .operator_jobs import run_worker
 from .operator_state import OperatorState
 from .result_index import ResultIndex
+from .sample_diagnostics import (
+    PHOTOMETRY_FIELDS, flux_size_plot_components, photometry_rows,
+)
+from .sample_products import (
+    project_sample, sample_plot_components, sample_table_rows,
+    sample_votable, summary_text,
+)
 
 
 class CatalogService:
@@ -37,7 +46,8 @@ class CatalogService:
 
     def __init__(self, root, *, index_path=None, state_path=None, actor=None,
                  token=None, rebuild=False, auth_user_header=None,
-                 auth_group_file=None, auth_admin_group='admin'):
+                 auth_group_file=None, auth_admin_group='admin',
+                 public_sample_file=None, auth_cookie_secure=False):
         self.root = Path(root).expanduser().resolve()
         if not self.root.is_dir():
             raise ValueError('catalog root is not a directory: {}'.format(
@@ -66,8 +76,11 @@ class CatalogService:
         self.auth = CatalogAuthorizer(
             user_header=auth_user_header, group_file=auth_group_file,
             admin_group=auth_admin_group, local_actor=self.actor,
+            public_sample_file=public_sample_file,
         )
+        self.auth_cookie_secure = bool(auth_cookie_secure)
         self._operators = {}
+        self._sample_cache = {}
 
     def packages(self, *, query=None, identifiers=None):
         rows = self.index.catalog_packages(
@@ -159,16 +172,18 @@ class CatalogService:
             system_base='/admin/system',
         )
 
-    def render_public_home(self):
+    def render_public_home(self, principal=None):
         return _render(
             'catalog_public_home.html', title='SDF', query='',
-            search_action='/search',
+            search_action='/search', principal=principal,
+            auth_enabled=self.auth.proxy_enabled, request_path='/',
         )
 
-    def render_public_search(self, query, *, page=1, per_page=100):
+    def render_public_search(self, query, *, page=1, per_page=100,
+                             principal=None):
         query = str(query or '').strip()
         if not query:
-            return self.render_public_home()
+            return self.render_public_home(principal)
         packages = self.packages(query=query)
         total = len(packages)
         page_count = max(1, (total + per_page - 1) // per_page)
@@ -179,35 +194,107 @@ class CatalogService:
             packages=packages[start:start + per_page], total=total,
             page=page, page_count=page_count, search_action='/search',
             page_base='/search', system_base='/system',
+            principal=principal, auth_enabled=self.auth.proxy_enabled,
+            request_path='/search?q={}'.format(quote(query, safe='')),
         )
 
     def render_samples(self, principal):
-        samples = tuple(
-            sample for sample in self.exports.samples()
-            if self.auth.can_access_sample(principal, sample.name)
-        )
+        samples = tuple({
+            'sample': sample,
+            'access': (
+                'public' if self.auth.is_public_sample(sample.name)
+                else 'shared'
+            ),
+        } for sample in self.exports.samples()
+            if self.auth.can_access_sample(principal, sample.name))
         return _render(
             'catalog_samples.html', title='Samples',
             samples=samples, principal=principal, search_action='/search',
             admin_access=self.auth.admin_group in principal.groups,
+            auth_enabled=self.auth.proxy_enabled, request_path='/samples',
         )
 
     def render_sample(self, name, principal):
         sample = self.exports.sample(name)
+        projection = self.sample_projection(sample)
         packages = self.packages(identifiers=sample.identifiers)
-        matched = {
-            identifier for row in packages for identifier in row['sdbids']
-        }
+        projected = {system.package_path for system in projection.systems}
         return _render(
             'catalog_sample.html', title=sample.name, sample=sample,
-            packages=packages,
-            unmatched=tuple(
-                value for value in sample.identifiers if value not in matched
-            ),
+            projection=projection, rows=sample_table_rows(projection),
+            pending=tuple(row for row in packages
+                          if row['package_path'] not in projected),
             principal=principal, search_action='/search',
             system_base='/system',
             admin_access=self.auth.admin_group in principal.groups,
+            auth_enabled=self.auth.proxy_enabled,
+            request_path='/samples/{}/'.format(quote(sample.name, safe='')),
         )
+
+    def render_sample_plots(self, name, principal):
+        sample = self.exports.sample(name)
+        projection = self.sample_projection(sample)
+        script, div = sample_plot_components(projection)
+        return _render(
+            'catalog_sample_plot.html', title='{} plots'.format(sample.name),
+            sample=sample, projection=projection,
+            plot_script=script, plot_div=div,
+            bokeh_js=CDN.render_js(), bokeh_css=CDN.render_css(),
+            principal=principal, search_action='/search',
+            admin_access=self.auth.admin_group in principal.groups,
+            auth_enabled=self.auth.proxy_enabled,
+            request_path='/samples/{}/plots'.format(quote(sample.name, safe='')),
+        )
+
+    def render_sample_flux_size(self, name, principal):
+        sample = self.exports.sample(name)
+        projection = self.sample_projection(sample)
+        script, div = flux_size_plot_components(projection)
+        return _render(
+            'catalog_sample_flux_size.html',
+            title='{} flux and size'.format(sample.name), sample=sample,
+            projection=projection, plot_script=script, plot_div=div,
+            bokeh_js=CDN.render_js(), bokeh_css=CDN.render_css(),
+            principal=principal, search_action='/search',
+            admin_access=self.auth.admin_group in principal.groups,
+            auth_enabled=self.auth.proxy_enabled,
+            request_path='/samples/{}/flux-size'.format(
+                quote(sample.name, safe='')
+            ),
+        )
+
+    def sample_projection(self, sample):
+        stamp = (
+            sample.run_id,
+            sample.manifest_path.stat().st_mtime_ns,
+            self.index.path.stat().st_mtime_ns,
+        )
+        cached = self._sample_cache.get(sample.name)
+        if cached is not None and cached[0] == stamp:
+            return cached[1]
+        projection = project_sample(
+            self.index, sample.name, sample.identifiers,
+            sed_base_url='/system',
+        )
+        self._sample_cache[sample.name] = (stamp, projection)
+        return projection
+
+    def sample_votable_bytes(self, name):
+        sample = self.exports.sample(name)
+        stream = io.BytesIO()
+        sample_votable(self.sample_projection(sample)).write(
+            stream, format='votable'
+        )
+        return stream.getvalue()
+
+    def sample_photometry_csv(self, name):
+        import csv
+        sample = self.exports.sample(name)
+        stream = io.StringIO(newline='')
+        writer = csv.DictWriter(stream, fieldnames=PHOTOMETRY_FIELDS)
+        writer.writeheader()
+        writer.writerows(photometry_rows(self.sample_projection(sample)))
+        return stream.getvalue().encode('utf-8')
 
     def render_jobs(self, principal=None):
         jobs = []
@@ -251,7 +338,8 @@ class CatalogService:
 def make_catalog_server(root, *, index_path=None, state_path=None, actor=None,
                         token=None, rebuild=False, host='127.0.0.1', port=0,
                         auth_user_header=None, auth_group_file=None,
-                        auth_admin_group='admin'):
+                        auth_admin_group='admin', public_sample_file=None,
+                        auth_cookie_secure=False):
     if host not in {'127.0.0.1', 'localhost', '::1'}:
         raise ValueError('catalog service must bind to a loopback address')
     service = CatalogService(
@@ -259,6 +347,8 @@ def make_catalog_server(root, *, index_path=None, state_path=None, actor=None,
         token=token, rebuild=rebuild, auth_user_header=auth_user_header,
         auth_group_file=auth_group_file,
         auth_admin_group=auth_admin_group,
+        public_sample_file=public_sample_file,
+        auth_cookie_secure=auth_cookie_secure,
     )
     handler = partial(_CatalogHandler, service=service)
     server = ThreadingHTTPServer((host, port), handler)
@@ -270,13 +360,16 @@ def serve_catalog(root, *, index_path=None, state_path=None, actor=None,
                   rebuild=False, host='127.0.0.1', port=8765,
                   worker=True, workers=1, watch=True, autofit_existing=False,
                   poll_seconds=5.0, auth_user_header=None,
-                  auth_group_file=None, auth_admin_group='admin'):
+                  auth_group_file=None, auth_admin_group='admin',
+                  public_sample_file=None, auth_cookie_secure=False):
     server = make_catalog_server(
         root, index_path=index_path, state_path=state_path, actor=actor,
         rebuild=rebuild, host=host, port=port,
         auth_user_header=auth_user_header,
         auth_group_file=auth_group_file,
         auth_admin_group=auth_admin_group,
+        public_sample_file=public_sample_file,
+        auth_cookie_secure=auth_cookie_secure,
     )
     address, actual_port = server.server_address[:2]
     print('SDF catalog: http://{}:{}/'.format(address, actual_port))
@@ -411,23 +504,78 @@ class _CatalogHandler(BaseHTTPRequestHandler):
         try:
             principal = self.service.auth.principal(self.headers)
             if parsed.path == '/':
-                self._html(self.service.render_public_home())
+                self._html(self.service.render_public_home(principal))
                 return
             if parsed.path == '/search':
                 values = parse_qs(parsed.query)
                 query = values.get('q', [''])[0].strip()
                 page = int(values.get('page', ['1'])[0])
-                self._html(self.service.render_public_search(query, page=page))
+                self._html(self.service.render_public_search(
+                    query, page=page, principal=principal
+                ))
                 return
-            if parsed.path == '/samples':
+            if parsed.path == '/auth/login':
                 self.service.auth.require_authenticated(principal)
+                values = parse_qs(parsed.query)
+                destination = _safe_next(values.get('next', ['/samples'])[0])
+                token = self.service.auth.issue_session(principal.username)
+                cookie = (
+                    'sdf_session={}; Path=/; HttpOnly; SameSite=Lax; '
+                    'Max-Age={}'.format(
+                        token, self.service.auth.session_seconds
+                    )
+                )
+                if self.service.auth_cookie_secure:
+                    cookie += '; Secure'
+                self._redirect(destination, headers=(('Set-Cookie', cookie),))
+                return
+            if parsed.path == '/auth/logout':
+                self._redirect('/samples', headers=((
+                    'Set-Cookie',
+                    'sdf_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0',
+                ),))
+                return
+            if parsed.path in {'/samples', '/samples/'}:
                 self._html(self.service.render_samples(principal))
                 return
             if parsed.path.startswith('/samples/'):
-                name = unquote(parsed.path.removeprefix('/samples/')).strip('/')
+                name, asset = _sample_parts(parsed.path)
                 self.service.auth.require_sample(principal, name)
-                self._html(self.service.render_sample(name, principal))
-                return
+                if not asset:
+                    self._html(self.service.render_sample(name, principal))
+                    return
+                if asset == 'plots':
+                    self._html(self.service.render_sample_plots(
+                        name, principal
+                    ))
+                    return
+                if asset == 'flux-size':
+                    self._html(self.service.render_sample_flux_size(
+                        name, principal
+                    ))
+                    return
+                if asset == 'sample.xml':
+                    self._send(
+                        HTTPStatus.OK, self.service.sample_votable_bytes(name),
+                        'application/x-votable+xml; charset=utf-8',
+                        headers=((
+                            'Content-Disposition',
+                            'attachment; filename="sample.xml"',
+                        ),),
+                    )
+                    return
+                if asset == 'photometry.csv':
+                    self._send(
+                        HTTPStatus.OK,
+                        self.service.sample_photometry_csv(name),
+                        'text/csv; charset=utf-8',
+                        headers=((
+                            'Content-Disposition',
+                            'attachment; filename="photometry.csv"',
+                        ),),
+                    )
+                    return
+                raise KeyError('unknown sample page')
             if parsed.path in {'/admin', '/admin/'}:
                 self.service.auth.require_admin(principal)
                 values = parse_qs(parsed.query)
@@ -464,7 +612,9 @@ class _CatalogHandler(BaseHTTPRequestHandler):
                     )
                     self.end_headers()
                     return
-                self._html(self.service.render_public_search(identifier),
+                self._html(self.service.render_public_search(
+                    identifier, principal=principal
+                ),
                            status=HTTPStatus.NOT_FOUND if not rows else HTTPStatus.OK)
                 return
             if parsed.path.startswith('/system/'):
@@ -505,7 +655,13 @@ class _CatalogHandler(BaseHTTPRequestHandler):
                 return
             self._error(KeyError('page not found'), HTTPStatus.NOT_FOUND)
         except AuthenticationRequired as error:
-            self._error(error, HTTPStatus.UNAUTHORIZED)
+            if (self.service.auth.proxy_enabled
+                    and parsed.path.startswith('/samples/')):
+                self._redirect('/auth/login?next={}'.format(
+                    quote(self.path, safe='')
+                ))
+            else:
+                self._error(error, HTTPStatus.UNAUTHORIZED)
         except AuthorizationDenied as error:
             self._error(error, HTTPStatus.FORBIDDEN)
         except (KeyError, ValueError, OSError) as error:
@@ -577,6 +733,15 @@ class _CatalogHandler(BaseHTTPRequestHandler):
             'application/json; charset=utf-8',
         )
 
+    def _redirect(self, location, *, headers=()):
+        self.send_response(HTTPStatus.SEE_OTHER)
+        self.send_header('Location', location)
+        self.send_header('Content-Length', '0')
+        self.send_header('Cache-Control', 'no-store')
+        for name, value in headers:
+            self.send_header(name, value)
+        self.end_headers()
+
     def _error(self, error, status, json_response=False):
         if json_response:
             self._json({'error': str(error)}, status=status)
@@ -586,11 +751,13 @@ class _CatalogHandler(BaseHTTPRequestHandler):
             heading=HTTPStatus(status).phrase, message=str(error),
         ), status=status)
 
-    def _send(self, status, body, content_type):
+    def _send(self, status, body, content_type, *, headers=()):
         self.send_response(status)
         self.send_header('Content-Type', content_type)
         self.send_header('Content-Length', str(len(body)))
         self.send_header('Cache-Control', 'no-store')
+        for name, value in headers:
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body)
 
@@ -600,6 +767,7 @@ def _render(template_name, **values):
         autoescape=True,
         loader=jinja2.PackageLoader('sdf', package_path='www/templates'),
     )
+    environment.filters['summary'] = summary_text
     return environment.get_template(template_name).render(**values)
 
 
@@ -613,6 +781,30 @@ def _safe_relative(value):
 def _system_url(package, admin=False):
     prefix = '/admin/system' if admin else '/system'
     return '{}/{}/'.format(prefix, quote(package, safe='/'))
+
+
+def _sample_parts(path):
+    prefix = '/samples/'
+    if not path.startswith(prefix):
+        raise KeyError('unknown sample endpoint')
+    relative = path.removeprefix(prefix).strip('/')
+    if not relative:
+        raise KeyError('sample name is required')
+    parts = relative.split('/')
+    name = unquote(parts[0]).strip()
+    if not name or name in {'.', '..'}:
+        raise ValueError('invalid sample name')
+    return name, '/'.join(parts[1:]).strip('/')
+
+
+def _safe_next(value):
+    value = str(value or '').strip()
+    parsed = urlparse(value)
+    if (not (value == '/samples' or value.startswith('/samples/'))
+            or value.startswith('//')
+            or parsed.scheme or parsed.netloc):
+        return '/samples'
+    return value
 
 
 def _system_parts(path, prefix='/system/'):

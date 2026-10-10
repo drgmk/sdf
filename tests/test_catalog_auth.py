@@ -47,6 +47,39 @@ def test_proxy_authorizer_reads_and_reloads_group_membership(tmp_path):
     )
 
 
+def test_public_samples_and_signed_session_are_fail_closed(tmp_path):
+    groups = tmp_path / '.htgroup'
+    groups.write_text('admin: grant\nprivate: alice\n', encoding='utf-8')
+    public = tmp_path / 'public-samples'
+    public.write_text('# Published views\npublic\n', encoding='utf-8')
+    auth = sdf.catalog_auth.CatalogAuthorizer(
+        user_header='X-SDF-User', group_file=groups,
+        public_sample_file=public, session_secret=b'test-secret',
+    )
+
+    anonymous = auth.principal({})
+    assert auth.can_access_sample(anonymous, 'public')
+    assert not auth.can_access_sample(anonymous, 'private')
+
+    token = auth.issue_session('alice')
+    alice = auth.principal({'Cookie': 'other=x; sdf_session=' + token})
+    assert alice.username == 'alice'
+    assert auth.can_access_sample(alice, 'public')
+    assert auth.can_access_sample(alice, 'private')
+
+    tampered = token[:-1] + ('a' if token[-1] != 'a' else 'b')
+    assert not auth.principal({'Cookie': 'sdf_session=' + tampered}).authenticated
+    expired = auth.issue_session('alice', now=0)
+    assert not auth.principal({'Cookie': 'sdf_session=' + expired}).authenticated
+
+    public.write_text('public\nnew-public\n', encoding='utf-8')
+    os.utime(
+        public,
+        ns=(public.stat().st_atime_ns, public.stat().st_mtime_ns + 1),
+    )
+    assert auth.is_public_sample('new-public')
+
+
 def test_local_authorizer_preserves_loopback_operator_workflow():
     auth = sdf.catalog_auth.CatalogAuthorizer(local_actor='Grant')
     principal = auth.principal({})
