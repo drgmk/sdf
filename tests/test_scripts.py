@@ -57,6 +57,10 @@ def test_new_cli_top_level_help_is_operational(
                 '--autofit-existing', '--workers N', '--auth-user-header',
             ),
         ),
+        (
+            ['sdf-fits', 'reprioritize', '--help'],
+            ('never invokes a sampler', '--all', '--threshold LOG_EVIDENCE'),
+        ),
     ),
 )
 def test_sdf_fits_subcommand_help_explains_effects(
@@ -193,6 +197,39 @@ def test_sdf_fits_serve_passes_parallel_worker_count(monkeypatch, tmp_path):
 
     assert calls[0]['workers'] == 4
     assert calls[0]['worker'] is True
+
+
+def test_sdf_fits_reprioritizes_every_package_and_rebuilds_once(
+        monkeypatch, tmp_path, capsys):
+    packages = (tmp_path / 'one', tmp_path / 'two')
+    calls = []
+
+    monkeypatch.setattr(
+        sys, 'argv', ['sdf-fits', 'reprioritize', str(tmp_path), '--all'],
+    )
+    monkeypatch.setattr(
+        sdf.scripts, 'discover_packages', lambda root: packages,
+    )
+    monkeypatch.setattr(
+        sdf.scripts, 'reprioritize_package',
+        lambda package, **kwargs: calls.append((package, kwargs)) or object(),
+    )
+
+    class FakeIndex:
+        def __init__(self, path):
+            calls.append(('index', path))
+
+        def rebuild(self, root):
+            calls.append(('rebuild', root))
+
+    monkeypatch.setattr(sdf.scripts, 'ResultIndex', FakeIndex)
+
+    sdf.scripts.sdf_fits()
+
+    assert [call[0] for call in calls[:2]] == list(packages)
+    assert all(call[1]['result_index'] is False for call in calls[:2])
+    assert calls[-1] == ('rebuild', tmp_path)
+    assert '"reprioritized": 2' in capsys.readouterr().out
 
 
 def test_sdf_sample_uses_indexed_hierarchy_products(monkeypatch, tmp_path):

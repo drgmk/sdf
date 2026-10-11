@@ -35,6 +35,7 @@ class FitCoordinator:
         self.library = CandidateLibrary(self.package_directory)
         self.sampler = sampler or MultiNestSampler()
         self.result_index = (
+            None if result_index is False else
             ResultIndex.find_for_package(self.package_directory)
             if result_index is None else result_index
         )
@@ -197,6 +198,8 @@ class FitCoordinator:
                 default_source='operator' if preserve_override else 'automatic',
             ))
             self._update_result_index()
+            return self.library.read_selection()
+        return None
 
     def _update_result_index(self):
         if self.result_index is not None:
@@ -235,6 +238,35 @@ def fit_package(source, *, sampler=None, force=False, nospec=False,
     raise ValueError(
         '{} package fitting needs explicit candidate input, which is not '
         'implemented yet'.format(mode)
+    )
+
+
+def reprioritize_package(source, *, threshold=None, nospec=False,
+                         policy_store=None, result_index=None):
+    """Refresh selection metadata using current retained candidates only.
+
+    This deliberately never compiles a fit or invokes a sampler. Candidates
+    made from older package inputs are ignored, while a current explicit
+    operator choice remains the default.
+    """
+
+    source = canonical_fit_source(source)
+    dataset = FitDataset.from_path(source, nospec=nospec)
+    package_directory = source if source.is_dir() else source.parent
+    policies = resolve_package_policies(
+        dataset, package_directory, policy_store=policy_store,
+    )
+    coordinator = FitCoordinator(
+        package_directory, result_index=result_index,
+    )
+    current = tuple(
+        candidate for candidate in coordinator.library.candidates()
+        if candidate.is_current(dataset)
+    )
+    if not current:
+        return None
+    return coordinator._write_evidence_selection(
+        current, dataset, policies, threshold=threshold,
     )
 
 

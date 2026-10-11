@@ -10,6 +10,11 @@ from .test_dataset import _write_rawphot
 import sdf.catalog_server
 
 
+def test_sigterm_handler_uses_normal_keyboard_interrupt_cleanup():
+    with pytest.raises(KeyboardInterrupt):
+        sdf.catalog_server._raise_keyboard_interrupt(None, None)
+
+
 def _catalog(tmp_path):
     package = tmp_path / 'package'
     package.mkdir()

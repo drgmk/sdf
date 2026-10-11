@@ -410,14 +410,23 @@ def serve_catalog(root, *, index_path=None, state_path=None, actor=None,
         server.catalog_service, worker=worker, workers=workers, watch=watch,
         autofit_existing=autofit_existing, poll_seconds=poll_seconds,
     )
-    runtime.start()
+    previous_sigterm = signal.getsignal(signal.SIGTERM)
+    signal.signal(signal.SIGTERM, _raise_keyboard_interrupt)
     try:
+        runtime.start()
         server.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
+        signal.signal(signal.SIGTERM, previous_sigterm)
         server.server_close()
         runtime.stop()
+
+
+def _raise_keyboard_interrupt(signum, frame):
+    """Route service termination through the normal worker cleanup path."""
+
+    raise KeyboardInterrupt
 
 
 class CatalogRuntime:

@@ -16,10 +16,10 @@ from sdf import db
 from sdf import www
 from sdf import config as cfg
 from sdf.dataset import discover_fit_sources
-from sdf.coordinator import fit_package
+from sdf.coordinator import fit_package, reprioritize_package
 from sdf.fit_management import FitManager
 from sdf.joint_plotting import write_joint_results_page
-from sdf.result_index import ResultIndex
+from sdf.result_index import ResultIndex, discover_packages
 from sdf.operator_jobs import run_next_job, run_worker
 from sdf.operator_state import OperatorState
 from sdf.catalog_server import serve_catalog
@@ -388,6 +388,33 @@ def sdf_fits():
         '--no-spectra', action='store_true',
         help='exclude spectra from the fitted dataset',
     )
+    reprioritize_parser = _sdf_fits_command(
+        subparsers, 'reprioritize',
+        'Reapply the evidence-priority rules to retained fits.',
+        'Only selection metadata and the disposable result index are changed; '
+        'this command never invokes a sampler. Pass one PACKAGE, or use '
+        '--all with an EXPORT_ROOT to update every fitted package.',
+        examples=(
+            'sdf-fits reprioritize PACKAGE',
+            'sdf-fits reprioritize /data/sdb/export --all',
+        ),
+    )
+    reprioritize_parser.add_argument(
+        'package', metavar='PACKAGE_OR_EXPORT_ROOT',
+        help='one fitting package, or an export root when --all is used',
+    )
+    reprioritize_parser.add_argument(
+        '--all', action='store_true',
+        help='reprioritize every fitted package below EXPORT_ROOT',
+    )
+    reprioritize_parser.add_argument(
+        '--state', metavar='PATH',
+        help='operator policy SQLite path (default with --all: EXPORT_ROOT/sdf-operator.sqlite)',
+    )
+    reprioritize_parser.add_argument(
+        '--threshold', type=float, metavar='LOG_EVIDENCE',
+        help='significance threshold (default: configured ev_threshold)',
+    )
     serve_parser = _sdf_fits_command(
         subparsers, 'serve',
         'Serve the catalog-wide SDF operator UI and fitting loop.',
@@ -496,6 +523,37 @@ def sdf_fits():
             public_sample_file=args.public_samples_file,
             auth_cookie_secure=args.auth_cookie_secure,
         )
+        return
+
+    if args.command == 'reprioritize':
+        root = Path(args.package).expanduser().resolve()
+        packages = discover_packages(root) if args.all else (root,)
+        state_path = args.state
+        if state_path is None and args.all:
+            default_state = root / 'sdf-operator.sqlite'
+            state_path = default_state if default_state.is_file() else None
+        state = (
+            OperatorState(state_path).initialize()
+            if state_path is not None else None
+        )
+        changed = 0
+        skipped = 0
+        for package in packages:
+            selection = reprioritize_package(
+                package, threshold=args.threshold, policy_store=state,
+                result_index=False,
+            )
+            if selection is None:
+                skipped += 1
+            else:
+                changed += 1
+        index_path = root / 'sdf-results.sqlite' if args.all else None
+        if args.all and (changed or index_path.is_file()):
+            ResultIndex(index_path).rebuild(root)
+        print(json.dumps({
+            'reprioritized': changed, 'skipped': skipped,
+            'packages': len(packages),
+        }, sort_keys=True))
         return
 
     manager = FitManager(args.package)

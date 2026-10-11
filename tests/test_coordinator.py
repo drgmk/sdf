@@ -216,6 +216,46 @@ def test_evidence_selection_preserves_operator_default(tmp_path):
     assert selection.default_source == 'operator'
 
 
+def test_reprioritize_uses_only_retained_current_results(monkeypatch, tmp_path):
+    dataset = _fit_dataset(tmp_path)
+    policy = sdf.model_policy.TargetModelPolicy(
+        target_key=dataset.targets[0].key,
+        stellar_models=('kurucz-0.0',),
+        disk_models=('modbb_disk_r',),
+        max_disks=1,
+    )
+    search = sdf.candidate_search.CandidateSearch((policy,))
+    coordinator = sdf.coordinator.FitCoordinator(
+        tmp_path, sampler=FakeSampler({0: 0.0, 1: 6.0}),
+        result_index=False,
+    )
+    results = tuple(
+        coordinator.fit_candidate(dataset, candidate)
+        for candidate in search.exhaustive()
+    )
+    coordinator.library.write_selection(
+        sdf.candidate_library.FitSelection(
+            default=results[0].candidate_id,
+            displayed=tuple(result.candidate_id for result in results),
+        )
+    )
+    monkeypatch.setattr(
+        sdf.coordinator.FitDataset, 'from_path', lambda *args, **kwargs: dataset
+    )
+    monkeypatch.setattr(
+        sdf.coordinator, 'resolve_package_policies',
+        lambda *args, **kwargs: (policy,),
+    )
+
+    selection = sdf.coordinator.reprioritize_package(
+        tmp_path, threshold=5.0, result_index=False,
+    )
+
+    assert selection.recommended == results[1].candidate_id
+    assert selection.default == results[1].candidate_id
+    assert selection.default_source == 'automatic'
+
+
 def test_fit_package_loads_yaml_policy_and_runs_exhaustively(tmp_path):
     _write_rawphot(
         tmp_path / 'target-rawphot.txt',

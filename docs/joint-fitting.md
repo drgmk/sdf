@@ -142,6 +142,18 @@ override, which subsequent automatic fits preserve. The UI continues to show
 the recommendation separately and offers **Use recommended** to return control
 to the automatic procedure.
 
+Priority rules can be reapplied to retained fits without sampling again:
+
+```shell
+sdf-fits reprioritize /path/to/package
+sdf-fits reprioritize /path/to/export --all
+```
+
+The bulk form uses `sdf-operator.sqlite` when present, rewrites only package
+selection metadata, and rebuilds the disposable result index once at the end.
+Candidates made from superseded package inputs are ignored and current
+operator-selected defaults are preserved.
+
 ## Outputs
 
 Every completed candidate is committed before the search continues:
@@ -247,7 +259,9 @@ development controls are `--workers`, `--no-worker`, `--no-watch`,
 the queue at service startup. If an individual pool worker fails, only that
 worker's job is recovered before its slot is restarted. The result index
 defaults to `/path/to/export/sdf-results.sqlite` and durable policy/job state
-to `/path/to/export/sdf-operator.sqlite`.
+to `/path/to/export/sdf-operator.sqlite`. `SIGTERM` follows the same orderly
+shutdown path as an interactive interrupt, allowing supervised fit workers to
+stop before the service exits.
 
 The drawer exposes model choices for each physical contributor, but actor,
 reason, and the queue action apply once to the system. Changed contributor
