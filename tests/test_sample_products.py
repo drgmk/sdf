@@ -165,6 +165,31 @@ def test_system_plot_lines_only_connect_components_from_the_same_system():
     }
 
 
+def test_system_lines_do_not_capture_point_navigation():
+    data = {
+        'temperature': [6000.0, 4500.0],
+        'luminosity': [2.0, 0.4],
+        'target': ['A', 'B'],
+        'system': ['AB', 'AB'],
+        'system_key': ['one', 'one'],
+        'model': ['star', 'star'],
+        'url': ['/system/one/', '/system/one/'],
+        'colour': ['blue', 'blue'],
+        'marker': ['circle', 'circle'],
+    }
+
+    plot = sdf.sample_products._sample_figure(
+        data, 'HR diagram', 'temperature', 'luminosity', True,
+    )
+    tap = plot.select(type=sdf.sample_products.TapTool)
+
+    assert len(plot.renderers) == 2
+    assert tap.renderers == [plot.renderers[1]]
+    assert tap.renderers[0].data_source.data['url'] == [
+        '/system/one/', '/system/one/',
+    ]
+
+
 def test_composite_member_includes_both_contributors_and_owned_disk(tmp_path):
     _retained_binary_package(tmp_path)
     index = sdf.result_index.ResultIndex(tmp_path / 'sdf-results.sqlite')

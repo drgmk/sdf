@@ -72,6 +72,7 @@ def test_catalog_http_routes_and_rejects_bad_token(tmp_path):
         assert 'T<sub>eff</sub>' in sample_page
         assert 'VOTable' in sample_page
         assert 'Photometry' in sample_page
+        assert 'class="sample-download-links"' in sample_page
         assert 'Awaiting a current fit' in sample_page
         plot_page = urlopen(root + '/samples/test/plots').read().decode()
         assert 'Bokeh' in plot_page

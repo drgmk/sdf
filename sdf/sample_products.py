@@ -421,6 +421,7 @@ def _sample_figure(data, title, x_label, y_label, reverse_x):
         ],
     ))
     tap = plot.select(type=TapTool)
+    tap.renderers = [renderer]
     tap.callback = OpenURL(url='@url')
     return plot
 
