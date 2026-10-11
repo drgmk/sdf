@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import ast
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
+import math
 import os
 from pathlib import Path
 
@@ -45,6 +47,9 @@ class SampleTarget:
     sdbid: str | None
     direct_member: bool
     parallax_arcsec: dict | None
+    ra_deg: float | None
+    dec_deg: float | None
+    spectral_type: str | None
     stars: tuple[SampleStar, ...]
     disks: tuple[SampleDisk, ...]
 
@@ -56,6 +61,10 @@ class SampleTarget:
     def distance_pc(self):
         parallax = _median(self.parallax_arcsec)
         return None if parallax is None or parallax <= 0 else 1.0 / parallax
+
+    @property
+    def ra_hours(self):
+        return None if self.ra_deg is None else self.ra_deg / 15.0
 
 
 @dataclass(frozen=True)
@@ -116,6 +125,9 @@ def project_sample(index, name, identifiers=None, *, output_directory=None,
         payload = json.loads(
             (root / package['result_path']).read_text(encoding='utf-8')
         )
+        target_metadata = _package_target_metadata(
+            root / package['package_path']
+        )
         analysis = payload.get('analysis', {})
         fitted = {
             component['component_id']: component
@@ -153,6 +165,11 @@ def project_sample(index, name, identifiers=None, *, output_directory=None,
                 target_key=target_key, main_id=values.get('main_id'),
                 sdbid=values.get('sdbid'), direct_member=direct,
                 parallax_arcsec=values.get('parallax_arcsec'),
+                ra_deg=target_metadata.get(target_key, {}).get('ra_deg'),
+                dec_deg=target_metadata.get(target_key, {}).get('dec_deg'),
+                spectral_type=target_metadata.get(target_key, {}).get(
+                    'spectral_type'
+                ),
                 stars=stars, disks=disks,
             ))
         package_observations = observations_by_package.get(
@@ -226,13 +243,48 @@ def write_sample_table(projection, output_directory, *, has_photometry=False,
 
 
 def sample_table_rows(projection):
-    """Return one display row per physical target in a sample projection."""
+    """Return compact, sortable science rows for a sample projection.
 
-    return tuple({
-        'system': system,
-        'target': target,
-        'star': target.stars[0] if target.stars else None,
-    } for system in projection.systems for target in system.targets)
+    Disk values remain grouped in one target row, matching the established
+    sample-table presentation.  Numeric sorting uses the first displayed
+    (warmest) disk component when more than one is present.
+    """
+
+    rows = []
+    for system in projection.systems:
+        for target in system.targets:
+            star = target.stars[0] if target.stars else None
+            luminosity = _median(
+                None if star is None else star.luminosity_lsun
+            )
+            disks = tuple(sorted(({
+                'component': disk,
+                'temperature_k': _median(disk.temperature_k),
+                'log_fractional_luminosity': _log10(
+                    _median(disk.fractional_luminosity)
+                ),
+                'blackbody_radius_au': _median(disk.blackbody_radius_au),
+            } for disk in target.disks), key=_disk_sort_key))
+            first_disk = disks[0] if disks else {}
+            rows.append({
+                'system': system,
+                'target': target,
+                'star': star,
+                'disks': disks,
+                'temperature_k': _median(
+                    None if star is None else star.temperature_k
+                ),
+                'log_luminosity': _log10(luminosity),
+                'distance_pc': target.distance_pc,
+                'disk_temperature_sort': first_disk.get('temperature_k'),
+                'log_fractional_luminosity_sort': first_disk.get(
+                    'log_fractional_luminosity'
+                ),
+                'blackbody_radius_sort': first_disk.get(
+                    'blackbody_radius_au'
+                ),
+            })
+    return tuple(rows)
 
 
 def write_sample_votable(projection, path):
@@ -387,6 +439,74 @@ def _star(derived, fitted):
         luminosity_lsun=derived.get('luminosity_lsun'),
         radius_rsun=derived.get('radius_rsun'),
     )
+
+
+def _package_target_metadata(package):
+    """Read lightweight catalogue metadata from raw-photometry headers."""
+
+    metadata = {}
+    for path in Path(package).glob('*-rawphot.txt'):
+        keywords = _rawphot_header(path)
+        key = _target_key(keywords)
+        if key is None:
+            continue
+        metadata[key] = {
+            'ra_deg': _optional_float(keywords.get('raj2000')),
+            'dec_deg': _optional_float(keywords.get('dej2000')),
+            'spectral_type': _optional_text(keywords.get('sp_type')),
+        }
+    return metadata
+
+
+def _rawphot_header(path):
+    """Parse only the leading IPAC keywords, avoiding the photometry body."""
+
+    values = {}
+    with Path(path).open(encoding='utf-8') as handle:
+        for line in handle:
+            if not line.startswith('\\'):
+                break
+            key, separator, value = line[1:].partition('=')
+            if not separator:
+                continue
+            value = value.strip()
+            try:
+                values[key.strip()] = ast.literal_eval(value)
+            except (SyntaxError, ValueError):
+                values[key.strip()] = value.strip("'\"")
+    return values
+
+
+def _target_key(keywords):
+    main_id = _optional_text(keywords.get('main_id'))
+    if main_id is not None:
+        return 'simbad:' + ' '.join(main_id.split())
+    sdbid = _optional_text(keywords.get('id'))
+    return None if sdbid is None else 'sdb:' + sdbid
+
+
+def _optional_text(value):
+    if value is None:
+        return None
+    value = str(value).strip()
+    return None if value in {'', 'None'} else value
+
+
+def _optional_float(value):
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return None
+    return value if math.isfinite(value) else None
+
+
+def _log10(value):
+    return None if value is None or value <= 0 else math.log10(value)
+
+
+def _disk_sort_key(disk):
+    temperature = disk['temperature_k']
+    return (temperature is None, 0.0 if temperature is None else -temperature)
 
 
 def _package_url(root, package_path, output_directory, sed_base_url):

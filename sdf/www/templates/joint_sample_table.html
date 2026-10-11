@@ -22,20 +22,28 @@
       font-size:11px; white-space:nowrap; }
     .context { background:#edf0f3; color:#637083; }
     details { margin:3px 0; } summary { cursor:pointer; }
+    .table-wrap { overflow:auto; background:white; border:1px solid #dfe5ec;
+      border-radius:8px; max-height:72vh; }
+    .sample-table-tools { display:flex; align-items:center; gap:9px;
+      margin:16px 0 8px; }
+    .sample-table-tools input { width:min(320px,55vw); padding:7px 9px;
+      border:1px solid #b8c3d1; border-radius:6px; }
+    .sample-properties { margin-top:0; border:0; font-size:13px;
+      white-space:nowrap; }
+    .sample-properties th { position:sticky; top:0; padding:0;
+      background:#f8fafc; }
+    .sample-properties th button { width:100%; padding:9px 10px; border:0;
+      background:transparent; color:inherit; text-align:left; cursor:pointer; }
+    .sample-properties td.number { text-align:right;
+      font-variant-numeric:tabular-nums; }
+    .context-note { color:#748090; font-size:11px; }
+    .stale-note { color:#8b2e34; }
     footer { color:#526071; font-size:12px; margin-top:14px; }
   </style>
 </head>
 <body><main>
   <header><div><h1>{{ projection.name }}</h1><p class="muted">{{ projection.systems|length }} fitted systems · {{ projection.target_count }} physical contributors</p></div><nav>{% if has_plots %}<a href="hr.html">HR and disks</a>{% endif %}{% if has_flux_size %} · <a href="fnuvsr.html">Flux and size</a>{% endif %}{% if has_plots %} · {% endif %}<a href="{{ projection.name }}.xml">VOTable</a>{% if has_photometry %} · <a href="{{ projection.name }}_photometry.csv">Photometry</a>{% endif %}</nav></header>
-  {% if projection.unmatched %}<p class="warning">No indexed fit for: {{ projection.unmatched|join(', ') }}</p>{% endif %}
-  <table><thead><tr><th>System</th><th>Physical target</th><th>Stellar fit</th><th>Distance</th><th>Owned disks</th></tr></thead><tbody>
-  {% for row in rows %}<tr>
-    <td><a href="{{ row.system.url }}">{{ row.system.label }}</a><br><code>{{ row.system.package_path }}</code>{% if not row.system.data_current %}<br><span class="badge context">input changed</span>{% endif %}</td>
-    <td>{{ row.target.label }}<br><code>{{ row.target.sdbid or row.target.target_key }}</code><br>{% if row.target.direct_member %}<span class="badge">sample member</span>{% else %}<span class="badge context">system context</span>{% endif %}</td>
-    <td>{% if row.star %}{{ row.star.model_name }}<br>Teff {{ row.star.temperature_k|summary }} K<br>L {{ row.star.luminosity_lsun|summary }} L☉{% else %}—{% endif %}</td>
-    <td>{% if row.target.distance_pc %}{{ '%.1f'|format(row.target.distance_pc) }} pc{% else %}—{% endif %}</td>
-    <td>{% if row.target.disks %}{% for disk in row.target.disks %}<details><summary>{{ disk.model_name }} · {{ disk.temperature_k|summary }} K</summary>f={{ disk.fractional_luminosity|summary }}<br>Rbb={{ disk.blackbody_radius_au|summary }} au<br><code>{{ disk.component_id }}</code></details>{% endfor %}{% else %}—{% endif %}</td>
-  </tr>{% endfor %}
-  </tbody></table>
+  {% if projection.unmatched %}<p class="warning">{{ projection.unmatched|length }} target{% if projection.unmatched|length != 1 %}s{% endif %} do not yet have an indexed default fit.</p>{% endif %}
+  {% include "sample_properties_table.html" %}
   <footer>generated {{ creation_time }}</footer>
 </main></body></html>

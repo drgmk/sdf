@@ -67,7 +67,8 @@ def test_catalog_http_routes_and_rejects_bad_token(tmp_path):
         assert 'Search fitted systems' in urlopen(root + '/').read().decode()
         assert 'HD 123' in urlopen(root + '/search?q=123').read().decode()
         sample_page = urlopen(root + '/samples/test/').read().decode()
-        assert 'Physical target' in sample_page
+        assert 'Filter targets' in sample_page
+        assert 'T<sub>eff</sub>' in sample_page
         assert 'Awaiting a current fit' in sample_page
         assert 'Bokeh' in urlopen(
             root + '/samples/test/plots'

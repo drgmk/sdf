@@ -1,0 +1,88 @@
+<div class="sample-table-tools">
+  <label for="sample-table-filter">Filter targets</label>
+  <input id="sample-table-filter" type="search" placeholder="name, spectral type, or value" autocomplete="off">
+  <span class="muted" id="sample-table-count">{{ rows|length }} row{% if rows|length != 1 %}s{% endif %}</span>
+</div>
+<div class="table-wrap sample-table-wrap"><table class="sample-properties" data-sortable-table>
+  <thead><tr>
+    <th><button type="button" data-column="0" data-type="text">Target <span aria-hidden="true"></span></button></th>
+    <th><button type="button" data-column="1" data-type="text">Sp. type <span aria-hidden="true"></span></button></th>
+    <th><button type="button" data-column="2" data-type="number">RA / h <span aria-hidden="true"></span></button></th>
+    <th><button type="button" data-column="3" data-type="number">Dec / ° <span aria-hidden="true"></span></button></th>
+    <th><button type="button" data-column="4" data-type="number">Distance / pc <span aria-hidden="true"></span></button></th>
+    <th><button type="button" data-column="5" data-type="number">T<sub>eff</sub> / K <span aria-hidden="true"></span></button></th>
+    <th><button type="button" data-column="6" data-type="number">log L<sub>★</sub> / L<sub>☉</sub> <span aria-hidden="true"></span></button></th>
+    <th><button type="button" data-column="7" data-type="number">T<sub>disk</sub> / K <span aria-hidden="true"></span></button></th>
+    <th><button type="button" data-column="8" data-type="number">log f <span aria-hidden="true"></span></button></th>
+    <th><button type="button" data-column="9" data-type="number">R<sub>BB</sub> / au <span aria-hidden="true"></span></button></th>
+  </tr></thead>
+  <tbody>
+  {% for row in rows %}<tr data-filter="{{ row.target.label|lower }} {{ row.target.spectral_type or '' }}">
+    <td data-sort="{{ row.target.label|lower }}"><a class="targets" href="{{ row.system.url }}">{{ row.target.label }}</a>{% if not row.target.direct_member %}<br><span class="context-note">system context</span>{% endif %}{% if not row.system.data_current %}<br><span class="context-note stale-note">input changed</span>{% endif %}</td>
+    <td data-sort="{{ (row.target.spectral_type or '')|lower }}">{{ row.target.spectral_type or '—' }}</td>
+    <td class="number" data-sort="{{ row.target.ra_hours if row.target.ra_hours is not none else '' }}">{% if row.target.ra_hours is not none %}{{ '%.3f'|format(row.target.ra_hours) }}{% else %}—{% endif %}</td>
+    <td class="number" data-sort="{{ row.target.dec_deg if row.target.dec_deg is not none else '' }}">{% if row.target.dec_deg is not none %}{{ '%+.2f'|format(row.target.dec_deg) }}{% else %}—{% endif %}</td>
+    <td class="number" data-sort="{{ row.distance_pc if row.distance_pc is not none else '' }}">{% if row.distance_pc is not none %}{{ '%.1f'|format(row.distance_pc) }}{% else %}—{% endif %}</td>
+    <td class="number" data-sort="{{ row.temperature_k if row.temperature_k is not none else '' }}">{% if row.temperature_k is not none %}{{ '%.0f'|format(row.temperature_k) }}{% else %}—{% endif %}</td>
+    <td class="number" data-sort="{{ row.log_luminosity if row.log_luminosity is not none else '' }}">{% if row.log_luminosity is not none %}{{ '%.2f'|format(row.log_luminosity) }}{% else %}—{% endif %}</td>
+    <td class="number" data-sort="{{ row.disk_temperature_sort if row.disk_temperature_sort is not none else '' }}">{% if row.disks %}{% for disk in row.disks %}{% if disk.temperature_k is not none %}{{ '%.0f'|format(disk.temperature_k) }}{% else %}—{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}—{% endif %}</td>
+    <td class="number" data-sort="{{ row.log_fractional_luminosity_sort if row.log_fractional_luminosity_sort is not none else '' }}">{% if row.disks %}{% for disk in row.disks %}{% if disk.log_fractional_luminosity is not none %}{{ '%.2f'|format(disk.log_fractional_luminosity) }}{% else %}—{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}—{% endif %}</td>
+    <td class="number" data-sort="{{ row.blackbody_radius_sort if row.blackbody_radius_sort is not none else '' }}">{% if row.disks %}{% for disk in row.disks %}{% if disk.blackbody_radius_au is not none %}{{ '%.3g'|format(disk.blackbody_radius_au) }}{% else %}—{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}—{% endif %}</td>
+  </tr>{% else %}<tr><td colspan="10" class="muted">No completed default fits are available yet.</td></tr>{% endfor %}
+  </tbody>
+</table></div>
+<script>
+(() => {
+  const table = document.querySelector('[data-sortable-table]');
+  if (!table) return;
+  const body = table.tBodies[0];
+  const rows = Array.from(body.rows).filter(row => row.cells.length === 10);
+  const filter = document.getElementById('sample-table-filter');
+  const count = document.getElementById('sample-table-count');
+  const buttons = Array.from(table.querySelectorAll('th button[data-column]'));
+  let activeColumn = -1;
+  let ascending = true;
+
+  function updateCount() {
+    const visible = rows.filter(row => !row.hidden).length;
+    count.textContent = `${visible} row${visible === 1 ? '' : 's'}`;
+  }
+
+  filter.addEventListener('input', () => {
+    const query = filter.value.trim().toLocaleLowerCase();
+    rows.forEach(row => {
+      const values = `${row.dataset.filter || ''} ${row.textContent || ''}`
+        .toLocaleLowerCase();
+      row.hidden = query && !values.includes(query);
+    });
+    updateCount();
+  });
+
+  buttons.forEach(button => button.addEventListener('click', () => {
+    const column = Number(button.dataset.column);
+    ascending = column === activeColumn ? !ascending : true;
+    activeColumn = column;
+    const numeric = button.dataset.type === 'number';
+    rows.sort((left, right) => {
+      const a = left.cells[column].dataset.sort || '';
+      const b = right.cells[column].dataset.sort || '';
+      if (!a && b) return 1;
+      if (a && !b) return -1;
+      if (!a && !b) return 0;
+      const difference = numeric
+        ? Number(a) - Number(b)
+        : a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'});
+      return ascending ? difference : -difference;
+    });
+    rows.forEach(row => body.appendChild(row));
+    buttons.forEach(item => {
+      item.parentElement.removeAttribute('aria-sort');
+      item.querySelector('span').textContent = '';
+    });
+    button.parentElement.setAttribute(
+      'aria-sort', ascending ? 'ascending' : 'descending'
+    );
+    button.querySelector('span').textContent = ascending ? '▲' : '▼';
+  }));
+})();
+</script>

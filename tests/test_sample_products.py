@@ -120,12 +120,34 @@ def test_writers_create_hierarchy_table_votable_and_plots(tmp_path):
         'table', 'votable', 'photometry', 'plots', 'flux_size',
     }
     html = outputs['table'].read_text(encoding='utf-8')
-    assert 'Physical target' in html
-    assert 'sample member' in html
+    assert 'Filter targets' in html
+    assert 'T<sub>eff</sub>' in html
+    assert 'sample member' not in html
+    assert 'sdb-test' not in html
     assert outputs['votable'].is_file()
     assert outputs['photometry'].is_file()
     assert 'Bokeh' in outputs['plots'].read_text(encoding='utf-8')
     assert 'Bokeh' in outputs['flux_size'].read_text(encoding='utf-8')
+
+
+def test_sample_table_rows_are_science_columns_and_group_disks(tmp_path):
+    _retained_binary_package(tmp_path)
+    index = sdf.result_index.ResultIndex(tmp_path / 'sdf-results.sqlite')
+    index.rebuild(tmp_path)
+    projection = sdf.sample_products.project_sample(
+        index, 'binary-sample', ('sdb-AB',)
+    )
+
+    rows = sdf.sample_products.sample_table_rows(projection)
+
+    assert len(rows) == 2
+    assert rows[0]['target'].main_id == 'A'
+    assert rows[0]['temperature_k'] > 0
+    assert rows[0]['log_luminosity'] is not None
+    assert rows[0]['disks'][0]['temperature_k'] > 0
+    assert rows[1]['target'].main_id == 'B'
+    assert rows[1]['disks'] == ()
+    assert rows[1]['disk_temperature_sort'] is None
 
 
 def test_composite_member_includes_both_contributors_and_owned_disk(tmp_path):
