@@ -63,6 +63,8 @@
     .main-column { min-width:0; }
     .default-badge { background:#dff3e4; color:#176b37; border-radius:10px;
       padding:2px 7px; font-size:11px; white-space:nowrap; }
+    .recommended-badge { background:#e8eefc; color:#294d94; border-radius:10px;
+      padding:2px 7px; font-size:11px; white-space:nowrap; }
     .stale-badge { background:#fff0cf; color:#7a4b00; border-radius:10px;
       padding:2px 7px; font-size:11px; white-space:nowrap; }
     .plot-region { min-width:0; background:white; border:1px solid var(--line);
@@ -188,7 +190,7 @@
     </section>
     <section class="operator-section">
       <h2>Available fits</h2>
-      {% for fit in available_fits %}<div class="operator-fit" data-fit-reference="{{ fit.reference }}"><strong>{% for part in fit.shorthand %}{% if part.owner %}{{ part.owner }} {% endif %}{{ part.symbols }}{% if not loop.last %} · {% endif %}{% endfor %}</strong>{% if fit.default %} <span class="default-badge">default</span>{% endif %}<p class="muted">Evidence {% if fit.evidence is not none %}{{ '%.2f'|format(fit.evidence) }}{% else %}not available{% endif %}{% if not fit.current %} · input changed{% endif %}</p><div class="fit-actions"><a href="{{ fit.preview_url }}">Preview</a><label><input class="display-fit" type="checkbox"{% if fit.displayed %} checked{% endif %}{% if fit.default or not operator_api %} disabled{% endif %}> shown</label>{% if not fit.default %}<button class="default-fit" type="button"{% if not operator_api %} disabled{% endif %}>Make default</button>{% endif %}<span class="operator-status" role="status"></span></div></div>{% endfor %}
+      {% for fit in available_fits %}<div class="operator-fit" data-fit-reference="{{ fit.reference }}"><strong>{% for part in fit.shorthand %}{% if part.owner %}{{ part.owner }} {% endif %}{{ part.symbols }}{% if not loop.last %} · {% endif %}{% endfor %}</strong>{% if fit.default %} <span class="default-badge">default</span>{% endif %}{% if fit.recommended %} <span class="recommended-badge">recommended</span>{% endif %}<p class="muted">ln Z {% if fit.evidence is not none %}{{ '%.2f'|format(fit.evidence) }}{% if fit.delta_evidence %} · Δ{{ '%.2f'|format(fit.delta_evidence) }}{% endif %}{% else %}not available{% endif %}{% if not fit.current %} · input changed{% endif %}</p><div class="fit-actions"><a href="{{ fit.preview_url }}">Preview</a><label><input class="display-fit" type="checkbox"{% if fit.displayed %} checked{% endif %}{% if fit.default or not operator_api %} disabled{% endif %}> shown</label>{% if fit.recommended and not fit.default %}<button class="recommended-fit" type="button"{% if not operator_api %} disabled{% endif %}>Use recommended</button>{% endif %}{% if not fit.default %}<button class="default-fit" type="button"{% if not operator_api %} disabled{% endif %}>Make default</button>{% endif %}<span class="operator-status" role="status"></span></div></div>{% endfor %}
     </section>
   </aside>
   {% endif %}
@@ -285,6 +287,11 @@
     const makeDefault = card.querySelector('.default-fit');
     if (makeDefault) makeDefault.addEventListener('click', async () => {
       try { await send('/selection', {reference, action: 'default'}); reloadOpen(); }
+      catch (error) { status.classList.add('error'); status.textContent = error.message; }
+    });
+    const useRecommended = card.querySelector('.recommended-fit');
+    if (useRecommended) useRecommended.addEventListener('click', async () => {
+      try { await send('/selection', {reference, action: 'recommended'}); reloadOpen(); }
       catch (error) { status.classList.add('error'); status.textContent = error.message; }
     });
   });

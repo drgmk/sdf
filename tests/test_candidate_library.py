@@ -80,6 +80,8 @@ def test_selection_is_separate_from_retained_candidates(tmp_path):
         default=stored.candidate_id,
         displayed=(stored.candidate_id,),
         labels={stored.candidate_id: 'Preferred'},
+        recommended=stored.candidate_id,
+        default_source='operator',
     )
 
     library.write_selection(selection)

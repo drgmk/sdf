@@ -116,6 +116,32 @@ The whole package currently needs one search mode. `evidence-guided` and
 CLI/API path. `posterior-only` remains represented in policy but does not yet
 have a dedicated command.
 
+### Evidence-guided priority
+
+The configured evidence threshold remains 5. Evidence-guided searches fit
+complete disk-count levels rather than following individual ownership branches.
+For a binary, for example, every one-disk placement is evaluated before the
+one-disk level is judged; if that level is supported, every two-disk placement
+is then evaluated. Search stops after the best fit in a complete level fails to
+improve on the best simpler level by more than the threshold. This deliberately
+assumes that a jointly useful pair of added components will normally have a
+useful one-component precursor.
+
+After fitting, SDF finds the maximum evidence and treats candidates within 5
+of it as statistically competitive (with evidence uncertainty handled
+conservatively near the boundary). It recommends the competitive candidate
+with the fewest disk components. Equivalent placements then use deterministic
+preferences: concentrate disks around fewer physical contributors, prefer the
+earlier hierarchy contributor (A before B), follow configured model-family
+order, then prefer fewer numerical parameters. These rules never override an
+evidence difference greater than the threshold.
+
+`selection.json` records both the automatic `recommended` fit and the public
+`default`. Choosing a default in the operator UI marks it as an operator
+override, which subsequent automatic fits preserve. The UI continues to show
+the recommendation separately and offers **Use recommended** to return control
+to the automatic procedure.
+
 ## Outputs
 
 Every completed candidate is committed before the search continues:

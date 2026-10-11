@@ -19,6 +19,7 @@ from .candidate_library import (
 )
 from .candidate_search import CandidateSearch
 from .dataset import FitDataset, canonical_fit_source
+from .fit_priority import dataset_owner_order, recommend
 from .likelihood import FitProblem
 from .model_policy import resolve_package_policies
 from .result_index import ResultIndex
@@ -101,46 +102,41 @@ class FitCoordinator:
         return result
 
     def evidence_guided(self, dataset, search, threshold=None, force=False):
-        """Fit roots and expand every evidence-supported child branch."""
+        """Fit complete disk-count layers while evidence supports complexity."""
 
         threshold = (
             cfg.fitting['ev_threshold'] if threshold is None else threshold
         )
         fitted = {}
-        expanded = set()
-        queue = list(search.roots())
-        roots = {candidate.canonical_id for candidate in queue}
+        layer = search.roots()
+        roots = {candidate.canonical_id for candidate in layer}
+        simpler_best = float('-inf')
+        disk_count = 0
 
-        while queue:
-            parent = queue.pop(0)
-            if parent.canonical_id in expanded:
-                continue
-            parent_result = fitted.get(parent.canonical_id)
-            if parent_result is None:
-                parent_result = self.fit_candidate(
-                    dataset, parent, policy=search.policies, force=force
+        while layer:
+            layer_results = []
+            for candidate in layer:
+                result = self.fit_candidate(
+                    dataset, candidate, policy=search.policies, force=force
                 )
-                fitted[parent.canonical_id] = parent_result
-            expanded.add(parent.canonical_id)
+                fitted[candidate.canonical_id] = result
+                layer_results.append(result)
 
-            for child in search.children(parent):
-                child_result = fitted.get(child.canonical_id)
-                if child_result is None:
-                    child_result = self.fit_candidate(
-                        dataset, child, policy=search.policies, force=force
-                    )
-                    fitted[child.canonical_id] = child_result
-                if (
-                    _evidence(child_result) >
-                    _evidence(parent_result) + threshold and
-                    child.canonical_id not in expanded
-                ):
-                    queue.append(child)
+            layer_best = max((_evidence(result) for result in layer_results))
+            if disk_count and (
+                    not np.isfinite(layer_best) or
+                    layer_best <= simpler_best + threshold):
+                break
+            simpler_best = max(simpler_best, layer_best)
+            layer = search.next_layer(layer)
+            disk_count += 1
 
         results = tuple(
             fitted[key] for key in sorted(fitted)
         )
-        self._write_evidence_selection(results)
+        self._write_evidence_selection(
+            results, dataset, search.policies, threshold=threshold
+        )
         return results, tuple(sorted(roots))
 
     def fit_all(self, dataset, candidates, policy=(), force=False):
@@ -152,18 +148,53 @@ class FitCoordinator:
             )
             for candidate in candidates
         )
-        self._write_evidence_selection(results)
+        self._write_evidence_selection(results, dataset, policy)
         return results
 
-    def _write_evidence_selection(self, results):
+    def _write_evidence_selection(self, results, dataset, policy,
+                                  threshold=None):
+        threshold = (
+            cfg.fitting['ev_threshold'] if threshold is None else threshold
+        )
         ranked = tuple(
             result.candidate_id for result in sorted(
                 results, key=_evidence, reverse=True
             )
         )
         if ranked:
+            recommendation = recommend(
+                results, policies=policy,
+                owner_order=dataset_owner_order(dataset),
+                threshold=threshold,
+            )
+            try:
+                current = self.library.read_selection()
+            except FileNotFoundError:
+                current = None
+            current_default = (
+                None if current is None else
+                self.library.find(current.default)
+            )
+            preserve_override = (
+                current is not None and
+                current.default_source == 'operator' and
+                current_default is not None and
+                current_default.is_current(dataset)
+            )
+            default = (
+                current.default if preserve_override else
+                recommendation.candidate_id
+            )
+            displayed = (default,) + tuple(
+                candidate_id for candidate_id in ranked
+                if candidate_id != default
+            )
             self.library.write_selection(FitSelection(
-                default=ranked[0], displayed=ranked
+                default=default,
+                displayed=displayed,
+                labels=(current.labels if current is not None else None),
+                recommended=recommendation.candidate_id,
+                default_source='operator' if preserve_override else 'automatic',
             ))
             self._update_result_index()
 

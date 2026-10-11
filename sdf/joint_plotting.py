@@ -59,6 +59,9 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
     public_default = (
         selection.default if selection is not None else ranked_ids[0]
     )
+    recommended = (
+        selection.recommended if selection is not None else ranked_ids[0]
+    )
     if candidate_ids is not None:
         order = list(candidate_ids)
         if not order:
@@ -117,6 +120,7 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
         ordered, owner_labels, default, package_directory, dataset,
         displayed_ids=order,
         component_labels=component_labels, owner_colours=owner_colours,
+        recommended_candidate=recommended,
     )
     available_rows = ()
     queued_jobs = ()
@@ -137,6 +141,7 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
             owner_labels, default, package_directory, dataset,
             displayed_ids=order,
             component_labels=component_labels, owner_colours=owner_colours,
+            recommended_candidate=recommended,
         )
         if policy_store is not None:
             queued_jobs = policy_store.jobs(

@@ -36,8 +36,11 @@ def test_available_fits_report_default_and_display_order(tmp_path):
     available = manager.available()
 
     assert selection.displayed == (second.candidate_id, first.candidate_id)
+    assert selection.recommended == first.candidate_id
+    assert selection.default_source == 'operator'
     by_id = {fit.candidate_id: fit for fit in available}
     assert by_id[second.candidate_id].is_default
+    assert by_id[first.candidate_id].is_recommended
     assert by_id[second.candidate_id].display_position == 0
     assert by_id[first.candidate_id].display_position == 1
 

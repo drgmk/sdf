@@ -131,8 +131,8 @@ def test_evidence_guided_search_expands_all_supported_siblings(tmp_path):
         dataset, search, threshold=5.0
     )
 
-    # The one-disk child is supported and expanded; the two-disk child is
-    # retained but not expanded because its improvement is below threshold.
+    # The supported one-disk level causes the complete two-disk level to be
+    # fitted. Its small improvement leaves the simpler one-disk fit preferred.
     assert len(fitted) == 3
     assert len(roots) == 1
     assert len(sampler.calls) == 3
@@ -140,9 +140,80 @@ def test_evidence_guided_search_expands_all_supported_siblings(tmp_path):
     selection = coordinator.library.read_selection()
     assert selection.default == next(
         result.candidate_id for result in fitted
-        if result.posterior.evidence == 7.0
+        if result.posterior.evidence == 6.0
     )
+    assert selection.recommended == selection.default
+    assert selection.default_source == 'automatic'
     assert len(selection.displayed) == 3
+
+
+def test_evidence_guided_search_requires_more_than_configured_threshold(
+        tmp_path):
+    dataset = _fit_dataset(tmp_path)
+    policy = sdf.model_policy.TargetModelPolicy(
+        target_key=dataset.targets[0].key,
+        stellar_models=('kurucz-0.0',),
+        disk_models=('modbb_disk_r',),
+        max_disks=2,
+    )
+    search = sdf.candidate_search.CandidateSearch((policy,))
+    coordinator = sdf.coordinator.FitCoordinator(
+        tmp_path, sampler=FakeSampler({0: 0.0, 1: 5.0, 2: 100.0})
+    )
+
+    fitted, _ = coordinator.evidence_guided(
+        dataset, search, threshold=5.0
+    )
+
+    assert len(fitted) == 2
+    assert all(
+        sum(component['role'] == 'disk'
+            for component in result.metadata['components']) < 2
+        for result in fitted
+    )
+    selection = coordinator.library.read_selection()
+    assert sum(
+        component['role'] == 'disk'
+        for component in coordinator.library.find(
+            selection.default
+        ).metadata['components']
+    ) == 0
+
+
+def test_evidence_selection_preserves_operator_default(tmp_path):
+    dataset = _fit_dataset(tmp_path)
+    policy = sdf.model_policy.TargetModelPolicy(
+        target_key=dataset.targets[0].key,
+        stellar_models=('kurucz-0.0',),
+        disk_models=('modbb_disk_r',),
+        max_disks=2,
+    )
+    search = sdf.candidate_search.CandidateSearch((policy,))
+    coordinator = sdf.coordinator.FitCoordinator(
+        tmp_path, sampler=FakeSampler({0: 0.0, 1: 6.0, 2: 7.0})
+    )
+    fitted, _ = coordinator.evidence_guided(dataset, search, threshold=5.0)
+    explicit = coordinator.fit_candidate(
+        dataset,
+        sdf.model_selection.ModelCandidate.for_single_target(
+            dataset.targets[0].key, ('phoenix_sol',)
+        ),
+    )
+    coordinator.library.write_selection(sdf.candidate_library.FitSelection(
+        default=explicit.candidate_id,
+        displayed=(explicit.candidate_id,) + tuple(
+            result.candidate_id for result in fitted
+        ),
+        recommended=coordinator.library.read_selection().recommended,
+        default_source='operator',
+    ))
+
+    coordinator.evidence_guided(dataset, search, threshold=5.0)
+
+    selection = coordinator.library.read_selection()
+    assert selection.default == explicit.candidate_id
+    assert selection.default != selection.recommended
+    assert selection.default_source == 'operator'
 
 
 def test_fit_package_loads_yaml_policy_and_runs_exhaustively(tmp_path):

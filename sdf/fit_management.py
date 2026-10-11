@@ -24,6 +24,7 @@ class AvailableFit:
     evidence: float | None
     completed_at: str
     is_default: bool
+    is_recommended: bool
     display_position: int | None
 
 
@@ -51,6 +52,9 @@ class FitManager:
             )
         }
         default = selection.default if selection is not None else None
+        recommended = (
+            selection.recommended if selection is not None else None
+        )
         return tuple(
             AvailableFit(
                 reference=candidate.path.name,
@@ -59,6 +63,7 @@ class FitManager:
                 evidence=candidate.posterior.evidence,
                 completed_at=candidate.metadata['completed_at'],
                 is_default=candidate.candidate_id == default,
+                is_recommended=candidate.candidate_id == recommended,
                 display_position=positions.get(candidate.candidate_id),
             )
             for candidate in sorted(
@@ -72,7 +77,7 @@ class FitManager:
             )
         )
 
-    def select(self, *, default=None, displayed=None):
+    def select(self, *, default=None, displayed=None, automatic=False):
         """Update selection using exact or unambiguous short references."""
 
         available = self.available()
@@ -100,6 +105,11 @@ class FitManager:
             default=default_id,
             displayed=(default_id,) + displayed_ids,
             labels=current.labels,
+            recommended=current.recommended,
+            default_source=(
+                ('automatic' if automatic else 'operator')
+                if default is not None else current.default_source
+            ),
         )
         self.library.write_selection(selection)
         index = ResultIndex.find_for_package(self.package_directory)

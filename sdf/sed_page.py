@@ -109,7 +109,8 @@ def target_page_rows(dataset, package_directory):
 
 def candidate_page_rows(candidates, labels, default_candidate,
                         package_directory, dataset, displayed_ids=None,
-                        component_labels=None, owner_colours=None):
+                        component_labels=None, owner_colours=None,
+                        recommended_candidate=None):
     """Project retained fits and component-aware result links."""
 
     package_directory = Path(package_directory)
@@ -120,6 +121,12 @@ def candidate_page_rows(candidates, labels, default_candidate,
     )
     component_labels = component_labels or {}
     owner_colours = owner_colours or {}
+    current_evidenced = [
+        candidate.posterior.evidence for candidate in candidates
+        if candidate.posterior.evidence is not None and
+        candidate.is_current(dataset)
+    ]
+    best_evidence = max(current_evidenced) if current_evidenced else None
     for index, candidate in enumerate(candidates, start=1):
         evidence = candidate.posterior.evidence
         analysis = candidate.metadata['analysis']
@@ -165,9 +172,15 @@ def candidate_page_rows(candidates, labels, default_candidate,
             'reference': candidate.path.name,
             'display_name': candidate.metadata['display_name'],
             'evidence': evidence,
+            'delta_evidence': (
+                None if evidence is None or best_evidence is None or
+                not candidate.is_current(dataset) else
+                best_evidence - evidence
+            ),
             'chi_squared': analysis.get('chi_squared'),
             'current': candidate.is_current(dataset),
             'default': candidate.candidate_id == default_candidate,
+            'recommended': candidate.candidate_id == recommended_candidate,
             'displayed': candidate.candidate_id in displayed_ids,
             'components': components,
             'shorthand': shorthand,

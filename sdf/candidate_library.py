@@ -46,6 +46,8 @@ class FitSelection:
     default: str
     displayed: tuple[str, ...]
     labels: dict[str, str] | None = None
+    recommended: str | None = None
+    default_source: str = 'automatic'
 
     def __post_init__(self):
         displayed = tuple(self.displayed)
@@ -55,7 +57,13 @@ class FitSelection:
             raise ValueError('default candidate must also be displayed')
         if len(set(displayed)) != len(displayed):
             raise ValueError('displayed candidates must be unique')
+        recommended = (
+            self.default if self.recommended is None else self.recommended
+        )
+        if self.default_source not in {'automatic', 'operator'}:
+            raise ValueError('default source must be automatic or operator')
         object.__setattr__(self, 'displayed', displayed)
+        object.__setattr__(self, 'recommended', recommended)
 
 
 class CandidateLibrary:
@@ -205,7 +213,9 @@ class CandidateLibrary:
         """Atomically update the cheap mutable display/default choice."""
 
         available = {candidate.candidate_id for candidate in self.candidates()}
-        referenced = set(selection.displayed) | {selection.default}
+        referenced = set(selection.displayed) | {
+            selection.default, selection.recommended,
+        }
         missing = referenced - available
         if missing:
             raise ValueError(
@@ -216,6 +226,8 @@ class CandidateLibrary:
         self.fits_directory.mkdir(parents=True, exist_ok=True)
         _atomic_json(self.fits_directory / 'selection.json', {
             'default': selection.default,
+            'recommended': selection.recommended,
+            'default_source': selection.default_source,
             'displayed': list(selection.displayed),
             'labels': selection.labels or {},
         })
@@ -230,6 +242,8 @@ class CandidateLibrary:
             default=payload['default'],
             displayed=tuple(payload['displayed']),
             labels=payload.get('labels') or {},
+            recommended=payload.get('recommended', payload['default']),
+            default_source=payload.get('default_source', 'automatic'),
         )
 
 

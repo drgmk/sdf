@@ -105,7 +105,13 @@ def test_selection_actions_do_not_run_a_fit(tmp_path):
     selected = service.update_selection({
         'reference': second.path.name, 'action': 'default',
     })
+    recommended = service.update_selection({
+        'reference': first.path.name, 'action': 'recommended',
+    })
 
     assert shown['displayed'] == [first.candidate_id, second.candidate_id]
     assert selected['default'] == second.candidate_id
+    assert selected['default_source'] == 'operator'
+    assert recommended['default'] == first.candidate_id
+    assert recommended['default_source'] == 'automatic'
     assert service.state.jobs() == ()

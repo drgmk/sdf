@@ -68,3 +68,26 @@ def test_exhaustive_search_deduplicates_joint_candidate_graph():
     # no disks, disk A, disk B, disks A+B
     assert len(candidates) == 4
     assert len({candidate.canonical_id for candidate in candidates}) == 4
+
+
+def test_next_layer_completes_all_equivalent_disk_allocations():
+    search = sdf.candidate_search.CandidateSearch((
+        _policy('simbad:A', max_disks=2),
+        _policy('simbad:B', max_disks=2),
+    ))
+
+    one_disk = search.next_layer(search.roots())
+    two_disks = search.next_layer(one_disk)
+
+    assert len(one_disk) == 2
+    assert {
+        tuple(sorted(
+            component.owner_key for component in candidate.components
+            if component.role == 'disk'
+        ))
+        for candidate in two_disks
+    } == {
+        ('simbad:A', 'simbad:A'),
+        ('simbad:A', 'simbad:B'),
+        ('simbad:B', 'simbad:B'),
+    }

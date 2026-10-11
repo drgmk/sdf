@@ -509,6 +509,8 @@ def sdf_fits():
             flags = []
             if fit.is_default:
                 flags.append('default')
+            if fit.is_recommended:
+                flags.append('recommended')
             if fit.display_position is not None:
                 flags.append('display {}'.format(fit.display_position + 1))
             evidence = (

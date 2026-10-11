@@ -54,6 +54,15 @@ class CandidateSearch:
             queue.extend(self.children(candidate))
         return tuple(candidates[key] for key in sorted(candidates))
 
+    def next_layer(self, candidates):
+        """Return the complete deduplicated disk-count layer after candidates."""
+
+        children = {}
+        for candidate in candidates:
+            for child in self.children(candidate):
+                children[child.canonical_id] = child
+        return tuple(children[key] for key in sorted(children))
+
     def _candidate(self, stellar_models, disk_counts):
         owned_models = [
             (policy.target_key, model_name)

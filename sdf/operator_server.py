@@ -225,6 +225,13 @@ class OperatorService:
         candidate_id = manager.resolve(reference)
         if action == 'default':
             selection = manager.select(default=candidate_id)
+        elif action == 'recommended':
+            current = manager.library.read_selection()
+            if candidate_id != current.recommended:
+                raise ValueError('fit is not the current recommendation')
+            selection = manager.select(
+                default=current.recommended, automatic=True
+            )
         elif action == 'display':
             current = manager.library.read_selection()
             displayed = list(current.displayed)
@@ -243,6 +250,8 @@ class OperatorService:
         manager.render(dataset=self.dataset())
         return {
             'default': selection.default,
+            'recommended': selection.recommended,
+            'default_source': selection.default_source,
             'displayed': list(selection.displayed),
         }
 
