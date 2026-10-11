@@ -67,6 +67,7 @@ def test_catalog_http_routes_and_rejects_bad_token(tmp_path):
         assert 'Search fitted systems' in urlopen(root + '/').read().decode()
         assert 'HD 123' in urlopen(root + '/search?q=123').read().decode()
         sample_page = urlopen(root + '/samples/test/').read().decode()
+        assert 'class="sample-page"' in sample_page
         assert 'Filter targets' in sample_page
         assert 'T<sub>eff</sub>' in sample_page
         assert 'VOTable' in sample_page
@@ -74,6 +75,8 @@ def test_catalog_http_routes_and_rejects_bad_token(tmp_path):
         assert 'Awaiting a current fit' in sample_page
         plot_page = urlopen(root + '/samples/test/plots').read().decode()
         assert 'Bokeh' in plot_page
+        assert 'Circles are direct sample members' not in plot_page
+        assert '<h1>test</h1>' in plot_page
         assert 'VOTable' in plot_page
         assert 'Photometry' in plot_page
         flux_size_page = urlopen(

@@ -150,6 +150,21 @@ def test_sample_table_rows_are_science_columns_and_group_disks(tmp_path):
     assert rows[1]['disk_temperature_sort'] is None
 
 
+def test_system_plot_lines_only_connect_components_from_the_same_system():
+    data = {
+        'temperature': [6000.0, 4500.0, 3000.0],
+        'luminosity': [2.0, 0.4, 0.1],
+        'system_key': ['one', 'one', 'two'],
+    }
+
+    lines = sdf.sample_products._system_line_data(data)
+
+    assert lines == {
+        'xs': [[6000.0, 4500.0]],
+        'ys': [[2.0, 0.4]],
+    }
+
+
 def test_composite_member_includes_both_contributors_and_owned_disk(tmp_path):
     _retained_binary_package(tmp_path)
     index = sdf.result_index.ResultIndex(tmp_path / 'sdf-results.sqlite')

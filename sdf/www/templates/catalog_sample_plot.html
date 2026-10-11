@@ -1,6 +1,7 @@
 {% extends "catalog_base.html" %}
+{% block body_class %}sample-page{% endblock %}
 {% block head %}{{ bokeh_css|safe }}{{ bokeh_js|safe }}{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>{{ sample.name }} — H–R and disks</h1><p class="muted">Circles are direct sample members; grey triangles are system context.</p></div>{% set sample_page = 'plots' %}{% include "catalog_sample_nav.html" %}</div>
+<div class="sample-head"><h1>{{ sample.name }}</h1>{% set sample_page = 'plots' %}{% include "catalog_sample_nav.html" %}</div>
 <div class="plot-box">{{ plot_div|safe }}</div>{{ plot_script|safe }}
 {% endblock %}

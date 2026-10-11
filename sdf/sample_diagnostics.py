@@ -258,7 +258,7 @@ def _flux_size_figure(rows, band, y_name, y_label, sensitivity=None):
         x_axis_label='Disk blackbody radius / arcsec',
         y_axis_label=y_label,
         x_axis_type='log', y_axis_type='log',
-        height=440, sizing_mode='stretch_width',
+        height=570, sizing_mode='stretch_width',
         tools='pan,wheel_zoom,box_zoom,box_select,tap,reset,save',
         active_scroll='wheel_zoom',
     )

@@ -1,6 +1,8 @@
 {% extends "catalog_base.html" %}
+{% block body_class %}sample-page{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>{{ sample.name }}</h1><p class="muted">{{ sample.identifiers|length }} targets · {{ projection.systems|length }} fitted systems</p></div>{% set sample_page = 'properties' %}{% include "catalog_sample_nav.html" %}</div>
+<div class="sample-head"><h1>{{ sample.name }}</h1>{% set sample_page = 'properties' %}{% include "catalog_sample_nav.html" %}</div>
+<p class="muted">{{ sample.identifiers|length }} targets · {{ projection.systems|length }} fitted systems</p>
 {% if sample.note %}<p>{{ sample.note }}</p>{% endif %}
 {% if projection.unmatched %}<p class="warning">{{ projection.unmatched|length }} sample target{% if projection.unmatched|length != 1 %}s{% endif %} do not yet have an indexed default fit.</p>{% endif %}
 {% include "sample_properties_table.html" %}

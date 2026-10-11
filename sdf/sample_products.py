@@ -350,11 +350,11 @@ def sample_plot_components(projection):
 
     hr_data = {
         'temperature': [], 'luminosity': [], 'target': [], 'system': [],
-        'model': [], 'url': [], 'colour': [], 'marker': [],
+        'system_key': [], 'model': [], 'url': [], 'colour': [], 'marker': [],
     }
     disk_data = {
         'temperature': [], 'fraction': [], 'target': [], 'system': [],
-        'model': [], 'url': [], 'colour': [], 'marker': [],
+        'system_key': [], 'model': [], 'url': [], 'colour': [], 'marker': [],
     }
     for system in projection.systems:
         for target in system.targets:
@@ -399,10 +399,16 @@ def _sample_figure(data, title, x_label, y_label, reverse_x):
         title='{} ({} components)'.format(title, len(x)),
         x_axis_label=x_label, y_axis_label=y_label,
         x_axis_type='log', y_axis_type='log', x_range=x_range,
-        height=600, sizing_mode='stretch_width',
+        height=780, sizing_mode='stretch_width',
         tools='pan,wheel_zoom,box_zoom,box_select,tap,reset,save',
         active_scroll='wheel_zoom',
     )
+    lines = _system_line_data(data)
+    if lines['xs']:
+        plot.multi_line(
+            'xs', 'ys', source=ColumnDataSource(lines),
+            line_color='#7f8b99', line_alpha=0.55, line_width=1.5,
+        )
     source = ColumnDataSource(data)
     renderer = plot.scatter(
         'temperature', 'luminosity' if 'luminosity' in data else 'fraction',
@@ -425,10 +431,28 @@ def _append_plot_row(data, x, y, target, system, model, colour, marker):
     data[y_name].append(y)
     data['target'].append(target.label)
     data['system'].append(system.label)
+    data['system_key'].append(system.package_path)
     data['model'].append(model)
     data['url'].append(system.url)
     data['colour'].append(colour)
     data['marker'].append(marker)
+
+
+def _system_line_data(data):
+    """Return one polyline for each system with multiple plotted components."""
+
+    y_name = 'luminosity' if 'luminosity' in data else 'fraction'
+    grouped = {}
+    for system_key, x, y in zip(
+            data['system_key'], data['temperature'], data[y_name]):
+        grouped.setdefault(system_key, ([], []))
+        grouped[system_key][0].append(x)
+        grouped[system_key][1].append(y)
+    connected = [values for values in grouped.values() if len(values[0]) > 1]
+    return {
+        'xs': [values[0] for values in connected],
+        'ys': [values[1] for values in connected],
+    }
 
 
 def _star(derived, fitted):
