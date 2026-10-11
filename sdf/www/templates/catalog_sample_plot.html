@@ -1,6 +1,6 @@
 {% extends "catalog_base.html" %}
 {% block head %}{{ bokeh_css|safe }}{{ bokeh_js|safe }}{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>{{ sample.name }} — H–R and disks</h1><p class="muted">Circles are direct sample members; grey triangles are system context.</p></div><nav class="page-links"><a href="/samples/{{ sample.name|urlencode }}/">Properties</a><strong>H–R and disks</strong><a href="/samples/{{ sample.name|urlencode }}/flux-size">Flux and size</a></nav></div>
+<div class="page-head"><div><h1>{{ sample.name }} — H–R and disks</h1><p class="muted">Circles are direct sample members; grey triangles are system context.</p></div>{% set sample_page = 'plots' %}{% include "catalog_sample_nav.html" %}</div>
 <div class="plot-box">{{ plot_div|safe }}</div>{{ plot_script|safe }}
 {% endblock %}

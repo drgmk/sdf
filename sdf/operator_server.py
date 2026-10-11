@@ -73,7 +73,7 @@ class OperatorService:
             )
 
     def render_page(self, fits=None, operator_api='/api', actor=None,
-                    actor_locked=False):
+                    actor_locked=False, navigation=None):
         with tempfile.NamedTemporaryFile(
             prefix='sdf-operator-', suffix='.html', delete=False
         ) as temporary:
@@ -84,6 +84,7 @@ class OperatorService:
                 policy_store=self.state, operator_api=operator_api,
                 operator_token=self.token, operator_actor=actor or self.actor,
                 operator_actor_locked=actor_locked,
+                navigation=navigation,
             )
             return output.read_text(encoding='utf-8')
         finally:

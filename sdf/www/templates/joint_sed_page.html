@@ -7,6 +7,7 @@
   {{ bokeh_css|safe }}
   {{ bokeh_js|safe }}
   <style>
+    {% include "catalog_header_styles.css" %}
     :root { color-scheme:light; --ink:#172033; --muted:#526071;
       --line:#dce3ea; --soft:#f3f5f7; --accent:#285ea8; }
     * { box-sizing:border-box; }
@@ -33,16 +34,13 @@
       border-radius:12px; padding:2px 7px 2px 6px; color:var(--ink);
       background:#f8fafc; font-weight:600; white-space:nowrap; }
     .page-actions { display:flex; gap:7px; flex-wrap:wrap; }
-    .page-search { display:flex; gap:5px; }
-    .page-search input { width:min(260px,28vw); border:1px solid #bdc8d6;
-      border-radius:5px; padding:6px 9px; color:var(--ink); font:inherit; }
     button,.page-action { border:1px solid #bdc8d6; border-radius:5px;
       padding:6px 10px; background:white; color:var(--ink); font:inherit;
       cursor:pointer; }
     button:hover,.page-action:hover { background:#eef3f8; text-decoration:none; }
     .content-grid { display:grid; grid-template-columns:190px minmax(0,1fr);
       align-items:start; gap:7px; }
-    .system-card { padding:10px; position:sticky; top:8px; font-size:12px; }
+    .system-card { padding:10px; position:sticky; top:66px; font-size:12px; }
     .system-tree + .system-tree { border-top:1px solid var(--line);
       margin-top:9px; padding-top:9px; }
     .system-node { min-width:0; }
@@ -69,7 +67,7 @@
       padding:2px 7px; font-size:11px; white-space:nowrap; }
     .plot-region { min-width:0; background:white; border:1px solid var(--line);
       border-radius:8px; padding:0 6px 6px; overflow:hidden; }
-    .operator-drawer { position:fixed; z-index:1000; right:10px; top:10px;
+    .operator-drawer { position:fixed; z-index:1000; right:10px; top:68px;
       bottom:10px; width:min(430px,calc(100vw - 20px)); padding:16px;
       overflow:auto; box-shadow:0 12px 35px rgba(23,32,51,.22); }
     .operator-drawer[hidden] { display:none; }
@@ -107,8 +105,6 @@
     @media (max-width:800px) {
       .sed-title-row { display:block; }
       .page-actions { margin-top:10px; }
-      .page-search { flex:1; }
-      .page-search input { flex:1; width:auto; min-width:0; }
       .content-grid { grid-template-columns:1fr; }
       .system-card { position:static; }
       .system-tree { display:inline-block; vertical-align:top; min-width:220px;
@@ -117,6 +113,7 @@
   </style>
 </head>
 <body class="sed-page{% if operator %} operator-mode{% endif %}">
+{% include "catalog_header.html" %}
 <main class="sed-shell">
   <header class="sed-head">
     <div class="sed-title-row">
@@ -125,10 +122,7 @@
         {% if default_fit %}<div class="default-config" aria-label="Default fit" data-candidate="{{ default_fit.reference }}"><span>Default</span>{% for part in default_fit.shorthand %}<span class="config-chip" style="--chip-colour:{{ part.colour }}" title="{{ part.title }}">{% if part.owner %}{{ part.owner }} {% endif %}{{ part.symbols }}</span>{% endfor %}</div>{% endif %}
       </div>
       <nav class="page-actions" aria-label="SED actions">
-        <form class="page-search" action="{% if operator %}/admin/search{% else %}/search{% endif %}" method="get">
-          <input name="q" placeholder="target, component, or SDB ID" aria-label="Search SDF catalog">
-          <button type="submit">Search</button>
-        </form>
+        {% if admin_url and not operator %}<a class="page-action" href="{{ admin_url }}">Admin SED</a>{% endif %}
         {% if operator %}<button id="open-fit-controls" type="button" aria-controls="fit-controls" aria-expanded="false">Fit controls</button>{% endif %}
       </nav>
     </div>

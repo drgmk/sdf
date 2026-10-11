@@ -40,7 +40,8 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     coordinator.fit_candidate(dataset, candidate)
 
     output = sdf.joint_plotting.write_joint_results_page(
-        tmp_path, dataset=dataset
+        tmp_path, dataset=dataset,
+        navigation={'admin_url': '/admin/system/test/'},
     )
     html = output.read_text(encoding='utf-8')
 
@@ -59,7 +60,10 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     assert 'result.json' in html
     assert 'posterior-' in html
     assert 'fit-controls' not in html
+    assert 'href="/admin/system/test/">Admin SED</a>' in html
     assert 'aria-label="Search SDF catalog"' in html
+    assert 'aria-label="Catalogue navigation"' in html
+    assert '>Search</a>' not in html
     assert 'aria-label="Footer navigation"' in html
     assert '>sdf home</a>' in html
     assert 'toolbar_location":"below"' in html

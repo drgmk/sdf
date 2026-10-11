@@ -69,10 +69,18 @@ def test_catalog_http_routes_and_rejects_bad_token(tmp_path):
         sample_page = urlopen(root + '/samples/test/').read().decode()
         assert 'Filter targets' in sample_page
         assert 'T<sub>eff</sub>' in sample_page
+        assert 'VOTable' in sample_page
+        assert 'Photometry' in sample_page
         assert 'Awaiting a current fit' in sample_page
-        assert 'Bokeh' in urlopen(
-            root + '/samples/test/plots'
+        plot_page = urlopen(root + '/samples/test/plots').read().decode()
+        assert 'Bokeh' in plot_page
+        assert 'VOTable' in plot_page
+        assert 'Photometry' in plot_page
+        flux_size_page = urlopen(
+            root + '/samples/test/flux-size'
         ).read().decode()
+        assert 'VOTable' in flux_size_page
+        assert 'Photometry' in flux_size_page
         assert b'VOTABLE' in urlopen(
             root + '/samples/test/sample.xml'
         ).read()

@@ -1,6 +1,6 @@
 {% extends "catalog_base.html" %}
 {% block head %}{{ bokeh_css|safe }}{{ bokeh_js|safe }}{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>{{ sample.name }} — disk flux and size</h1><p class="muted">Vertical lines show approximate PSF FWHM. Horizontal lines show approximate sensitivity. Grey triangles are system context.</p></div><nav class="page-links"><a href="/samples/{{ sample.name|urlencode }}/">Properties</a><a href="/samples/{{ sample.name|urlencode }}/plots">H–R and disks</a><strong>Flux and size</strong></nav></div>
+<div class="page-head"><div><h1>{{ sample.name }} — disk flux and size</h1><p class="muted">Vertical lines show approximate PSF FWHM. Horizontal lines show approximate sensitivity. Grey triangles are system context.</p></div>{% set sample_page = 'flux-size' %}{% include "catalog_sample_nav.html" %}</div>
 <div class="plot-box">{{ plot_div|safe }}</div>{{ plot_script|safe }}
 {% endblock %}

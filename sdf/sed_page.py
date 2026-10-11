@@ -18,7 +18,8 @@ def render_sed_page(*, title, plot_script, plot_div, targets, candidates,
                     observations, systems, default_candidate, inline=True,
                     operator=False, available_fits=(), operator_api=None,
                     operator_token=None, operator_actor=None,
-                    operator_actor_locked=False, queued_jobs=()):
+                    operator_actor_locked=False, queued_jobs=(),
+                    navigation=None):
     """Render one SED document, optionally extended with operator controls."""
 
     env = jinja2.Environment(
@@ -27,6 +28,10 @@ def render_sed_page(*, title, plot_script, plot_div, targets, candidates,
     )
     template = env.get_template('joint_sed_page.html')
     resources = INLINE if inline else CDN
+    navigation = dict(navigation or {})
+    navigation.setdefault(
+        'search_action', '/admin/search' if operator else '/search'
+    )
     default_fit = next((
         candidate for candidate in candidates if candidate['default']
     ), candidates[0] if candidates else None)
@@ -50,6 +55,8 @@ def render_sed_page(*, title, plot_script, plot_div, targets, candidates,
         bokeh_js=resources.render_js(),
         bokeh_css=resources.render_css(),
         creation_time=datetime.now(timezone.utc).strftime('%d/%m/%y %X'),
+        admin=operator,
+        **navigation,
     )
 
 

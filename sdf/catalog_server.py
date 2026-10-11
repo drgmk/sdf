@@ -15,6 +15,7 @@ import multiprocessing
 from pathlib import Path, PurePosixPath
 import secrets
 import signal
+import tempfile
 from threading import Event, Thread
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
@@ -325,14 +326,44 @@ class CatalogService:
             search_action='/admin/search' if admin else '/search',
         )
 
-    def render_public_system(self, package_path):
+    def render_public_system(self, package_path, *, principal=None):
+        principal = principal or self.auth.principal({})
         row = self.package(package_path)
         if row['status'] in {'unfit', 'needs selection'}:
-            return self.render_package_state(package_path)
-        page = self.package_directory(package_path) / 'index.html'
-        if not page.is_file():
-            FitManager(self.package_directory(package_path)).render()
-        return page.read_text(encoding='utf-8')
+            return self.render_package_state(
+                package_path, principal=principal,
+            )
+        with tempfile.NamedTemporaryFile(
+            prefix='sdf-public-', suffix='.html', delete=False,
+        ) as temporary:
+            name = temporary.name
+        try:
+            output = FitManager(
+                self.package_directory(package_path)
+            ).render(
+                name,
+                navigation=self.sed_navigation(
+                    package_path, principal=principal, admin=False,
+                ),
+            )
+            return output.read_text(encoding='utf-8')
+        finally:
+            try:
+                Path(name).unlink()
+            except FileNotFoundError:
+                pass
+
+    def sed_navigation(self, package_path, *, principal, admin):
+        public_url = _system_url(package_path)
+        admin_url = _system_url(package_path, admin=True)
+        return {
+            'principal': principal,
+            'admin_access': self.auth.admin_group in principal.groups,
+            'auth_enabled': self.auth.proxy_enabled,
+            'request_path': admin_url if admin else public_url,
+            'search_action': '/admin/search' if admin else '/search',
+            'admin_url': None if admin else admin_url,
+        }
 
 
 def make_catalog_server(root, *, index_path=None, state_path=None, actor=None,
@@ -620,7 +651,9 @@ class _CatalogHandler(BaseHTTPRequestHandler):
             if parsed.path.startswith('/system/'):
                 package, asset = _system_parts(parsed.path, '/system/')
                 if not asset:
-                    self._html(self.service.render_public_system(package))
+                    self._html(self.service.render_public_system(
+                        package, principal=principal,
+                    ))
                     return
                 self._static(
                     self.service.package_directory(package), asset,
@@ -646,6 +679,9 @@ class _CatalogHandler(BaseHTTPRequestHandler):
                         self._html(self.service.operator(package).render_page(
                             operator_api=prefix, actor=principal.username,
                             actor_locked=self.service.auth.proxy_enabled,
+                            navigation=self.service.sed_navigation(
+                                package, principal=principal, admin=True,
+                            ),
                         ))
                     return
                 self._static(self.service.package_directory(package), asset)
