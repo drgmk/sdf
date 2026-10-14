@@ -1,3 +1,5 @@
+import pytest
+
 from .context import sdf
 from .test_dataset import _write_rawphot
 from .test_fit_management import _two_candidates
@@ -41,12 +43,38 @@ def test_operator_page_contains_live_policy_and_all_retained_fits(tmp_path):
 
     html = service.render_page()
 
-    assert html.count('Queue system fit') == 1
-    assert 'sdf-jobs --state PATH run' in html
+    assert html.count('Queue fit') == 1
+    assert 'Fits are queued here and processed in the background.' in html
     assert 'test-token' in html
     assert first.path.name in html
     assert second.path.name in html
-    assert 'class="reset-policy"' not in html
+    assert 'Automatic config' in html
+    assert 'Specify custom config' in html
+    assert 'operator-package policy' not in html
+    assert 'automatic policy' not in html
+    assert 'Model policy' not in html
+
+
+def test_operator_page_explains_saved_config_without_internal_terms(tmp_path):
+    service, dataset, _, _ = _service(tmp_path)
+    target = dataset.targets[0]
+    service.save_policy({
+        'target_key': target.key,
+        'scope': 'global',
+        'stellar_model': 'kurucz-0.0',
+        'disk_model': 'modbb_disk_r',
+        'max_disks': 1,
+        'search_mode': 'evidence-guided',
+        'actor': 'Grant',
+        'reason': 'Try a custom model',
+    })
+
+    html = service.render_page()
+
+    assert 'Custom config' in html
+    assert 'Use default config' in html
+    assert 'operator policy' not in html
+    assert 'operator-package policy' not in html
 
 
 def test_policy_save_prefills_a_reason_and_queues_without_fitting(tmp_path):
@@ -69,6 +97,24 @@ def test_policy_save_prefills_a_reason_and_queues_without_fitting(tmp_path):
     assert record.policy.stellar_models == ('kurucz-0.0',)
     assert record.reason.startswith('Use kurucz-0.0 for Test')
     assert service.state.jobs()[0].status == 'queued'
+
+
+def test_policy_rejects_disk_count_without_a_disk_model(tmp_path):
+    service, dataset, _, _ = _service(tmp_path)
+
+    with pytest.raises(
+            ValueError,
+            match='choose a disk model or set maximum disks to 0'):
+        service.save_policy({
+            'target_key': dataset.targets[0].key,
+            'scope': 'global',
+            'stellar_model': 'phoenix_sol',
+            'disk_model': '',
+            'max_disks': 2,
+            'search_mode': 'evidence-guided',
+            'actor': 'Grant',
+            'reason': '',
+        })
 
 
 def test_system_save_updates_choices_and_queues_one_package_fit(tmp_path):

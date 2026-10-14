@@ -12,7 +12,7 @@ import sqlite3
 from .model_policy import TargetModelPolicy
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 @dataclass(frozen=True)
@@ -69,6 +69,14 @@ class OperatorState:
                     updated_at TEXT NOT NULL,
                     PRIMARY KEY (target_key, scope)
                 );
+                CREATE TABLE IF NOT EXISTS fit_policy_default (
+                    target_key TEXT NOT NULL,
+                    scope TEXT NOT NULL,
+                    actor TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (target_key, scope)
+                );
                 CREATE TABLE IF NOT EXISTS fit_jobs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     package_path TEXT NOT NULL,
@@ -97,16 +105,17 @@ class OperatorState:
                     'INSERT INTO operator_metadata VALUES (?, ?)',
                     ('schema_version', str(SCHEMA_VERSION)),
                 )
-            elif int(row['value']) == 1:
-                columns = {
-                    value['name'] for value in connection.execute(
-                        'PRAGMA table_info(fit_jobs)'
-                    )
-                }
-                if 'worker_id' not in columns:
-                    connection.execute(
-                        'ALTER TABLE fit_jobs ADD COLUMN worker_id TEXT'
-                    )
+            elif int(row['value']) in {1, 2}:
+                if int(row['value']) == 1:
+                    columns = {
+                        value['name'] for value in connection.execute(
+                            'PRAGMA table_info(fit_jobs)'
+                        )
+                    }
+                    if 'worker_id' not in columns:
+                        connection.execute(
+                            'ALTER TABLE fit_jobs ADD COLUMN worker_id TEXT'
+                        )
                 connection.execute(
                     "UPDATE operator_metadata SET value = ? "
                     "WHERE key = 'schema_version'",
@@ -192,6 +201,11 @@ class OperatorState:
                 stored_scope = (
                     '' if scope == 'global' else _package_scope(package)
                 )
+                connection.execute(
+                    'DELETE FROM fit_policy_default '
+                    'WHERE target_key = ? AND scope = ?',
+                    (policy.target_key, stored_scope),
+                )
                 _save_policy(
                     connection, policy, stored_scope, main_id,
                     actor, reason, now,
@@ -204,6 +218,18 @@ class OperatorState:
                     'DELETE FROM fit_policy WHERE target_key = ? AND scope = ?',
                     (target_key, stored_scope),
                 )
+                connection.execute(
+                    '''
+                    INSERT INTO fit_policy_default (
+                        target_key, scope, actor, reason, updated_at
+                    ) VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(target_key, scope) DO UPDATE SET
+                        actor = excluded.actor,
+                        reason = excluded.reason,
+                        updated_at = excluded.updated_at
+                    ''',
+                    (target_key, stored_scope, actor, reason, now),
+                )
             self._remember_actor(connection, actor)
             return _queue_job(
                 connection, package_path, 'policy-refit',
@@ -214,9 +240,11 @@ class OperatorState:
         """Recover a missing package policy from its retained default fit."""
 
         self.initialize()
-        if self.policy(policy.target_key, package=package) is not None:
-            return False
         scope = _package_scope(package)
+        if (self.policy(policy.target_key, package=package) is not None
+                or self._uses_default(policy.target_key, scope)
+                or self._uses_default(policy.target_key, '')):
+            return False
         with _connection(self.path) as connection:
             connection.execute(
                 '''
@@ -367,6 +395,15 @@ class OperatorState:
                 (target_key, scope),
             ).fetchone()
         return None if row is None else _policy_record(row)
+
+    def _uses_default(self, target_key, scope):
+        with _connection(self.path) as connection:
+            row = connection.execute(
+                'SELECT 1 FROM fit_policy_default '
+                'WHERE target_key = ? AND scope = ?',
+                (target_key, scope),
+            ).fetchone()
+        return row is not None
 
     @staticmethod
     def _remember_actor(connection, actor):

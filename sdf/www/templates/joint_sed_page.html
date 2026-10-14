@@ -161,29 +161,29 @@
 
   {% if operator %}
   <aside id="fit-controls" class="operator-drawer" hidden aria-label="Fit controls">
-    <div class="drawer-head"><div><h2>Fit controls</h2><p class="muted">Model policy and retained fits for this package.</p></div><button id="close-fit-controls" type="button" aria-label="Close fit controls">×</button></div>
+    <div class="drawer-head"><div><h2>Fit controls</h2><p class="muted">Choose model configurations and manage saved fits.</p></div><button id="close-fit-controls" type="button" aria-label="Close fit controls">×</button></div>
     {% if not operator_api %}<p class="queue-note">This rendered page is read-only. Use <code>sdf-fits serve</code> to save choices and queue fits.</p>{% endif %}
-    {% if operator_api %}<p class="queue-note">This page queues fits. Run <code>sdf-jobs --state PATH run</code> separately, using the operator-state path printed by <code>sdf-fits serve</code>, to process them.</p>{% endif %}
+    {% if operator_api %}<p class="queue-note">Fits are queued here and processed in the background.</p>{% endif %}
     {% for job in queued_jobs %}<p class="queue-note">Fit job {{ job.id }} queued{% if job.reason %}: {{ job.reason }}{% endif %}</p>{% endfor %}
     <section class="operator-section">
-      <h2>Physical contributors</h2>
+      <h2>Model configuration</h2>
       <form id="system-fit-form" class="operator-form">
         {% if operator_actor_locked %}<div class="wide muted">Signed in as <strong>{{ operator_actor }}</strong><input name="actor" type="hidden" value="{{ operator_actor }}"></div>{% else %}<label class="wide">Actor<input name="actor" value="{{ operator_actor or '' }}" autocomplete="name"{% if not operator_api %} disabled{% endif %}></label>{% endif %}
         <label class="wide">Reason<input name="reason" value="Update model choices and fit {{ title }}"{% if not operator_api %} disabled{% endif %}></label>
-        <div class="operator-actions"><button type="submit"{% if not operator_api %} disabled{% endif %}>Queue system fit</button><span class="operator-status" role="status"></span></div>
+        <div class="operator-actions"><button type="submit"{% if not operator_api %} disabled{% endif %}>Queue fit</button><span class="operator-status" role="status"></span></div>
       </form>
       {% for target in targets %}
       <div class="operator-target" data-target-key="{{ target.key }}">
         <strong>{{ target.label }}</strong>
-        <p class="muted">{{ target.policy.origin }} policy</p>
-        <form class="operator-form policy-form" data-target-label="{{ target.label }}">
+        <p class="muted config-source">{{ target.policy.config_label }}</p>
+        <form class="operator-form policy-form" data-target-label="{{ target.label }}" data-custom="{% if target.policy.custom %}yes{% else %}no{% endif %}">
           <input type="hidden" name="target_key" value="{{ target.key }}">
           <input type="hidden" name="scope" value="{{ target.policy.save_scope }}">
-          <label>Stellar model<select name="stellar_model"{% if not operator_api %} disabled{% endif %}>{% for model in target.stellar_options %}<option value="{{ model }}"{% if model == target.policy.stellar_model %} selected{% endif %}>{{ model }}</option>{% endfor %}</select></label>
-          <label>Disk model<select name="disk_model"{% if not operator_api %} disabled{% endif %}><option value=""{% if not target.policy.disk_model %} selected{% endif %}>not used</option>{% for model in target.disk_options %}<option value="{{ model }}"{% if model == target.policy.disk_model %} selected{% endif %}>{{ model }}</option>{% endfor %}</select></label>
-          <label>Maximum disks<input name="max_disks" type="number" min="0" max="5" value="{{ target.policy.max_disks }}"{% if not operator_api %} disabled{% endif %}></label>
-          <label>Search<select name="search_mode"{% if not operator_api %} disabled{% endif %}><option value="evidence-guided"{% if target.policy.search_mode == 'evidence-guided' %} selected{% endif %}>evidence guided</option><option value="exhaustive"{% if target.policy.search_mode == 'exhaustive' %} selected{% endif %}>exhaustive</option></select></label>
-          {% if target.policy.resettable %}<div class="operator-actions"><button class="reset-policy" type="button"{% if not operator_api %} disabled{% endif %}>Use automatic</button><span class="muted reset-note"></span></div>{% endif %}
+          <label>Stellar model<select name="stellar_model"{% if not operator_api or not target.policy.custom %} disabled{% endif %}>{% for model in target.stellar_options %}<option value="{{ model }}"{% if model == target.policy.stellar_model %} selected{% endif %}>{{ model }}</option>{% endfor %}</select></label>
+          <label>Disk model<select name="disk_model"{% if not operator_api or not target.policy.custom %} disabled{% endif %}><option value=""{% if not target.policy.disk_model %} selected{% endif %}>not used</option>{% for model in target.disk_options %}<option value="{{ model }}"{% if model == target.policy.disk_model %} selected{% endif %}>{{ model }}</option>{% endfor %}</select></label>
+          <label>Maximum disks<input name="max_disks" type="number" min="0" max="5" value="{{ target.policy.max_disks }}"{% if not operator_api or not target.policy.custom %} disabled{% endif %}></label>
+          <label>Search<select name="search_mode"{% if not operator_api or not target.policy.custom %} disabled{% endif %}><option value="evidence-guided"{% if target.policy.search_mode == 'evidence-guided' %} selected{% endif %}>evidence guided</option><option value="exhaustive"{% if target.policy.search_mode == 'exhaustive' %} selected{% endif %}>exhaustive</option></select></label>
+          <div class="operator-actions"><button class="config-mode" type="button"{% if not operator_api %} disabled{% endif %}>{% if target.policy.custom %}Use default config{% else %}Specify custom config{% endif %}</button><span class="muted config-note">{% if not target.policy.custom %}Default choices shown above{% endif %}</span></div>
         </form>
       </div>
       {% endfor %}
@@ -230,25 +230,68 @@
   };
   const policyForms = Array.from(document.querySelectorAll('.policy-form'));
   policyForms.forEach(form => {
+    const initialCustom = form.dataset.custom === 'yes';
+    const source = form.closest('.operator-target').querySelector('.config-source');
+    const initialLabel = source.textContent;
+    const modeButton = form.querySelector('.config-mode');
+    const note = form.querySelector('.config-note');
+    const controls = Array.from(form.querySelectorAll('select,input[type="number"]'));
+    const initialValues = Object.fromEntries(
+      controls.map(control => [control.name, control.value])
+    );
+    const diskModel = form.elements.disk_model;
+    const maxDisks = form.elements.max_disks;
+    let previousMaxDisks = Math.max(1, Number(maxDisks.value) || 1);
     form.dataset.dirty = 'no';
     form.dataset.reset = 'no';
+    form.dataset.valuesDirty = 'no';
+    form.dataset.mode = initialCustom ? 'custom' : 'default';
     form.addEventListener('submit', event => event.preventDefault());
-    form.querySelectorAll('select,input[type="number"]').forEach(control => {
-      control.addEventListener('change', () => { form.dataset.dirty = 'yes'; });
-    });
-    const reset = form.querySelector('.reset-policy');
-    if (reset) reset.addEventListener('click', () => {
-      const pending = form.dataset.reset !== 'yes';
-      form.dataset.reset = pending ? 'yes' : 'no';
-      form.dataset.dirty = 'yes';
-      form.closest('.operator-target').classList.toggle('pending-reset', pending);
-      form.querySelectorAll('select,input[type="number"]').forEach(control => {
-        control.disabled = pending || !api;
+    const updateMode = () => {
+      const custom = form.dataset.mode === 'custom';
+      const changedMode = custom !== initialCustom;
+      form.dataset.reset = initialCustom && !custom ? 'yes' : 'no';
+      form.dataset.dirty = (changedMode || form.dataset.valuesDirty === 'yes') ? 'yes' : 'no';
+      form.closest('.operator-target').classList.toggle('pending-reset', initialCustom && !custom);
+      controls.forEach(control => { control.disabled = !custom || !api; });
+      if (initialCustom) {
+        modeButton.textContent = custom ? 'Use default config' : 'Keep custom config';
+        source.textContent = custom ? initialLabel : 'Default config (not saved)';
+        note.textContent = custom ? '' : 'will be restored when the fit is queued';
+      } else {
+        modeButton.textContent = custom ? 'Cancel custom config' : 'Specify custom config';
+        source.textContent = custom ? 'Custom config (not saved)' : initialLabel;
+        note.textContent = custom ? 'change the choices above, then queue the fit' : 'Default choices shown above';
+      }
+    };
+    controls.forEach(control => {
+      control.addEventListener('change', () => {
+        if (control === diskModel) {
+          if (!diskModel.value) {
+            previousMaxDisks = Math.max(1, Number(maxDisks.value) || previousMaxDisks);
+            maxDisks.value = 0;
+          } else if (Number(maxDisks.value) === 0) {
+            maxDisks.value = previousMaxDisks;
+          }
+        } else if (control === maxDisks && Number(maxDisks.value) > 0 && !diskModel.value) {
+          const preferred = Array.from(diskModel.options).find(option => option.value === 'modbb_disk_r');
+          const fallback = Array.from(diskModel.options).find(option => option.value);
+          diskModel.value = (preferred || fallback).value;
+        }
+        form.dataset.valuesDirty = 'yes';
+        updateMode();
       });
-      reset.textContent = pending ? 'Keep override' : 'Use automatic';
-      const note = form.querySelector('.reset-note');
-      if (note) note.textContent = pending ? 'will use automatic policy' : '';
     });
+    modeButton.addEventListener('click', () => {
+      form.dataset.mode = form.dataset.mode === 'custom' ? 'default' : 'custom';
+      if (!initialCustom && form.dataset.mode === 'default') {
+        controls.forEach(control => { control.value = initialValues[control.name]; });
+        previousMaxDisks = Math.max(1, Number(maxDisks.value) || 1);
+        form.dataset.valuesDirty = 'no';
+      }
+      updateMode();
+    });
+    updateMode();
   });
   const systemForm = document.getElementById('system-fit-form');
   const systemStatus = systemForm.querySelector('.operator-status');

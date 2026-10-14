@@ -118,6 +118,22 @@ def test_seed_recovers_retained_policy_without_queue_or_overwrite(tmp_path):
     assert state.jobs() == ()
 
 
+def test_explicit_default_prevents_retained_fit_reseeding(tmp_path):
+    state = sdf.operator_state.OperatorState(tmp_path / 'operator.sqlite')
+    package = tmp_path / 'package'
+    package.mkdir()
+    state.seed_policy(_policy(), package=package, main_id='Test')
+
+    state.reset_policy_and_queue(
+        'simbad:Test', package=package, scope='package', actor='Grant',
+        reason='Use the default config',
+    )
+
+    assert state.policy('simbad:Test', package=package) is None
+    assert not state.seed_policy(_policy(), package=package, main_id='Test')
+    assert state.policy('simbad:Test', package=package) is None
+
+
 def test_interrupted_running_job_is_recovered_for_restart(tmp_path):
     state = sdf.operator_state.OperatorState(tmp_path / 'operator.sqlite')
     package = tmp_path / 'package'
@@ -237,5 +253,31 @@ def test_version_one_operator_database_is_migrated_in_place(tmp_path):
         columns = {
             row[1] for row in connection.execute('PRAGMA table_info(fit_jobs)')
         }
-    assert version == '2'
+    assert version == '3'
     assert 'worker_id' in columns
+
+
+def test_version_two_operator_database_records_default_choices(tmp_path):
+    path = tmp_path / 'operator.sqlite'
+    with sqlite3.connect(path) as connection:
+        connection.executescript('''
+            CREATE TABLE operator_metadata (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            INSERT INTO operator_metadata VALUES ('schema_version', '2');
+        ''')
+
+    sdf.operator_state.OperatorState(path).initialize()
+
+    with sqlite3.connect(path) as connection:
+        version = connection.execute(
+            "SELECT value FROM operator_metadata WHERE key = 'schema_version'"
+        ).fetchone()[0]
+        tables = {
+            row[0] for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            )
+        }
+    assert version == '3'
+    assert 'fit_policy_default' in tables

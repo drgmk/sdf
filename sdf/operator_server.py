@@ -109,6 +109,12 @@ class OperatorService:
             max_disks = int(payload.get('max_disks'))
         except (TypeError, ValueError) as error:
             raise ValueError('maximum disks must be an integer') from error
+        if max_disks < 0:
+            raise ValueError('maximum disks cannot be negative')
+        if max_disks and not disk_model:
+            raise ValueError(
+                'choose a disk model or set maximum disks to 0'
+            )
         search_mode = str(payload.get('search_mode', 'evidence-guided'))
         registry = ModelFamilyRegistry.from_config()
         registry.require(stellar_model, 'stellar')
@@ -169,6 +175,12 @@ class OperatorService:
                 max_disks = int(change.get('max_disks'))
             except (TypeError, ValueError) as error:
                 raise ValueError('maximum disks must be an integer') from error
+            if max_disks < 0:
+                raise ValueError('maximum disks cannot be negative')
+            if max_disks and not disk_model:
+                raise ValueError(
+                    'choose a disk model or set maximum disks to 0'
+                )
             search_mode = str(change.get('search_mode', 'evidence-guided'))
             registry.require(stellar_model, 'stellar')
             disk_models = () if not disk_model else (disk_model,)

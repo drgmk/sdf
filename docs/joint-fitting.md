@@ -265,12 +265,13 @@ stop before the service exits.
 
 The drawer exposes model choices for each physical contributor, but actor,
 reason, and the queue action apply once to the system. Changed contributor
-policies are saved transactionally and produce one package fit job. Policy is
-global unless the package already needs a package-specific exception. The
-retained default fit seeds any
-otherwise-missing package policy when the service first opens; this preserves
-an explicit white-dwarf or cool-star choice even when the exported rawphot
-metadata lacks a spectral type. `Use automatic` removes that exception.
+configs are saved transactionally and produce one system fit job. A custom
+config is shared wherever that physical target is used unless the export
+already needs a system-specific exception. The retained default fit can seed
+an otherwise-missing config when the service first opens; this preserves an
+explicit white-dwarf or cool-star choice even when the exported rawphot
+metadata lacks a spectral type. Choosing the default records that choice so a
+later service restart does not reconstruct the removed custom config.
 
 The service also lists every retained candidate. `Preview` does not change the
 public selection; `shown` controls the public tabs, and `Make default` changes

@@ -205,6 +205,13 @@ def add_operator_policy(targets, policies, registry, *, policy_store=None,
             save_scope = 'package'
         else:
             save_scope = 'global'
+        custom = policy.origin in {'operator', 'operator-package'}
+        config_labels = {
+            'automatic': 'Automatic config',
+            'package': 'Exported config',
+            'operator': 'Custom config',
+            'operator-package': 'Custom config',
+        }
         target['policy'] = {
             'stellar_model': policy.stellar_models[0],
             'stellar_models': policy.stellar_models,
@@ -214,8 +221,11 @@ def add_operator_policy(targets, policies, registry, *, policy_store=None,
             'search_mode': policy.search_mode,
             'reddening': policy.reddening,
             'origin': policy.origin,
+            'config_label': config_labels.get(
+                policy.origin, 'Configured'
+            ),
+            'custom': custom,
             'save_scope': save_scope,
-            'resettable': policy.origin in {'operator', 'operator-package'},
             'reason': (
                 record.reason if record is not None else
                 _suggested_reason(target['label'], policy)
