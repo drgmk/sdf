@@ -38,6 +38,9 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
         tmp_path, sampler=FakeSampler()
     )
     coordinator.fit_candidate(dataset, candidate)
+    stored = coordinator.library.find(candidate.canonical_id)
+    (stored.path / 'corner.png').write_bytes(b'plot')
+    (stored.path / 'distributions.png').write_bytes(b'plot')
 
     output = sdf.joint_plotting.write_joint_results_page(
         tmp_path, dataset=dataset,
@@ -59,6 +62,9 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     assert '>Data</a>' not in html
     assert 'result.json' in html
     assert 'posterior-' in html
+    assert 'data-distribution-plot' in html
+    assert 'id="distribution-dialog"' in html
+    assert '>Download PNG</a>' in html
     assert 'fit-controls' not in html
     assert 'href="/admin/system/test/">Admin SED</a>' in html
     assert 'aria-label="Search SDF catalog"' in html

@@ -81,6 +81,20 @@ def test_joint_analysis_uses_each_stellar_owners_parallax():
         analysis.arrays['spectrum_wavelength_micron']
     )
     assert np.all(analysis.arrays['component_spectrum_median'] > 0)
+    assert analysis.arrays['derived_samples'].shape == (2, 6)
+    assert [
+        value['owner_keys']
+        for value in analysis.summary['derived_parameters']
+        if value['role'] == 'astrometry'
+    ] == [['simbad:A'], ['simbad:B']]
+    assert {
+        value['owner_key']
+        for value in analysis.summary['derived_parameters']
+    } == {'simbad:A', 'simbad:B'}
+    assert sum(
+        value['role'] == 'stellar'
+        for value in analysis.summary['derived_parameters']
+    ) == 4
 
 
 def test_disk_analysis_uses_only_its_owner_stellar_luminosity():
@@ -132,6 +146,18 @@ def test_disk_analysis_uses_only_its_owner_stellar_luminosity():
     assert disk_a[0]['model_name'] == 'bb_disk_r'
     assert disk_a[0]['fractional_luminosity']['median'] > 0
     assert disk_a[0]['blackbody_radius_au']['median'] > 0
+    disk_parameters = [
+        value for value in analysis.summary['derived_parameters']
+        if value['role'] == 'disk'
+    ]
+    assert {value['label'] for value in disk_parameters} == {
+        'disk luminosity', 'disk / stellar luminosity',
+        'disk temperature', 'blackbody radius',
+    }
+    assert all(value['owner_key'] == 'simbad:A' for value in disk_parameters)
+    assert analysis.summary['derived_parameters'][0]['owner_keys'] == [
+        'simbad:A', 'simbad:B'
+    ]
 
 
 def test_analysis_rejects_posterior_for_another_problem():

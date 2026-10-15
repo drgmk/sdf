@@ -12,7 +12,7 @@ from . import config as cfg
 from . import fitting
 from . import model
 
-ANALYSIS_SCHEMA = 3
+ANALYSIS_SCHEMA = 4
 PREDICTION_SAMPLES_MAX = 256
 
 
@@ -78,6 +78,8 @@ class FitAnalysis:
         spectrum_wavelength, component_spectrum = _median_component_spectra(
             problem, median_parameters
         )
+        target_summaries, derived_parameters, derived_samples = \
+            _target_summaries(problem, samples)
         summary = {
             'schema': ANALYSIS_SCHEMA,
             'parameters': parameter_summary,
@@ -86,7 +88,8 @@ class FitAnalysis:
             'prediction_samples': int(len(prediction_indices)),
             'data_scopes': _data_scopes(problem.dataset, obs_nel),
             'components': _component_summaries(problem, samples),
-            'targets': _target_summaries(problem, samples),
+            'targets': target_summaries,
+            'derived_parameters': derived_parameters,
         }
         arrays = {
             'observed_flux': observed_flux,
@@ -106,6 +109,7 @@ class FitAnalysis:
             'spectrum_wavelength_micron': spectrum_wavelength,
             'component_spectrum_median': component_spectrum,
             'residual': residuals,
+            'derived_samples': derived_samples,
         }
         return cls(summary=summary, arrays=arrays)
 
@@ -174,9 +178,31 @@ def _target_summaries(problem, samples):
         key: _parallax_samples(target, len(samples))
         for key, target in targets.items()
     }
+    derived_parameters = []
+    derived_columns = []
+    parallax_groups = []
     for key, values in parallax_samples.items():
         if values is not None:
             summaries[key]['parallax_arcsec'] = _summary(values)
+            group = next((
+                item for item in parallax_groups
+                if np.array_equal(item['values'], values)
+            ), None)
+            if group is None:
+                parallax_groups.append({
+                    'values': values, 'owner_keys': [key],
+                })
+            else:
+                group['owner_keys'].append(key)
+    for group in parallax_groups:
+        owner_keys = group['owner_keys']
+        _add_derived_parameter(
+            derived_parameters, derived_columns, group['values'],
+            name='{}.parallax_arcsec'.format('+'.join(owner_keys)),
+            owner_key=owner_keys[0], owner_keys=owner_keys,
+            component_id=None, role='astrometry',
+            label='parallax', unit='arcsec',
+        )
     layouts = []
     offset = 0
     for component, component_models, plot_models in zip(
@@ -194,18 +220,27 @@ def _target_summaries(problem, samples):
     }
     for component, _, parameters, component_samples in layouts:
         if component.role == 'stellar':
-            derived, luminosity_at_1pc = _stellar_derived(
+            derived, distributions, luminosity_at_1pc = _stellar_derived(
                 component.model_name, parameters, component_samples,
                 parallax_samples[component.owner_key]
             )
             derived['component_id'] = component.component_id
             summaries[component.owner_key]['stellar_components'].append(derived)
+            for quantity, values in distributions.items():
+                label, unit = _DERIVED_LABELS[quantity]
+                _add_derived_parameter(
+                    derived_parameters, derived_columns, values,
+                    name='{}.{}'.format(component.component_id, quantity),
+                    owner_key=component.owner_key,
+                    component_id=component.component_id, role='stellar',
+                    label=label, unit=unit,
+                )
             if luminosity_at_1pc is not None:
                 stellar_luminosity[component.owner_key] += luminosity_at_1pc
 
     for component, component_models, parameters, component_samples in layouts:
         if component.role == 'disk':
-            derived = _disk_derived(
+            derived, distributions = _disk_derived(
                 component_models, component.model_name, parameters,
                 component_samples,
                 stellar_luminosity[component.owner_key],
@@ -215,13 +250,27 @@ def _target_summaries(problem, samples):
             summaries[component.owner_key]['disk_components'].append({
                 **derived,
             })
-    return summaries
+            for quantity, values in distributions.items():
+                label, unit = _DERIVED_LABELS[quantity]
+                _add_derived_parameter(
+                    derived_parameters, derived_columns, values,
+                    name='{}.{}'.format(component.component_id, quantity),
+                    owner_key=component.owner_key,
+                    component_id=component.component_id, role='disk',
+                    label=label, unit=unit,
+                )
+    derived_samples = (
+        np.column_stack(derived_columns)
+        if derived_columns else np.empty((len(samples), 0))
+    )
+    return summaries, derived_parameters, derived_samples
 
 
 def _stellar_derived(model_name, parameters, samples, parallax_samples):
     values = {'model_name': model_name}
+    distributions = {}
     if 'norm' not in parameters:
-        return values, None
+        return values, distributions, None
     norm = samples[:, parameters.index('norm')]
     radius_at_1pc_m = np.sqrt(cfg.ssr * 10**norm / np.pi) * u.pc.to(u.m)
     values['radius_at_1pc_m'] = _summary(radius_at_1pc_m)
@@ -237,26 +286,29 @@ def _stellar_derived(model_name, parameters, samples, parallax_samples):
         luminosity_at_1pc = None
 
     if parallax_samples is not None:
-        values['radius_rsun'] = _summary(
+        radius_rsun = (
             radius_at_1pc_m / parallax_samples / u.R_sun.to(u.m)
         )
+        values['radius_rsun'] = _summary(radius_rsun)
+        distributions['radius_rsun'] = radius_rsun
         if luminosity_at_1pc is not None:
-            values['luminosity_lsun'] = _summary(
-                luminosity_at_1pc / parallax_samples**2
-            )
-    return values, luminosity_at_1pc
+            luminosity_lsun = luminosity_at_1pc / parallax_samples**2
+            values['luminosity_lsun'] = _summary(luminosity_lsun)
+            distributions['luminosity_lsun'] = luminosity_lsun
+    return values, distributions, luminosity_at_1pc
 
 
 def _disk_derived(component_models, model_name, parameters, samples,
                   owner_luminosity_at_1pc, parallax_samples):
     values = {'model_name': model_name}
+    distributions = {}
     spectral_model = next(
         (value for value in component_models
          if isinstance(value, model.SpecModel)),
         None,
     )
     if spectral_model is None:
-        return values
+        return values, distributions
 
     frequency_hz = u.micron.to(
         u.Hz, equivalencies=u.spectral()
@@ -273,12 +325,18 @@ def _disk_derived(component_models, model_name, parameters, samples,
             u.L_sun.to(u.W)
         )
     values['luminosity_at_1pc_lsun'] = _summary(luminosity_at_1pc)
+    if parallax_samples is not None:
+        luminosity_lsun = luminosity_at_1pc / parallax_samples**2
+        values['luminosity_lsun'] = _summary(luminosity_lsun)
+        distributions['disk_luminosity_lsun'] = luminosity_lsun
 
     has_stellar_luminosity = np.all(owner_luminosity_at_1pc > 0)
     if has_stellar_luminosity:
-        values['fractional_luminosity'] = _summary(
+        fractional_luminosity = (
             luminosity_at_1pc / owner_luminosity_at_1pc
         )
+        values['fractional_luminosity'] = _summary(fractional_luminosity)
+        distributions['fractional_luminosity'] = fractional_luminosity
 
     temperature = None
     if 'Temp' in parameters:
@@ -287,12 +345,41 @@ def _disk_derived(component_models, model_name, parameters, samples,
         temperature = 10**samples[:, parameters.index('log_Temp')]
     if temperature is not None:
         values['temperature_k'] = _summary(temperature)
+        distributions['temperature_k'] = temperature
         if has_stellar_luminosity and parallax_samples is not None:
             luminosity = owner_luminosity_at_1pc / parallax_samples**2
-            values['blackbody_radius_au'] = _summary(
+            blackbody_radius_au = (
                 np.sqrt(luminosity) * (278.3 / temperature)**2
             )
-    return values
+            values['blackbody_radius_au'] = _summary(blackbody_radius_au)
+            distributions['blackbody_radius_au'] = blackbody_radius_au
+    return values, distributions
+
+
+_DERIVED_LABELS = {
+    'radius_rsun': ('stellar radius', 'R_sun'),
+    'luminosity_lsun': ('stellar luminosity', 'L_sun'),
+    'disk_luminosity_lsun': ('disk luminosity', 'L_sun'),
+    'fractional_luminosity': ('disk / stellar luminosity', ''),
+    'temperature_k': ('disk temperature', 'K'),
+    'blackbody_radius_au': ('blackbody radius', 'au'),
+}
+
+
+def _add_derived_parameter(parameters, columns, values, *, name, owner_key,
+                           component_id, role, label, unit, owner_keys=None):
+    """Keep a plotted derived series aligned with its descriptive metadata."""
+
+    parameters.append({
+        'name': name,
+        'owner_key': owner_key,
+        'owner_keys': list(owner_keys or (owner_key,)),
+        'component_id': component_id,
+        'role': role,
+        'label': label,
+        'unit': unit,
+    })
+    columns.append(np.asarray(values, dtype=float))
 
 
 def _parallax_samples(target, count):

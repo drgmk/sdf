@@ -3,7 +3,9 @@ import pytest
 
 from .context import sdf
 from .test_dataset import _write_rawphot
+import sdf.analysis
 import sdf.candidate_library
+import sdf.diagnostic_plots
 import sdf.likelihood
 import sdf.model_selection
 import sdf.samplers
@@ -111,3 +113,39 @@ def test_posterior_validates_sample_shape():
             parameter_names=('a', 'b'),
             sampler='test',
         )
+
+
+def test_candidate_diagnostic_plots_are_regenerable_files(tmp_path):
+    dataset, candidate, posterior = _completed_candidate(tmp_path)
+    rng = np.random.default_rng(4)
+    posterior = sdf.samplers.PosteriorRun(
+        samples=rng.normal(size=(48, len(posterior.parameter_names))),
+        parameter_names=posterior.parameter_names,
+        sampler='test',
+    )
+    metadata = [{
+        'name': '{}.radius_rsun'.format(candidate.components[0].component_id),
+        'owner_key': dataset.targets[0].key,
+        'component_id': candidate.components[0].component_id,
+        'role': 'stellar',
+        'label': 'stellar radius',
+        'unit': 'R_sun',
+    }]
+    stored = sdf.candidate_library.CandidateLibrary(tmp_path).commit(
+        dataset, candidate, posterior,
+        analysis={
+            'schema': sdf.analysis.ANALYSIS_SCHEMA,
+            'targets': {
+                dataset.targets[0].key: {'main_id': 'HD 123'}
+            },
+            'derived_parameters': metadata,
+        },
+        analysis_arrays={
+            'derived_samples': rng.lognormal(size=(48, 1)),
+        },
+    )
+
+    products = sdf.diagnostic_plots.ensure_candidate_diagnostic_plots(stored)
+
+    assert set(products) == {'fitted', 'derived'}
+    assert all(path.stat().st_size > 1000 for path in products.values())

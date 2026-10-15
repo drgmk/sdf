@@ -19,6 +19,7 @@ from .candidate_library import (
 )
 from .candidate_search import CandidateSearch
 from .dataset import FitDataset, canonical_fit_source
+from .diagnostic_plots import ensure_candidate_diagnostic_plots
 from .fit_priority import dataset_owner_order, recommend
 from .likelihood import FitProblem
 from .model_policy import resolve_package_policies
@@ -57,6 +58,7 @@ class FitCoordinator:
             ANALYSIS_SCHEMA
         )
         if analysis_is_current and not force:
+            ensure_candidate_diagnostic_plots(existing)
             return existing
 
         problem = FitProblem.compile(dataset, candidate)
@@ -99,6 +101,7 @@ class FitCoordinator:
             provenance=self.provenance,
             fit_state=fit_state,
         )
+        ensure_candidate_diagnostic_plots(result, force=True)
         self._update_result_index()
         return result
 

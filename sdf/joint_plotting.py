@@ -17,6 +17,7 @@ from bokeh.plotting import figure
 
 from .candidate_library import CandidateLibrary
 from .dataset import FitDataset, canonical_fit_source
+from .diagnostic_plots import ensure_candidate_diagnostic_plots
 from .model_policy import ModelFamilyRegistry, resolve_package_policies
 from .sed_page import (
     add_operator_policy,
@@ -82,6 +83,8 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
             ', '.join(sorted(missing))
         ))
     ordered = [by_id[candidate_id] for candidate_id in order]
+    for candidate in ordered:
+        ensure_candidate_diagnostic_plots(candidate)
     owner_labels = _owner_labels(ordered[0])
     owner_colours = _owner_colour_map(owner_labels)
     target_rows = target_page_rows(dataset, package_directory)
@@ -564,19 +567,26 @@ gap:7px;margin-top:7px">{}</div>
 def _candidate_product_links(candidate):
     directory = 'fits/{}/'.format(candidate.path.name)
     links = [
-        ('result', directory + 'result.json'),
-        ('posterior', directory + candidate.metadata['posterior']['file']),
+        '<a style="color:#285ea8;text-decoration:none" href="{}">{}</a>'.format(
+            escape(directory + 'result.json'), 'result'
+        ),
+        '<a style="color:#285ea8;text-decoration:none" href="{}">{}</a>'.format(
+            escape(directory + candidate.metadata['posterior']['file']),
+            'posterior',
+        ),
     ]
-    for label, filename in (
-        ('fit', 'corner.png'), ('derived', 'distributions.png'),
+    for label, title, filename in (
+        ('parameters', 'Fitted parameter posteriors', 'corner.png'),
+        ('derived', 'Derived-quantity distributions', 'distributions.png'),
     ):
         if (candidate.path / filename).is_file():
-            links.append((label, directory + filename))
-    return ' '.join(
-        '<a style="color:#285ea8;text-decoration:none" href="{}">{}</a>'.format(
-            escape(url), escape(label)
-        ) for label, url in links
-    )
+            links.append(
+                '<a style="color:#285ea8;text-decoration:none" href="{}" '
+                'data-distribution-plot data-plot-title="{}">{}</a>'.format(
+                    escape(directory + filename), escape(title), escape(label)
+                )
+            )
+    return ' '.join(links)
 
 
 def _stellar_summary(component, derived):
