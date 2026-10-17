@@ -55,6 +55,7 @@ def test_new_cli_top_level_help_is_operational(
             (
                 'Existing unfit packages are not queued',
                 '--autofit-existing', '--workers N', '--auth-user-header',
+                '--review-base-url URL',
             ),
         ),
         (
@@ -176,6 +177,7 @@ def test_sdf_fits_serve_starts_catalog_worker_and_watcher(monkeypatch, tmp_path)
             'auth_admin_group': 'admin',
             'public_sample_file': None, 'auth_cookie_secure': False,
             'sdb_import_config': None,
+            'review_base_url': None,
         })]
 
 

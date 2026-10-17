@@ -55,6 +55,12 @@ sdf-fits serve /srv/sdb/export \
   --auth-admin-group admin
 ```
 
+When the SDB review application is mounted on the same origin, add
+`--review-base-url /review`. Administrator SED pages then link directly to the
+corresponding SDB review target. SDB can link back with
+`sdb review serve --sdf-base-url ''`, where the empty URL denotes the shared
+origin.
+
 `--auth-user-header` and `--auth-group-file` must be supplied together. With
 neither option, SDF remains in local development mode and treats the CLI actor
 as an administrator.
@@ -85,6 +91,18 @@ RequestHeader unset X-SDF-User early
     Require group admin
     RequestHeader set X-SDF-User "expr=%{REMOTE_USER}"
 </Location>
+
+<Location "/review">
+    AuthType Basic
+    AuthName "SDB administration"
+    AuthUserFile /srv/sdb/auth/.htpasswd
+    AuthGroupFile /srv/sdb/auth/.htgroup
+    Require group admin
+    RequestHeader set X-SDF-User "expr=%{REMOTE_USER}"
+</Location>
+
+ProxyPass        /review/ http://127.0.0.1:8782/
+ProxyPassReverse /review/ http://127.0.0.1:8782/
 
 ProxyPass        / http://127.0.0.1:8765/
 ProxyPassReverse / http://127.0.0.1:8765/

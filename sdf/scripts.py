@@ -508,6 +508,10 @@ def sdf_fits():
         help='mark login-session cookies HTTPS-only (recommended in production)',
     )
     serve_parser.add_argument(
+        '--review-base-url', metavar='URL',
+        help='SDB review mount URL used for target-level Review data links',
+    )
+    serve_parser.add_argument(
         '--sdb-database', metavar='PATH',
         help=(
             'enable signed-in target import using this authoritative SDB '
@@ -569,6 +573,7 @@ def sdf_fits():
             public_sample_file=args.public_samples_file,
             auth_cookie_secure=args.auth_cookie_secure,
             sdb_import_config=sdb_import_config,
+            review_base_url=args.review_base_url,
         )
         return
 

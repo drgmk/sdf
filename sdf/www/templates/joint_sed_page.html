@@ -139,6 +139,7 @@
         {% if default_fit %}<div class="default-config" aria-label="Default fit" data-candidate="{{ default_fit.reference }}"><span>Default</span>{% for part in default_fit.shorthand %}<span class="config-chip" style="--chip-colour:{{ part.colour }}" title="{{ part.title }}">{% if part.owner %}{{ part.owner }} {% endif %}{{ part.symbols }}</span>{% endfor %}</div>{% endif %}
       </div>
       <nav class="page-actions" aria-label="SED actions">
+        {% if review_url and (admin_access or operator) %}<a class="page-action" href="{{ review_url }}">Review data</a>{% endif %}
         {% if admin_url and not operator %}<a class="page-action" href="{{ admin_url }}">Admin SED</a>{% endif %}
         {% if operator %}<button id="open-fit-controls" type="button" aria-controls="fit-controls" aria-expanded="false">Fit controls</button>{% endif %}
       </nav>

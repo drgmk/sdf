@@ -44,7 +44,11 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
 
     output = sdf.joint_plotting.write_joint_results_page(
         tmp_path, dataset=dataset,
-        navigation={'admin_url': '/admin/system/test/'},
+        navigation={
+            'admin_url': '/admin/system/test/',
+            'review_url': '/review/target/test',
+            'admin_access': True,
+        },
     )
     html = output.read_text(encoding='utf-8')
 
@@ -67,6 +71,7 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     assert '>Download PNG</a>' in html
     assert 'fit-controls' not in html
     assert 'href="/admin/system/test/">Admin SED</a>' in html
+    assert 'href="/review/target/test">Review data</a>' in html
     assert 'aria-label="Search SDF catalog"' in html
     assert 'aria-label="Catalogue navigation"' in html
     assert '>Search</a>' not in html
