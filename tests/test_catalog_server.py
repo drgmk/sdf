@@ -8,6 +8,7 @@ import pytest
 
 from .test_dataset import _write_rawphot
 import sdf.catalog_server
+import sdf.sdb_import
 
 
 def test_sigterm_handler_uses_normal_keyboard_interrupt_cleanup():
@@ -126,6 +127,62 @@ def test_catalog_http_routes_and_rejects_bad_token(tmp_path):
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_signed_in_search_can_queue_and_view_sdb_import(tmp_path):
+    _catalog(tmp_path)
+    config = sdf.sdb_import.SdbImportConfig.create(
+        tmp_path / 'sdb.sqlite'
+    )
+    try:
+        server = sdf.catalog_server.make_catalog_server(
+            tmp_path, actor='Grant', token='test-token', port=0,
+            sdb_import_config=config,
+        )
+    except PermissionError:
+        pytest.skip('test environment does not permit loopback sockets')
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    root = 'http://127.0.0.1:{}'.format(server.server_address[1])
+    try:
+        missing = urlopen(root + '/search?q=Vega').read().decode()
+        assert 'Import Vega from SIMBAD' in missing
+        request = Request(
+            root + '/imports',
+            data=json.dumps({'query': 'Vega'}).encode(),
+            headers={
+                'Content-Type': 'application/json',
+                'X-SDF-Token': 'test-token',
+            },
+            method='POST',
+        )
+        response = urlopen(request)
+        assert response.status == 202
+        job_id = json.loads(response.read())['job_id']
+        page = urlopen(root + '/imports/{}'.format(job_id)).read().decode()
+        assert 'Waiting to import' in page
+        assert 'Vega' in page
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_registering_acquisition_export_indexes_and_queues_fit(tmp_path):
+    service = _catalog(tmp_path)
+    imported = tmp_path / 'new-package'
+    imported.mkdir()
+    _write_rawphot(
+        imported / 'new-rawphot.txt', sdbid='sdb-new', main_id='Vega'
+    )
+
+    result = service.register_acquisition_export({
+        'query': 'Vega', 'packages': ['new-package'],
+    }, actor='alice')
+
+    assert len(result['fit_job_ids']) == 1
+    assert service.package('new-package')['status'] == 'unfit'
+    assert service.state.jobs()[0].actor == 'alice'
 
 
 def test_proxy_auth_separates_public_sample_and_admin_access(tmp_path):

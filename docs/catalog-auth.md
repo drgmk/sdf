@@ -15,6 +15,7 @@ The route boundary is:
 | `/samples` | public samples, plus permitted private samples when signed in |
 | `/samples/NAME` | public allowlist, group `NAME`, or administrator group |
 | `/auth/login` | Apache-authenticated handoff back to `/samples` |
+| `/imports`, `/imports/ID` | any signed-in user; jobs are visible to their requester and administrators |
 | `/admin`, `/admin/jobs`, `/admin/system/...` | administrator group |
 | `/admin/system/.../api/...` | administrator group plus the page CSRF token |
 
@@ -105,6 +106,12 @@ The authenticated username is the operator actor. Proxy-authenticated pages
 therefore do not offer an editable actor field, and POST bodies cannot override
 the proxy identity. The page token remains useful for cross-site request
 forgery protection but is not an authentication mechanism.
+
+When SDB import is configured, an unsuccessful public search offers anonymous
+visitors a sign-in link. Any signed-in account can then request an exact SIMBAD
+target; the username is retained on the durable import record. This is broader
+than fit configuration, which remains administrator-only, but avoids allowing
+anonymous writes to the authoritative SDB database.
 
 Public system routes never serve `operator.html`. Live operator pages are
 rendered ephemerally, avoiding persistence of the page token or authenticated

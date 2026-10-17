@@ -253,7 +253,7 @@ def test_version_one_operator_database_is_migrated_in_place(tmp_path):
         columns = {
             row[1] for row in connection.execute('PRAGMA table_info(fit_jobs)')
         }
-    assert version == '3'
+    assert version == '4'
     assert 'worker_id' in columns
 
 
@@ -279,5 +279,35 @@ def test_version_two_operator_database_records_default_choices(tmp_path):
                 "SELECT name FROM sqlite_master WHERE type = 'table'"
             )
         }
-    assert version == '3'
+    assert version == '4'
     assert 'fit_policy_default' in tables
+
+
+def test_acquisition_queue_coalesces_claims_completes_and_recovers(tmp_path):
+    state = sdf.operator_state.OperatorState(
+        tmp_path / 'operator.sqlite'
+    ).initialize()
+
+    first = state.queue_acquisition('  HD   123  ', actor='alice')
+    duplicate = state.queue_acquisition('hd 123', actor='alice')
+    another_user = state.queue_acquisition('HD 123', actor='bob')
+
+    assert duplicate == first
+    assert another_user != first
+    claimed = state.claim_next_acquisition(worker_id='import-1')
+    assert claimed.query == 'HD 123'
+    assert claimed.actor == 'alice'
+    assert claimed.status == 'running'
+    assert state.claim_next_acquisition().actor == 'bob'
+
+    assert state.recover_running_acquisitions() == 2
+    claimed = state.claim_next_acquisition(worker_id='import-2')
+    state.finish_acquisition(
+        claimed.id,
+        result={'sdbids': ['sdb-test'], 'packages': ['sdb-test']},
+    )
+
+    completed = state.acquisition(first)
+    assert completed.status == 'completed'
+    assert completed.result['packages'] == ['sdb-test']
+    assert state.acquisitions(actor='alice') == (completed,)

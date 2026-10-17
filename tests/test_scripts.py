@@ -175,6 +175,7 @@ def test_sdf_fits_serve_starts_catalog_worker_and_watcher(monkeypatch, tmp_path)
             'auth_user_header': None, 'auth_group_file': None,
             'auth_admin_group': 'admin',
             'public_sample_file': None, 'auth_cookie_secure': False,
+            'sdb_import_config': None,
         })]
 
 
@@ -197,6 +198,31 @@ def test_sdf_fits_serve_passes_parallel_worker_count(monkeypatch, tmp_path):
 
     assert calls[0]['workers'] == 4
     assert calls[0]['worker'] is True
+
+
+def test_sdf_fits_serve_builds_sdb_import_configuration(monkeypatch, tmp_path):
+    calls = []
+    monkeypatch.setattr(
+        sys, 'argv', [
+            'sdf-fits', 'serve', str(tmp_path),
+            '--sdb-database', str(tmp_path / 'sdb.sqlite'),
+            '--sdb-reference-database', str(tmp_path / 'reference.sqlite'),
+            '--sdb-cache-database', str(tmp_path / 'cache.sqlite'),
+            '--sdb-config', str(tmp_path / 'sdb.toml'),
+            '--sdb-executable', '/opt/sdb',
+        ],
+    )
+    monkeypatch.setattr(
+        sdf.scripts, 'serve_catalog',
+        lambda package, **kwargs: calls.append(kwargs),
+    )
+
+    sdf.scripts.sdf_fits()
+
+    config = calls[0]['sdb_import_config']
+    assert config.executable == '/opt/sdb'
+    assert config.database == (tmp_path / 'sdb.sqlite').resolve()
+    assert config.reference_database == (tmp_path / 'reference.sqlite').resolve()
 
 
 def test_sdf_fits_reprioritizes_every_package_and_rebuilds_once(

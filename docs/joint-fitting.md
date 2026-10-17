@@ -263,6 +263,29 @@ to `/path/to/export/sdf-operator.sqlite`. `SIGTERM` follows the same orderly
 shutdown path as an interactive interrupt, allowing supervised fit workers to
 stop before the service exits.
 
+The catalog can also turn an unsuccessful target search into a complete SDB
+acquisition. Configure the authoritative SDB database explicitly:
+
+```shell
+sdf-fits serve /srv/sdb/export \
+  --sdb-executable /opt/sdb/bin/sdb \
+  --sdb-database /srv/sdb/sdb.sqlite \
+  --sdb-reference-database /srv/sdb/sdb-reference.sqlite \
+  --sdb-cache-database /srv/sdb/sdb-cache.sqlite \
+  --sdb-config /srv/sdb/sdb.toml
+```
+
+When no exported system matches a search, a signed-in user can submit that
+exact text as a SIMBAD identifier. A durable, single-writer acquisition job
+runs `sdb add --ensure`, exports the resulting target-scoped fitting package,
+indexes it, and queues its first SDF fit. Its progress page refreshes from the
+SIMBAD/provider stage through the fit queue and finally links to the SED. SDB
+and the export watcher share a lock during export, so SDF cannot fit a package
+between its rawphot and hierarchy/spectra manifests being written. Provider
+failures that still leave a valid target are reported as warnings; identity or
+export failures leave a retryable failed job instead of a partial catalog row.
+Imports are disabled unless `--sdb-database` is supplied.
+
 The drawer exposes model choices for each physical contributor, but actor,
 reason, and the queue action apply once to the system. Changed contributor
 configs are saved transactionally and produce one system fit job. A custom

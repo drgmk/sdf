@@ -12,7 +12,7 @@ import sqlite3
 from .model_policy import TargetModelPolicy
 
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 @dataclass(frozen=True)
@@ -37,6 +37,20 @@ class FitJob:
     created_at: str
     started_at: str | None
     completed_at: str | None
+    error: str | None
+    worker_id: str | None
+
+
+@dataclass(frozen=True)
+class AcquisitionJob:
+    id: int
+    query: str
+    status: str
+    actor: str
+    created_at: str
+    started_at: str | None
+    completed_at: str | None
+    result: dict | None
     error: str | None
     worker_id: str | None
 
@@ -95,6 +109,23 @@ class OperatorState:
                     ON fit_jobs(status, id);
                 CREATE INDEX IF NOT EXISTS fit_jobs_active_package
                     ON fit_jobs(status, package_path);
+                CREATE TABLE IF NOT EXISTS acquisition_jobs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    lookup_key TEXT NOT NULL,
+                    query TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    actor TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    started_at TEXT,
+                    completed_at TEXT,
+                    result TEXT,
+                    error TEXT,
+                    worker_id TEXT
+                );
+                CREATE INDEX IF NOT EXISTS acquisition_jobs_status
+                    ON acquisition_jobs(status, id);
+                CREATE INDEX IF NOT EXISTS acquisition_jobs_active_query
+                    ON acquisition_jobs(status, lookup_key);
             ''')
             row = connection.execute(
                 "SELECT value FROM operator_metadata "
@@ -105,7 +136,7 @@ class OperatorState:
                     'INSERT INTO operator_metadata VALUES (?, ?)',
                     ('schema_version', str(SCHEMA_VERSION)),
                 )
-            elif int(row['value']) in {1, 2}:
+            elif int(row['value']) in {1, 2, 3}:
                 if int(row['value']) == 1:
                     columns = {
                         value['name'] for value in connection.execute(
@@ -376,6 +407,132 @@ class OperatorState:
             )
             return cursor.rowcount
 
+    def queue_acquisition(self, query, *, actor):
+        """Queue one exact SIMBAD/SDB acquisition, coalescing active requests."""
+
+        self.initialize()
+        query = ' '.join(str(query or '').split())
+        actor = str(actor or '').strip()
+        if not query:
+            raise ValueError('a SIMBAD identifier is required')
+        if len(query) > 200:
+            raise ValueError('SIMBAD identifier is too long')
+        if not actor:
+            raise ValueError('actor is required')
+        lookup_key = query.casefold()
+        now = _now()
+        with _connection(self.path) as connection:
+            existing = connection.execute(
+                '''
+                SELECT id FROM acquisition_jobs
+                WHERE lookup_key = ? AND actor = ?
+                    AND status IN ('queued', 'running')
+                ORDER BY id LIMIT 1
+                ''',
+                (lookup_key, actor),
+            ).fetchone()
+            if existing is not None:
+                return existing['id']
+            cursor = connection.execute(
+                '''
+                INSERT INTO acquisition_jobs (
+                    lookup_key, query, status, actor, created_at
+                ) VALUES (?, ?, 'queued', ?, ?)
+                ''',
+                (lookup_key, query, actor, now),
+            )
+            return cursor.lastrowid
+
+    def acquisitions(self, *, actor=None, status=None):
+        clauses = []
+        values = []
+        if actor is not None:
+            clauses.append('actor = ?')
+            values.append(str(actor))
+        if status is not None:
+            clauses.append('status = ?')
+            values.append(str(status))
+        where = '' if not clauses else ' WHERE ' + ' AND '.join(clauses)
+        with _connection(self.path) as connection:
+            rows = connection.execute(
+                'SELECT * FROM acquisition_jobs{} ORDER BY id DESC'.format(
+                    where
+                ),
+                values,
+            ).fetchall()
+        return tuple(_acquisition_job(row) for row in rows)
+
+    def acquisition(self, job_id):
+        with _connection(self.path) as connection:
+            row = connection.execute(
+                'SELECT * FROM acquisition_jobs WHERE id = ?',
+                (int(job_id),),
+            ).fetchone()
+        if row is None:
+            raise KeyError('acquisition job not found: {}'.format(job_id))
+        return _acquisition_job(row)
+
+    def claim_next_acquisition(self, *, worker_id=None):
+        self.initialize()
+        connection = _connect(self.path)
+        try:
+            connection.execute('BEGIN IMMEDIATE')
+            row = connection.execute(
+                "SELECT * FROM acquisition_jobs WHERE status = 'queued' "
+                'ORDER BY id LIMIT 1'
+            ).fetchone()
+            if row is None:
+                connection.commit()
+                return None
+            started_at = _now()
+            connection.execute(
+                "UPDATE acquisition_jobs SET status = 'running', "
+                'started_at = ?, worker_id = ?, error = NULL WHERE id = ?',
+                (started_at, worker_id, row['id']),
+            )
+            connection.commit()
+            values = dict(row)
+            values.update(
+                status='running', started_at=started_at,
+                worker_id=worker_id, error=None,
+            )
+            return _acquisition_job(values)
+        finally:
+            connection.close()
+
+    def finish_acquisition(self, job_id, *, result=None, error=None):
+        status = 'failed' if error else 'completed'
+        payload = None if result is None else json.dumps(
+            result, sort_keys=True
+        )
+        with _connection(self.path) as connection:
+            cursor = connection.execute(
+                '''
+                UPDATE acquisition_jobs
+                SET status = ?, completed_at = ?, result = ?, error = ?
+                WHERE id = ? AND status = 'running'
+                ''',
+                (status, _now(), payload, error, int(job_id)),
+            )
+            if cursor.rowcount != 1:
+                raise ValueError(
+                    'acquisition job {} is not running'.format(job_id)
+                )
+
+    def recover_running_acquisitions(self):
+        with _connection(self.path) as connection:
+            cursor = connection.execute(
+                '''
+                UPDATE acquisition_jobs
+                SET status = 'queued', started_at = NULL,
+                    completed_at = NULL,
+                    error = 'server stopped before completion',
+                    worker_id = NULL
+                WHERE status = 'running'
+                '''
+            )
+            return cursor.rowcount
+
     def last_actor(self):
         if not self.path.is_file():
             return None
@@ -518,6 +675,17 @@ def _fit_job(row):
         created_at=row['created_at'], started_at=row['started_at'],
         completed_at=row['completed_at'], error=row['error'],
         worker_id=row['worker_id'],
+    )
+
+
+def _acquisition_job(row):
+    row = dict(row)
+    return AcquisitionJob(
+        id=row['id'], query=row['query'], status=row['status'],
+        actor=row['actor'], created_at=row['created_at'],
+        started_at=row['started_at'], completed_at=row['completed_at'],
+        result=(None if row['result'] is None else json.loads(row['result'])),
+        error=row['error'], worker_id=row['worker_id'],
     )
 
 

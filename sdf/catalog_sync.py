@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
+
 from .result_index import discover_packages
 
 
@@ -15,6 +17,16 @@ class CatalogSynchronizer:
 
     def sync(self, *, queue_changes=True, autofit_existing=False):
         """Refresh changed packages and optionally queue fitting work."""
+
+        lock = getattr(self.service, 'export_sync_lock', None)
+        with lock if lock is not None else nullcontext():
+            return self._sync(
+                queue_changes=queue_changes,
+                autofit_existing=autofit_existing,
+            )
+
+    def _sync(self, *, queue_changes=True, autofit_existing=False):
+        """Run one synchronization while the shared export lock is held."""
 
         current = self._scan_signatures()
         previous = self._signatures

@@ -11,5 +11,6 @@
 </div>
 {% if query or status_filter %}<p>Found {{ total }} system{% if total != 1 %}s{% endif %}{% if query %} matching <strong>{{ query }}</strong>{% endif %}{% if status_filter %} with state <strong>{{ status_filter }}</strong>{% endif %}.</p>{% endif %}
 {% include "catalog_package_table.html" %}
+{% include "catalog_import_offer.html" %}
 {% if page_count > 1 %}<div class="summary-line"><span>Page {{ page }} of {{ page_count }}</span>{% if page > 1 %}<a class="button" href="{{ page_base }}?q={{ query|urlencode }}&status={{ status_filter|urlencode }}&page={{ page - 1 }}">Previous</a>{% endif %}{% if page < page_count %}<a class="button" href="{{ page_base }}?q={{ query|urlencode }}&status={{ status_filter|urlencode }}&page={{ page + 1 }}">Next</a>{% endif %}</div>{% endif %}
 {% endblock %}

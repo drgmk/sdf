@@ -24,6 +24,7 @@ from sdf.operator_jobs import run_next_job, run_worker
 from sdf.operator_state import OperatorState
 from sdf.catalog_server import serve_catalog
 from sdf.sample_products import write_sample_products
+from sdf.sdb_import import SdbImportConfig
 
 
 def sdf_fit():
@@ -506,9 +507,54 @@ def sdf_fits():
         '--auth-cookie-secure', action='store_true',
         help='mark login-session cookies HTTPS-only (recommended in production)',
     )
+    serve_parser.add_argument(
+        '--sdb-database', metavar='PATH',
+        help=(
+            'enable signed-in target import using this authoritative SDB '
+            'SQLite database'
+        ),
+    )
+    serve_parser.add_argument(
+        '--sdb-executable', default='sdb', metavar='PATH',
+        help='SDB CLI executable used for target import (default: sdb on PATH)',
+    )
+    serve_parser.add_argument(
+        '--sdb-config', metavar='PATH',
+        help='SDB TOML configuration used during import and provider refresh',
+    )
+    serve_parser.add_argument(
+        '--sdb-reference-database', metavar='PATH',
+        help='SDB reference-snapshot SQLite database used during import',
+    )
+    serve_parser.add_argument(
+        '--sdb-cache-database', metavar='PATH',
+        help='SDB provider cache SQLite database used during import',
+    )
+    serve_parser.add_argument(
+        '--sdb-import-timeout', type=float, default=1800.0,
+        metavar='SECONDS',
+        help='maximum time for each SDB command during import (default: 1800)',
+    )
     args = parser.parse_args()
 
     if args.command == 'serve':
+        import_options = (
+            args.sdb_config, args.sdb_reference_database,
+            args.sdb_cache_database,
+        )
+        if args.sdb_database is None and any(import_options):
+            parser.error('--sdb-database is required with SDB import options')
+        if args.sdb_import_timeout <= 0:
+            parser.error('--sdb-import-timeout must be positive')
+        sdb_import_config = None
+        if args.sdb_database is not None:
+            sdb_import_config = SdbImportConfig.create(
+                args.sdb_database, executable=args.sdb_executable,
+                config=args.sdb_config,
+                reference_database=args.sdb_reference_database,
+                cache_database=args.sdb_cache_database,
+                timeout_seconds=args.sdb_import_timeout,
+            )
         serve_catalog(
             args.package, index_path=args.index, state_path=args.state,
             actor=args.actor, rebuild=args.rebuild_index,
@@ -522,6 +568,7 @@ def sdf_fits():
             auth_admin_group=args.auth_admin_group,
             public_sample_file=args.public_samples_file,
             auth_cookie_secure=args.auth_cookie_secure,
+            sdb_import_config=sdb_import_config,
         )
         return
 

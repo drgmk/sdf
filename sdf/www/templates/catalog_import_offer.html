@@ -1,0 +1,35 @@
+{% if query and total == 0 and import_enabled %}
+<section class="import-offer">
+  <h2>Not in SDF yet?</h2>
+  {% if principal and principal.username %}
+  <p>Ask SDB to identify <strong>{{ query }}</strong> in SIMBAD, collect its provider data, export it, and queue an SED fit.</p>
+  <button id="import-target" type="button">Import {{ query }} from SIMBAD</button>
+  <span id="import-status" class="muted" aria-live="polite"></span>
+  <script>
+  (() => {
+    const button = document.getElementById('import-target');
+    const status = document.getElementById('import-status');
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      status.textContent = ' Queueing import…';
+      try {
+        const response = await fetch('/imports', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-SDF-Token': {{ token|tojson }}},
+          body: JSON.stringify({query: {{ query|tojson }}})
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || 'Import could not be queued');
+        window.location.assign('/imports/' + payload.job_id);
+      } catch (error) {
+        status.textContent = ' ' + error.message;
+        button.disabled = false;
+      }
+    });
+  })();
+  </script>
+  {% elif auth_enabled %}
+  <p><a class="button" href="/auth/login?next={{ request_path|urlencode }}">Sign in</a> to import <strong>{{ query }}</strong> from SIMBAD.</p>
+  {% endif %}
+</section>
+{% endif %}

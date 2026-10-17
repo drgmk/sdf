@@ -1,6 +1,11 @@
 {% extends "catalog_base.html" %}
 {% block content %}
-<h1>Fit jobs</h1><p class="muted">Slow fits run outside HTTP requests and remain visible here across server restarts.</p>
+<h1>Jobs</h1><p class="muted">Imports and slow fits run outside HTTP requests and remain visible here across server restarts.</p>
+<h2>Target imports</h2>
+<div class="table-wrap"><table><thead><tr><th>Job</th><th>SIMBAD identifier</th><th>Status</th><th>Requested</th><th>User</th><th>Error</th></tr></thead><tbody>
+{% for job in acquisitions %}<tr><td class="code"><a href="/imports/{{ job.id }}">#{{ job.id }}</a></td><td>{{ job.query }}</td><td><span class="status {{ job.status }}">{{ job.status }}</span></td><td>{{ job.created_at }}</td><td>{{ job.actor }}</td><td>{{ job.error or '—' }}</td></tr>{% else %}<tr><td colspan="6" class="muted">No target imports yet.</td></tr>{% endfor %}
+</tbody></table></div>
+<h2>Fits</h2>
 <div class="table-wrap"><table><thead><tr><th>Job</th><th>System</th><th>Status</th><th>Requested</th><th>Actor / reason</th><th>Error</th></tr></thead><tbody>
 {% for job in jobs %}<tr><td class="code">#{{ job.id }}</td><td><a href="{{ system_base }}/{{ job.package|urlencode }}/">{{ job.package }}</a></td><td><span class="status {{ job.status }}">{{ job.status }}</span></td><td>{{ job.created_at }}</td><td>{{ job.actor }}<br><span class="muted">{{ job.reason }}</span></td><td>{{ job.error or '—' }}</td></tr>{% else %}<tr><td colspan="6" class="muted">No fit jobs yet.</td></tr>{% endfor %}
 </tbody></table></div>

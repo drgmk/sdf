@@ -16,7 +16,7 @@ from pathlib import Path, PurePosixPath
 import secrets
 import signal
 import tempfile
-from threading import Event, Thread
+from threading import Event, RLock, Thread
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
 from bokeh.resources import CDN
@@ -40,6 +40,7 @@ from .sample_products import (
     project_sample, sample_plot_components, sample_table_rows,
     sample_votable, summary_text,
 )
+from .sdb_import import SdbImporter, run_acquisition_worker
 
 
 class CatalogService:
@@ -48,7 +49,8 @@ class CatalogService:
     def __init__(self, root, *, index_path=None, state_path=None, actor=None,
                  token=None, rebuild=False, auth_user_header=None,
                  auth_group_file=None, auth_admin_group='admin',
-                 public_sample_file=None, auth_cookie_secure=False):
+                 public_sample_file=None, auth_cookie_secure=False,
+                 sdb_import_config=None):
         self.root = Path(root).expanduser().resolve()
         if not self.root.is_dir():
             raise ValueError('catalog root is not a directory: {}'.format(
@@ -80,6 +82,11 @@ class CatalogService:
             public_sample_file=public_sample_file,
         )
         self.auth_cookie_secure = bool(auth_cookie_secure)
+        self.importer = (
+            None if sdb_import_config is None
+            else SdbImporter(sdb_import_config, self.root)
+        )
+        self.export_sync_lock = RLock()
         self._operators = {}
         self._sample_cache = {}
 
@@ -171,6 +178,8 @@ class CatalogService:
             page_count=page_count, admin=True, principal=principal,
             search_action='/admin/search', page_base='/admin',
             system_base='/admin/system',
+            import_enabled=self.importer is not None, token=self.token,
+            auth_enabled=self.auth.proxy_enabled,
         )
 
     def render_public_home(self, principal=None):
@@ -197,7 +206,85 @@ class CatalogService:
             page_base='/search', system_base='/system',
             principal=principal, auth_enabled=self.auth.proxy_enabled,
             request_path='/search?q={}'.format(quote(query, safe='')),
+            import_enabled=self.importer is not None, token=self.token,
         )
+
+    def queue_acquisition(self, query, *, actor):
+        if self.importer is None:
+            raise ValueError('target import is not configured')
+        job_id = self.state.queue_acquisition(query, actor=actor)
+        return {'job_id': job_id, 'status': 'queued'}
+
+    def acquisition(self, job_id, principal):
+        job = self.state.acquisition(job_id)
+        is_admin = self.auth.admin_group in principal.groups
+        if job.actor != principal.username and not is_admin:
+            raise AuthorizationDenied(
+                'this target import belongs to another user'
+            )
+        return job
+
+    def render_acquisition(self, job_id, principal):
+        job = self.acquisition(job_id, principal)
+        package_rows = []
+        if job.result is not None:
+            available = {
+                row['package_path']: row for row in self.packages()
+            }
+            package_rows = [
+                available[name] for name in job.result.get('packages', ())
+                if name in available
+            ]
+        fit_active = any(
+            row.get('job') is not None
+            and row['job'].status in {'queued', 'running'}
+            for row in package_rows
+        )
+        return _render(
+            'catalog_import_job.html',
+            title='Import {}'.format(job.query), job=job,
+            packages=package_rows,
+            auto_refresh=(job.status in {'queued', 'running'} or fit_active),
+            principal=principal, search_action='/search',
+            system_base='/system', auth_enabled=self.auth.proxy_enabled,
+            request_path='/imports/{}'.format(job.id),
+            admin_access=self.auth.admin_group in principal.groups,
+        )
+
+    def register_acquisition_export(self, result, *, actor):
+        """Index complete exported packages and queue their automatic fits."""
+
+        package_names = tuple(dict.fromkeys(
+            _safe_relative(value) for value in result.get('packages', ())
+        ))
+        fit_job_ids = []
+        with self.export_sync_lock:
+            for name in package_names:
+                package = (self.root / name).resolve()
+                if self.root not in package.parents or not package.is_dir():
+                    raise ValueError(
+                        'SDB exported an invalid package path: {}'.format(name)
+                    )
+                self.index.update_package(package)
+            active = {
+                job.package_path for job in self.state.jobs()
+                if job.status in {'queued', 'running'}
+            }
+            for name in package_names:
+                row = self.package(name)
+                directory = self.root / name
+                if row['status'] not in {'unfit', 'stale'}:
+                    continue
+                if str(directory) in active:
+                    continue
+                queued = self.queue_package(
+                    name, actor=actor,
+                    reason='Fit newly imported {}'.format(result['query']),
+                    remember_actor=False,
+                )
+                fit_job_ids.append(queued['job_id'])
+                active.add(str(directory))
+        return dict(result, fit_job_ids=fit_job_ids)
 
     def render_samples(self, principal):
         samples = tuple({
@@ -309,7 +396,8 @@ class CatalogService:
                 value['package'] = job.package_path
             jobs.append(value)
         return _render(
-            'catalog_jobs.html', title='Fit jobs', jobs=jobs, admin=True,
+            'catalog_jobs.html', title='Jobs', jobs=jobs,
+            acquisitions=self.state.acquisitions(), admin=True,
             principal=principal, search_action='/admin/search',
             system_base='/admin/system',
         )
@@ -370,7 +458,7 @@ def make_catalog_server(root, *, index_path=None, state_path=None, actor=None,
                         token=None, rebuild=False, host='127.0.0.1', port=0,
                         auth_user_header=None, auth_group_file=None,
                         auth_admin_group='admin', public_sample_file=None,
-                        auth_cookie_secure=False):
+                        auth_cookie_secure=False, sdb_import_config=None):
     if host not in {'127.0.0.1', 'localhost', '::1'}:
         raise ValueError('catalog service must bind to a loopback address')
     service = CatalogService(
@@ -380,6 +468,7 @@ def make_catalog_server(root, *, index_path=None, state_path=None, actor=None,
         auth_admin_group=auth_admin_group,
         public_sample_file=public_sample_file,
         auth_cookie_secure=auth_cookie_secure,
+        sdb_import_config=sdb_import_config,
     )
     handler = partial(_CatalogHandler, service=service)
     server = ThreadingHTTPServer((host, port), handler)
@@ -392,7 +481,8 @@ def serve_catalog(root, *, index_path=None, state_path=None, actor=None,
                   worker=True, workers=1, watch=True, autofit_existing=False,
                   poll_seconds=5.0, auth_user_header=None,
                   auth_group_file=None, auth_admin_group='admin',
-                  public_sample_file=None, auth_cookie_secure=False):
+                  public_sample_file=None, auth_cookie_secure=False,
+                  sdb_import_config=None):
     server = make_catalog_server(
         root, index_path=index_path, state_path=state_path, actor=actor,
         rebuild=rebuild, host=host, port=port,
@@ -401,6 +491,7 @@ def serve_catalog(root, *, index_path=None, state_path=None, actor=None,
         auth_admin_group=auth_admin_group,
         public_sample_file=public_sample_file,
         auth_cookie_secure=auth_cookie_secure,
+        sdb_import_config=sdb_import_config,
     )
     address, actual_port = server.server_address[:2]
     print('SDF catalog: http://{}:{}/'.format(address, actual_port))
@@ -448,6 +539,7 @@ class CatalogRuntime:
         self.worker_ids = {}
         self.watch_thread = None
         self.supervisor_thread = None
+        self.import_thread = None
 
     def start(self):
         if self.worker_enabled:
@@ -479,12 +571,34 @@ class CatalogRuntime:
                 self.poll_seconds,
                 ' (queueing existing work)' if self.autofit_existing else '',
             ))
+        if getattr(self.service, 'importer', None) is not None:
+            recovered = self.service.state.recover_running_acquisitions()
+            if recovered:
+                print('Recovered {} interrupted target import(s)'.format(
+                    recovered
+                ))
+            self.import_thread = Thread(
+                target=run_acquisition_worker,
+                args=(self.service.state, self.service.importer),
+                kwargs={
+                    'on_export': self.service.register_acquisition_export,
+                    'poll_seconds': self.poll_seconds,
+                    'stop_event': self.watch_stop,
+                    'worker_id': 'sdf-sdb-import',
+                    'work_lock': self.service.export_sync_lock,
+                },
+                name='sdf-sdb-import', daemon=True,
+            )
+            self.import_thread.start()
+            print('SDB target import: enabled')
 
     def stop(self):
         self.watch_stop.set()
         self.stop_event.set()
         if self.watch_thread is not None:
             self.watch_thread.join(timeout=self.poll_seconds + 1)
+        if self.import_thread is not None:
+            self.import_thread.join(timeout=self.poll_seconds + 1)
         if self.supervisor_thread is not None:
             self.supervisor_thread.join(timeout=self.poll_seconds + 1)
         for process in self.worker_processes.values():
@@ -552,6 +666,15 @@ class _CatalogHandler(BaseHTTPRequestHandler):
                 page = int(values.get('page', ['1'])[0])
                 self._html(self.service.render_public_search(
                     query, page=page, principal=principal
+                ))
+                return
+            if parsed.path.startswith('/imports/'):
+                self.service.auth.require_authenticated(principal)
+                job_id = parsed.path.removeprefix('/imports/').strip('/')
+                if not job_id.isdigit():
+                    raise KeyError('target import not found')
+                self._html(self.service.render_acquisition(
+                    int(job_id), principal
                 ))
                 return
             if parsed.path == '/auth/login':
@@ -716,6 +839,16 @@ class _CatalogHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         try:
             principal = self.service.auth.principal(self.headers)
+            if parsed.path == '/imports':
+                self.service.auth.require_authenticated(principal)
+                if self.headers.get('X-SDF-Token') != self.service.token:
+                    raise PermissionError('invalid request token')
+                payload = self._payload()
+                result = self.service.queue_acquisition(
+                    payload.get('query'), actor=principal.username,
+                )
+                self._json(result, status=HTTPStatus.ACCEPTED)
+                return
             self.service.auth.require_admin(principal)
             package, asset = _system_parts(
                 parsed.path, '/admin/system/'
