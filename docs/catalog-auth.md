@@ -16,7 +16,7 @@ The route boundary is:
 | `/samples/NAME` | public allowlist, group `NAME`, or administrator group |
 | `/auth/login` | Apache-authenticated handoff back to `/samples` |
 | `/imports`, `/imports/ID` | any signed-in user; jobs are visible to their requester and administrators |
-| `/admin`, `/admin/jobs`, `/admin/system/...` | administrator group |
+| `/admin`, `/admin/jobs`, `/admin/target/...`, `/admin/system/...` | administrator group |
 | `/admin/system/.../api/...` | administrator group plus the page CSRF token |
 
 Group files use the existing Apache syntax:

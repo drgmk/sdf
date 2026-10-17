@@ -777,6 +777,26 @@ class _CatalogHandler(BaseHTTPRequestHandler):
                 self.service.auth.require_admin(principal)
                 self._html(self.service.render_jobs(principal))
                 return
+            if parsed.path.startswith('/admin/target/'):
+                self.service.auth.require_admin(principal)
+                identifier = unquote(
+                    parsed.path.removeprefix('/admin/target/')
+                )
+                rows = self.service.packages(identifiers=(identifier,))
+                if len(rows) == 1:
+                    self.send_response(HTTPStatus.SEE_OTHER)
+                    self.send_header(
+                        'Location', _system_url(
+                            rows[0]['package_path'], admin=True
+                        )
+                    )
+                    self.end_headers()
+                    return
+                raise KeyError(
+                    'fitting package is not uniquely identified: {}'.format(
+                        identifier
+                    )
+                )
             if parsed.path.startswith('/target/'):
                 identifier = unquote(parsed.path.removeprefix('/target/'))
                 rows = self.service.packages(identifiers=(identifier,))

@@ -278,6 +278,9 @@ def test_proxy_auth_separates_public_sample_and_admin_access(tmp_path):
         admin_page = read('/admin/system/package/', 'grant')
         assert 'Queue automatic fit' in admin_page
         assert 'Signed in as <strong>grant</strong>' in admin_page
+        assert 'Queue automatic fit' in read(
+            '/admin/target/HD%20123', 'grant'
+        )
 
         request = Request(
             root + '/admin/system/package/api/queue',
