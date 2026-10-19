@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
+import fcntl
 
 from .result_index import discover_packages
 
@@ -18,12 +19,20 @@ class CatalogSynchronizer:
     def sync(self, *, queue_changes=True, autofit_existing=False):
         """Refresh changed packages and optionally queue fitting work."""
 
-        lock = getattr(self.service, 'export_sync_lock', None)
-        with lock if lock is not None else nullcontext():
-            return self._sync(
-                queue_changes=queue_changes,
-                autofit_existing=autofit_existing,
-            )
+        with _available_export_root(self.root) as available:
+            if not available:
+                return {
+                    'added': (), 'changed': (), 'removed': (), 'queued': (),
+                    'export_busy': True,
+                }
+            lock = getattr(self.service, 'export_sync_lock', None)
+            with lock if lock is not None else nullcontext():
+                result = self._sync(
+                    queue_changes=queue_changes,
+                    autofit_existing=autofit_existing,
+                )
+                result['export_busy'] = False
+                return result
 
     def _sync(self, *, queue_changes=True, autofit_existing=False):
         """Run one synchronization while the shared export lock is held."""
@@ -108,3 +117,20 @@ def _input_signature(package):
             paths, key=lambda value: value.relative_to(package).as_posix()
         )
     )
+
+
+@contextmanager
+def _available_export_root(root):
+    """Skip a watcher pass while SDB is changing package inputs."""
+
+    path = root / '.sdb-export.lock'
+    with path.open('a+', encoding='utf-8') as stream:
+        try:
+            fcntl.flock(stream.fileno(), fcntl.LOCK_SH | fcntl.LOCK_NB)
+        except BlockingIOError:
+            yield False
+            return
+        try:
+            yield True
+        finally:
+            fcntl.flock(stream.fileno(), fcntl.LOCK_UN)

@@ -1,6 +1,23 @@
+import fcntl
+
 from .test_catalog_server import _catalog
 from .test_dataset import _write_rawphot
 import sdf.catalog_sync
+
+
+def test_sync_waits_while_sdb_export_lock_is_held(tmp_path):
+    service = _catalog(tmp_path)
+    synchronizer = sdf.catalog_sync.CatalogSynchronizer(service)
+    rawphot = tmp_path / 'package' / 'target-rawphot.txt'
+    rawphot.write_text(rawphot.read_text() + '\n', encoding='utf-8')
+
+    with (tmp_path / '.sdb-export.lock').open('a+') as stream:
+        fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+        result = synchronizer.sync()
+
+    assert result['export_busy'] is True
+    assert result['changed'] == ()
+    assert service.state.jobs() == ()
 
 
 def test_sync_indexes_and_queues_new_exported_package(tmp_path):

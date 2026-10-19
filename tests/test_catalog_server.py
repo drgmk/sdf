@@ -207,6 +207,7 @@ def test_proxy_auth_separates_public_sample_and_admin_access(tmp_path):
             tmp_path, actor='Local', token='test-token', port=0,
             auth_user_header='X-SDF-User', auth_group_file=groups,
             public_sample_file=public,
+            review_base_url='/review',
         )
     except PermissionError:
         pytest.skip('test environment does not permit loopback sockets')
@@ -274,13 +275,20 @@ def test_proxy_auth_separates_public_sample_and_admin_access(tmp_path):
         assert 'private' in session_page
         assert 'alice' in session_page
 
-        assert 'SDF catalog' in read('/admin', 'grant')
+        dashboard = read('/admin', 'grant')
+        assert 'SDF catalog' in dashboard
+        assert 'href="/review/">Data review</a>' in dashboard
         admin_page = read('/admin/system/package/', 'grant')
         assert 'Queue automatic fit' in admin_page
         assert 'Signed in as <strong>grant</strong>' in admin_page
         assert 'Queue automatic fit' in read(
             '/admin/target/HD%20123', 'grant'
         )
+        fit_status = json.loads(read(
+            '/admin/target/HD%20123/api/status', 'grant'
+        ))
+        assert fit_status['package'] == 'package'
+        assert fit_status['job'] is None
 
         request = Request(
             root + '/admin/system/package/api/queue',

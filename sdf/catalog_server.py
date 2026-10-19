@@ -93,6 +93,10 @@ class CatalogService:
         self._operators = {}
         self._sample_cache = {}
 
+    def render_template(self, template_name, **values):
+        values.setdefault('review_base_url', self.review_base_url)
+        return _render(template_name, **values)
+
     def packages(self, *, query=None, identifiers=None):
         rows = self.index.catalog_packages(
             query=query, identifiers=identifiers
@@ -125,6 +129,25 @@ class CatalogService:
     def package_directory(self, package_path):
         row = self.package(package_path)
         return self.root / row['package_path']
+
+    def target_fit_status(self, identifier, *, since=None):
+        rows = self.packages(identifiers=(str(identifier),))
+        if len(rows) != 1:
+            raise KeyError(
+                'fitting package is not uniquely identified: {}'.format(
+                    identifier
+                )
+            )
+        row = rows[0]
+        jobs = self.state.jobs(package=self.root / row['package_path'])
+        if since:
+            jobs = tuple(job for job in jobs if job.created_at >= str(since))
+        return {
+            'package': row['package_path'],
+            'package_status': row['status'],
+            'job': None if not jobs else asdict(jobs[0]),
+            'system_url': _system_url(row['package_path'], admin=True),
+        }
 
     def operator(self, package_path):
         directory = self.package_directory(package_path)
@@ -173,7 +196,7 @@ class CatalogService:
         page_count = max(1, (total + per_page - 1) // per_page)
         page = min(max(1, int(page)), page_count)
         start = (page - 1) * per_page
-        return _render(
+        return self.render_template(
             'catalog_dashboard.html', title='SDF catalog',
             packages=packages[start:start + per_page], query=query or '',
             summary=self.summary(), samples=self.exports.samples(),
@@ -186,7 +209,7 @@ class CatalogService:
         )
 
     def render_public_home(self, principal=None):
-        return _render(
+        return self.render_template(
             'catalog_public_home.html', title='SDF', query='',
             search_action='/search', principal=principal,
             auth_enabled=self.auth.proxy_enabled, request_path='/',
@@ -202,7 +225,7 @@ class CatalogService:
         page_count = max(1, (total + per_page - 1) // per_page)
         page = min(max(1, int(page)), page_count)
         start = (page - 1) * per_page
-        return _render(
+        return self.render_template(
             'catalog_public_search.html', title='Search results', query=query,
             packages=packages[start:start + per_page], total=total,
             page=page, page_count=page_count, search_action='/search',
@@ -243,7 +266,7 @@ class CatalogService:
             and row['job'].status in {'queued', 'running'}
             for row in package_rows
         )
-        return _render(
+        return self.render_template(
             'catalog_import_job.html',
             title='Import {}'.format(job.query), job=job,
             packages=package_rows,
@@ -298,7 +321,7 @@ class CatalogService:
             ),
         } for sample in self.exports.samples()
             if self.auth.can_access_sample(principal, sample.name))
-        return _render(
+        return self.render_template(
             'catalog_samples.html', title='Samples',
             samples=samples, principal=principal, search_action='/search',
             admin_access=self.auth.admin_group in principal.groups,
@@ -310,7 +333,7 @@ class CatalogService:
         projection = self.sample_projection(sample)
         packages = self.packages(identifiers=sample.identifiers)
         projected = {system.package_path for system in projection.systems}
-        return _render(
+        return self.render_template(
             'catalog_sample.html', title=sample.name, sample=sample,
             projection=projection, rows=sample_table_rows(projection),
             pending=tuple(row for row in packages
@@ -326,7 +349,7 @@ class CatalogService:
         sample = self.exports.sample(name)
         projection = self.sample_projection(sample)
         script, div = sample_plot_components(projection)
-        return _render(
+        return self.render_template(
             'catalog_sample_plot.html', title='{} plots'.format(sample.name),
             sample=sample, projection=projection,
             plot_script=script, plot_div=div,
@@ -341,7 +364,7 @@ class CatalogService:
         sample = self.exports.sample(name)
         projection = self.sample_projection(sample)
         script, div = flux_size_plot_components(projection)
-        return _render(
+        return self.render_template(
             'catalog_sample_flux_size.html',
             title='{} flux and size'.format(sample.name), sample=sample,
             projection=projection, plot_script=script, plot_div=div,
@@ -398,7 +421,7 @@ class CatalogService:
             except ValueError:
                 value['package'] = job.package_path
             jobs.append(value)
-        return _render(
+        return self.render_template(
             'catalog_jobs.html', title='Jobs', jobs=jobs,
             acquisitions=self.state.acquisitions(), admin=True,
             principal=principal, search_action='/admin/search',
@@ -408,7 +431,7 @@ class CatalogService:
     def render_package_state(self, package_path, *, actor=None, admin=False,
                              principal=None):
         row = self.package(package_path)
-        return _render(
+        return self.render_template(
             'catalog_package.html' if admin else 'catalog_public_package.html',
             title=' / '.join(row['target_labels']) or row['package_path'],
             package=row, token=self.token, actor=actor or self.actor,
@@ -454,6 +477,7 @@ class CatalogService:
             'request_path': admin_url if admin else public_url,
             'search_action': '/admin/search' if admin else '/search',
             'admin_url': None if admin else admin_url,
+            'review_base_url': self.review_base_url,
             'review_url': (
                 None if self.review_base_url is None else
                 self.review_base_url + '/target/' + quote(
@@ -776,6 +800,20 @@ class _CatalogHandler(BaseHTTPRequestHandler):
             if parsed.path == '/admin/jobs':
                 self.service.auth.require_admin(principal)
                 self._html(self.service.render_jobs(principal))
+                return
+            if (parsed.path.startswith('/admin/target/')
+                    and parsed.path.endswith('/api/status')):
+                self.service.auth.require_admin(principal)
+                identifier = unquote(
+                    parsed.path.removeprefix('/admin/target/').removesuffix(
+                        '/api/status'
+                    ).rstrip('/')
+                )
+                values = parse_qs(parsed.query)
+                since = values.get('since', [None])[0]
+                self._json(self.service.target_fit_status(
+                    identifier, since=since,
+                ))
                 return
             if parsed.path.startswith('/admin/target/'):
                 self.service.auth.require_admin(principal)
