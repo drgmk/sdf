@@ -87,6 +87,60 @@ def test_rebuild_indexes_exported_package_before_it_is_fit(tmp_path):
     assert index.catalog_packages(identifiers=('sdb-unfit',)) == rows
 
 
+def test_catalog_search_ignores_identifier_spacing_and_ranks_exact_first(
+        tmp_path):
+    from .test_dataset import _write_rawphot
+
+    exact = tmp_path / 'exact'
+    prefix = tmp_path / 'prefix'
+    exact.mkdir()
+    prefix.mkdir()
+    _write_rawphot(
+        exact / 'target-rawphot.txt',
+        sdbid='sdb-exact', main_id='HD     38',
+    )
+    _write_rawphot(
+        prefix / 'target-rawphot.txt',
+        sdbid='sdb-prefix', main_id='HD 38138',
+    )
+    (exact / 'identities.yml').write_text(
+        'version: 1\n'
+        'targets:\n'
+        '  sdb-exact:\n'
+        '    aliases:\n'
+        '      - HIP 473\n',
+        encoding='utf-8',
+    )
+    index = sdf.result_index.ResultIndex(tmp_path / 'results.sqlite')
+    index.rebuild(tmp_path)
+
+    assert [row['package_path'] for row in
+            index.catalog_packages(query='hd38')] == ['exact', 'prefix']
+    assert [row['package_path'] for row in
+            index.catalog_packages(query='HIP473')] == ['exact']
+
+
+def test_identity_alias_change_reindexes_without_staling_fit(tmp_path):
+    package, _, _ = _retained_package(tmp_path)
+    index = sdf.result_index.ResultIndex(tmp_path / 'results.sqlite')
+    index.rebuild(tmp_path)
+    assert index.catalog_packages()[0]['status'] == 'current'
+
+    (package / 'identities.yml').write_text(
+        'version: 1\n'
+        'targets:\n'
+        '  sdb-test:\n'
+        '    aliases:\n'
+        '      - HIP 473\n',
+        encoding='utf-8',
+    )
+    index.update_package(package)
+
+    rows = index.catalog_packages(query='hip473')
+    assert len(rows) == 1
+    assert rows[0]['status'] == 'current'
+
+
 def test_catalog_status_becomes_stale_after_input_change(tmp_path):
     package, dataset, _ = _retained_package(tmp_path)
     index = sdf.result_index.ResultIndex(tmp_path / 'results.sqlite')

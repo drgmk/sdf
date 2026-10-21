@@ -11,9 +11,10 @@ import os
 from pathlib import Path, PurePath
 import sqlite3
 import tempfile
+import unicodedata
 
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 @dataclass(frozen=True)
@@ -123,27 +124,42 @@ class ResultIndex:
             _require_current_schema(connection)
             clauses = []
             values = []
+            search_cte = ''
+            search_join = ''
+            search_order = ''
             if query:
-                clauses.append('''
-                    (
-                        lower(p.path) LIKE ?
-                        OR EXISTS (
-                            SELECT 1 FROM fit_targets AS t
-                            WHERE t.package_path = p.path AND (
-                                lower(t.target_key) LIKE ?
-                                OR lower(COALESCE(t.main_id, '')) LIKE ?
-                                OR lower(COALESCE(t.sdbid, '')) LIKE ?
-                            )
-                        )
-                        OR EXISTS (
-                            SELECT 1 FROM fit_observations AS o
-                            WHERE o.package_path = p.path
-                              AND lower(o.observation_id) LIKE ?
-                        )
+                normalized = _normalize_search_text(query)
+                compact = _compact_search_text(query)
+                normalized_like = _escape_like(normalized)
+                compact_like = _escape_like(compact)
+                search_cte = '''
+                    WITH search_matches AS (
+                        SELECT package_path,
+                               MIN(CASE
+                                   WHEN normalized = ? OR compact = ? THEN 0
+                                   WHEN normalized LIKE ? ESCAPE '\\'
+                                     OR compact LIKE ? ESCAPE '\\' THEN 1
+                                   ELSE 2
+                               END) AS rank
+                        FROM fit_search_terms
+                        WHERE normalized LIKE ? ESCAPE '\\'
+                           OR compact LIKE ? ESCAPE '\\'
+                        GROUP BY package_path
                     )
-                ''')
-                pattern = '%{}%'.format(str(query).lower())
-                values.extend((pattern,) * 5)
+                '''
+                search_join = (
+                    'JOIN search_matches AS search '
+                    'ON search.package_path = p.path'
+                )
+                search_order = 'search.rank, '
+                values.extend((
+                    normalized,
+                    compact,
+                    normalized_like + '%',
+                    compact_like + '%',
+                    '%' + normalized_like + '%',
+                    '%' + compact_like + '%',
+                ))
             if identifiers is not None:
                 identifiers = tuple(dict.fromkeys(
                     str(value) for value in identifiers
@@ -178,7 +194,7 @@ class ResultIndex:
                 ''')
             where = '' if not clauses else 'WHERE ' + ' AND '.join(clauses)
             rows = connection.execute(
-                '''
+                search_cte + '''
                 SELECT p.path AS package_path, p.input_fingerprint,
                        p.default_candidate_id, p.updated_at,
                        COUNT(DISTINCT c.candidate_id) AS candidate_count,
@@ -192,14 +208,19 @@ class ResultIndex:
                        )) AS target_labels,
                        GROUP_CONCAT(DISTINCT t.sdbid) AS sdbids
                 FROM fit_packages AS p
+                {search_join}
                 LEFT JOIN fit_candidates AS c ON c.package_path = p.path
                 LEFT JOIN fit_targets AS t ON t.package_path = p.path
                 {where}
                 GROUP BY p.path
-                ORDER BY lower(COALESCE(
+                ORDER BY {search_order}lower(COALESCE(
                     MIN(t.main_id), MIN(t.sdbid), p.path
                 )), p.path
-                '''.format(where=where),
+                '''.format(
+                    where=where,
+                    search_join=search_join,
+                    search_order=search_order,
+                ),
                 values,
             ).fetchall()
         return tuple(_catalog_row(row) for row in rows)
@@ -500,6 +521,20 @@ def _create_schema(connection):
         CREATE INDEX fit_targets_identity ON fit_targets(target_key);
         CREATE INDEX fit_targets_sdbid ON fit_targets(sdbid);
 
+        CREATE TABLE fit_search_terms (
+            package_path TEXT NOT NULL REFERENCES fit_packages(path)
+                ON DELETE CASCADE,
+            kind TEXT NOT NULL,
+            value TEXT NOT NULL,
+            normalized TEXT NOT NULL,
+            compact TEXT NOT NULL,
+            PRIMARY KEY (package_path, kind, value)
+        );
+        CREATE INDEX fit_search_terms_normalized
+            ON fit_search_terms(normalized);
+        CREATE INDEX fit_search_terms_compact
+            ON fit_search_terms(compact);
+
         CREATE TABLE fit_observations (
             package_path TEXT NOT NULL REFERENCES fit_packages(path)
                 ON DELETE CASCADE,
@@ -731,6 +766,34 @@ def _index_package(connection, root, package):
                 for position, target_key in enumerate(contributors)
             ),
         )
+    search_terms = [('package', package_path)]
+    for target_key, target in sorted(targets.items()):
+        search_terms.append(('target_key', target_key))
+        if target.get('main_id'):
+            search_terms.append(('main_id', target['main_id']))
+        if target.get('sdbid'):
+            search_terms.append(('sdbid', target['sdbid']))
+    search_terms.extend(
+        ('observation_id', observation_id)
+        for observation_id in sorted(observations)
+    )
+    identities_path = package / 'identities.yml'
+    if identities_path.is_file():
+        from .identity_manifest import read_identity_manifest
+        for aliases in read_identity_manifest(identities_path).values():
+            search_terms.extend(('alias', alias) for alias in aliases)
+    connection.executemany(
+        'INSERT OR IGNORE INTO fit_search_terms VALUES (?, ?, ?, ?, ?)',
+        (
+            (
+                package_path, kind, value,
+                _normalize_search_text(value),
+                _compact_search_text(value),
+            )
+            for kind, value in search_terms
+            if _normalize_search_text(value)
+        ),
+    )
     labels = selection.get('labels', {})
     for position, candidate_id in enumerate(displayed):
         connection.execute(
@@ -772,6 +835,21 @@ def _read_selection(package):
     if not path.is_file():
         return {}
     return json.loads(path.read_text(encoding='utf-8'))
+
+
+def _normalize_search_text(value):
+    """Fold harmless display differences while retaining identifier syntax."""
+
+    value = unicodedata.normalize('NFKC', str(value)).casefold()
+    return ' '.join(value.split())
+
+
+def _compact_search_text(value):
+    return ''.join(_normalize_search_text(value).split())
+
+
+def _escape_like(value):
+    return value.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
 
 
 def _index_parameters(connection, package_path, candidate_id, analysis):

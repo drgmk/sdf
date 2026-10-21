@@ -235,6 +235,13 @@ job list, and links to the shared public/operator SED page for each fitted
 system. An unfit system instead gets a low-friction initial-fit action with a
 pre-filled reason.
 
+Search folds case and whitespace and also compares a compact form, so catalogue
+identifiers such as `HD 38` and `hd38` are equivalent. SDB exports an optional
+`identities.yml` in each package with the target's other known identifiers;
+these aliases are searchable too. The file is deliberately excluded from the
+scientific input fingerprint, so an alias-only update refreshes the catalog
+without making a fit stale.
+
 In deployed use this operational catalog now lives below `/admin`, while the
 root page and individual `/system/...` SEDs remain public. Authenticated sample
 views live below `/samples` and retain the legacy per-sample group semantics.

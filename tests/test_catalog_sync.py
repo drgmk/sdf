@@ -116,3 +116,19 @@ def test_input_signature_tracks_spectral_manifest_and_asset(tmp_path):
 
     assert second != first
     assert third != second
+
+
+def test_input_signature_tracks_search_identities(tmp_path):
+    package = tmp_path / 'package'
+    package.mkdir()
+    _write_rawphot(
+        package / 'target-rawphot.txt',
+        sdbid='sdb-test', main_id='HD 123',
+    )
+
+    initial = sdf.catalog_sync._input_signature(package)
+    (package / 'identities.yml').write_text(
+        'version: 1\ntargets: {}\n', encoding='utf-8'
+    )
+
+    assert sdf.catalog_sync._input_signature(package) != initial

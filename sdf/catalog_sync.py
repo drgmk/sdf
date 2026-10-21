@@ -102,7 +102,7 @@ class CatalogSynchronizer:
 
 def _input_signature(package):
     paths = set(package.glob('*-rawphot.txt'))
-    for name in ('joint-fit.yml', 'spectra.yml'):
+    for name in ('identities.yml', 'joint-fit.yml', 'spectra.yml'):
         manifest = package / name
         if manifest.is_file():
             paths.add(manifest)
