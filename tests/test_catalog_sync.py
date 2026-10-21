@@ -1,8 +1,46 @@
 import fcntl
+from threading import Event, Lock, Thread
 
 from .test_catalog_server import _catalog
 from .test_dataset import _write_rawphot
 import sdf.catalog_sync
+
+
+def test_sync_takes_process_lock_before_export_lock(tmp_path):
+    service = _catalog(tmp_path)
+    synchronizer = sdf.catalog_sync.CatalogSynchronizer(service)
+    gate = Lock()
+    attempted = Event()
+    finished = Event()
+    gate.acquire()
+
+    class ObservedLock:
+        def __enter__(self):
+            attempted.set()
+            gate.acquire()
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            gate.release()
+
+    service.export_sync_lock = ObservedLock()
+
+    def sync():
+        synchronizer.sync()
+        finished.set()
+
+    thread = Thread(target=sync, daemon=True)
+    thread.start()
+    assert attempted.wait(1)
+    try:
+        with (tmp_path / '.sdb-export.lock').open('a+') as stream:
+            fcntl.flock(
+                stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB
+            )
+            fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+    finally:
+        gate.release()
+    thread.join(1)
+    assert finished.is_set()
 
 
 def test_sync_waits_while_sdb_export_lock_is_held(tmp_path):

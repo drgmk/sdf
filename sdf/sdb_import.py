@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from contextlib import nullcontext
 import json
 import os
 from pathlib import Path
@@ -159,8 +158,13 @@ class SdbImporter:
 
 def run_acquisition_worker(state, importer, *, on_export=None,
                            poll_seconds=5.0, stop_event=None,
-                           worker_id=None, work_lock=None):
-    """Continuously drain the single-writer SDB acquisition queue."""
+                           worker_id=None):
+    """Continuously drain the single-writer SDB acquisition queue.
+
+    SDB takes the export-root file lock itself, so callers must not wrap the
+    acquisition in the catalog synchronization lock.  The completion callback
+    may take that shorter-lived lock while it indexes the finished package.
+    """
 
     worker_id = worker_id or 'sdb-import-{}'.format(os.getpid())
     while stop_event is None or not stop_event.is_set():
@@ -173,12 +177,11 @@ def run_acquisition_worker(state, importer, *, on_export=None,
                 stop_event.wait(poll_seconds)
             continue
         try:
-            with work_lock if work_lock is not None else nullcontext():
-                result = importer.acquire(job.query, actor=job.actor)
-                if on_export is not None:
-                    enriched = on_export(result, actor=job.actor)
-                    if enriched is not None:
-                        result = enriched
+            result = importer.acquire(job.query, actor=job.actor)
+            if on_export is not None:
+                enriched = on_export(result, actor=job.actor)
+                if enriched is not None:
+                    result = enriched
         except Exception as error:
             state.finish_acquisition(
                 job.id, error='{}: {}'.format(type(error).__name__, error)

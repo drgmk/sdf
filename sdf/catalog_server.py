@@ -621,7 +621,6 @@ class CatalogRuntime:
                     'poll_seconds': self.poll_seconds,
                     'stop_event': self.watch_stop,
                     'worker_id': 'sdf-sdb-import',
-                    'work_lock': self.service.export_sync_lock,
                 },
                 name='sdf-sdb-import', daemon=True,
             )

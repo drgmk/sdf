@@ -19,14 +19,16 @@ class CatalogSynchronizer:
     def sync(self, *, queue_changes=True, autofit_existing=False):
         """Refresh changed packages and optionally queue fitting work."""
 
-        with _available_export_root(self.root) as available:
-            if not available:
-                return {
-                    'added': (), 'changed': (), 'removed': (), 'queued': (),
-                    'export_busy': True,
-                }
-            lock = getattr(self.service, 'export_sync_lock', None)
-            with lock if lock is not None else nullcontext():
+        # Keep this order consistent with acquisition completion: taking the
+        # file lock first can deadlock an SDB export waiting for exclusivity.
+        lock = getattr(self.service, 'export_sync_lock', None)
+        with lock if lock is not None else nullcontext():
+            with _available_export_root(self.root) as available:
+                if not available:
+                    return {
+                        'added': (), 'changed': (), 'removed': (),
+                        'queued': (), 'export_busy': True,
+                    }
                 result = self._sync(
                     queue_changes=queue_changes,
                     autofit_existing=autofit_existing,

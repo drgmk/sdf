@@ -364,3 +364,43 @@ def test_catalog_runtime_starts_requested_isolated_worker_pool(
     assert all(process.args[-1] in runtime.worker_ids.values()
                for process in processes)
     assert [thread.name for thread in threads] == ['sdf-worker-supervisor']
+
+
+def test_catalog_runtime_does_not_lock_around_sdb_import(
+        tmp_path, monkeypatch):
+    threads = []
+
+    class FakeThread:
+        def __init__(self, *, target, args=(), kwargs=None, name, daemon):
+            self.target = target
+            self.args = args
+            self.kwargs = kwargs or {}
+            self.name = name
+            self.daemon = daemon
+            threads.append(self)
+
+        def start(self):
+            pass
+
+        def join(self, timeout=None):
+            pass
+
+    state = sdf.catalog_server.OperatorState(
+        tmp_path / 'operator.sqlite'
+    ).initialize()
+    service = SimpleNamespace(
+        state=state,
+        importer=object(),
+        register_acquisition_export=lambda result, actor: result,
+        export_sync_lock=object(),
+    )
+    monkeypatch.setattr(sdf.catalog_server, 'Thread', FakeThread)
+    runtime = sdf.catalog_server.CatalogRuntime(
+        service, worker=False, watch=False,
+    )
+
+    runtime.start()
+
+    assert len(threads) == 1
+    assert threads[0].target is sdf.sdb_import.run_acquisition_worker
+    assert 'work_lock' not in threads[0].kwargs
