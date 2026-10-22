@@ -31,9 +31,10 @@ from .sed_page import (
 
 GOLDEN_RATIO = (1 + np.sqrt(5)) / 2
 DATA_MARKER_SIZE = 12
-MODEL_MARKER_SIZE = 18
+MODEL_MARKER_SIZE = 16
 UPPER_LIMIT_MARKER_SIZE = 10
-IGNORED_MARKER_SIZE = 13.5
+EXCLUDED_COLOUR = '#9ca3af'
+LEGEND_COLOUR = '#4c78a8'
 
 
 def write_joint_results_page(package_directory, output=None, *, dataset=None,
@@ -238,6 +239,7 @@ def _candidate_panel(candidate, dataset, owner_labels, component_labels,
             scope_labels[scope['observation_id']],
             scope_colours[scope['observation_id']],
         )
+    _add_symbol_legend(sed)
     for plot in (sed, residual):
         plot.grid.grid_line_alpha = 0.18
         plot.outline_line_color = '#d1d5db'
@@ -247,7 +249,7 @@ def _candidate_panel(candidate, dataset, owner_labels, component_labels,
         sed.legend.background_fill_alpha = 0.78
         sed.legend.border_line_alpha = 0.25
         sed.legend.label_text_font_size = '9pt'
-        sed.legend.ncols = 4
+        sed.legend.ncols = 2
         sed.legend.glyph_width = 15
         sed.legend.glyph_height = 12
         sed.legend.label_standoff = 3
@@ -289,10 +291,7 @@ def _add_spectra(fig, candidate, scopes, scope_colours, owner_colours):
             color=owner_colours.get(owner, '#6b7280'),
             line_width=1.5, line_alpha=0.6,
             line_dash='dashed' if component['role'] == 'stellar' else 'dotted',
-            legend_label=(
-                'stellar model'
-                if component['role'] == 'stellar' else 'disk model'
-            ),
+            legend_label='star' if component['role'] == 'stellar' else 'disk',
         )
 
     seen = set()
@@ -310,7 +309,7 @@ def _add_spectra(fig, candidate, scopes, scope_colours, owner_colours):
             wavelength, combined,
             color=scope_colours[observation_id], line_width=3,
             line_alpha=0.82,
-            legend_label='total model',
+            legend_label='total',
         )
 
 
@@ -351,7 +350,6 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
             'wavelength', 'observed', source=source, marker='circle',
             size=DATA_MARKER_SIZE,
             color=colour, line_color='white', line_width=0.7,
-            legend_label='used data',
         )
         _add_hover(sed, renderer)
         error_ok = source.data['lower'] > 0
@@ -373,17 +371,16 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
             label,
         )
         renderer = sed.scatter(
-            'wavelength', 'observed', source=source, marker='x',
-            size=IGNORED_MARKER_SIZE,
-            color=colour, alpha=0.3,
-            legend_label='ignored data',
+            'wavelength', 'observed', source=source, marker='circle',
+            size=DATA_MARKER_SIZE, color=EXCLUDED_COLOUR,
+            line_color='white', line_width=0.7, alpha=0.7,
         )
         _add_hover(sed, renderer)
 
     limits = usable_x & np.isfinite(observed) & (observed > 0) & upper_limit
-    for limit_mask, limit_label, limit_alpha in (
-            (limits & ~ignored, 'used upper limit', 0.9),
-            (limits & ignored, 'ignored upper limit', 0.3)):
+    for limit_mask, limit_colour, limit_alpha in (
+            (limits & ~ignored, colour, 0.9),
+            (limits & ignored, EXCLUDED_COLOUR, 0.7)):
         if not np.any(limit_mask):
             continue
         source = _point_source(
@@ -394,7 +391,7 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
         renderer = sed.scatter(
             'wavelength', 'observed', source=source,
             marker='inverted_triangle', size=UPPER_LIMIT_MARKER_SIZE,
-            color=colour, alpha=limit_alpha, legend_label=limit_label,
+            color=limit_colour, alpha=limit_alpha,
         )
         _add_hover(sed, renderer)
 
@@ -409,17 +406,19 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
             'wavelength', 'predicted', source=source,
             marker='circle', size=MODEL_MARKER_SIZE, fill_alpha=0,
             line_color=colour, line_width=1.4,
-            legend_label='model',
         )
         _add_hover(sed, renderer)
 
     residual_groups = (
-        (normal & ~ignored, 'circle', DATA_MARKER_SIZE, 1.0),
-        (normal & ignored, 'x', IGNORED_MARKER_SIZE, 0.3),
-        (limits & ~ignored, 'inverted_triangle', UPPER_LIMIT_MARKER_SIZE, 0.9),
-        (limits & ignored, 'inverted_triangle', UPPER_LIMIT_MARKER_SIZE, 0.3),
+        (normal & ~ignored, 'circle', DATA_MARKER_SIZE, colour, 1.0),
+        (normal & ignored, 'circle', DATA_MARKER_SIZE,
+         EXCLUDED_COLOUR, 0.7),
+        (limits & ~ignored, 'inverted_triangle', UPPER_LIMIT_MARKER_SIZE,
+         colour, 0.9),
+        (limits & ignored, 'inverted_triangle', UPPER_LIMIT_MARKER_SIZE,
+         EXCLUDED_COLOUR, 0.7),
     )
-    for mask, marker, size, alpha in residual_groups:
+    for mask, marker, size, marker_colour, alpha in residual_groups:
         mask = mask & np.isfinite(residual_values)
         if not np.any(mask):
             continue
@@ -429,9 +428,36 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
         )
         renderer = residual.scatter(
             'wavelength', 'residual', source=source, marker=marker, size=size,
-            color=colour, alpha=alpha,
+            color=marker_colour, alpha=alpha,
         )
         _add_hover(residual, renderer)
+
+
+def _add_symbol_legend(fig):
+    """Add a stable, compact key for photometry point encodings."""
+
+    source = ColumnDataSource({'wavelength': [], 'value': []})
+    fig.scatter(
+        'wavelength', 'value', source=source, marker='circle',
+        size=DATA_MARKER_SIZE, color=LEGEND_COLOUR,
+        line_color='white', line_width=0.7, legend_label='data',
+    )
+    fig.scatter(
+        'wavelength', 'value', source=source, marker='inverted_triangle',
+        size=UPPER_LIMIT_MARKER_SIZE, color=LEGEND_COLOUR,
+        legend_label='upper limit',
+    )
+    fig.scatter(
+        'wavelength', 'value', source=source, marker='circle',
+        size=DATA_MARKER_SIZE, color=EXCLUDED_COLOUR,
+        line_color='white', line_width=0.7, alpha=0.7,
+        legend_label='excluded',
+    )
+    fig.scatter(
+        'wavelength', 'value', source=source, marker='circle',
+        size=MODEL_MARKER_SIZE, fill_alpha=0,
+        line_color=LEGEND_COLOUR, line_width=1.4, legend_label='model',
+    )
 
 
 def _add_spectral_scope_data(
@@ -453,13 +479,12 @@ def _add_spectral_scope_data(
     observed_renderer = sed.line(
         'wavelength', 'observed', source=source,
         color=colour, line_width=1.5, line_alpha=0.78,
-        legend_label='spectrum data',
+        legend_label='spectrum',
     )
     predicted_renderer = sed.line(
         'wavelength', 'predicted', source=source,
         color=colour, line_width=2.2, line_alpha=0.95,
         line_dash='dashed',
-        legend_label='spectrum model',
     )
     residual_renderer = residual.line(
         'wavelength', 'residual', source=source,

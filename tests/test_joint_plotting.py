@@ -165,25 +165,30 @@ def test_photometry_symbols_cover_state_and_match_in_both_panels():
     sdf.joint_plotting._add_scope_data(
         sed, residual, candidate, scope, 'AB', '#123456'
     )
+    sdf.joint_plotting._add_symbol_legend(sed)
 
     legend_items = {
         item.label.value: item.renderers[0]
         for item in sed.legend[0].items
     }
     assert set(legend_items) == {
-        'used data', 'ignored data', 'used upper limit',
-        'ignored upper limit', 'model',
+        'data', 'upper limit', 'excluded', 'model',
     }
-    data = legend_items['used data'].glyph
+    data = legend_items['data'].glyph
     model = legend_items['model'].glyph
     assert model.size / 2 - model.line_width / 2 > data.size / 2
+    assert model.size < 18
 
     residual_markers = [
         renderer.glyph.marker for renderer in residual.renderers
     ]
     assert residual_markers == [
-        'circle', 'x', 'inverted_triangle', 'inverted_triangle'
+        'circle', 'circle', 'inverted_triangle', 'inverted_triangle'
     ]
+    assert residual.renderers[1].glyph.fill_color == \
+        sdf.joint_plotting.EXCLUDED_COLOUR
+    assert residual.renderers[3].glyph.fill_color == \
+        sdf.joint_plotting.EXCLUDED_COLOUR
 
 
 def test_system_projection_builds_compact_component_hierarchy():
