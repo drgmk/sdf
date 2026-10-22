@@ -2,6 +2,8 @@ from .context import sdf
 from .test_coordinator import FakeSampler, _fit_dataset
 from .test_dataset import _write_rawphot
 from urllib.parse import parse_qs, urlparse
+import numpy as np
+from bokeh.plotting import figure
 import sdf.coordinator
 import sdf.joint_plotting
 import sdf.model_selection
@@ -118,6 +120,70 @@ def test_scope_colours_reuse_owner_colour_only_for_resolved_observations():
     assert colours['A'] == 'blue'
     assert colours['B'] == 'orange'
     assert colours['AB'] not in {'blue', 'orange'}
+
+
+def test_display_residuals_include_ignored_data_and_limits():
+    arrays = {
+        'residual': np.array([1.0, 0.0, -5.0, 0.0]),
+        'observed_flux': np.array([12.0, 12.0, 12.0, 12.0]),
+        'observed_uncertainty': np.array([2.0, 2.0, 0.0, 0.0]),
+        'prediction_median': np.array([10.0, 6.0, 20.0, 6.0]),
+        'observed_upper_limit': np.array([False, False, True, True]),
+        'observed_ignore': np.array([False, True, False, True]),
+    }
+
+    residuals = sdf.joint_plotting._display_residual_values(arrays)
+
+    assert np.allclose(residuals, [1.0, 3.0, -5.0, -1.5])
+
+
+def test_residual_bounds_keep_minimum_and_do_not_clip_data():
+    assert sdf.joint_plotting._residual_bounds([np.nan, 1.0]) == (-4.0, 4.0)
+
+    low, high = sdf.joint_plotting._residual_bounds([-12.0, 7.0])
+
+    assert low < -12.0
+    assert high > 7.0
+
+
+def test_photometry_symbols_cover_state_and_match_in_both_panels():
+    arrays = {
+        'wavelength_micron': np.array([1.0, 2.0, 3.0, 4.0]),
+        'observed_flux': np.array([10.0, 9.0, 8.0, 7.0]),
+        'observed_uncertainty': np.ones(4),
+        'prediction_median': np.array([10.0, 8.0, 6.0, 5.0]),
+        'residual': np.array([0.0, 0.0, -2.25, 0.0]),
+        'observed_upper_limit': np.array([False, False, True, True]),
+        'observed_ignore': np.array([False, True, False, True]),
+        'filter': np.array(['A', 'B', 'C', 'D']),
+    }
+    candidate = type('Candidate', (), {'analysis_arrays': arrays})()
+    scope = {'element_start': 0, 'element_stop': 4, 'kind': 'Photometry'}
+    sed = figure()
+    residual = figure()
+
+    sdf.joint_plotting._add_scope_data(
+        sed, residual, candidate, scope, 'AB', '#123456'
+    )
+
+    legend_items = {
+        item.label.value: item.renderers[0]
+        for item in sed.legend[0].items
+    }
+    assert set(legend_items) == {
+        'used data', 'ignored data', 'used upper limit',
+        'ignored upper limit', 'model',
+    }
+    data = legend_items['used data'].glyph
+    model = legend_items['model'].glyph
+    assert model.size / 2 - model.line_width / 2 > data.size / 2
+
+    residual_markers = [
+        renderer.glyph.marker for renderer in residual.renderers
+    ]
+    assert residual_markers == [
+        'circle', 'x', 'inverted_triangle', 'inverted_triangle'
+    ]
 
 
 def test_system_projection_builds_compact_component_hierarchy():

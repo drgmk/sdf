@@ -30,6 +30,10 @@ from .sed_page import (
 
 
 GOLDEN_RATIO = (1 + np.sqrt(5)) / 2
+DATA_MARKER_SIZE = 12
+MODEL_MARKER_SIZE = 18
+UPPER_LIMIT_MARKER_SIZE = 10
+IGNORED_MARKER_SIZE = 13.5
 
 
 def write_joint_results_page(package_directory, output=None, *, dataset=None,
@@ -206,11 +210,15 @@ def _candidate_panel(candidate, dataset, owner_labels, component_labels,
         active_scroll='wheel_zoom', aspect_ratio=GOLDEN_RATIO,
         sizing_mode='stretch_width',
     )
-    residual_limit = _residual_limit(arrays['residual'])
+    plot_residuals = _display_residual_values(arrays)
+    plot_wavelengths = np.asarray(arrays['wavelength_micron'], dtype=float)
+    residual_low, residual_high = _residual_bounds(plot_residuals[
+        np.isfinite(plot_wavelengths) & (plot_wavelengths > 0)
+    ])
     residual = figure(
         x_axis_type='log', x_axis_location='above', x_range=sed.x_range,
         y_axis_label='Residual (σ)',
-        y_range=Range1d(-residual_limit, residual_limit),
+        y_range=Range1d(residual_low, residual_high),
         tools='pan,wheel_zoom,box_zoom,reset,save',
         active_scroll='wheel_zoom', height=160,
         sizing_mode='stretch_width',
@@ -239,9 +247,13 @@ def _candidate_panel(candidate, dataset, owner_labels, component_labels,
         sed.legend.background_fill_alpha = 0.78
         sed.legend.border_line_alpha = 0.25
         sed.legend.label_text_font_size = '9pt'
-        sed.legend.glyph_width = 18
-        sed.legend.padding = 4
-        sed.legend.spacing = 8
+        sed.legend.ncols = 4
+        sed.legend.glyph_width = 15
+        sed.legend.glyph_height = 12
+        sed.legend.label_standoff = 3
+        sed.legend.padding = 3
+        sed.legend.margin = 4
+        sed.legend.spacing = 5
 
     plots = gridplot(
         [[sed], [residual]], toolbar_location='below', merge_tools=True,
@@ -277,6 +289,10 @@ def _add_spectra(fig, candidate, scopes, scope_colours, owner_colours):
             color=owner_colours.get(owner, '#6b7280'),
             line_width=1.5, line_alpha=0.6,
             line_dash='dashed' if component['role'] == 'stellar' else 'dotted',
+            legend_label=(
+                'stellar model'
+                if component['role'] == 'stellar' else 'disk model'
+            ),
         )
 
     seen = set()
@@ -294,6 +310,7 @@ def _add_spectra(fig, candidate, scopes, scope_colours, owner_colours):
             wavelength, combined,
             color=scope_colours[observation_id], line_width=3,
             line_alpha=0.82,
+            legend_label='total model',
         )
 
 
@@ -308,7 +325,7 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
         arrays['observed_uncertainty'][indices], dtype=float
     )
     predicted = np.asarray(arrays['prediction_median'][indices], dtype=float)
-    residual_values = np.asarray(arrays['residual'][indices], dtype=float)
+    residual_values = _display_residual_values(arrays)[indices]
     upper_limit = np.asarray(
         arrays['observed_upper_limit'][indices], dtype=bool
     )
@@ -331,9 +348,10 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
             predicted[active], residual_values[active], filters[active], label,
         )
         renderer = sed.scatter(
-            'wavelength', 'observed', source=source, marker='circle', size=12,
+            'wavelength', 'observed', source=source, marker='circle',
+            size=DATA_MARKER_SIZE,
             color=colour, line_color='white', line_width=0.7,
-            legend_label='data',
+            legend_label='used data',
         )
         _add_hover(sed, renderer)
         error_ok = source.data['lower'] > 0
@@ -355,23 +373,28 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
             label,
         )
         renderer = sed.scatter(
-            'wavelength', 'observed', source=source, marker='x', size=13.5,
+            'wavelength', 'observed', source=source, marker='x',
+            size=IGNORED_MARKER_SIZE,
             color=colour, alpha=0.3,
+            legend_label='ignored data',
         )
         _add_hover(sed, renderer)
 
     limits = usable_x & np.isfinite(observed) & (observed > 0) & upper_limit
-    if np.any(limits):
+    for limit_mask, limit_label, limit_alpha in (
+            (limits & ~ignored, 'used upper limit', 0.9),
+            (limits & ignored, 'ignored upper limit', 0.3)):
+        if not np.any(limit_mask):
+            continue
         source = _point_source(
-            wavelength[limits], observed[limits], uncertainty[limits],
-            predicted[limits], residual_values[limits], filters[limits], label,
+            wavelength[limit_mask], observed[limit_mask],
+            uncertainty[limit_mask], predicted[limit_mask],
+            residual_values[limit_mask], filters[limit_mask], label,
         )
-        source.data['alpha'] = np.where(ignored[limits], 0.3, 0.9)
         renderer = sed.scatter(
             'wavelength', 'observed', source=source,
-            marker='inverted_triangle', size=10, color=colour,
-            alpha='alpha',
-            legend_label='upper lim.',
+            marker='inverted_triangle', size=UPPER_LIMIT_MARKER_SIZE,
+            color=colour, alpha=limit_alpha, legend_label=limit_label,
         )
         _add_hover(sed, renderer)
 
@@ -384,22 +407,29 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
         )
         renderer = sed.scatter(
             'wavelength', 'predicted', source=source,
-            marker='circle', size=10.5, fill_alpha=0,
+            marker='circle', size=MODEL_MARKER_SIZE, fill_alpha=0,
             line_color=colour, line_width=1.4,
             legend_label='model',
         )
         _add_hover(sed, renderer)
 
-    residual_ok = usable_x & np.isfinite(residual_values) & ~ignored
-    if np.any(residual_ok):
+    residual_groups = (
+        (normal & ~ignored, 'circle', DATA_MARKER_SIZE, 1.0),
+        (normal & ignored, 'x', IGNORED_MARKER_SIZE, 0.3),
+        (limits & ~ignored, 'inverted_triangle', UPPER_LIMIT_MARKER_SIZE, 0.9),
+        (limits & ignored, 'inverted_triangle', UPPER_LIMIT_MARKER_SIZE, 0.3),
+    )
+    for mask, marker, size, alpha in residual_groups:
+        mask = mask & np.isfinite(residual_values)
+        if not np.any(mask):
+            continue
         source = _point_source(
-            wavelength[residual_ok], observed[residual_ok],
-            uncertainty[residual_ok], predicted[residual_ok],
-            residual_values[residual_ok], filters[residual_ok], label,
+            wavelength[mask], observed[mask], uncertainty[mask],
+            predicted[mask], residual_values[mask], filters[mask], label,
         )
         renderer = residual.scatter(
-            'wavelength', 'residual', source=source, marker='circle', size=10.5,
-            color=colour,
+            'wavelength', 'residual', source=source, marker=marker, size=size,
+            color=colour, alpha=alpha,
         )
         _add_hover(residual, renderer)
 
@@ -423,11 +453,13 @@ def _add_spectral_scope_data(
     observed_renderer = sed.line(
         'wavelength', 'observed', source=source,
         color=colour, line_width=1.5, line_alpha=0.78,
+        legend_label='spectrum data',
     )
     predicted_renderer = sed.line(
         'wavelength', 'predicted', source=source,
         color=colour, line_width=2.2, line_alpha=0.95,
         line_dash='dashed',
+        legend_label='spectrum model',
     )
     residual_renderer = residual.line(
         'wavelength', 'residual', source=source,
@@ -760,12 +792,53 @@ def _plot_ranges(arrays):
     )
 
 
-def _residual_limit(values):
-    values = np.abs(np.asarray(values, dtype=float))
+def _display_residual_values(arrays):
+    """Return residuals suitable for display, including ignored data."""
+
+    values = np.asarray(arrays['residual'], dtype=float).copy()
+    observed = np.asarray(arrays['observed_flux'], dtype=float)
+    uncertainty = np.asarray(arrays['observed_uncertainty'], dtype=float)
+    predicted = np.asarray(arrays['prediction_median'], dtype=float)
+    upper_limit = np.asarray(arrays['observed_upper_limit'], dtype=bool)
+    ignored = np.asarray(arrays['observed_ignore'], dtype=bool)
+
+    ignored_data = ignored & ~upper_limit
+    values[ignored_data] = np.nan
+    valid_data = (
+        ignored_data & np.isfinite(observed) & np.isfinite(predicted) &
+        np.isfinite(uncertainty) & (uncertainty > 0)
+    )
+    values[valid_data] = (
+        observed[valid_data] - predicted[valid_data]
+    ) / uncertainty[valid_data]
+
+    ignored_limits = (
+        ignored & upper_limit & np.isfinite(observed) & (observed > 0) &
+        np.isfinite(predicted)
+    )
+    values[ignored & upper_limit] = np.nan
+    threshold = observed[ignored_limits] / 3.0
+    values[ignored_limits] = np.where(
+        predicted[ignored_limits] > threshold,
+        -predicted[ignored_limits] / threshold,
+        0.0,
+    )
+    return values
+
+
+def _residual_bounds(values):
+    """Autoscale residuals without clipping, retaining at least -4 to 4."""
+
+    values = np.asarray(values, dtype=float)
     values = values[np.isfinite(values)]
     if not len(values):
-        return 5.0
-    return max(5.0, min(50.0, float(np.percentile(values, 95)) * 1.15))
+        return -4.0, 4.0
+    low_value = float(np.min(values))
+    high_value = float(np.max(values))
+    padding = max(0.25, (high_value - low_value) * 0.05)
+    low = low_value - padding if low_value < -4.0 else -4.0
+    high = high_value + padding if high_value > 4.0 else 4.0
+    return low, high
 
 
 def _sortable_evidence(candidate):
