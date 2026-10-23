@@ -177,7 +177,10 @@ def test_photometry_symbols_cover_state_and_match_in_both_panels():
     data = legend_items['data'].glyph
     model = legend_items['model'].glyph
     assert model.size / 2 - model.line_width / 2 > data.size / 2
-    assert model.size < 18
+    assert model.size == 14
+    model_source = legend_items['model'].data_source
+    assert len(model_source.data['wavelength']) == 1
+    assert np.isnan(model_source.data['wavelength'][0])
 
     residual_markers = [
         renderer.glyph.marker for renderer in residual.renderers

@@ -31,7 +31,7 @@ from .sed_page import (
 
 GOLDEN_RATIO = (1 + np.sqrt(5)) / 2
 DATA_MARKER_SIZE = 12
-MODEL_MARKER_SIZE = 16
+MODEL_MARKER_SIZE = 14
 UPPER_LIMIT_MARKER_SIZE = 10
 EXCLUDED_COLOUR = '#9ca3af'
 LEGEND_COLOUR = '#4c78a8'
@@ -436,7 +436,9 @@ def _add_scope_data(sed, residual, candidate, scope, label, colour):
 def _add_symbol_legend(fig):
     """Add a stable, compact key for photometry point encodings."""
 
-    source = ColumnDataSource({'wavelength': [], 'value': []})
+    # A real (but non-plottable) row is needed for Bokeh to draw the legend
+    # glyph. An empty source leaves the label visible but omits its symbol.
+    source = ColumnDataSource({'wavelength': [np.nan], 'value': [np.nan]})
     fig.scatter(
         'wavelength', 'value', source=source, marker='circle',
         size=DATA_MARKER_SIZE, color=LEGEND_COLOUR,
