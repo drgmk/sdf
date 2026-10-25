@@ -60,7 +60,7 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     assert '>★</span>' in html
     assert 'kurucz-0.0' in html
     assert 'ln Z 0.00' in html
-    assert 'log(g)' in html
+    assert 'log(g)' not in html
     assert 'Residual' in html
     assert 'current input' in html
     assert '<h2>System</h2>' in html
@@ -144,6 +144,41 @@ def test_residual_bounds_keep_minimum_and_do_not_clip_data():
 
     assert low < -12.0
     assert high > 7.0
+
+
+def test_fit_summaries_include_scientific_luminosities_and_modbb_shape():
+    stellar = sdf.joint_plotting._stellar_summary(
+        {'parameters': {
+            'Teff': {'median': 6000.0, 'minus': 50.0, 'plus': 50.0},
+            'logg': {'median': 4.5, 'minus': 0.1, 'plus': 0.1},
+        }},
+        {
+            'radius_rsun': {'median': 1.1, 'minus': 0.1, 'plus': 0.1},
+            'luminosity_lsun': {
+                'median': 2.5, 'minus': 0.2, 'plus': 0.4,
+            },
+        },
+    )
+    disk = sdf.joint_plotting._disk_summary(
+        {'parameters': {
+            'beta': {'median': 1.2, 'minus': 0.1, 'plus': 0.2},
+            'log_lam0': {'median': 2.0, 'minus': 0.1, 'plus': 0.1},
+        }},
+        {
+            'temperature_k': {
+                'median': 80.0, 'minus': 2.0, 'plus': 4.0,
+            },
+            'fractional_luminosity': {
+                'median': 1e-3, 'minus': 1e-4, 'plus': 3e-4,
+            },
+        },
+    )
+
+    assert all('log(g)' not in value for value in stellar)
+    assert 'L<sub>★</sub> 2.50e+00 ± 3.00e-01 L<sub>☉</sub>' in stellar
+    assert 'β 1.20 ± 0.15' in disk
+    assert any(value.startswith('λ<sub>0</sub> 100.00 ± ') for value in disk)
+    assert 'L<sub>d</sub>/L<sub>★</sub> 1.00e-03 ± 2.00e-04' in disk
 
 
 def test_photometry_symbols_cover_state_and_match_in_both_panels():

@@ -572,6 +572,7 @@ def _candidate_header(candidate, dataset, owner_labels, component_labels,
                 disk_index += 1
                 prefix = '○{}'.format(disk_index) if disk_count > 1 else '○'
                 values = _disk_summary(
+                    analysis_components.get(component['component_id'], {}),
                     derived.get(component['component_id'], {})
                 )
             details.append(
@@ -581,7 +582,12 @@ def _candidate_header(candidate, dataset, owner_labels, component_labels,
                 '<div style="margin:2px 0 0 19px;color:#334155">{}</div>'
                 '</div>'.format(
                     prefix, escape(component['model_name']),
-                    ' · '.join(values) if values else '—',
+                    ' · '.join(
+                        '<span style="white-space:nowrap">{}</span>'.format(
+                            value
+                        )
+                        for value in values
+                    ) if values else '—',
                 )
             )
         short = component_labels.get(owner) or label
@@ -655,22 +661,39 @@ def _stellar_summary(component, derived):
         values.append('T<sub>eff</sub> {}'.format(
             _format_summary(parameters['Teff'], 'K', digits=0)
         ))
-    if 'logg' in parameters:
-        values.append('log(g) {}'.format(
-            _format_summary(parameters['logg'], '')
-        ))
     if 'radius_rsun' in derived:
         values.append('R {}'.format(
             _format_summary(derived['radius_rsun'], 'R<sub>☉</sub>')
         ))
+    if 'luminosity_lsun' in derived:
+        values.append('L<sub>★</sub> {}'.format(
+            _format_summary(
+                derived['luminosity_lsun'], 'L<sub>☉</sub>', scientific=True,
+            )
+        ))
     return values
 
 
-def _disk_summary(derived):
+def _disk_summary(component, derived):
     values = []
+    parameters = component.get('parameters', {})
     if 'temperature_k' in derived:
         values.append('T {}'.format(
             _format_summary(derived['temperature_k'], 'K', digits=0)
+        ))
+    if 'beta' in parameters:
+        values.append('β {}'.format(
+            _format_summary(parameters['beta'], '')
+        ))
+    if 'log_lam0' in parameters:
+        values.append('λ<sub>0</sub> {}'.format(
+            _format_summary(
+                _pow10_summary(parameters['log_lam0']), 'μm'
+            )
+        ))
+    elif 'lam0' in parameters:
+        values.append('λ<sub>0</sub> {}'.format(
+            _format_summary(parameters['lam0'], 'μm')
         ))
     if 'blackbody_radius_au' in derived:
         values.append('R<sub>BB</sub> {}'.format(
@@ -678,28 +701,52 @@ def _disk_summary(derived):
         ))
     if 'fractional_luminosity' in derived:
         values.append('L<sub>d</sub>/L<sub>★</sub> {}'.format(
-            _format_summary(derived['fractional_luminosity'], '')
+            _format_summary(
+                derived['fractional_luminosity'], '', scientific=True,
+            )
         ))
     return values
 
 
-def _format_summary(summary, unit, digits=2):
+def _pow10_summary(summary):
+    """Transform a base-10 logarithmic quantile summary to linear units."""
+
+    median = summary.get('median')
+    minus = summary.get('minus')
+    plus = summary.get('plus')
+    if median is None or not np.isfinite(median):
+        return {'median': None}
+    linear_median = 10**median
+    transformed = {'median': linear_median}
+    if (minus is not None and plus is not None and
+            np.isfinite(minus) and np.isfinite(plus)):
+        transformed.update({
+            'minus': linear_median - 10**(median - minus),
+            'plus': 10**(median + plus) - linear_median,
+        })
+    return transformed
+
+
+def _format_summary(summary, unit, digits=2, scientific=False):
     median = summary.get('median')
     if median is None or not np.isfinite(median):
         return '—'
     minus = summary.get('minus')
     plus = summary.get('plus')
-    if abs(median) >= 1e4 or (median != 0 and abs(median) < 1e-2):
+    uncertainty = None
+    if (minus is not None and plus is not None and
+            np.isfinite(minus) and np.isfinite(plus)):
+        uncertainty = (minus + plus) / 2
+    if scientific:
+        number = '{:.2e}'.format(median)
+        if uncertainty is not None:
+            number += ' ± {:.2e}'.format(uncertainty)
+    elif abs(median) >= 1e4 or (median != 0 and abs(median) < 1e-2):
         number = '{:.2g}'.format(median)
-        uncertainty = None
     else:
         number = '{:.{}f}'.format(median, digits)
-        uncertainty = None
-        if (minus is not None and plus is not None and
-                np.isfinite(minus) and np.isfinite(plus)):
-            uncertainty = (minus + plus) / 2
-    if uncertainty is not None:
-        number += ' ± {:.{}f}'.format(uncertainty, digits)
+        if uncertainty is not None:
+            number += ' ± {:.{}f}'.format(uncertainty, digits)
     return '{}{}'.format(number, ' ' + unit if unit else '')
 
 
