@@ -85,6 +85,25 @@ listed and all included products are fitted; there is no implicit first-file
 selection. `--no-spectra` ignores both this manifest and legacy rawphot
 spectrum keywords.
 
+An optional `resources.yml` supplies provider-neutral links to external data
+products without making those products fitting inputs:
+
+```yaml
+version: 1
+resources:
+  - provider: tldr_pacs
+    label: Herschel/PACS images
+    url: https://example.org/herschel/sources/source-key.html
+    observation_ids: ['1342223848', '1342223850']
+    observation_sdbids: [system-sdbid]
+    target_sdbids: [component-a-sdbid, component-b-sdbid]
+```
+
+The SED page places each link on its observed system scope. A composite product
+is therefore shown once on the parent rather than repeated on every physical
+contributor. The sidecar does not affect fit freshness or trigger refitting;
+older packages without it remain valid.
+
 For segments with resolving-power metadata, model grids are convolved once at
 fit compilation and then sampled at the observed wavelengths. The prepared
 model is cached across candidates. A grid already coarser than the observation

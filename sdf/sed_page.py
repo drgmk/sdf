@@ -12,6 +12,7 @@ import jinja2
 from bokeh.resources import CDN, INLINE
 
 from . import utils
+from .resource_manifest import read_resource_manifest
 
 
 def render_sed_page(*, title, plot_script, plot_div, targets, candidates,
@@ -64,6 +65,7 @@ def target_page_rows(dataset, package_directory):
     """Project physical contributors and their component-specific links."""
 
     package_directory = Path(package_directory)
+    resources = _package_resources(package_directory)
     observation_by_target = {
         observation.target_key: observation
         for observation in dataset.observations
@@ -100,8 +102,11 @@ def target_page_rows(dataset, package_directory):
                     package_directory
                 ).as_posix()
             ),
-            'external_links': _external_links(
-                target.main_id, ra, dec, radius_arcsec=search_radius,
+            'external_links': _merge_links(
+                _external_links(
+                    target.main_id, ra, dec, radius_arcsec=search_radius,
+                ),
+                _resource_links(resources, target_sdbid=target.sdbid),
             ),
         })
     return rows
@@ -251,6 +256,7 @@ def observation_page_rows(dataset, package_directory):
     """Project observed scopes without conflating them with model owners."""
 
     package_directory = Path(package_directory)
+    resources = _package_resources(package_directory)
     target_labels = {
         target.key: target.main_id or target.sdbid or target.key
         for target in dataset.targets
@@ -302,8 +308,14 @@ def observation_page_rows(dataset, package_directory):
             'input_file': Path(observation.source).relative_to(
                 package_directory
             ).as_posix(),
-            'external_links': _external_links(
-                main_id, ra, dec, radius_arcsec=search_radius,
+            'external_links': _merge_links(
+                _external_links(
+                    main_id, ra, dec, radius_arcsec=search_radius,
+                ),
+                _resource_links(
+                    resources,
+                    observation_sdbid=observation.observation_id,
+                ),
             ),
         })
     return rows
@@ -412,6 +424,52 @@ def _target_source(package_directory, target, observation):
         if candidate.is_file():
             return candidate
     return None
+
+
+def _package_resources(package_directory):
+    path = Path(package_directory) / 'resources.yml'
+    return read_resource_manifest(path) if path.is_file() else ()
+
+
+def _resource_links(resources, *, target_sdbid=None,
+                    observation_sdbid=None):
+    """Select links for the displayed observation scope.
+
+    A target link is shown only when that physical target is also the observed
+    scope.  Composite PACS products therefore appear once on the system node,
+    rather than being repeated on every contributing child.
+    """
+
+    links = []
+    for resource in resources:
+        if observation_sdbid is not None:
+            selected = observation_sdbid in resource['observation_sdbids']
+        elif target_sdbid is not None:
+            selected = (
+                target_sdbid in resource['target_sdbids'] and
+                target_sdbid in resource['observation_sdbids']
+            )
+        else:
+            selected = False
+        if selected:
+            links.append({
+                'label': resource['label'],
+                'url': resource['url'],
+            })
+    return links
+
+
+def _merge_links(*groups):
+    links = []
+    seen = set()
+    for group in groups:
+        for link in group:
+            key = (link['label'], link['url'])
+            if key in seen:
+                continue
+            seen.add(key)
+            links.append(link)
+    return links
 
 
 def _external_links(main_id, ra, dec, radius_arcsec=20.0):

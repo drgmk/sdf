@@ -31,6 +31,39 @@ def test_results_page_loads_ordinary_single_file_package(tmp_path):
     assert 'HD 123' in output.read_text(encoding='utf-8')
 
 
+def test_results_page_links_exported_observation_products(tmp_path):
+    package = tmp_path / 'single'
+    package.mkdir()
+    _write_rawphot(
+        package / 'target-rawphot.txt',
+        sdbid='sdb-single', main_id='HD 123',
+    )
+    (package / 'resources.yml').write_text(
+        'version: 1\n'
+        'resources:\n'
+        '  - provider: tldr_pacs\n'
+        '    label: Herschel/PACS images\n'
+        '    url: https://example.test/herschel/sources/source.html\n'
+        '    observation_ids: [1342223848]\n'
+        '    observation_sdbids: [sdb-single]\n'
+        '    target_sdbids: [sdb-single]\n',
+        encoding='utf-8',
+    )
+    dataset = sdf.dataset.FitDataset.from_path(package)
+    candidate = sdf.model_selection.ModelCandidate.for_single_target(
+        dataset.targets[0].key, ('phoenix_sol',)
+    )
+    sdf.coordinator.FitCoordinator(
+        package, sampler=FakeSampler()
+    ).fit_candidate(dataset, candidate)
+
+    output = sdf.joint_plotting.write_joint_results_page(package)
+    html = output.read_text(encoding='utf-8')
+
+    assert 'href="https://example.test/herschel/sources/source.html"' in html
+    assert '>Herschel/PACS images</a>' in html
+
+
 def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     dataset = _fit_dataset(tmp_path)
     candidate = sdf.model_selection.ModelCandidate.for_single_target(
