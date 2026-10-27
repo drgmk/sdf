@@ -384,8 +384,10 @@ class CatalogService:
                 access = 'public'
             elif policy.owner_username == principal.username:
                 access = 'yours'
-            else:
+            elif policy.granted:
                 access = 'shared'
+            else:
+                access = 'private'
             samples.append({'sample': sample, 'access': access})
         return self.render_template(
             'catalog_samples.html', title='Samples',
