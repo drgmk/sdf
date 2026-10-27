@@ -225,19 +225,11 @@ def cleanup_calibration_dirs():
 
 
 def create_dir(wwwroot, sample):
-    """Create sample directories and .htaccess if necessary."""
+    """Create a legacy static-output sample directory if necessary.
 
-    # make dir and .htaccess if dir doesn't exist
+    Access control belongs to the catalog application. Static product
+    generation must not create per-sample Apache policy files.
+    """
+
     if not os.path.isdir(wwwroot+sample):
         os.mkdir(wwwroot+sample)
-
-    # make .htaccess if needed, don't put one in those ending with "_"
-    # so those directories remain visible to those not logged in
-    if sample[-1] != '_':
-        fd = open(wwwroot+sample+'/.htaccess', 'w')
-        fd.write('AuthName "Must login"\n')
-        fd.write('AuthType Basic\n')
-        fd.write('AuthUserFile '+cfg.file['www_root']+'.htpasswd\n')
-        fd.write('AuthGroupFile '+cfg.file['www_root']+'.htgroup\n')
-        fd.write('require group admin '+sample+'\n')
-        fd.close()

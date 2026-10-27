@@ -48,8 +48,8 @@ class CatalogService:
 
     def __init__(self, root, *, index_path=None, state_path=None, actor=None,
                  token=None, rebuild=False, auth_user_header=None,
-                 auth_group_file=None, auth_admin_group='admin',
-                 public_sample_file=None, auth_cookie_secure=False,
+                 auth_database=None, auth_session_secret=None,
+                 auth_cookie_secure=False,
                  sdb_import_config=None, review_base_url=None):
         self.root = Path(root).expanduser().resolve()
         if not self.root.is_dir():
@@ -77,9 +77,8 @@ class CatalogService:
         self.token = token or secrets.token_urlsafe(24)
         self.exports = ExportCatalog(self.root)
         self.auth = CatalogAuthorizer(
-            user_header=auth_user_header, group_file=auth_group_file,
-            admin_group=auth_admin_group, local_actor=self.actor,
-            public_sample_file=public_sample_file,
+            user_header=auth_user_header, access_database=auth_database,
+            local_actor=self.actor, session_secret=auth_session_secret,
         )
         self.auth_cookie_secure = bool(auth_cookie_secure)
         self.review_base_url = (
@@ -243,7 +242,7 @@ class CatalogService:
 
     def acquisition(self, job_id, principal):
         job = self.state.acquisition(job_id)
-        is_admin = self.auth.admin_group in principal.groups
+        is_admin = principal.is_admin
         if job.actor != principal.username and not is_admin:
             raise AuthorizationDenied(
                 'this target import belongs to another user'
@@ -274,11 +273,68 @@ class CatalogService:
             principal=principal, search_action='/search',
             system_base='/system', auth_enabled=self.auth.proxy_enabled,
             request_path='/imports/{}'.format(job.id),
-            admin_access=self.auth.admin_group in principal.groups,
+            admin_access=principal.is_admin,
+        )
+
+    def queue_sample_acquisition(self, sample_name, targets, *, actor,
+                                 note=None, visibility='private'):
+        if self.importer is None:
+            raise ValueError('sample import is not configured')
+        job_id = self.state.queue_sample_acquisition(
+            sample_name, targets, actor=actor, note=note,
+            visibility=visibility,
+        )
+        return {'job_id': job_id, 'status': 'queued'}
+
+    def sample_acquisition(self, job_id, principal):
+        job = self.state.sample_acquisition(job_id)
+        if job.actor != principal.username and not principal.is_admin:
+            raise AuthorizationDenied(
+                'this sample import belongs to another user'
+            )
+        return job
+
+    def render_new_sample(self, principal):
+        return self.render_template(
+            'catalog_sample_new.html', title='Create sample',
+            principal=principal, search_action='/search', token=self.token,
+            auth_enabled=self.auth.proxy_enabled, request_path='/samples/new',
+            import_enabled=self.importer is not None,
+        )
+
+    def render_sample_acquisition(self, job_id, principal):
+        job = self.sample_acquisition(job_id, principal)
+        return self.render_template(
+            'catalog_sample_import_job.html',
+            title='Import {}'.format(job.sample_name), job=job,
+            auto_refresh=job.status in {'queued', 'running'},
+            principal=principal, search_action='/search',
+            auth_enabled=self.auth.proxy_enabled,
+            request_path='/sample-imports/{}'.format(job.id),
+            admin_access=principal.is_admin,
         )
 
     def register_acquisition_export(self, result, *, actor):
         """Index complete exported packages and queue their automatic fits."""
+
+        return self._register_acquisition_export(
+            result, actor=actor,
+            reason='Fit newly imported {}'.format(result['query']),
+        )
+
+    def register_sample_acquisition_export(self, result, *, actor):
+        """Index one completed sample export and queue its needed fits."""
+
+        registered = self._register_acquisition_export(
+            result, actor=actor,
+            reason='Fit newly imported sample {}'.format(result['sample']),
+        )
+        # ExportCatalog reads manifest snapshots directly, but discard any
+        # projections created before this manifest appeared.
+        self._sample_cache.clear()
+        return registered
+
+    def _register_acquisition_export(self, result, *, actor, reason):
 
         package_names = tuple(dict.fromkeys(
             _safe_relative(value) for value in result.get('packages', ())
@@ -305,7 +361,7 @@ class CatalogService:
                     continue
                 queued = self.queue_package(
                     name, actor=actor,
-                    reason='Fit newly imported {}'.format(result['query']),
+                    reason=reason,
                     remember_actor=False,
                 )
                 fit_job_ids.append(queued['job_id'])
@@ -313,19 +369,31 @@ class CatalogService:
         return dict(result, fit_job_ids=fit_job_ids)
 
     def render_samples(self, principal):
-        samples = tuple({
-            'sample': sample,
-            'access': (
-                'public' if self.auth.is_public_sample(sample.name)
-                else 'shared'
-            ),
-        } for sample in self.exports.samples()
-            if self.auth.can_access_sample(principal, sample.name))
+        samples = []
+        for sample in self.exports.samples():
+            if not self.auth.can_access_sample(principal, sample.name):
+                continue
+            policy = (
+                None if not self.auth.proxy_enabled
+                else self.auth.access.sample(
+                    sample.name,
+                    principal.username if principal.authenticated else None,
+                )
+            )
+            if policy is None or policy.visibility == 'public':
+                access = 'public'
+            elif policy.owner_username == principal.username:
+                access = 'yours'
+            else:
+                access = 'shared'
+            samples.append({'sample': sample, 'access': access})
         return self.render_template(
             'catalog_samples.html', title='Samples',
-            samples=samples, principal=principal, search_action='/search',
-            admin_access=self.auth.admin_group in principal.groups,
+            samples=tuple(samples), principal=principal,
+            search_action='/search',
+            admin_access=principal.is_admin,
             auth_enabled=self.auth.proxy_enabled, request_path='/samples',
+            import_enabled=self.importer is not None,
         )
 
     def render_sample(self, name, principal):
@@ -340,7 +408,7 @@ class CatalogService:
                           if row['package_path'] not in projected),
             principal=principal, search_action='/search',
             system_base='/system',
-            admin_access=self.auth.admin_group in principal.groups,
+            admin_access=principal.is_admin,
             auth_enabled=self.auth.proxy_enabled,
             request_path='/samples/{}/'.format(quote(sample.name, safe='')),
         )
@@ -355,7 +423,7 @@ class CatalogService:
             plot_script=script, plot_div=div,
             bokeh_js=CDN.render_js(), bokeh_css=CDN.render_css(),
             principal=principal, search_action='/search',
-            admin_access=self.auth.admin_group in principal.groups,
+            admin_access=principal.is_admin,
             auth_enabled=self.auth.proxy_enabled,
             request_path='/samples/{}/plots'.format(quote(sample.name, safe='')),
         )
@@ -370,7 +438,7 @@ class CatalogService:
             projection=projection, plot_script=script, plot_div=div,
             bokeh_js=CDN.render_js(), bokeh_css=CDN.render_css(),
             principal=principal, search_action='/search',
-            admin_access=self.auth.admin_group in principal.groups,
+            admin_access=principal.is_admin,
             auth_enabled=self.auth.proxy_enabled,
             request_path='/samples/{}/flux-size'.format(
                 quote(sample.name, safe='')
@@ -472,7 +540,7 @@ class CatalogService:
         admin_url = _system_url(package_path, admin=True)
         return {
             'principal': principal,
-            'admin_access': self.auth.admin_group in principal.groups,
+            'admin_access': principal.is_admin,
             'auth_enabled': self.auth.proxy_enabled,
             'request_path': admin_url if admin else public_url,
             'search_action': '/admin/search' if admin else '/search',
@@ -489,8 +557,8 @@ class CatalogService:
 
 def make_catalog_server(root, *, index_path=None, state_path=None, actor=None,
                         token=None, rebuild=False, host='127.0.0.1', port=0,
-                        auth_user_header=None, auth_group_file=None,
-                        auth_admin_group='admin', public_sample_file=None,
+                        auth_user_header=None, auth_database=None,
+                        auth_session_secret=None,
                         auth_cookie_secure=False, sdb_import_config=None,
                         review_base_url=None):
     if host not in {'127.0.0.1', 'localhost', '::1'}:
@@ -498,9 +566,8 @@ def make_catalog_server(root, *, index_path=None, state_path=None, actor=None,
     service = CatalogService(
         root, index_path=index_path, state_path=state_path, actor=actor,
         token=token, rebuild=rebuild, auth_user_header=auth_user_header,
-        auth_group_file=auth_group_file,
-        auth_admin_group=auth_admin_group,
-        public_sample_file=public_sample_file,
+        auth_database=auth_database,
+        auth_session_secret=auth_session_secret,
         auth_cookie_secure=auth_cookie_secure,
         sdb_import_config=sdb_import_config,
         review_base_url=review_base_url,
@@ -515,16 +582,15 @@ def serve_catalog(root, *, index_path=None, state_path=None, actor=None,
                   rebuild=False, host='127.0.0.1', port=8765,
                   worker=True, workers=1, watch=True, autofit_existing=False,
                   poll_seconds=5.0, auth_user_header=None,
-                  auth_group_file=None, auth_admin_group='admin',
-                  public_sample_file=None, auth_cookie_secure=False,
+                  auth_database=None, auth_session_secret=None,
+                  auth_cookie_secure=False,
                   sdb_import_config=None, review_base_url=None):
     server = make_catalog_server(
         root, index_path=index_path, state_path=state_path, actor=actor,
         rebuild=rebuild, host=host, port=port,
         auth_user_header=auth_user_header,
-        auth_group_file=auth_group_file,
-        auth_admin_group=auth_admin_group,
-        public_sample_file=public_sample_file,
+        auth_database=auth_database,
+        auth_session_secret=auth_session_secret,
         auth_cookie_secure=auth_cookie_secure,
         sdb_import_config=sdb_import_config,
         review_base_url=review_base_url,
@@ -609,15 +675,25 @@ class CatalogRuntime:
             ))
         if getattr(self.service, 'importer', None) is not None:
             recovered = self.service.state.recover_running_acquisitions()
+            recovered_samples = (
+                self.service.state.recover_running_sample_acquisitions()
+            )
             if recovered:
                 print('Recovered {} interrupted target import(s)'.format(
                     recovered
+                ))
+            if recovered_samples:
+                print('Recovered {} interrupted sample import(s)'.format(
+                    recovered_samples
                 ))
             self.import_thread = Thread(
                 target=run_acquisition_worker,
                 args=(self.service.state, self.service.importer),
                 kwargs={
                     'on_export': self.service.register_acquisition_export,
+                    'on_sample_export': (
+                        self.service.register_sample_acquisition_export
+                    ),
                     'poll_seconds': self.poll_seconds,
                     'stop_event': self.watch_stop,
                     'worker_id': 'sdf-sdb-import',
@@ -712,6 +788,17 @@ class _CatalogHandler(BaseHTTPRequestHandler):
                     int(job_id), principal
                 ))
                 return
+            if parsed.path.startswith('/sample-imports/'):
+                self.service.auth.require_authenticated(principal)
+                job_id = parsed.path.removeprefix(
+                    '/sample-imports/'
+                ).strip('/')
+                if not job_id.isdigit():
+                    raise KeyError('sample import not found')
+                self._html(self.service.render_sample_acquisition(
+                    int(job_id), principal
+                ))
+                return
             if parsed.path == '/auth/login':
                 self.service.auth.require_authenticated(principal)
                 values = parse_qs(parsed.query)
@@ -735,6 +822,10 @@ class _CatalogHandler(BaseHTTPRequestHandler):
                 return
             if parsed.path in {'/samples', '/samples/'}:
                 self._html(self.service.render_samples(principal))
+                return
+            if parsed.path == '/samples/new':
+                self.service.auth.require_authenticated(principal)
+                self._html(self.service.render_new_sample(principal))
                 return
             if parsed.path.startswith('/samples/'):
                 name, asset = _sample_parts(parsed.path)
@@ -892,8 +983,7 @@ class _CatalogHandler(BaseHTTPRequestHandler):
                 return
             self._error(KeyError('page not found'), HTTPStatus.NOT_FOUND)
         except AuthenticationRequired as error:
-            if (self.service.auth.proxy_enabled
-                    and parsed.path.startswith('/samples/')):
+            if self.service.auth.proxy_enabled:
                 self._redirect('/auth/login?next={}'.format(
                     quote(self.path, safe='')
                 ))
@@ -915,6 +1005,23 @@ class _CatalogHandler(BaseHTTPRequestHandler):
                 payload = self._payload()
                 result = self.service.queue_acquisition(
                     payload.get('query'), actor=principal.username,
+                )
+                self._json(result, status=HTTPStatus.ACCEPTED)
+                return
+            if parsed.path == '/sample-imports':
+                self.service.auth.require_authenticated(principal)
+                if self.headers.get('X-SDF-Token') != self.service.token:
+                    raise PermissionError('invalid request token')
+                payload = self._payload()
+                visibility = payload.get('visibility', 'private')
+                if visibility == 'public' and not principal.is_admin:
+                    raise AuthorizationDenied(
+                        'only administrators can publish a sample'
+                    )
+                result = self.service.queue_sample_acquisition(
+                    payload.get('sample_name'), payload.get('targets', ()),
+                    actor=principal.username, note=payload.get('note'),
+                    visibility=visibility,
                 )
                 self._json(result, status=HTTPStatus.ACCEPTED)
                 return
@@ -956,7 +1063,7 @@ class _CatalogHandler(BaseHTTPRequestHandler):
 
     def _payload(self):
         length = int(self.headers.get('Content-Length', '0'))
-        if length <= 0 or length > 65536:
+        if length <= 0 or length > 1024 * 1024:
             raise ValueError('invalid request size')
         return json.loads(self.rfile.read(length))
 

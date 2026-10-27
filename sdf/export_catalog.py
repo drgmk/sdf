@@ -16,6 +16,8 @@ class ExportSample:
     completed_at: str | None
     sample_date: str | None = None
     note: str | None = None
+    owner_username: str | None = None
+    visibility: str = 'private'
 
 
 class ExportCatalog:
@@ -66,6 +68,8 @@ class ExportCatalog:
                     completed_at=payload.get('completed_at'),
                     sample_date=row.get('sample_date'),
                     note=row.get('note'),
+                    owner_username=row.get('owner_username'),
+                    visibility=row.get('visibility') or 'private',
                 ))
             return tuple(sorted(samples, key=lambda value: value.name.lower()))
 

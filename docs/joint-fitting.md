@@ -263,8 +263,8 @@ without making a fit stale.
 
 In deployed use this operational catalog now lives below `/admin`, while the
 root page and individual `/system/...` SEDs remain public. Authenticated sample
-views live below `/samples` and retain the legacy per-sample group semantics.
-Apache can reuse the existing `.htpasswd` and `.htgroup` files; see
+views live below `/samples`. Apache can reuse the existing `.htpasswd`; users,
+administrator roles, sample ownership, and sharing live in the SDB database. See
 [`catalog-auth.md`](catalog-auth.md) for the route model, CLI options, and a
 reverse-proxy example. Local loopback use without those options retains the
 low-friction operator workflow.

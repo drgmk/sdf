@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import tempfile
 
 
 @dataclass(frozen=True)
@@ -137,6 +138,85 @@ class SdbImporter:
             'warnings': warnings,
         }
 
+    def acquire_sample(self, job):
+        """Create one owned SDB sample, import its targets, and export it."""
+
+        environment = os.environ.copy()
+        environment['SDB_ACTOR'] = str(job.actor)
+        with tempfile.NamedTemporaryFile(
+                mode='w', encoding='utf-8', suffix='.txt') as target_file:
+            target_file.write('\n'.join(job.targets) + '\n')
+            target_file.flush()
+            command = [
+                *self.config.command(), 'sample', 'acquire', job.sample_name,
+                target_file.name, '--owner', job.actor,
+                '--visibility', job.visibility, '--actor', job.actor,
+                '--reason', 'Imported from the SDF sample page',
+            ]
+            if job.note:
+                command.extend(('--note', job.note))
+            acquired, status, stderr = self._json_command(
+                command, environment=environment,
+            )
+        # Exit 1 means that useful work completed but one or more targets or
+        # optional provider updates failed. Exit 2 is a command-level failure.
+        if status not in {0, 1}:
+            raise RuntimeError(_command_error(
+                'SDB sample import failed', status, stderr
+            ))
+
+        exported, export_status, export_stderr = self._json_command(
+            [
+                *self.config.command(), 'export', '--sample', job.sample_name,
+                '--output-dir', str(self.export_root), '--workers', '1',
+            ],
+            environment=environment,
+        )
+        if export_status != 0 or int(exported.get('failed', 0)):
+            raise RuntimeError(_command_error(
+                'SDB sample export failed', export_status, export_stderr
+            ))
+        manifest, packages = self._manifest_packages(exported)
+        warnings = []
+        if status == 1:
+            warnings.append(
+                '{} of {} target(s) could not be fully imported; successful '
+                'targets were retained'.format(
+                    acquired.get('failed_count', 'Some'),
+                    acquired.get('requested_count', 'the requested'),
+                )
+            )
+        return {
+            'sample': job.sample_name,
+            'requested_count': len(job.targets),
+            'succeeded_count': int(acquired.get('succeeded_count', 0)),
+            'failed_count': int(acquired.get('failed_count', 0)),
+            'packages': list(packages),
+            'manifests': [manifest.name],
+            'exported': int(exported.get('exported', 0)),
+            'skipped': int(exported.get('skipped', 0)),
+            'warnings': warnings,
+            'import_result': acquired,
+        }
+
+    def _manifest_packages(self, summary):
+        manifest = Path(summary['manifest']).expanduser().resolve()
+        try:
+            manifest.relative_to(self.export_root)
+        except ValueError as error:
+            raise RuntimeError(
+                'SDB export manifest lies outside the served root'
+            ) from error
+        payload = json.loads(manifest.read_text(encoding='utf-8'))
+        packages = tuple(dict.fromkeys(
+            str(package['directory'])
+            for package in payload.get('packages', ())
+            if package.get('status') == 'completed' and package.get('directory')
+        ))
+        if not packages:
+            raise RuntimeError('SDB export produced no complete fitting package')
+        return manifest, packages
+
     def _json_command(self, command, *, environment):
         try:
             completed = self.runner(
@@ -157,6 +237,7 @@ class SdbImporter:
 
 
 def run_acquisition_worker(state, importer, *, on_export=None,
+                           on_sample_export=None,
                            poll_seconds=5.0, stop_event=None,
                            worker_id=None):
     """Continuously drain the single-writer SDB acquisition queue.
@@ -169,7 +250,12 @@ def run_acquisition_worker(state, importer, *, on_export=None,
     worker_id = worker_id or 'sdb-import-{}'.format(os.getpid())
     while stop_event is None or not stop_event.is_set():
         job = state.claim_next_acquisition(worker_id=worker_id)
+        sample_job = None
         if job is None:
+            sample_job = state.claim_next_sample_acquisition(
+                worker_id=worker_id
+            )
+        if job is None and sample_job is None:
             if stop_event is None:
                 import time
                 time.sleep(poll_seconds)
@@ -177,17 +263,29 @@ def run_acquisition_worker(state, importer, *, on_export=None,
                 stop_event.wait(poll_seconds)
             continue
         try:
-            result = importer.acquire(job.query, actor=job.actor)
-            if on_export is not None:
-                enriched = on_export(result, actor=job.actor)
+            if sample_job is not None:
+                result = importer.acquire_sample(sample_job)
+                callback = on_sample_export or on_export
+                actor = sample_job.actor
+            else:
+                result = importer.acquire(job.query, actor=job.actor)
+                callback = on_export
+                actor = job.actor
+            if callback is not None:
+                enriched = callback(result, actor=actor)
                 if enriched is not None:
                     result = enriched
         except Exception as error:
-            state.finish_acquisition(
-                job.id, error='{}: {}'.format(type(error).__name__, error)
-            )
+            message = '{}: {}'.format(type(error).__name__, error)
+            if sample_job is not None:
+                state.finish_sample_acquisition(sample_job.id, error=message)
+            else:
+                state.finish_acquisition(job.id, error=message)
         else:
-            state.finish_acquisition(job.id, result=result)
+            if sample_job is not None:
+                state.finish_sample_acquisition(sample_job.id, result=result)
+            else:
+                state.finish_acquisition(job.id, result=result)
 
 
 def _optional_path(value):

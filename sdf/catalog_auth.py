@@ -10,7 +10,7 @@ import hmac
 import json
 from pathlib import Path
 import secrets
-from threading import RLock
+import sqlite3
 import time
 
 
@@ -24,96 +24,86 @@ class AuthorizationDenied(PermissionError):
 
 @dataclass(frozen=True)
 class CatalogPrincipal:
-    """One identity supplied by the trusted reverse proxy."""
+    """One active application user authenticated by the reverse proxy."""
 
     username: str | None
-    groups: frozenset[str] = frozenset()
+    is_admin: bool = False
 
     @property
     def authenticated(self):
         return self.username is not None
 
 
-class HtGroupFile:
-    """Read Apache ``AuthGroupFile`` syntax, reloading after file changes."""
+@dataclass(frozen=True)
+class SamplePolicy:
+    name: str
+    owner_username: str | None
+    visibility: str
+    granted: bool
+
+
+class AccessDatabase:
+    """Small read-only authorization projection over the authoritative SDB."""
 
     def __init__(self, path):
         self.path = Path(path).expanduser().resolve()
-        self._stamp = None
-        self._groups = {}
-        self._lock = RLock()
-        self._reload()
-
-    def groups_for(self, username):
-        self._reload()
-        return frozenset(
-            group for group, users in self._groups.items()
-            if username in users
-        )
-
-    def _reload(self):
-        with self._lock:
-            stat = self.path.stat()
-            stamp = (stat.st_mtime_ns, stat.st_size)
-            if stamp == self._stamp:
-                return
-            groups = parse_htgroup(self.path.read_text(encoding='utf-8'))
-            self._groups = groups
-            self._stamp = stamp
-
-
-class PublicSampleFile:
-    """Read an explicit, fail-closed list of anonymously visible samples."""
-
-    def __init__(self, path):
-        self.path = Path(path).expanduser().resolve()
-        self._stamp = None
-        self._samples = frozenset()
-        self._lock = RLock()
-        self._reload()
-
-    def contains(self, sample_name):
-        self._reload()
-        return str(sample_name) in self._samples
-
-    def _reload(self):
-        with self._lock:
-            stat = self.path.stat()
-            stamp = (stat.st_mtime_ns, stat.st_size)
-            if stamp == self._stamp:
-                return
-            self._samples = parse_public_samples(
-                self.path.read_text(encoding='utf-8')
+        if not self.path.is_file():
+            raise ValueError(
+                'authorization database does not exist: {}'.format(self.path)
             )
-            self._stamp = stamp
+
+    def user(self, username):
+        with self._connect() as connection:
+            row = connection.execute(
+                'SELECT username, is_admin, disabled FROM users '
+                'WHERE username = ?',
+                (str(username),),
+            ).fetchone()
+        if row is None:
+            return None
+        return CatalogPrincipal(row[0], bool(row[1])) if not row[2] else False
+
+    def sample(self, sample_name, username=None):
+        with self._connect() as connection:
+            row = connection.execute(
+                '''
+                SELECT s.name, s.owner_username, s.visibility,
+                       CASE WHEN g.username IS NULL THEN 0 ELSE 1 END
+                FROM samples AS s
+                LEFT JOIN sample_grants AS g
+                  ON g.sample_id = s.id AND g.username = ?
+                WHERE s.name = ?
+                ''',
+                (username, str(sample_name)),
+            ).fetchone()
+        if row is None:
+            return None
+        return SamplePolicy(row[0], row[1], row[2], bool(row[3]))
+
+    def _connect(self):
+        connection = sqlite3.connect(self.path, timeout=5.0)
+        connection.execute('PRAGMA query_only = ON')
+        return connection
 
 
 class CatalogAuthorizer:
-    """Authorize catalog routes from either local or proxy identity."""
+    """Authorize catalog routes using proxy identity and SDB policy."""
 
-    def __init__(self, *, user_header=None, group_file=None,
-                 admin_group='admin', local_actor=None,
-                 public_sample_file=None, session_secret=None,
+    def __init__(self, *, user_header=None, access_database=None,
+                 local_actor=None, session_secret=None,
                  session_seconds=12 * 60 * 60):
         self.user_header = str(user_header or '').strip() or None
-        self.admin_group = str(admin_group or '').strip()
         self.local_actor = str(local_actor or '').strip() or 'local'
-        if not self.admin_group:
-            raise ValueError('admin group is required')
-        if self.user_header and group_file is None:
+        if self.user_header and access_database is None:
             raise ValueError(
-                'a group file is required with a proxy user header'
+                'an authorization database is required with a proxy user header'
             )
-        if not self.user_header and group_file is not None:
+        if not self.user_header and access_database is not None:
             raise ValueError(
-                'a proxy user header is required with a group file'
+                'a proxy user header is required with an authorization database'
             )
-        self.group_file = (
-            HtGroupFile(group_file) if self.user_header else None
-        )
-        self.public_sample_file = (
-            PublicSampleFile(public_sample_file)
-            if public_sample_file is not None else None
+        self.access = (
+            AccessDatabase(access_database) if self.user_header else None
         )
         self.session_secret = session_secret or secrets.token_bytes(32)
         if isinstance(self.session_secret, str):
@@ -128,9 +118,7 @@ class CatalogAuthorizer:
 
     def principal(self, headers):
         if not self.proxy_enabled:
-            return CatalogPrincipal(
-                self.local_actor, frozenset((self.admin_group,))
-            )
+            return CatalogPrincipal(self.local_actor, True)
         username = str(headers.get(self.user_header, '')).strip()
         if not username:
             username = self._session_username(headers.get('Cookie')) or ''
@@ -138,16 +126,25 @@ class CatalogAuthorizer:
             return CatalogPrincipal(None)
         if any(character in username for character in '\r\n\0'):
             raise AuthenticationRequired('invalid authenticated user header')
-        return CatalogPrincipal(
-            username, self.group_file.groups_for(username)
-        )
+        principal = self.access.user(username)
+        if principal is None:
+            raise AuthorizationDenied('application user is not registered')
+        if principal is False:
+            raise AuthorizationDenied('application user is disabled')
+        return principal
 
     def issue_session(self, username, *, now=None):
-        """Return a signed, expiring token for an Apache-authenticated user."""
+        """Return a signed, expiring token for an authenticated active user."""
 
         username = str(username or '').strip()
         if not username or any(character in username for character in '\r\n\0'):
             raise AuthenticationRequired('invalid authenticated username')
+        if self.proxy_enabled:
+            principal = self.access.user(username)
+            if principal is None:
+                raise AuthorizationDenied('application user is not registered')
+            if principal is False:
+                raise AuthorizationDenied('application user is disabled')
         now = int(time.time() if now is None else now)
         payload = _urlsafe_encode(json.dumps({
             'username': username,
@@ -161,10 +158,8 @@ class CatalogAuthorizer:
     def is_public_sample(self, sample_name):
         if not self.proxy_enabled:
             return True
-        return (
-            self.public_sample_file is not None
-            and self.public_sample_file.contains(sample_name)
-        )
+        policy = self.access.sample(sample_name)
+        return policy is not None and policy.visibility == 'public'
 
     def require_authenticated(self, principal):
         if not principal.authenticated:
@@ -173,25 +168,33 @@ class CatalogAuthorizer:
 
     def require_admin(self, principal):
         self.require_authenticated(principal)
-        if self.admin_group not in principal.groups:
+        if not principal.is_admin:
             raise AuthorizationDenied('administrator access is required')
         return principal
 
     def can_access_sample(self, principal, sample_name):
-        if self.is_public_sample(sample_name):
+        if not self.proxy_enabled:
+            return True
+        policy = self.access.sample(
+            sample_name,
+            None if not principal.authenticated else principal.username,
+        )
+        if policy is None:
+            return False
+        if policy.visibility == 'public':
             return True
         if not principal.authenticated:
             return False
         return (
-            self.admin_group in principal.groups
-            or str(sample_name) in principal.groups
+            principal.is_admin
+            or policy.owner_username == principal.username
+            or policy.granted
         )
 
     def require_sample(self, principal, sample_name):
-        if self.is_public_sample(sample_name):
-            return principal
-        self.require_authenticated(principal)
         if not self.can_access_sample(principal, sample_name):
+            if not principal.authenticated:
+                raise AuthenticationRequired('authentication is required')
             raise AuthorizationDenied(
                 'access to sample {!r} is not permitted'.format(sample_name)
             )
@@ -228,38 +231,13 @@ class CatalogAuthorizer:
         return username
 
 
-def parse_htgroup(text):
-    """Parse ``group: user user`` lines used by Apache group files."""
+def read_session_secret(path):
+    """Read a stable shared HMAC secret from a non-public file."""
 
-    groups = {}
-    for line_number, raw in enumerate(str(text).splitlines(), start=1):
-        line = raw.strip()
-        if not line or line.startswith('#'):
-            continue
-        group, separator, members = line.partition(':')
-        group = group.strip()
-        if not separator or not group:
-            raise ValueError(
-                'invalid group file line {}: expected group: users'.format(
-                    line_number
-                )
-            )
-        groups.setdefault(group, set()).update(members.split())
-    return {
-        group: frozenset(members) for group, members in groups.items()
-    }
-
-
-def parse_public_samples(text):
-    """Parse one exact sample name per line, with blank lines and comments."""
-
-    samples = []
-    for raw in str(text).splitlines():
-        value = raw.strip()
-        if not value or value.startswith('#'):
-            continue
-        samples.append(value)
-    return frozenset(samples)
+    value = Path(path).expanduser().resolve().read_bytes().strip()
+    if len(value) < 32:
+        raise ValueError('session secret must contain at least 32 bytes')
+    return value
 
 
 def _cookie_value(header, name):

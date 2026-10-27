@@ -23,6 +23,7 @@ from sdf.result_index import ResultIndex, discover_packages
 from sdf.operator_jobs import run_next_job, run_worker
 from sdf.operator_state import OperatorState
 from sdf.catalog_server import serve_catalog
+from sdf.catalog_auth import read_session_secret
 from sdf.sample_products import write_sample_products
 from sdf.sdb_import import SdbImportConfig
 
@@ -428,8 +429,8 @@ def sdf_fits():
             'sdf-fits serve /data/sdb/export --actor Grant',
             'sdf-fits serve /data/sdb/export --workers 4 --autofit-existing',
             'sdf-fits serve /data/sdb/export --auth-user-header X-SDF-User '
-            '--auth-group-file /srv/sdb/.htgroup '
-            '--public-samples-file /srv/sdb/public-samples',
+            '--auth-database /srv/sdb/sdb.sqlite '
+            '--auth-session-secret-file /srv/sdb/session-secret',
             'sdf-fits serve /data/sdb/export --no-worker --no-watch',
         ),
     )
@@ -489,19 +490,15 @@ def sdf_fits():
         help='trust an authenticated username from this reverse-proxy header',
     )
     serve_parser.add_argument(
-        '--auth-group-file', metavar='PATH',
-        help='Apache .htgroup file used for sample and administrator access',
-    )
-    serve_parser.add_argument(
-        '--auth-admin-group', default='admin', metavar='GROUP',
-        help='group allowed to configure fits (default: admin)',
-    )
-    serve_parser.add_argument(
-        '--public-samples-file', metavar='PATH',
+        '--auth-database', metavar='PATH',
         help=(
-            'file listing exact sample names visible without signing in; '
-            'all unlisted samples remain private'
+            'SDB SQLite database containing users and sample access policy; '
+            'defaults to --sdb-database'
         ),
+    )
+    serve_parser.add_argument(
+        '--auth-session-secret-file', metavar='PATH',
+        help='shared file containing at least 32 bytes for signed login sessions',
     )
     serve_parser.add_argument(
         '--auth-cookie-secure', action='store_true',
@@ -550,6 +547,16 @@ def sdf_fits():
             parser.error('--sdb-database is required with SDB import options')
         if args.sdb_import_timeout <= 0:
             parser.error('--sdb-import-timeout must be positive')
+        auth_database = args.auth_database or args.sdb_database
+        if args.auth_user_header is not None and auth_database is None:
+            parser.error(
+                '--auth-database or --sdb-database is required with '
+                '--auth-user-header'
+            )
+        auth_session_secret = (
+            None if args.auth_session_secret_file is None
+            else read_session_secret(args.auth_session_secret_file)
+        )
         sdb_import_config = None
         if args.sdb_database is not None:
             sdb_import_config = SdbImportConfig.create(
@@ -568,9 +575,8 @@ def sdf_fits():
             autofit_existing=args.autofit_existing,
             poll_seconds=args.poll_seconds,
             auth_user_header=args.auth_user_header,
-            auth_group_file=args.auth_group_file,
-            auth_admin_group=args.auth_admin_group,
-            public_sample_file=args.public_samples_file,
+            auth_database=auth_database,
+            auth_session_secret=auth_session_secret,
             auth_cookie_secure=args.auth_cookie_secure,
             sdb_import_config=sdb_import_config,
             review_base_url=args.review_base_url,

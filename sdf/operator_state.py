@@ -12,7 +12,7 @@ import sqlite3
 from .model_policy import TargetModelPolicy
 
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 @dataclass(frozen=True)
@@ -45,6 +45,23 @@ class FitJob:
 class AcquisitionJob:
     id: int
     query: str
+    status: str
+    actor: str
+    created_at: str
+    started_at: str | None
+    completed_at: str | None
+    result: dict | None
+    error: str | None
+    worker_id: str | None
+
+
+@dataclass(frozen=True)
+class SampleAcquisitionJob:
+    id: int
+    sample_name: str
+    note: str | None
+    visibility: str
+    targets: tuple[str, ...]
     status: str
     actor: str
     created_at: str
@@ -126,6 +143,23 @@ class OperatorState:
                     ON acquisition_jobs(status, id);
                 CREATE INDEX IF NOT EXISTS acquisition_jobs_active_query
                     ON acquisition_jobs(status, lookup_key);
+                CREATE TABLE IF NOT EXISTS sample_acquisition_jobs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    sample_name TEXT NOT NULL,
+                    note TEXT,
+                    visibility TEXT NOT NULL,
+                    targets TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    actor TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    started_at TEXT,
+                    completed_at TEXT,
+                    result TEXT,
+                    error TEXT,
+                    worker_id TEXT
+                );
+                CREATE INDEX IF NOT EXISTS sample_acquisition_jobs_status
+                    ON sample_acquisition_jobs(status, id);
             ''')
             row = connection.execute(
                 "SELECT value FROM operator_metadata "
@@ -136,7 +170,7 @@ class OperatorState:
                     'INSERT INTO operator_metadata VALUES (?, ?)',
                     ('schema_version', str(SCHEMA_VERSION)),
                 )
-            elif int(row['value']) in {1, 2, 3}:
+            elif int(row['value']) in {1, 2, 3, 4}:
                 if int(row['value']) == 1:
                     columns = {
                         value['name'] for value in connection.execute(
@@ -533,6 +567,134 @@ class OperatorState:
             )
             return cursor.rowcount
 
+    def queue_sample_acquisition(self, sample_name, targets, *, actor,
+                                 note=None, visibility='private'):
+        self.initialize()
+        sample_name = str(sample_name or '').strip()
+        actor = str(actor or '').strip()
+        note = str(note or '').strip() or None
+        visibility = str(visibility or '').strip().lower()
+        targets = tuple(dict.fromkeys(
+            ' '.join(str(value or '').split()) for value in targets
+            if str(value or '').strip()
+        ))
+        if not sample_name:
+            raise ValueError('sample name is required')
+        if len(sample_name) > 100:
+            raise ValueError('sample name is too long')
+        if visibility not in {'private', 'public'}:
+            raise ValueError('sample visibility must be private or public')
+        if not actor:
+            raise ValueError('actor is required')
+        if not targets:
+            raise ValueError('at least one target identifier is required')
+        if len(targets) > 1000:
+            raise ValueError('sample imports are limited to 1000 targets')
+        if any(len(value) > 200 for value in targets):
+            raise ValueError('target identifier is too long')
+        with _connection(self.path) as connection:
+            cursor = connection.execute(
+                '''
+                INSERT INTO sample_acquisition_jobs (
+                    sample_name, note, visibility, targets, status, actor,
+                    created_at
+                ) VALUES (?, ?, ?, ?, 'queued', ?, ?)
+                ''',
+                (
+                    sample_name, note, visibility,
+                    json.dumps(targets), actor, _now(),
+                ),
+            )
+            return cursor.lastrowid
+
+    def sample_acquisitions(self, *, actor=None, status=None):
+        clauses = []
+        values = []
+        if actor is not None:
+            clauses.append('actor = ?')
+            values.append(str(actor))
+        if status is not None:
+            clauses.append('status = ?')
+            values.append(str(status))
+        where = '' if not clauses else ' WHERE ' + ' AND '.join(clauses)
+        with _connection(self.path) as connection:
+            rows = connection.execute(
+                'SELECT * FROM sample_acquisition_jobs{} ORDER BY id DESC'.format(
+                    where
+                ),
+                values,
+            ).fetchall()
+        return tuple(_sample_acquisition_job(row) for row in rows)
+
+    def sample_acquisition(self, job_id):
+        with _connection(self.path) as connection:
+            row = connection.execute(
+                'SELECT * FROM sample_acquisition_jobs WHERE id = ?',
+                (int(job_id),),
+            ).fetchone()
+        if row is None:
+            raise KeyError('sample import job not found: {}'.format(job_id))
+        return _sample_acquisition_job(row)
+
+    def claim_next_sample_acquisition(self, *, worker_id=None):
+        self.initialize()
+        connection = _connect(self.path)
+        try:
+            connection.execute('BEGIN IMMEDIATE')
+            row = connection.execute(
+                "SELECT * FROM sample_acquisition_jobs "
+                "WHERE status = 'queued' ORDER BY id LIMIT 1"
+            ).fetchone()
+            if row is None:
+                connection.commit()
+                return None
+            started_at = _now()
+            connection.execute(
+                "UPDATE sample_acquisition_jobs SET status = 'running', "
+                "started_at = ?, worker_id = ?, error = NULL WHERE id = ?",
+                (started_at, worker_id, row['id']),
+            )
+            connection.commit()
+            values = dict(row)
+            values.update(
+                status='running', started_at=started_at,
+                worker_id=worker_id, error=None,
+            )
+            return _sample_acquisition_job(values)
+        finally:
+            connection.close()
+
+    def finish_sample_acquisition(self, job_id, *, result=None, error=None):
+        status = 'failed' if error else 'completed'
+        payload = None if result is None else json.dumps(result, sort_keys=True)
+        with _connection(self.path) as connection:
+            cursor = connection.execute(
+                '''
+                UPDATE sample_acquisition_jobs
+                SET status = ?, completed_at = ?, result = ?, error = ?
+                WHERE id = ? AND status = 'running'
+                ''',
+                (status, _now(), payload, error, int(job_id)),
+            )
+            if cursor.rowcount != 1:
+                raise ValueError(
+                    'sample import job {} is not running'.format(job_id)
+                )
+
+    def recover_running_sample_acquisitions(self):
+        with _connection(self.path) as connection:
+            cursor = connection.execute(
+                '''
+                UPDATE sample_acquisition_jobs
+                SET status = 'queued', started_at = NULL,
+                    completed_at = NULL,
+                    error = 'server stopped before completion',
+                    worker_id = NULL
+                WHERE status = 'running'
+                '''
+            )
+            return cursor.rowcount
+
     def last_actor(self):
         if not self.path.is_file():
             return None
@@ -684,6 +846,19 @@ def _acquisition_job(row):
         id=row['id'], query=row['query'], status=row['status'],
         actor=row['actor'], created_at=row['created_at'],
         started_at=row['started_at'], completed_at=row['completed_at'],
+        result=(None if row['result'] is None else json.loads(row['result'])),
+        error=row['error'], worker_id=row['worker_id'],
+    )
+
+
+def _sample_acquisition_job(row):
+    row = dict(row)
+    return SampleAcquisitionJob(
+        id=row['id'], sample_name=row['sample_name'], note=row['note'],
+        visibility=row['visibility'], targets=tuple(json.loads(row['targets'])),
+        status=row['status'], actor=row['actor'],
+        created_at=row['created_at'], started_at=row['started_at'],
+        completed_at=row['completed_at'],
         result=(None if row['result'] is None else json.loads(row['result'])),
         error=row['error'], worker_id=row['worker_id'],
     )

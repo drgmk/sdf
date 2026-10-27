@@ -1,0 +1,14 @@
+{% extends "catalog_base.html" %}
+{% block head %}{% if auto_refresh %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ job.sample_name }}</h1><p class="muted">Sample import #{{ job.id }}, {{ job.targets|length }} requested target{% if job.targets|length != 1 %}s{% endif %}</p></div><span class="status {{ job.status }}">{{ job.status }}</span></div>
+{% if job.status == 'queued' %}
+<div class="message"><h2>Waiting to import</h2><p>The sample is queued behind any earlier SDB import. This page refreshes automatically.</p></div>
+{% elif job.status == 'running' %}
+<div class="message"><h2>Building the sample</h2><p>SDB is resolving the identifiers, updating configured providers, and exporting successful targets. This page refreshes automatically.</p></div>
+{% elif job.status == 'failed' %}
+<div class="message"><h2>Import failed</h2><p>{{ job.error }}</p><p><a href="/samples/new">Create another sample</a></p></div>
+{% else %}
+<div class="message"><h2>Sample ready</h2><p>{{ job.result.succeeded_count }} target{% if job.result.succeeded_count != 1 %}s{% endif %} imported; {{ job.result.failed_count }} failed. Needed fits have been queued.</p>{% for warning in job.result.get('warnings', ()) %}<p class="warning">{{ warning }}</p>{% endfor %}<p><a class="button" href="/samples/{{ job.sample_name|urlencode }}/">Open sample</a></p></div>
+{% endif %}
+{% endblock %}

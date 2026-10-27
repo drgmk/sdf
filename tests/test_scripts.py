@@ -173,9 +173,8 @@ def test_sdf_fits_serve_starts_catalog_worker_and_watcher(monkeypatch, tmp_path)
         'worker': True, 'workers': 1,
         'watch': True, 'autofit_existing': False,
         'poll_seconds': 5.0,
-            'auth_user_header': None, 'auth_group_file': None,
-            'auth_admin_group': 'admin',
-            'public_sample_file': None, 'auth_cookie_secure': False,
+            'auth_user_header': None, 'auth_database': None,
+            'auth_session_secret': None, 'auth_cookie_secure': False,
             'sdb_import_config': None,
             'review_base_url': None,
         })]

@@ -1,4 +1,5 @@
 import json
+import sqlite3
 from types import SimpleNamespace
 from threading import Thread
 from urllib.error import HTTPError
@@ -162,6 +163,29 @@ def test_signed_in_search_can_queue_and_view_sdb_import(tmp_path):
         page = urlopen(root + '/imports/{}'.format(job_id)).read().decode()
         assert 'Waiting to import' in page
         assert 'Vega' in page
+
+        sample_form = urlopen(root + '/samples/new').read().decode()
+        assert 'Create a sample' in sample_form
+        assert 'Target list file' in sample_form
+        request = Request(
+            root + '/sample-imports',
+            data=json.dumps({
+                'sample_name': 'Nearby', 'targets': ['HD 123', 'Vega'],
+                'note': 'Nearby systems', 'visibility': 'private',
+            }).encode(),
+            headers={
+                'Content-Type': 'application/json',
+                'X-SDF-Token': 'test-token',
+            }, method='POST',
+        )
+        response = urlopen(request)
+        assert response.status == 202
+        sample_job_id = json.loads(response.read())['job_id']
+        page = urlopen(
+            root + '/sample-imports/{}'.format(sample_job_id)
+        ).read().decode()
+        assert 'Waiting to import' in page
+        assert 'Nearby' in page
     finally:
         server.shutdown()
         server.server_close()
@@ -196,17 +220,37 @@ def test_proxy_auth_separates_public_sample_and_admin_access(tmp_path):
             {'name': 'other', 'sdbids': ['sdb-test']},
         ],
     }), encoding='utf-8')
-    groups = tmp_path / '.htgroup'
-    groups.write_text(
-        'admin: grant\nprivate: alice\nother: bob\n', encoding='utf-8'
-    )
-    public = tmp_path / 'public-samples'
-    public.write_text('test\n', encoding='utf-8')
+    access_database = tmp_path / 'sdb.sqlite'
+    with sqlite3.connect(access_database) as connection:
+        connection.executescript('''
+            CREATE TABLE users (
+                username TEXT PRIMARY KEY,
+                is_admin INTEGER NOT NULL,
+                disabled INTEGER NOT NULL
+            );
+            CREATE TABLE samples (
+                id INTEGER PRIMARY KEY,
+                name TEXT UNIQUE NOT NULL,
+                owner_username TEXT,
+                visibility TEXT NOT NULL
+            );
+            CREATE TABLE sample_grants (
+                sample_id INTEGER NOT NULL,
+                username TEXT NOT NULL,
+                PRIMARY KEY (sample_id, username)
+            );
+            INSERT INTO users VALUES ('grant', 1, 0);
+            INSERT INTO users VALUES ('alice', 0, 0);
+            INSERT INTO users VALUES ('bob', 0, 0);
+            INSERT INTO samples VALUES (1, 'test', NULL, 'public');
+            INSERT INTO samples VALUES (2, 'private', 'alice', 'private');
+            INSERT INTO samples VALUES (3, 'other', 'bob', 'private');
+        ''')
     try:
         server = sdf.catalog_server.make_catalog_server(
             tmp_path, actor='Local', token='test-token', port=0,
-            auth_user_header='X-SDF-User', auth_group_file=groups,
-            public_sample_file=public,
+            auth_user_header='X-SDF-User',
+            auth_database=access_database,
             review_base_url='/review',
         )
     except PermissionError:
@@ -252,7 +296,7 @@ def test_proxy_auth_separates_public_sample_and_admin_access(tmp_path):
         public_page = read('/samples')
         assert 'test' in public_page
         assert 'private' not in public_page
-        assert 'Sign in to see shared samples' in public_page
+        assert 'Sign in to see private samples' in public_page
         assert 'HD 123' in read('/samples/test')
         assert status('/samples/private') == 401
         assert status('/admin') == 401
@@ -392,6 +436,7 @@ def test_catalog_runtime_does_not_lock_around_sdb_import(
         state=state,
         importer=object(),
         register_acquisition_export=lambda result, actor: result,
+        register_sample_acquisition_export=lambda result, actor: result,
         export_sync_lock=object(),
     )
     monkeypatch.setattr(sdf.catalog_server, 'Thread', FakeThread)
@@ -404,3 +449,4 @@ def test_catalog_runtime_does_not_lock_around_sdb_import(
     assert len(threads) == 1
     assert threads[0].target is sdf.sdb_import.run_acquisition_worker
     assert 'work_lock' not in threads[0].kwargs
+    assert 'on_sample_export' in threads[0].kwargs

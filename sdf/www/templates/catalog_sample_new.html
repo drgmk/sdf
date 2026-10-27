@@ -1,0 +1,87 @@
+{% extends "catalog_base.html" %}
+{% block content %}
+<div class="page-head"><div><h1>Create a sample</h1><p class="muted">Import up to 1000 SIMBAD identifiers. Your private sample is only visible to you and administrators.</p></div><a class="button" href="/samples">Cancel</a></div>
+{% if not import_enabled %}
+<div class="message"><h2>Import is unavailable</h2><p>This server is not connected to an SDB database.</p></div>
+{% else %}
+<form id="sample-import-form" class="sample-form">
+  <label>Sample name<input id="sample-name" maxlength="100" required placeholder="My sample"></label>
+  <label>Note <span class="muted">(optional)</span><input id="sample-note" maxlength="500" placeholder="What this sample contains"></label>
+  {% if principal.is_admin %}<label>Visibility<select id="sample-visibility"><option value="private">Private</option><option value="public">Public</option></select></label>{% endif %}
+  <label>Target list file <span class="muted">(optional; text, CSV, or TSV, at most 1 MB)</span><input id="target-file" type="file" accept=".txt,.csv,.tsv,text/plain,text/csv,text/tab-separated-values"></label>
+  <label>SIMBAD identifiers <span class="muted">(one per line)</span><textarea id="target-text" rows="12" placeholder="HD 123&#10;Vega&#10;bet Pic"></textarea></label>
+  <div id="target-preview" class="message muted">Enter identifiers or choose a file.</div>
+  <div id="sample-error" class="warning" role="alert"></div>
+  <button id="sample-submit" type="submit">Import sample</button>
+</form>
+<script>
+(() => {
+  const form = document.getElementById('sample-import-form');
+  const file = document.getElementById('target-file');
+  const text = document.getElementById('target-text');
+  const preview = document.getElementById('target-preview');
+  const error = document.getElementById('sample-error');
+  const submit = document.getElementById('sample-submit');
+  let fileText = '';
+  function splitRow(row, delimiter) {
+    const values = []; let value = ''; let quoted = false;
+    for (let index = 0; index < row.length; index += 1) {
+      const char = row[index];
+      if (char === '"') {
+        if (quoted && row[index + 1] === '"') { value += '"'; index += 1; }
+        else quoted = !quoted;
+      } else if (char === delimiter && !quoted) { values.push(value.trim()); value = ''; }
+      else value += char;
+    }
+    values.push(value.trim()); return values;
+  }
+  function identifiers(value, filename) {
+    const rows = value.split(/\r?\n/).map(row => row.trim()).filter(row => row && !row.startsWith('#'));
+    if (!rows.length) return [];
+    if (/\.(csv|tsv)$/i.test(filename || '')) {
+      const delimiter = /\.tsv$/i.test(filename || '') ? '\t' : ',';
+      const table = rows.map(row => splitRow(row, delimiter));
+      const headers = table[0].map(value => value.toLowerCase().replace(/[^a-z0-9]+/g, '_'));
+      const choices = ['target', 'simbad_name', 'identifier', 'name', 'sdbid'];
+      const column = choices.map(name => headers.indexOf(name)).find(index => index >= 0);
+      if (column === undefined) throw new Error('CSV/TSV needs a target, simbad_name, identifier, name, or sdbid column.');
+      return table.slice(1).map(row => row[column] || '').filter(Boolean);
+    }
+    return rows;
+  }
+  function currentTargets() {
+    const values = [...identifiers(fileText, file.files[0]?.name), ...identifiers(text.value, '')];
+    return [...new Set(values.map(value => value.replace(/\s+/g, ' ').trim()).filter(Boolean))];
+  }
+  function updatePreview() {
+    try {
+      const values = currentTargets(); const shown = values.slice(0, 8).join(', ');
+      preview.textContent = values.length ? `${values.length} unique target${values.length === 1 ? '' : 's'}: ${shown}${values.length > 8 ? ', …' : ''}` : 'Enter identifiers or choose a file.';
+      error.textContent = values.length > 1000 ? 'Samples are limited to 1000 targets.' : '';
+    } catch (problem) { error.textContent = problem.message; }
+  }
+  file.addEventListener('change', async () => {
+    error.textContent = '';
+    if (!file.files.length) { fileText = ''; updatePreview(); return; }
+    if (file.files[0].size > 1024 * 1024) { file.value = ''; fileText = ''; error.textContent = 'The target file is larger than 1 MB.'; return; }
+    fileText = await file.files[0].text(); updatePreview();
+  });
+  text.addEventListener('input', updatePreview);
+  form.addEventListener('submit', async event => {
+    event.preventDefault(); error.textContent = '';
+    try {
+      const targets = currentTargets();
+      if (!targets.length) throw new Error('Enter at least one target identifier.');
+      if (targets.length > 1000) throw new Error('Samples are limited to 1000 targets.');
+      submit.disabled = true; submit.textContent = 'Queueing…';
+      const response = await fetch('/sample-imports', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-SDF-Token': '{{ token }}'}, body: JSON.stringify({sample_name: document.getElementById('sample-name').value, note: document.getElementById('sample-note').value, visibility: document.getElementById('sample-visibility')?.value || 'private', targets})});
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not queue the sample import.');
+      window.location.assign(`/sample-imports/${result.job_id}`);
+    } catch (problem) { error.textContent = problem.message; submit.disabled = false; submit.textContent = 'Import sample'; }
+  });
+  updatePreview();
+})();
+</script>
+{% endif %}
+{% endblock %}

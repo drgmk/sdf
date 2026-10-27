@@ -1,5 +1,7 @@
 import sqlite3
 
+import pytest
+
 from .context import sdf
 import sdf.model_policy
 import sdf.operator_state
@@ -253,7 +255,7 @@ def test_version_one_operator_database_is_migrated_in_place(tmp_path):
         columns = {
             row[1] for row in connection.execute('PRAGMA table_info(fit_jobs)')
         }
-    assert version == '4'
+    assert version == '5'
     assert 'worker_id' in columns
 
 
@@ -279,7 +281,7 @@ def test_version_two_operator_database_records_default_choices(tmp_path):
                 "SELECT name FROM sqlite_master WHERE type = 'table'"
             )
         }
-    assert version == '4'
+    assert version == '5'
     assert 'fit_policy_default' in tables
 
 
@@ -311,3 +313,35 @@ def test_acquisition_queue_coalesces_claims_completes_and_recovers(tmp_path):
     assert completed.status == 'completed'
     assert completed.result['packages'] == ['sdb-test']
     assert state.acquisitions(actor='alice') == (completed,)
+
+
+def test_sample_acquisition_queue_validates_claims_and_completes(tmp_path):
+    state = sdf.operator_state.OperatorState(
+        tmp_path / 'operator.sqlite'
+    ).initialize()
+
+    job_id = state.queue_sample_acquisition(
+        'Nearby stars', [' HD   123 ', 'Vega', 'HD 123'], actor='alice',
+        note='A test sample', visibility='private',
+    )
+    job = state.claim_next_sample_acquisition(worker_id='import-1')
+
+    assert job.id == job_id
+    assert job.sample_name == 'Nearby stars'
+    assert job.targets == ('HD 123', 'Vega')
+    assert job.note == 'A test sample'
+    assert job.status == 'running'
+    assert state.recover_running_sample_acquisitions() == 1
+
+    job = state.claim_next_sample_acquisition(worker_id='import-2')
+    state.finish_sample_acquisition(
+        job.id, result={'sample': 'Nearby stars', 'packages': ['one']}
+    )
+    completed = state.sample_acquisition(job_id)
+    assert completed.status == 'completed'
+    assert completed.result['packages'] == ['one']
+
+    with pytest.raises(ValueError, match='1000'):
+        state.queue_sample_acquisition(
+            'Too large', [str(value) for value in range(1001)], actor='alice'
+        )
