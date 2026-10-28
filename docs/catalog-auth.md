@@ -91,10 +91,13 @@ override it, and page tokens provide cross-site request-forgery protection.
 
 Signed-in users can import a missing SIMBAD target from search or create a
 private sample from up to 1000 text/CSV/TSV identifiers. Sample acquisition is
-durable and uses the same single SDB writer as individual imports; successful
-targets are exported and fitted even when some identifiers fail. Only
-administrators can make a newly imported sample public. Public individual SED
-pages remain public independently of sample access.
+preceded by a local check that distinguishes existing targets, new identifiers
+that require SIMBAD, and ambiguous aliases. Existing targets are reused without
+remote name resolution. Acquisition is durable and uses the same single SDB
+writer as individual imports; successful targets are exported and fitted even
+when some identifiers fail. Only administrators can make a newly imported
+sample public. Public individual SED pages remain public independently of
+sample access.
 
 Public system routes never serve `operator.html`. Live configuration pages are
 rendered ephemerally, avoiding persistence of the page token or authenticated

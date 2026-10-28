@@ -9,6 +9,9 @@
 {% elif job.status == 'failed' %}
 <div class="message"><h2>Import failed</h2><p>{{ job.error }}</p><p><a href="/samples/new">Create another sample</a></p></div>
 {% else %}
-<div class="message"><h2>Sample ready</h2><p>{{ job.result.succeeded_count }} target{% if job.result.succeeded_count != 1 %}s{% endif %} imported; {{ job.result.failed_count }} failed. Needed fits have been queued.</p>{% for warning in job.result.get('warnings', ()) %}<p class="warning">{{ warning }}</p>{% endfor %}<p><a class="button" href="/samples/{{ job.sample_name|urlencode }}/">Open sample</a></p></div>
+<div class="message"><h2>{% if job.result.succeeded_count %}Sample imported{% else %}No targets imported{% endif %}</h2><p>{{ job.result.succeeded_count }} target{% if job.result.succeeded_count != 1 %}s{% endif %} imported; {{ job.result.failed_count }} failed.{% if job.result.fit_job_ids %} Needed fits have been queued.{% endif %}</p>{% for warning in job.result.get('warnings', ()) %}<p class="warning">{{ warning }}</p>{% endfor %}{% if job.result.succeeded_count and job.result.manifests %}<p><a class="button" href="/samples/{{ job.sample_name|urlencode }}/">Open sample</a></p>{% endif %}</div>
+{% set target_result = job.result.import_result.import_result %}
+<h2>Target results</h2>
+<div class="table-wrap"><table><thead><tr><th>Input</th><th>Result</th></tr></thead><tbody>{% for item in target_result.items %}<tr><td>{{ item.requested_name }}</td><td>{% if item.status == 'existing' %}Existing target{% elif item.status == 'created' %}New target created{% else %}<span class="warning">{{ item.error or 'Failed' }}</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
 {% endif %}
 {% endblock %}

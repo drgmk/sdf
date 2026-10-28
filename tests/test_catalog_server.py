@@ -167,6 +167,7 @@ def test_signed_in_search_can_queue_and_view_sdb_import(tmp_path):
         sample_form = urlopen(root + '/samples/new').read().decode()
         assert 'Create a sample' in sample_form
         assert 'Target list file' in sample_form
+        assert 'Check target list' in sample_form
         request = Request(
             root + '/sample-imports',
             data=json.dumps({

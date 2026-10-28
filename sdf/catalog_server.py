@@ -286,6 +286,11 @@ class CatalogService:
         )
         return {'job_id': job_id, 'status': 'queued'}
 
+    def check_sample_targets(self, targets):
+        if self.importer is None:
+            raise ValueError('sample import is not configured')
+        return self.importer.check_sample_targets(targets)
+
     def sample_acquisition(self, job_id, principal):
         job = self.state.sample_acquisition(job_id)
         if job.actor != principal.username and not principal.is_admin:
@@ -1026,6 +1031,15 @@ class _CatalogHandler(BaseHTTPRequestHandler):
                     visibility=visibility,
                 )
                 self._json(result, status=HTTPStatus.ACCEPTED)
+                return
+            if parsed.path == '/sample-checks':
+                self.service.auth.require_authenticated(principal)
+                if self.headers.get('X-SDF-Token') != self.service.token:
+                    raise PermissionError('invalid request token')
+                payload = self._payload()
+                self._json(self.service.check_sample_targets(
+                    payload.get('targets', ())
+                ))
                 return
             self.service.auth.require_admin(principal)
             package, asset = _system_parts(

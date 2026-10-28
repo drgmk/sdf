@@ -165,6 +165,38 @@ class SdbImporter:
                 'SDB sample import failed', status, stderr
             ))
 
+        warnings = []
+        failed_count = int(acquired.get('failed_count', 0))
+        update = (acquired.get('import_result') or {}).get(
+            'update_summary'
+        ) or {}
+        if failed_count:
+            warnings.append(
+                '{} of {} target identifier(s) could not be resolved'.format(
+                    failed_count,
+                    acquired.get('requested_count', len(job.targets)),
+                )
+            )
+        if int(update.get('failed', 0)):
+            warnings.append(
+                '{} provider update(s) failed; successful targets were '
+                'retained'.format(update['failed'])
+            )
+        result = {
+            'sample': job.sample_name,
+            'requested_count': len(job.targets),
+            'succeeded_count': int(acquired.get('succeeded_count', 0)),
+            'failed_count': failed_count,
+            'packages': [],
+            'manifests': [],
+            'exported': 0,
+            'skipped': 0,
+            'warnings': warnings,
+            'import_result': acquired,
+        }
+        if not result['succeeded_count']:
+            return result
+
         exported, export_status, export_stderr = self._json_command(
             [
                 *self.config.command(), 'export', '--sample', job.sample_name,
@@ -173,33 +205,57 @@ class SdbImporter:
             environment=environment,
         )
         if export_status != 0 or int(exported.get('failed', 0)):
-            raise RuntimeError(_command_error(
-                'SDB sample export failed', export_status, export_stderr
-            ))
-        manifest, packages = self._manifest_packages(exported)
-        warnings = []
-        if status == 1:
             warnings.append(
-                '{} of {} target(s) could not be fully imported; successful '
-                'targets were retained'.format(
-                    acquired.get('failed_count', 'Some'),
-                    acquired.get('requested_count', 'the requested'),
+                _command_error(
+                    'Targets were imported but SDB export failed',
+                    export_status, export_stderr,
                 )
             )
-        return {
-            'sample': job.sample_name,
-            'requested_count': len(job.targets),
-            'succeeded_count': int(acquired.get('succeeded_count', 0)),
-            'failed_count': int(acquired.get('failed_count', 0)),
-            'packages': list(packages),
-            'manifests': [manifest.name],
-            'exported': int(exported.get('exported', 0)),
-            'skipped': int(exported.get('skipped', 0)),
-            'warnings': warnings,
-            'import_result': acquired,
-        }
+            if not exported.get('manifest'):
+                return result
+        manifest, packages = self._manifest_packages(
+            exported, allow_empty=True
+        )
+        result.update(
+            packages=list(packages), manifests=[manifest.name],
+            exported=int(exported.get('exported', 0)),
+            skipped=int(exported.get('skipped', 0)),
+        )
+        if not packages:
+            warnings.append(
+                'Targets were imported, but none is ready for a fitting package'
+            )
+        return result
 
-    def _manifest_packages(self, summary):
+    def check_sample_targets(self, targets):
+        """Classify target identifiers using only the local SDB database."""
+
+        targets = tuple(dict.fromkeys(
+            ' '.join(str(value or '').split()) for value in targets
+            if str(value or '').strip()
+        ))
+        if not targets:
+            raise ValueError('at least one target identifier is required')
+        if len(targets) > 1000:
+            raise ValueError('sample checks are limited to 1000 targets')
+        with tempfile.NamedTemporaryFile(
+                mode='w', encoding='utf-8', suffix='.txt') as target_file:
+            target_file.write('\n'.join(targets) + '\n')
+            target_file.flush()
+            checked, status, stderr = self._json_command(
+                [
+                    *self.config.command(), 'sample', 'check',
+                    target_file.name,
+                ],
+                environment=os.environ.copy(),
+            )
+        if status not in {0, 1}:
+            raise RuntimeError(_command_error(
+                'SDB sample check failed', status, stderr
+            ))
+        return checked
+
+    def _manifest_packages(self, summary, *, allow_empty=False):
         manifest = Path(summary['manifest']).expanduser().resolve()
         try:
             manifest.relative_to(self.export_root)
@@ -213,7 +269,7 @@ class SdbImporter:
             for package in payload.get('packages', ())
             if package.get('status') == 'completed' and package.get('directory')
         ))
-        if not packages:
+        if not packages and not allow_empty:
             raise RuntimeError('SDB export produced no complete fitting package')
         return manifest, packages
 

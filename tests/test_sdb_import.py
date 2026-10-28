@@ -141,6 +141,67 @@ def test_sdb_importer_acquires_and_exports_sample(tmp_path):
     ]
 
 
+def test_sdb_importer_checks_sample_targets_without_importing(tmp_path):
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        target_file = command[-1]
+        assert open(target_file, encoding='utf-8').read() == '49 Cet\nNew\n'
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps({
+                'requested_count': 2, 'existing_count': 1,
+                'new_count': 1, 'ambiguous_count': 0,
+                'items': [],
+            }), stderr='',
+        )
+
+    importer = sdf.sdb_import.SdbImporter(
+        sdf.sdb_import.SdbImportConfig.create(tmp_path / 'sdb.sqlite'),
+        tmp_path, runner=runner,
+    )
+    result = importer.check_sample_targets(('49 Cet', 'New', '49 Cet'))
+
+    assert result['existing_count'] == 1
+    assert calls[0][-3:-1] == ['sample', 'check']
+
+
+def test_sdb_importer_retains_all_failed_sample_result_without_export(tmp_path):
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return SimpleNamespace(
+            returncode=1,
+            stdout=json.dumps({
+                'requested_count': 1, 'succeeded_count': 0,
+                'failed_count': 1,
+                'import_result': {
+                    'items': [{
+                        'requested_name': 'New', 'status': 'failed',
+                        'error': 'SIMBAD unavailable',
+                    }],
+                    'update_summary': None,
+                },
+            }), stderr='SIMBAD unavailable',
+        )
+
+    importer = sdf.sdb_import.SdbImporter(
+        sdf.sdb_import.SdbImportConfig.create(tmp_path / 'sdb.sqlite'),
+        tmp_path, runner=runner,
+    )
+    result = importer.acquire_sample(SimpleNamespace(
+        sample_name='New sample', targets=('New',), actor='alice',
+        visibility='private', note=None,
+    ))
+
+    assert result['succeeded_count'] == 0
+    assert result['failed_count'] == 1
+    assert result['packages'] == []
+    assert len(calls) == 1
+
+
 def test_acquisition_worker_drains_sample_queue(tmp_path):
     state = sdf.operator_state.OperatorState(
         tmp_path / 'operator.sqlite'

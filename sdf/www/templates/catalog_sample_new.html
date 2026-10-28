@@ -11,8 +11,9 @@
   <label>Target list file <span class="muted">(optional; text, CSV, or TSV, at most 1 MB)</span><input id="target-file" type="file" accept=".txt,.csv,.tsv,text/plain,text/csv,text/tab-separated-values"></label>
   <label>SIMBAD identifiers <span class="muted">(one per line)</span><textarea id="target-text" rows="12" placeholder="HD 123&#10;Vega&#10;bet Pic"></textarea></label>
   <div id="target-preview" class="message muted">Enter identifiers or choose a file.</div>
+  <div id="target-check" hidden></div>
   <div id="sample-error" class="warning" role="alert"></div>
-  <button id="sample-submit" type="submit">Import sample</button>
+  <button id="sample-submit" type="submit">Check target list</button>
 </form>
 <script>
 (() => {
@@ -20,9 +21,11 @@
   const file = document.getElementById('target-file');
   const text = document.getElementById('target-text');
   const preview = document.getElementById('target-preview');
+  const check = document.getElementById('target-check');
   const error = document.getElementById('sample-error');
   const submit = document.getElementById('sample-submit');
   let fileText = '';
+  let checkedSignature = null;
   function splitRow(row, delimiter) {
     const values = []; let value = ''; let quoted = false;
     for (let index = 0; index < row.length; index += 1) {
@@ -53,11 +56,36 @@
     const values = [...identifiers(fileText, file.files[0]?.name), ...identifiers(text.value, '')];
     return [...new Set(values.map(value => value.replace(/\s+/g, ' ').trim()).filter(Boolean))];
   }
+  function resetCheck() {
+    checkedSignature = null; check.hidden = true; check.replaceChildren();
+    submit.textContent = 'Check target list';
+  }
+  function renderCheck(result) {
+    const summary = document.createElement('p');
+    summary.className = 'check-summary';
+    summary.textContent = `${result.existing_count} existing, ${result.new_count} new (SIMBAD required), ${result.ambiguous_count} ambiguous`;
+    const table = document.createElement('table');
+    const head = document.createElement('thead');
+    head.innerHTML = '<tr><th>Input</th><th>Local check</th></tr>';
+    table.appendChild(head);
+    const body = document.createElement('tbody');
+    for (const item of result.items) {
+      const row = document.createElement('tr');
+      const requested = document.createElement('td'); requested.textContent = item.requested_name;
+      const outcome = document.createElement('td');
+      if (item.status === 'existing') outcome.textContent = `Already in SDB as ${item.matches[0].main_id}`;
+      else if (item.status === 'new') outcome.textContent = 'New — requires SIMBAD';
+      else outcome.textContent = `Ambiguous — ${item.matches.map(value => value.main_id).join(', ')}`;
+      row.append(requested, outcome); body.appendChild(row);
+    }
+    table.appendChild(body); check.replaceChildren(summary, table); check.hidden = false;
+  }
   function updatePreview() {
     try {
       const values = currentTargets(); const shown = values.slice(0, 8).join(', ');
       preview.textContent = values.length ? `${values.length} unique target${values.length === 1 ? '' : 's'}: ${shown}${values.length > 8 ? ', …' : ''}` : 'Enter identifiers or choose a file.';
       error.textContent = values.length > 1000 ? 'Samples are limited to 1000 targets.' : '';
+      resetCheck();
     } catch (problem) { error.textContent = problem.message; }
   }
   file.addEventListener('change', async () => {
@@ -73,12 +101,27 @@
       const targets = currentTargets();
       if (!targets.length) throw new Error('Enter at least one target identifier.');
       if (targets.length > 1000) throw new Error('Samples are limited to 1000 targets.');
-      submit.disabled = true; submit.textContent = 'Queueing…';
+      const signature = JSON.stringify(targets);
+      submit.disabled = true;
+      if (checkedSignature !== signature) {
+        submit.textContent = 'Checking…';
+        const response = await fetch('/sample-checks', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-SDF-Token': '{{ token }}'}, body: JSON.stringify({targets})});
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Could not check the target list.');
+        renderCheck(result); submit.disabled = false;
+        if (result.ambiguous_count) {
+          checkedSignature = null; submit.textContent = 'Check target list';
+          throw new Error('Resolve ambiguous identifiers before importing.');
+        }
+        checkedSignature = signature; submit.textContent = 'Import sample';
+        return;
+      }
+      submit.textContent = 'Queueing…';
       const response = await fetch('/sample-imports', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-SDF-Token': '{{ token }}'}, body: JSON.stringify({sample_name: document.getElementById('sample-name').value, note: document.getElementById('sample-note').value, visibility: document.getElementById('sample-visibility')?.value || 'private', targets})});
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not queue the sample import.');
       window.location.assign(`/sample-imports/${result.job_id}`);
-    } catch (problem) { error.textContent = problem.message; submit.disabled = false; submit.textContent = 'Import sample'; }
+    } catch (problem) { error.textContent = problem.message; submit.disabled = false; submit.textContent = checkedSignature ? 'Import sample' : 'Check target list'; }
   });
   updatePreview();
 })();
