@@ -196,6 +196,10 @@ same exact candidate replaces its artifact; it does not create dated result
 history. `selection.json` independently controls the default and displayed
 candidates, so changing presentation does not refit anything.
 
+See [Using SDF fit outputs](fit-outputs.md) for a practical guide to the JSON
+and NPZ products, including code examples for posterior distributions,
+physical derived quantities, component predictions, and model spectra.
+
 The NPZ is self-describing and can be used without also downloading
 `result.json`. `samples` contains the parameters fitted by the sampler, with
 columns named by `parameter_names`. `derived_samples` contains physical
