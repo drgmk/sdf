@@ -4,6 +4,9 @@ sdf
 SDF fits stellar and circumstellar-disk models to photometry and spectra,
 including hierarchical systems with resolved and composite observations.
 
+Catalog import, association, review, and export are covered by the
+`SDB documentation </docs/sdb/>`_.
+
 Website users
 -------------
 

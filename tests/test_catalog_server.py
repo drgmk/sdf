@@ -354,6 +354,7 @@ def test_proxy_auth_separates_public_sample_and_admin_access(tmp_path):
         dashboard = read('/admin', 'grant')
         assert 'SDF catalog' in dashboard
         assert 'href="/review/">Data review</a>' in dashboard
+        assert 'href="/docs/sdf/">Docs</a>' in dashboard
         admin_page = read('/admin/system/package/', 'grant')
         assert 'Queue automatic fit' in admin_page
         assert 'Signed in as <strong>grant</strong>' in admin_page

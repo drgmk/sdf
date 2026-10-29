@@ -118,6 +118,7 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     assert '>Search</a>' not in html
     assert 'aria-label="Footer navigation"' in html
     assert '>sdf home</a>' in html
+    assert 'href="/docs/sdf/">docs</a>' in html
     assert 'toolbar_location":"below"' in html
 
     with open(dataset.observations[0].source, 'a', encoding='utf-8') as handle:
