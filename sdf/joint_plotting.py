@@ -640,11 +640,11 @@ def _candidate_product_links(candidate):
     directory = 'fits/{}/'.format(candidate.path.name)
     links = [
         '<a style="color:#285ea8;text-decoration:none" href="{}">{}</a>'.format(
-            escape(directory + 'result.json'), 'result'
+            escape(directory + 'result.json'), 'metadata (JSON)'
         ),
         '<a style="color:#285ea8;text-decoration:none" href="{}">{}</a>'.format(
             escape(directory + candidate.metadata['posterior']['file']),
-            'posterior',
+            'posterior data (NPZ)',
         ),
     ]
     for label, title, filename in (

@@ -24,6 +24,7 @@ from sdf.operator_jobs import run_next_job, run_worker
 from sdf.operator_state import OperatorState
 from sdf.catalog_server import serve_catalog
 from sdf.catalog_auth import read_session_secret
+from sdf.candidate_library import CandidateLibrary
 from sdf.sample_products import write_sample_products
 from sdf.sdb_import import SdbImportConfig
 
@@ -417,6 +418,26 @@ def sdf_fits():
         '--threshold', type=float, metavar='LOG_EVIDENCE',
         help='significance threshold (default: configured ev_threshold)',
     )
+    refresh_parser = _sdf_fits_command(
+        subparsers, 'refresh-posteriors',
+        'Add labels and metadata to retained posterior files.',
+        'Rewrites compact NPZ artifacts so their fitted, derived, and model '
+        'component axes are self-describing. This is a metadata-only '
+        'operation and never invokes a sampler. Pass one PACKAGE, or use '
+        '--all with an EXPORT_ROOT.',
+        examples=(
+            'sdf-fits refresh-posteriors PACKAGE',
+            'sdf-fits refresh-posteriors /data/sdb/export --all',
+        ),
+    )
+    refresh_parser.add_argument(
+        'package', metavar='PACKAGE_OR_EXPORT_ROOT',
+        help='one fitting package, or an export root when --all is used',
+    )
+    refresh_parser.add_argument(
+        '--all', action='store_true',
+        help='refresh every fitted package below EXPORT_ROOT',
+    )
     serve_parser = _sdf_fits_command(
         subparsers, 'serve',
         'Serve the catalog-wide SDF operator UI and fitting loop.',
@@ -614,6 +635,18 @@ def sdf_fits():
         print(json.dumps({
             'reprioritized': changed, 'skipped': skipped,
             'packages': len(packages),
+        }, sort_keys=True))
+        return
+
+    if args.command == 'refresh-posteriors':
+        root = Path(args.package).expanduser().resolve()
+        packages = discover_packages(root) if args.all else (root,)
+        refreshed = sum(
+            CandidateLibrary(package).refresh_posterior_artifacts()
+            for package in packages
+        )
+        print(json.dumps({
+            'refreshed': refreshed, 'packages': len(packages),
         }, sort_keys=True))
         return
 

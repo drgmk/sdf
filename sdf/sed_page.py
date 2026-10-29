@@ -152,12 +152,12 @@ def candidate_page_rows(candidates, labels, default_candidate,
                 'model': component['model_name'],
             })
         links = [{
-            'label': 'result',
+            'label': 'metadata (JSON)',
             'url': (candidate.path / 'result.json').relative_to(
                 package_directory
             ).as_posix(),
         }, {
-            'label': 'posterior',
+            'label': 'posterior data (NPZ)',
             'url': (candidate.path / candidate.metadata['posterior']['file']).relative_to(
                 package_directory
             ).as_posix(),

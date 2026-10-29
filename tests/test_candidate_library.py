@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 import pytest
 
@@ -59,6 +61,95 @@ def test_candidate_library_round_trips_compact_result(tmp_path):
     )
     assert stored.is_current(dataset)
     assert library.candidates()[0].candidate_id == candidate.canonical_id
+
+
+def test_posterior_artifact_describes_fitted_derived_and_component_axes(
+        tmp_path):
+    dataset, candidate, posterior = _completed_candidate(tmp_path)
+    component = candidate.components[0]
+    derived = [{
+        'name': component.component_id + '.radius_rsun',
+        'label': 'stellar radius',
+        'unit': 'R_sun',
+        'owner_key': component.owner_key,
+        'owner_keys': [component.owner_key],
+        'component_id': component.component_id,
+        'role': component.role,
+    }]
+    stored = sdf.candidate_library.CandidateLibrary(tmp_path).commit(
+        dataset, candidate, posterior,
+        analysis={
+            'derived_parameters': derived,
+            'targets': {
+                component.owner_key: {'main_id': 'HD 123'},
+            },
+        },
+        analysis_arrays={
+            'derived_samples': np.arange(3, dtype=float)[:, None],
+            'component_spectrum_median': np.ones((1, 2)),
+            'spectrum_wavelength_micron': np.array([1.0, 2.0]),
+        },
+    )
+    path = stored.path / stored.metadata['posterior']['file']
+
+    with np.load(path) as artifact:
+        assert artifact['artifact_type'].item() == 'sdf.posterior'
+        assert artifact['schema_version'].item() == 1
+        assert artifact['parameter_names'].tolist() == list(
+            posterior.parameter_names
+        )
+        assert artifact['derived_parameter_names'].tolist() == [
+            derived[0]['name']
+        ]
+        assert artifact['derived_parameter_labels'].tolist() == [
+            'stellar radius'
+        ]
+        assert artifact['derived_parameter_units'].tolist() == ['R_sun']
+        assert artifact['component_ids'].tolist() == [
+            component.component_id
+        ]
+        assert artifact['component_roles'].tolist() == ['stellar']
+        assert artifact['derived_samples'].shape == (3, 1)
+        assert all(artifact[name].dtype.kind != 'O' for name in artifact.files)
+        metadata = json.loads(artifact['metadata_json'].item())
+        assert metadata['targets'] == [{
+            'key': component.owner_key, 'main_id': 'HD 123',
+        }]
+        assert metadata['array_axes']['samples'] == [
+            'sample', 'parameter_names'
+        ]
+
+
+def test_legacy_posterior_can_load_and_refresh_without_refitting(tmp_path):
+    dataset, candidate, posterior = _completed_candidate(tmp_path)
+    library = sdf.candidate_library.CandidateLibrary(tmp_path)
+    stored = library.commit(
+        dataset, candidate, posterior,
+        analysis_arrays={'prediction': np.array([1.0, 2.0])},
+    )
+    path = stored.path / stored.metadata['posterior']['file']
+    with np.load(path) as current:
+        legacy = {
+            name if name != 'prediction' else 'analysis__prediction':
+            current[name]
+            for name in ('samples', 'log_likelihoods', 'prediction')
+        }
+    np.savez_compressed(path, **legacy)
+    result_path = stored.path / 'result.json'
+    result = json.loads(result_path.read_text(encoding='utf-8'))
+    result['posterior'].pop('artifact_schema')
+    result_path.write_text(json.dumps(result), encoding='utf-8')
+
+    loaded = library.load(stored.path)
+    assert loaded.analysis_arrays['prediction'].tolist() == [1.0, 2.0]
+    assert library.refresh_posterior_artifacts() == 1
+    assert library.refresh_posterior_artifacts() == 0
+    with np.load(path) as refreshed:
+        assert 'prediction' in refreshed.files
+        assert 'analysis__prediction' not in refreshed.files
+        assert refreshed['parameter_names'].tolist() == list(
+            posterior.parameter_names
+        )
 
 
 def test_refit_replaces_exact_candidate_without_result_history(tmp_path):

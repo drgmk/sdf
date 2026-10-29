@@ -196,6 +196,36 @@ same exact candidate replaces its artifact; it does not create dated result
 history. `selection.json` independently controls the default and displayed
 candidates, so changing presentation does not refit anything.
 
+The NPZ is self-describing and can be used without also downloading
+`result.json`. `samples` contains the parameters fitted by the sampler, with
+columns named by `parameter_names`. `derived_samples` contains physical
+quantities calculated from the corresponding posterior rows (including
+propagated astrometry), with names, display labels, and units in the
+`derived_parameter_*` arrays. The `component_*` arrays label the first axis of
+component predictions and spectra. All metadata arrays use NumPy string
+dtypes, so loading never requires `allow_pickle=True`.
+
+```python
+import numpy as np
+
+with np.load('posterior.npz') as posterior:
+    fitted = dict(zip(
+        posterior['parameter_names'], posterior['samples'].T,
+    ))
+    derived = dict(zip(
+        posterior['derived_parameter_names'],
+        posterior['derived_samples'].T,
+    ))
+```
+
+Artifacts written before these labels were added remain readable by SDF. They
+can be updated without rerunning MultiNest:
+
+```shell
+sdf-fits refresh-posteriors /path/to/package
+sdf-fits refresh-posteriors /path/to/export --all
+```
+
 Changing rawphot/topology makes retained candidates non-current. Changes to
 models or material sampler settings also make them non-current. Merely moving
 the package, changing display selection, or changing SDF code does not; the

@@ -588,9 +588,12 @@ Each candidate's compact result records:
   configuration state.
 
 `posterior.npz` retains the equal-weight posterior used by analysis, normally
-capped at the existing `n_samples_max`, along with parameter labels and any
-weights/log likelihoods that are still needed.  Existing examples suggest
-that this is compact: equal-weight text files of roughly 287--461 kB compressed
+capped at the existing `n_samples_max`, along with fitted and derived parameter
+labels, units, component-axis metadata, and any weights/log likelihoods that
+are still needed. It is self-describing when downloaded independently of
+`result.json`; existing artifacts can be refreshed without refitting. Existing
+examples suggest that this is compact: equal-weight text files of roughly
+287--461 kB compressed
 to approximately 62--109 kB as NPZ.  Dense per-sample predictions for every
 filter need not be retained because `FitAnalysis` can regenerate them from the
 posterior and model grids.  A regenerable analysis cache can be added only if

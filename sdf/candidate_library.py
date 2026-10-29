@@ -16,6 +16,9 @@ from .model_selection import ModelCandidate
 from .samplers import PosteriorRun
 
 
+POSTERIOR_ARTIFACT_SCHEMA = 1
+
+
 @dataclass(frozen=True)
 class StoredCandidate:
     """One candidate artifact loaded from a package library."""
@@ -90,23 +93,6 @@ class CandidateLibrary:
         posterior_name = 'posterior-{}.npz'.format(posterior_digest[:12])
         posterior_path = candidate_directory / posterior_name
 
-        arrays = {'samples': posterior.samples}
-        if posterior.log_likelihoods is not None:
-            arrays['log_likelihoods'] = posterior.log_likelihoods
-        if posterior.weights is not None:
-            arrays['weights'] = posterior.weights
-        for name, values in (analysis_arrays or {}).items():
-            values = np.asarray(values)
-            if values.dtype.hasobject:
-                try:
-                    values = values.astype(str)
-                except (TypeError, ValueError) as error:
-                    raise TypeError(
-                        'analysis array {} cannot use object dtype'.format(name)
-                    ) from error
-            arrays['analysis__' + name] = values
-        _atomic_npz(posterior_path, arrays)
-
         metadata = {
             'candidate_id': candidate.canonical_id,
             'display_name': candidate.candidate_id,
@@ -143,12 +129,17 @@ class CandidateLibrary:
                 'options': posterior.options or {},
                 'diagnostics': posterior.diagnostics or {},
                 'native_output': posterior.native_output,
+                'artifact_schema': POSTERIOR_ARTIFACT_SCHEMA,
             },
             'analysis': analysis or {},
             'analysis_arrays': sorted((analysis_arrays or {}).keys()),
             'policy': policy or {},
             'provenance': provenance or {},
         }
+        arrays = _posterior_artifact_arrays(
+            posterior, analysis_arrays or {}, metadata
+        )
+        _atomic_npz(posterior_path, arrays)
         _atomic_json(candidate_directory / 'result.json', metadata)
 
         for old_posterior in candidate_directory.glob('posterior-*.npz'):
@@ -183,10 +174,10 @@ class CandidateLibrary:
                 diagnostics=posterior_meta['diagnostics'],
                 native_output=posterior_meta.get('native_output'),
             )
-            analysis_arrays = {
-                name: arrays['analysis__' + name]
-                for name in metadata.get('analysis_arrays', ())
-            }
+            analysis_arrays = {}
+            for name in metadata.get('analysis_arrays', ()):
+                key = name if name in arrays else 'analysis__' + name
+                analysis_arrays[name] = arrays[key]
         return StoredCandidate(
             candidate_directory, metadata, posterior, analysis_arrays
         )
@@ -208,6 +199,30 @@ class CandidateLibrary:
             if candidate.candidate_id == candidate_id:
                 return candidate
         return None
+
+    def refresh_posterior_artifacts(self):
+        """Make retained posterior files self-describing without refitting."""
+
+        refreshed = 0
+        for candidate in self.candidates():
+            posterior_path = (
+                candidate.path / candidate.metadata['posterior']['file']
+            )
+            if _posterior_artifact_is_current(
+                    posterior_path, candidate.metadata):
+                continue
+            metadata = dict(candidate.metadata)
+            metadata['posterior'] = dict(metadata['posterior'])
+            metadata['posterior'][
+                'artifact_schema'
+            ] = POSTERIOR_ARTIFACT_SCHEMA
+            arrays = _posterior_artifact_arrays(
+                candidate.posterior, candidate.analysis_arrays, metadata
+            )
+            _atomic_npz(posterior_path, arrays)
+            _atomic_json(candidate.path / 'result.json', metadata)
+            refreshed += 1
+        return refreshed
 
     def write_selection(self, selection):
         """Atomically update the cheap mutable display/default choice."""
@@ -294,6 +309,146 @@ def _posterior_fingerprint(posterior):
             digest.update(np.ascontiguousarray(values).view(np.uint8))
     digest.update('\0'.join(posterior.parameter_names).encode('utf-8'))
     return digest.hexdigest()
+
+
+def _posterior_artifact_arrays(posterior, analysis_arrays, metadata):
+    """Return safe, self-describing arrays for a retained posterior."""
+
+    arrays = {
+        'artifact_type': np.asarray('sdf.posterior'),
+        'schema_version': np.asarray(
+            POSTERIOR_ARTIFACT_SCHEMA, dtype=np.int64
+        ),
+        'samples': posterior.samples,
+        'parameter_names': _string_array(posterior.parameter_names),
+    }
+    if posterior.log_likelihoods is not None:
+        arrays['log_likelihoods'] = posterior.log_likelihoods
+    if posterior.weights is not None:
+        arrays['weights'] = posterior.weights
+    reserved = set(arrays) | {
+        'metadata_json', 'derived_parameter_names',
+        'derived_parameter_labels', 'derived_parameter_units',
+        'derived_parameter_owner_keys', 'derived_parameter_component_ids',
+        'derived_parameter_roles', 'component_ids', 'component_owner_keys',
+        'component_roles', 'component_model_names',
+    }
+    for name, values in analysis_arrays.items():
+        if name in reserved:
+            raise ValueError(
+                'analysis array name is reserved: {}'.format(name)
+            )
+        values = np.asarray(values)
+        if values.dtype.hasobject:
+            try:
+                values = values.astype(str)
+            except (TypeError, ValueError) as error:
+                raise TypeError(
+                    'analysis array {} cannot use object dtype'.format(name)
+                ) from error
+        arrays[name] = values
+
+    derived = metadata.get('analysis', {}).get('derived_parameters', ())
+    derived_samples = arrays.get('derived_samples')
+    if derived_samples is not None and (
+            derived_samples.ndim != 2 or
+            derived_samples.shape[1] != len(derived)):
+        raise ValueError(
+            'derived_samples columns do not match derived parameter metadata'
+        )
+    arrays.update({
+        'derived_parameter_names': _metadata_strings(derived, 'name'),
+        'derived_parameter_labels': _metadata_strings(derived, 'label'),
+        'derived_parameter_units': _metadata_strings(derived, 'unit'),
+        'derived_parameter_owner_keys': _metadata_strings(
+            derived, 'owner_key'
+        ),
+        'derived_parameter_component_ids': _metadata_strings(
+            derived, 'component_id'
+        ),
+        'derived_parameter_roles': _metadata_strings(derived, 'role'),
+    })
+
+    components = metadata.get('components', ())
+    arrays.update({
+        'component_ids': _metadata_strings(components, 'component_id'),
+        'component_owner_keys': _metadata_strings(components, 'owner_key'),
+        'component_roles': _metadata_strings(components, 'role'),
+        'component_model_names': _metadata_strings(components, 'model_name'),
+    })
+    arrays['metadata_json'] = np.asarray(json.dumps(
+        _posterior_artifact_metadata(metadata),
+        sort_keys=True, separators=(',', ':'), default=_json_default,
+    ))
+    return arrays
+
+
+def _posterior_artifact_metadata(metadata):
+    analysis = metadata.get('analysis', {})
+    targets = []
+    for key, values in analysis.get('targets', {}).items():
+        targets.append({
+            'key': key,
+            'main_id': values.get('main_id'),
+        })
+    return {
+        'artifact_type': 'sdf.posterior',
+        'schema_version': POSTERIOR_ARTIFACT_SCHEMA,
+        'description': (
+            'Retained fitted posterior samples and regenerable SDF analysis '
+            'arrays. Rows of samples and derived_samples correspond.'
+        ),
+        'candidate_id': metadata['candidate_id'],
+        'display_name': metadata['display_name'],
+        'parameter_names': metadata['posterior']['parameter_names'],
+        'derived_parameters': analysis.get('derived_parameters', []),
+        'components': metadata.get('components', []),
+        'targets': targets,
+        'array_axes': {
+            'samples': ['sample', 'parameter_names'],
+            'derived_samples': ['sample', 'derived_parameter_names'],
+            'component_prediction_p16': ['component_ids', 'observation'],
+            'component_prediction_median': [
+                'component_ids', 'observation'
+            ],
+            'component_prediction_p84': ['component_ids', 'observation'],
+            'component_spectrum_median': [
+                'component_ids', 'spectrum_wavelength_micron'
+            ],
+        },
+    }
+
+
+def _metadata_strings(records, key):
+    return _string_array(
+        '' if record.get(key) is None else record.get(key, '')
+        for record in records
+    )
+
+
+def _string_array(values):
+    return np.asarray(tuple(str(value) for value in values), dtype=str)
+
+
+def _posterior_artifact_is_current(path, metadata):
+    if metadata['posterior'].get(
+            'artifact_schema') != POSTERIOR_ARTIFACT_SCHEMA:
+        return False
+    required = {
+        'artifact_type', 'schema_version', 'samples', 'parameter_names',
+        'metadata_json', 'derived_parameter_names',
+        'derived_parameter_labels', 'derived_parameter_units',
+        'derived_parameter_owner_keys', 'derived_parameter_component_ids',
+        'derived_parameter_roles', 'component_ids', 'component_owner_keys',
+        'component_roles', 'component_model_names',
+    }
+    with np.load(path) as arrays:
+        return (
+            required.issubset(arrays.files) and
+            not any(name.startswith('analysis__') for name in arrays.files) and
+            str(arrays['artifact_type']) == 'sdf.posterior' and
+            int(arrays['schema_version']) == POSTERIOR_ARTIFACT_SCHEMA
+        )
 
 
 def _atomic_npz(path, arrays):

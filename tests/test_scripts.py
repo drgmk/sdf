@@ -62,6 +62,10 @@ def test_new_cli_top_level_help_is_operational(
             ['sdf-fits', 'reprioritize', '--help'],
             ('never invokes a sampler', '--all', '--threshold LOG_EVIDENCE'),
         ),
+        (
+            ['sdf-fits', 'refresh-posteriors', '--help'],
+            ('self-describing', 'never invokes a sampler', '--all'),
+        ),
     ),
 )
 def test_sdf_fits_subcommand_help_explains_effects(
@@ -257,6 +261,36 @@ def test_sdf_fits_reprioritizes_every_package_and_rebuilds_once(
     assert all(call[1]['result_index'] is False for call in calls[:2])
     assert calls[-1] == ('rebuild', tmp_path)
     assert '"reprioritized": 2' in capsys.readouterr().out
+
+
+def test_sdf_fits_refreshes_posterior_metadata_for_every_package(
+        monkeypatch, tmp_path, capsys):
+    packages = (tmp_path / 'one', tmp_path / 'two')
+    calls = []
+
+    monkeypatch.setattr(
+        sys, 'argv',
+        ['sdf-fits', 'refresh-posteriors', str(tmp_path), '--all'],
+    )
+    monkeypatch.setattr(
+        sdf.scripts, 'discover_packages', lambda root: packages,
+    )
+
+    class FakeLibrary:
+        def __init__(self, package):
+            calls.append(package)
+
+        def refresh_posterior_artifacts(self):
+            return 2
+
+    monkeypatch.setattr(sdf.scripts, 'CandidateLibrary', FakeLibrary)
+
+    sdf.scripts.sdf_fits()
+
+    assert calls == list(packages)
+    assert capsys.readouterr().out == (
+        '{"packages": 2, "refreshed": 4}\n'
+    )
 
 
 def test_sdf_sample_uses_indexed_hierarchy_products(monkeypatch, tmp_path):
