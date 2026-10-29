@@ -16,6 +16,9 @@ setup(
         'jinja2', 'matplotlib', 'mysql-connector-python', 'numpy',
         'pymultinest', 'pytest', 'PyYAML', 'requests', 'scipy'
         ],
+    extras_require={
+        'docs': ['myst-parser', 'numpydoc', 'sphinx'],
+    },
     include_package_data=True,
     entry_points={
         'console_scripts': ['sdf-fit=sdf.scripts:sdf_fit',

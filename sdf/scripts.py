@@ -223,7 +223,7 @@ def sdf_index():
             'Build or check the disposable SQLite index of retained SDF fits.\n\n'
             'The index makes catalog and sample queries fast by projecting '
             'package-local fit results below an SDB export root. It contains '
-            'no operator policy or job state and can always be rebuilt.'
+            'no administrative policy or job state and can always be rebuilt.'
         ),
         epilog=(
             'Examples:\n'
@@ -239,7 +239,8 @@ def sdf_index():
             'rebuild',
             'Rebuild the index from current package-local retained fits.',
             'Existing rebuildable index contents are replaced. Retained fit '
-            'artifacts and the separate operator-state database are unchanged.',
+            'artifacts and the separate administrative-state database are '
+            'unchanged.',
         ),
         (
             'verify',
@@ -284,7 +285,7 @@ def sdf_fits():
             'Fit, inspect, present, or serve retained SDF fitting packages.\n\n'
             'Package commands operate on one directory exported by SDB. The '
             'serve command operates on the complete export root and provides '
-            'the catalog-wide operator UI, fit queue, and export watcher.'
+            'the catalog-wide administrative UI, fit queue, and export watcher.'
         ),
         epilog=(
             'Examples:\n'
@@ -412,7 +413,10 @@ def sdf_fits():
     )
     reprioritize_parser.add_argument(
         '--state', metavar='PATH',
-        help='operator policy SQLite path (default with --all: EXPORT_ROOT/sdf-operator.sqlite)',
+        help=(
+            'administrative policy SQLite path (default with --all: '
+            'EXPORT_ROOT/sdf-operator.sqlite)'
+        ),
     )
     reprioritize_parser.add_argument(
         '--threshold', type=float, metavar='LOG_EVIDENCE',
@@ -440,7 +444,7 @@ def sdf_fits():
     )
     serve_parser = _sdf_fits_command(
         subparsers, 'serve',
-        'Serve the catalog-wide SDF operator UI and fitting loop.',
+        'Serve the catalog-wide SDF administrative UI and fitting loop.',
         'Starts a localhost web UI over every package in EXPORT_ROOT. By '
         'default it also supervises one fit worker and watches for new or '
         'changed SDB exports. Existing unfit packages are not queued unless '
@@ -703,14 +707,14 @@ def sdf_fits():
 
 
 def sdf_jobs():
-    """Inspect or run the asynchronous operator fit queue."""
+    """Inspect or run the asynchronous administrative fit queue."""
 
     parser = argparse.ArgumentParser(
         description=(
-            'Inspect or run the asynchronous SDF operator fit queue.\n\n'
+            'Inspect or run the asynchronous SDF administrative fit queue.\n\n'
             'This is mainly useful with `sdf-fits serve --no-worker`, for '
             'headless workers, and for queue diagnostics. Only one worker '
-            'should consume a given operator-state database.'
+            'should consume a given administrative-state database.'
         ),
         epilog=(
             'Examples:\n'
@@ -723,7 +727,7 @@ def sdf_jobs():
     )
     parser.add_argument(
         '--state', required=True, metavar='PATH',
-        help='durable operator policy and fit-job SQLite database',
+        help='durable administrative policy and fit-job SQLite database',
     )
     subparsers = parser.add_subparsers(dest='command', required=True)
     list_parser = subparsers.add_parser(

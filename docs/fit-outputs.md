@@ -402,8 +402,8 @@ for evidence, error, name, path in sorted(
 
 The public default is not necessarily the numerically highest-evidence model:
 SDF chooses the simplest model supported within its evidence threshold, and an
-operator may override that choice. Read `fits/selection.json` to reproduce the
-display/default selection.
+administrator may override that choice. Read `fits/selection.json` to
+reproduce the display/default selection.
 
 ## Important details
 

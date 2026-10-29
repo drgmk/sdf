@@ -17,12 +17,15 @@ import sdf.scripts
         (
             sdf.scripts.sdf_fits,
             ['sdf-fits', '--help'],
-            ('serve', 'select', 'catalog-wide operator UI', 'Examples:'),
+            ('serve', 'select', 'catalog-wide administrative UI', 'Examples:'),
         ),
         (
             sdf.scripts.sdf_jobs,
             ['sdf-jobs', '--help'],
-            ('list', 'run', 'asynchronous SDF operator fit queue', 'Examples:'),
+            (
+                'list', 'run', 'asynchronous SDF administrative fit queue',
+                'Examples:',
+            ),
         ),
     ),
 )

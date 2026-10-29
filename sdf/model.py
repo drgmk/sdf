@@ -159,21 +159,10 @@ class Model(object):
         self.log_fnujy_sr_hashed = utils.hashable(tmp)
 
     def rginterpolator(self):
-        """Return a regular grid interpolator.
-            
-        Memoizing doesn't appear to save any time.
-        
-        This was the chunk of code in fnujy below:
-        
-        # scipy.RegularGridInterpolator, save a bit of time since the
-        # interpolator object is the same for each model. first we
-        # create grid points we want, each row is just the different
-        # filter numbers assigned above with the parameters appended
-#        pargrid = np.tile(par, len(wave_arr)).reshape((len(wave_arr), len(par)))
-#        pargrid = np.insert(pargrid, 0, wave_arr, axis=1)
-#        f = self.rginterpolator()
-#        fluxes = f(pargrid)
+        """Return a regular-grid interpolator over wavelength and parameters.
 
+        Memoizing this object has not produced a measurable speed improvement;
+        the method remains available for interpolation experiments.
         """
     
         if isinstance(self, PhotModel):
@@ -199,12 +188,12 @@ class Model(object):
         This is spline interpolation. This doesn't matter too much since
         any high dynamic range parameters are already log spaced.
 
-        .. todo:: this is the core of the sdf code in terms of execution
-        time. Experiments so far find that map_coordinates is faster
-        than RegularGridInterpolator, but is hindered somewhat by the
-        need to do interpolation first to find the grid points needed by
-        map_coordinates. np.interp seems to be faster than scipy
-        UnivariateSpline or simple 1pt interpolation for this step.
+        Notes
+        -----
+        This is a performance-critical operation. Experiments find
+        ``map_coordinates`` faster than ``RegularGridInterpolator``, although
+        the physical parameter values must first be mapped to grid positions.
+        ``numpy.interp`` is currently used for that mapping.
             
         """
 
@@ -890,13 +879,12 @@ class SpecModel(Model):
     def interp_to_wavelengths(self, wavelength, log=True):
         """Interpolate the model to the given wavelengths.
 
-        .. todo:: this only needs to be run at the beginning of a fit but
-        is very slow, especially when there are spectra, speed it up!
-
-        .. todo:: this is straight linear/log interpolation, but could
-        smooth the spectra first since the given wavelength grid will
-        almost certainly be near the spectral resolution of whatever
-        instrument it came from. Probably use resample.
+        Notes
+        -----
+        This preparation is run at the beginning of a fit and can be slow for
+        spectra. It performs direct linear or logarithmic interpolation; the
+        joint-fitting spectrum preparation path separately handles instrumental
+        resolution where resolving-power metadata are available.
         """
 
         # check we need to do something

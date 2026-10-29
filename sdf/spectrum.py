@@ -946,13 +946,15 @@ class ModelSpectrum(Spectrum):
 
     def read_kurucz(file):
         """Read a grid of Castelli & Kurucz models from a specific file.
+
         Returns a tuple with (teff, logg, [M/H], models), where the first
         three are arrays with the parameters of each model, and models
         is a list of ModelSpectrum objects holding the spectra.
-        
-        .. todo:: not really clear whether this belongs here or in 
-        SpecModel (or elsewhere). It's only here because it's similar
-        to read_phoenix, which deals with single files.
+
+        Notes
+        -----
+        This reader remains here for compatibility with ``read_phoenix`` even
+        though model-grid construction is otherwise handled by ``SpecModel``.
         """
 
         fh = open(file, 'r')

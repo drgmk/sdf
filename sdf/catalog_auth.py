@@ -1,4 +1,4 @@
-"""Trusted-proxy identities and legacy Apache group-file authorization."""
+"""Trusted-proxy identities and SDB-backed catalog authorization."""
 
 from __future__ import annotations
 

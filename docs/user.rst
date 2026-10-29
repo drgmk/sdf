@@ -1,17 +1,37 @@
-User scripts
-============
+Command-line tools
+==================
 
-sdf-fit
--------
+The web interface is the normal way to search results, configure exceptional
+fits, and choose the public candidate. Command-line tools remain available for
+service operation, automation, and recovery. ``COMMAND --help`` is the
+authoritative option reference.
 
-.. autofunction:: sdf.scripts.sdf_fit
+Current catalog and package tools
+---------------------------------
 
-sdf-sample
-----------
+``sdf-fits``
+  Serve the complete exported catalog, or inspect, fit, render, reprioritize,
+  and select retained candidates for one package. See :doc:`server-operations`
+  and :doc:`joint-fitting`.
 
-.. autofunction:: sdf.scripts.sdf_sample
+``sdf-index``
+  Rebuild or verify the disposable SQLite projection of package-local results.
 
-sdf-cleanup
------------
+``sdf-jobs``
+  Inspect the durable fit queue or run a headless queue consumer. The normal
+  ``sdf-fits serve`` process supervises its own workers.
 
-.. autofunction:: sdf.scripts.sdf_cleanup
+Compatibility tools
+-------------------
+
+``sdf-fit``
+  Fit explicit input files or directories. Joint packages are routed through
+  the current package core; ordinary rawphot files retain the legacy
+  single-file ``Result`` workflow.
+
+``sdf-sample``
+  Generate sample products. The current hierarchy-aware mode uses
+  ``--index``; the form without an index uses the legacy result database.
+
+``sdf-cleanup``
+  Legacy MultiNest cleanup for the earlier sample/static-site workflow.

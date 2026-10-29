@@ -859,12 +859,12 @@ class Result(SampledResult):
         or if the multinest analyzer time is more recent than the
         previous analysis time.
         
-        .. todo:: in deriving model fluxes we have a choice; photometry 
-        for median model, or median photometry across possible models.
-        These are different, particularly so when the best fit is very
-        uncertain. The former is better for plotting, as the photometry
-        will line up with the spectrum (which is the median), but the
-        latter is better for getting the range of allowed fluxes.
+        Notes
+        -----
+        Derived model photometry can mean either photometry of the median model
+        or median photometry across posterior models. They differ most for an
+        uncertain fit: the former aligns with a plotted median spectrum, while
+        the latter better describes the allowed flux distribution.
 
         Parameters
         ----------

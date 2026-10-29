@@ -610,7 +610,7 @@ def serve_catalog(root, *, index_path=None, state_path=None, actor=None,
     address, actual_port = server.server_address[:2]
     print('SDF catalog: http://{}:{}/'.format(address, actual_port))
     print('Result index: {}'.format(server.catalog_service.index.path))
-    print('Operator state: {}'.format(server.catalog_service.state.path))
+    print('Administrative state: {}'.format(server.catalog_service.state.path))
     runtime = CatalogRuntime(
         server.catalog_service, worker=worker, workers=workers, watch=watch,
         autofit_existing=autofit_existing, poll_seconds=poll_seconds,

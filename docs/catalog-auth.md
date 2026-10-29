@@ -1,5 +1,11 @@
 # Catalog authentication and authorization
 
+This is a server-operator reference. Website behavior for ordinary accounts is
+described in [Using the SDF website](web-guide.md), and administrator fitting
+controls in [Fit administration](admin-guide.md). The recommended combined
+proxy configuration is maintained in the separate
+[`sdb-server`](https://github.com/drgmk/sdb-server) deployment repository.
+
 `sdf-fits serve` can sit behind an HTTPS reverse proxy while retaining an
 existing Apache `.htpasswd` file. Apache verifies the password only at the
 login handoff; SDF never reads or stores passwords. Users, administrator roles,
@@ -39,7 +45,12 @@ sdb --database /srv/sdb/sdb.sqlite sample set-access reasons \
   --owner grant@example.com --visibility private
 sdb --database /srv/sdb/sdb.sqlite sample share reasons collaborator@example.com
 sdb --database /srv/sdb/sdb.sqlite sample unshare reasons collaborator@example.com
+sdb --database /srv/sdb/sdb.sqlite sample delete reasons --yes \
+  --actor grant@example.com --reason 'Remove obsolete sample'
 ```
+
+Deleting a sample removes the grouping, membership history, and grants but not
+the targets or their data. SDB retains a compact deletion audit record.
 
 Start both applications with the same stable secret (at least 32 bytes):
 

@@ -1,7 +1,19 @@
-API
-===
+Python API
+==========
 
 Documentation for the sdf modules and functions.
+
+The joint-fitting API is the current package-oriented core. The older
+``Result``, MySQL, and static-site modules remain documented for compatibility
+with ordinary single-file workflows.
+
+Joint fitting
+-------------
+
+.. toctree::
+    :maxdepth: 2
+
+    joint_api
 
 Setup
 -----
@@ -14,8 +26,8 @@ Setup
     model_setup
 
 
-Core modules
-------------
+Legacy and shared core modules
+------------------------------
 
 .. toctree::
     :maxdepth: 2
@@ -31,8 +43,8 @@ Core modules
     utils
 
 
-Output
-------
+Legacy output modules
+---------------------
 
 .. toctree::
     :maxdepth: 2

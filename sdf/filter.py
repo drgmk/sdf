@@ -385,39 +385,27 @@ class Filter(object):
             self.cc_denom = d / self.ref_spectrum(self.ref_nu_hz)
 
     def synthphot(self, spectrum_):
-        """Synthetic photometry of supplied spectrum object
+        """Return synthetic photometry for a supplied spectrum.
 
-        In the IR we have f_nu(quoted) (i.e. catalogue value) is:
+        Notes
+        -----
+        In the infrared the quoted catalogue flux is the monochromatic
+        effective-wavelength flux multiplied by a colour correction. For a
+        correctly normalized energy-counting response, the numerator is the
+        usual optical synthetic-photometry integral. The calculation separates
+        that integral from the spectrum-independent part of the colour
+        correction, which can be precomputed.
 
-        f_nu(quoted) = f_nu(lam_eff) K
+        For colours and indices, use the ``synthphot`` method on the spectrum
+        object instead.
 
-        where the colour correction K is:
-
-        K =        1        S_nu(lam_eff)   int( f_nu R dnu )
-            ------------- -----------------
-            f_nu(lam_eff) int( S_nu R dnu )
-
-        For a correctly normalised bandpass R (energy counting), the
-        integral in the numerator is "normal" synthetic photometry as
-        done in the optical (e.g. appendix of 2011AJ....141..173B).
-
-        Method is to separate the terms in synthetic photometry so that
-        it can be done with a single set of equations. Separation is 
-        into
-          1 the "normal" integration as done for the optical
-          2 the spectrum-independent part of the colour correction 
-            (second term, which can be pre-computed)
-        The latter is only done if necessary. f_nu(lam_eff) cancels so
-        isn't needed to get f_nu(quoted), but is needed if we want to
-        know what the colour correction was.
-        
-        Returns a tuple of (quoted flux, colour correction), where the
-        colour correction will be None if there isn't one (i.e. no ref
-        spectrum).
-        
-        For colours and indices the call needs to be done using the
-        synthphot method for Spectrum objects.
-        
+        Returns
+        -------
+        quoted_flux : float
+            Synthetic catalogue flux density.
+        colour_correction : float or None
+            Colour correction, or ``None`` when the filter has no reference
+            spectrum.
         """
 
         if hasattr(spectrum_, 'fnujy'):

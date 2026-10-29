@@ -1,5 +1,11 @@
 # Joint fitting and result architecture plan
 
+> **Historical design document.** This records the reasoning and proposed
+> architecture used while joint fitting was developed. It is not the current
+> user or operating guide. See [the documentation index](../index.rst), the
+> [joint-fitting reference](../joint-fitting.md), and the
+> [server operations guide](../server-operations.md) for implemented behavior.
+
 ## Status and purpose
 
 This document is the working design for extending SDF from fitting one
