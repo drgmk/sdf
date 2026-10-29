@@ -95,7 +95,10 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     assert 'ln Z 0.00' in html
     assert 'log(g)' not in html
     assert 'Residual' in html
-    assert 'current input' in html
+    assert 'current input' not in html
+    assert 'fit input has changed' not in html
+    assert html.index('Fit results') < html.index('metadata (JSON)')
+    assert html.index('metadata (JSON)') < html.index('ln Z 0.00')
     assert '<h2>System</h2>' in html
     assert '>Results</a>' not in html
     assert '>Data</a>' not in html
@@ -113,6 +116,13 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     assert 'aria-label="Footer navigation"' in html
     assert '>sdf home</a>' in html
     assert 'toolbar_location":"below"' in html
+
+    with open(dataset.observations[0].source, 'a', encoding='utf-8') as handle:
+        handle.write('\n\\ input changed after fitting\n')
+    stale_html = sdf.joint_plotting.write_joint_results_page(
+        tmp_path, dataset=dataset,
+    ).read_text(encoding='utf-8')
+    assert 'fit input has changed' in stale_html
 
 
 def test_operator_results_page_extends_public_page_with_fit_drawer(tmp_path):

@@ -616,14 +616,19 @@ def _candidate_header(candidate, dataset, owner_labels, component_labels,
         'padding:2px 7px;font-size:11px">default</span>'
         if is_default else ''
     )
-    status = 'current input' if candidate.is_current(dataset) else 'input changed'
+    stale_warning = '' if candidate.is_current(dataset) else (
+        ' · <strong style="color:#a13b2b">fit input has changed</strong>'
+    )
     product_links = _candidate_product_links(candidate)
     return '''
 <section style="padding:8px 10px 6px;margin:0;width:100%;max-width:none;
 font:13px ui-sans-serif,system-ui,sans-serif">
-  <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
     <strong style="font-size:15px">Fit results{}</strong>
-    <span style="color:#526071">ln Z {} · χ² {:.1f} · {} residuals · {} · {}</span>
+    <span style="margin-left:auto;text-align:right">{}</span>
+  </div>
+  <div style="color:#526071;margin-top:2px">
+    ln Z {} · χ² {:.1f} · {} residuals{}
   </div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
 gap:7px;margin-top:7px">{}</div>
@@ -631,8 +636,8 @@ gap:7px;margin-top:7px">{}</div>
   ★ stellar component · ○ disk component</div>
 </section>
 '''.format(
-        badge, evidence_text, analysis['chi_squared'],
-        analysis['n_residuals'], status, product_links, ''.join(rows),
+        badge, product_links, evidence_text, analysis['chi_squared'],
+        analysis['n_residuals'], stale_warning, ''.join(rows),
     )
 
 
