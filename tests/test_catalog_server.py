@@ -193,6 +193,37 @@ def test_signed_in_search_can_queue_and_view_sdb_import(tmp_path):
         thread.join(timeout=2)
 
 
+def test_completed_sample_import_renders_target_results(tmp_path):
+    service = _catalog(tmp_path)
+    principal = service.auth.principal({})
+    job_id = service.state.queue_sample_acquisition(
+        'Nearby', ('49 Ceti',), actor=principal.username,
+    )
+    assert service.state.claim_next_sample_acquisition() is not None
+    service.state.finish_sample_acquisition(job_id, result={
+        'succeeded_count': 1,
+        'failed_count': 0,
+        'fit_job_ids': [],
+        'manifests': ['export-manifest.json'],
+        'import_result': {
+            'import_result': {
+                'items': [{
+                    'requested_name': '49 Ceti',
+                    'status': 'existing',
+                    'error': None,
+                }],
+            },
+        },
+    })
+
+    page = service.render_sample_acquisition(job_id, principal)
+
+    assert 'Sample imported' in page
+    assert '49 Ceti' in page
+    assert 'Existing target' in page
+    assert '/samples/Nearby/' in page
+
+
 def test_registering_acquisition_export_indexes_and_queues_fit(tmp_path):
     service = _catalog(tmp_path)
     imported = tmp_path / 'new-package'
