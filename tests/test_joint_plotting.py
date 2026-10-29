@@ -104,6 +104,9 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     assert '>Data</a>' not in html
     assert 'result.json' in html
     assert 'posterior-' in html
+    assert 'parameters (PNG)' in html
+    assert 'derived (PNG)' in html
+    assert r'metadata (JSON)&lt;/a&gt; \\u00b7 &lt;a' in html
     assert 'data-distribution-plot' in html
     assert 'id="distribution-dialog"' in html
     assert '>Download PNG</a>' in html

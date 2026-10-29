@@ -653,8 +653,8 @@ def _candidate_product_links(candidate):
         ),
     ]
     for label, title, filename in (
-        ('parameters', 'Fitted parameter posteriors', 'corner.png'),
-        ('derived', 'Derived-quantity distributions', 'distributions.png'),
+        ('parameters (PNG)', 'Fitted parameter posteriors', 'corner.png'),
+        ('derived (PNG)', 'Derived-quantity distributions', 'distributions.png'),
     ):
         if (candidate.path / filename).is_file():
             links.append(
@@ -663,7 +663,7 @@ def _candidate_product_links(candidate):
                     escape(directory + filename), escape(title), escape(label)
                 )
             )
-    return ' '.join(links)
+    return ' · '.join(links)
 
 
 def _stellar_summary(component, derived):
