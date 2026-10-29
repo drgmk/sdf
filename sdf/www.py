@@ -14,6 +14,7 @@ from . import plotting
 from . import db
 from . import utils
 from . import config as cfg
+from .external_services import ExternalServices
 
 
 def www_all(results, write_path=None, sed_file='index.html',
@@ -124,6 +125,9 @@ def sed_page(results, file='index.html', f_limits_file='f_limits.html',
                json_file=os.path.basename(results[0].pmn_dir) + '/' + os.path.basename(results[0].json),
                file_dir=os.path.basename(results[0].pmn_dir) + '/',
                main_id=results[0].obs_keywords['main_id'],
+               simbad_url=ExternalServices.from_sdb_config().simbad_identifier_url(
+                   results[0].obs_keywords['main_id']
+               ),
                spty=results[0].obs_keywords['sp_type'],
                ra=results[0].obs_keywords['raj2000'],
                dec=results[0].obs_keywords['dej2000'],
@@ -174,6 +178,9 @@ def f_limits_page(results, file='f_limits.html', sed_file='index.html',
                json_file=os.path.basename(results[0].pmn_dir) + '/' +
                          os.path.basename(results[0].json),
                main_id=results[0].obs_keywords['main_id'],
+               simbad_url=ExternalServices.from_sdb_config().simbad_identifier_url(
+                   results[0].obs_keywords['main_id']
+               ),
                spty=results[0].obs_keywords['sp_type'],
                ra=results[0].obs_keywords['raj2000'],
                dec=results[0].obs_keywords['dej2000'],

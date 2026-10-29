@@ -521,7 +521,10 @@ def sdf_fits():
     )
     serve_parser.add_argument(
         '--sdb-config', metavar='PATH',
-        help='SDB TOML configuration used during import and provider refresh',
+        help=(
+            'SDB TOML configuration used during import, provider refresh, '
+            'and mirror-aware SIMBAD/VizieR browser links'
+        ),
     )
     serve_parser.add_argument(
         '--sdb-reference-database', metavar='PATH',

@@ -12,6 +12,7 @@ import jinja2
 from bokeh.resources import CDN, INLINE
 
 from . import utils
+from .external_services import ExternalServices, simbad_identifier_route
 from .resource_manifest import read_resource_manifest
 
 
@@ -61,7 +62,7 @@ def render_sed_page(*, title, plot_script, plot_div, targets, candidates,
     )
 
 
-def target_page_rows(dataset, package_directory):
+def target_page_rows(dataset, package_directory, *, external_route_root=None):
     """Project physical contributors and their component-specific links."""
 
     package_directory = Path(package_directory)
@@ -105,6 +106,7 @@ def target_page_rows(dataset, package_directory):
             'external_links': _merge_links(
                 _external_links(
                     target.main_id, ra, dec, radius_arcsec=search_radius,
+                    route_root=external_route_root,
                 ),
                 _resource_links(resources, target_sdbid=target.sdbid),
             ),
@@ -252,7 +254,8 @@ def _suggested_reason(label, policy):
     return 'Use {} for {}; do not fit a disk'.format(stellar, label)
 
 
-def observation_page_rows(dataset, package_directory):
+def observation_page_rows(
+        dataset, package_directory, *, external_route_root=None):
     """Project observed scopes without conflating them with model owners."""
 
     package_directory = Path(package_directory)
@@ -311,6 +314,7 @@ def observation_page_rows(dataset, package_directory):
             'external_links': _merge_links(
                 _external_links(
                     main_id, ra, dec, radius_arcsec=search_radius,
+                    route_root=external_route_root,
                 ),
                 _resource_links(
                     resources,
@@ -472,14 +476,19 @@ def _merge_links(*groups):
     return links
 
 
-def _external_links(main_id, ra, dec, radius_arcsec=20.0):
+def _external_links(
+        main_id, ra, dec, radius_arcsec=20.0, route_root=None):
     links = []
     if main_id:
         links.append({
             'label': 'SIMBAD',
-            'url': 'https://simbad.cds.unistra.fr/simbad/sim-id?' + urlencode({
-                'submit': 'submit id', 'Ident': main_id,
-            }),
+            'url': (
+                ExternalServices.from_sdb_config().simbad_identifier_url(
+                    main_id
+                )
+                if route_root is None else
+                simbad_identifier_route(main_id, root=route_root)
+            ),
         })
     if ra is None or dec is None:
         return links

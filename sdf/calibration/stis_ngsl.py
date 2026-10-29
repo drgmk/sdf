@@ -20,6 +20,7 @@ from .. import plotting
 from .. import tables
 from .. import result
 from .. import config as cfg
+from ..external_services import ExternalServices
 
 
 def add_obs_spec_fits(fig,r,fits=None,parameters=None):
@@ -198,6 +199,9 @@ def generate_cal_seds(out_dir=cfg.file['www_root']+'calibration/stis_ngsl/',
                                plot_script=script,
                                plot_div=div,
                                main_id=results[0].obs_keywords['main_id'],
+                               simbad_url=ExternalServices.from_sdb_config().simbad_identifier_url(
+                                   results[0].obs_keywords['main_id']
+                               ),
                                spty=results[0].obs_keywords['sp_type'],
                                ra=results[0].obs_keywords['raj2000'],
                                dec=results[0].obs_keywords['dej2000'],

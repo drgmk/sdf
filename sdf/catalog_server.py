@@ -28,6 +28,7 @@ from .catalog_auth import (
 )
 from .dataset import FitDataset
 from .export_catalog import ExportCatalog
+from .external_services import ExternalServices
 from .fit_management import FitManager
 from .operator_server import OperatorService
 from .operator_jobs import run_worker
@@ -79,6 +80,9 @@ class CatalogService:
         self.auth = CatalogAuthorizer(
             user_header=auth_user_header, access_database=auth_database,
             local_actor=self.actor, session_secret=auth_session_secret,
+        )
+        self.external_services = ExternalServices.from_sdb_config(
+            None if sdb_import_config is None else sdb_import_config.config
         )
         self.auth_cookie_secure = bool(auth_cookie_secure)
         self.review_base_url = (
@@ -559,6 +563,7 @@ class CatalogService:
                     PurePosixPath(package_path).name, safe=''
                 )
             ),
+            'external_route_root': '',
         }
 
 
@@ -775,6 +780,39 @@ class _CatalogHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         try:
             principal = self.service.auth.principal(self.headers)
+            if parsed.path == '/external/simbad/id':
+                values = parse_qs(parsed.query)
+                name = values.get('name', [''])[0].strip()
+                if not name:
+                    raise ValueError('SIMBAD name is required')
+                self._redirect_external(
+                    self.service.external_services.simbad_identifier_url(name)
+                )
+                return
+            if parsed.path == '/external/vizier/catalog':
+                values = parse_qs(parsed.query)
+                source = values.get('source', [''])[0].strip()
+                if not source:
+                    raise ValueError('VizieR source is required')
+                self._redirect_external(
+                    self.service.external_services.vizier_catalog_url(source)
+                )
+                return
+            if parsed.path == '/external/vizier/row':
+                values = parse_qs(parsed.query)
+                source = values.get('source', [''])[0].strip()
+                column = values.get('column', [''])[0].strip()
+                value = values.get('value', [''])[0].strip()
+                if not source or not column or not value:
+                    raise ValueError(
+                        'VizieR source, column, and value are required'
+                    )
+                self._redirect_external(
+                    self.service.external_services.vizier_row_url(
+                        source, column, value,
+                    )
+                )
+                return
             if parsed.path == '/':
                 self._html(self.service.render_public_home(principal))
                 return
@@ -1110,6 +1148,13 @@ class _CatalogHandler(BaseHTTPRequestHandler):
         self.send_header('Cache-Control', 'no-store')
         for name, value in headers:
             self.send_header(name, value)
+        self.end_headers()
+
+    def _redirect_external(self, location):
+        self.send_response(HTTPStatus.FOUND)
+        self.send_header('Location', location)
+        self.send_header('Content-Length', '0')
+        self.send_header('Cache-Control', 'no-store')
         self.end_headers()
 
     def _error(self, error, status, json_response=False):

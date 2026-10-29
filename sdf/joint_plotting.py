@@ -92,10 +92,17 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
         ensure_candidate_diagnostic_plots(candidate)
     owner_labels = _owner_labels(ordered[0])
     owner_colours = _owner_colour_map(owner_labels)
-    target_rows = target_page_rows(dataset, package_directory)
+    external_route_root = (
+        None if navigation is None else navigation.get('external_route_root')
+    )
+    target_rows = target_page_rows(
+        dataset, package_directory, external_route_root=external_route_root,
+    )
     for target in target_rows:
         target['colour'] = owner_colours.get(target['key'], '#64748b')
-    observation_rows = observation_page_rows(dataset, package_directory)
+    observation_rows = observation_page_rows(
+        dataset, package_directory, external_route_root=external_route_root,
+    )
     systems, component_labels = system_page_rows(
         target_rows, observation_rows
     )
