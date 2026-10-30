@@ -1,10 +1,9 @@
 .site-header{background:#fff;border-bottom:1px solid #dce3ec;position:sticky;top:0;z-index:20}
 .site-bar{max-width:1160px;margin:auto;min-height:58px;padding:9px 18px;display:flex;gap:18px;align-items:center}
-.site-brand{font-weight:750;font-size:20px;color:#152f4f;text-decoration:none}
 .site-nav{display:flex;gap:12px;align-items:center}
 .site-nav a{color:#385b7d;text-decoration:none}
 .site-identity{color:#637183;font-size:12px}
 .site-search{margin-left:auto;display:flex;gap:6px}
 .site-search input{width:min(330px,36vw);padding:8px 10px;border:1px solid #b8c3d1;border-radius:6px;color:inherit;font:inherit}
 .site-search button{display:inline-block;padding:8px 11px;border:1px solid #9facbb;border-radius:6px;background:#fff;color:#173a60;font:inherit;cursor:pointer}
-@media(max-width:700px){.site-bar{flex-wrap:wrap}.site-search{order:2;width:100%;margin:0}.site-search input{flex:1;width:auto}.site-nav{margin-left:auto}}
+@media(max-width:700px){.site-bar{flex-wrap:wrap}.site-search{order:2;width:100%;margin:0}.site-search input{flex:1;width:auto}}

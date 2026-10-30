@@ -200,7 +200,7 @@ class CatalogService:
         page = min(max(1, int(page)), page_count)
         start = (page - 1) * per_page
         return self.render_template(
-            'catalog_dashboard.html', title='SDF catalog',
+            'catalog_dashboard.html', title='SED catalogue',
             packages=packages[start:start + per_page], query=query or '',
             summary=self.summary(), samples=self.exports.samples(),
             status_filter=status or '', total=total, page=page,
@@ -213,7 +213,7 @@ class CatalogService:
 
     def render_public_home(self, principal=None):
         return self.render_template(
-            'catalog_public_home.html', title='SDF', query='',
+            'catalog_public_home.html', title='sdb', query='',
             search_action='/search', principal=principal,
             auth_enabled=self.auth.proxy_enabled, request_path='/',
         )
@@ -1162,7 +1162,7 @@ class _CatalogHandler(BaseHTTPRequestHandler):
             self._json({'error': str(error)}, status=status)
             return
         self._html(_render(
-            'catalog_message.html', title='SDF catalog',
+            'catalog_message.html', title='sdb',
             heading=HTTPStatus(status).phrase, message=str(error),
         ), status=status)
 

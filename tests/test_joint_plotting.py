@@ -113,12 +113,13 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     assert 'fit-controls' not in html
     assert 'href="/admin/system/test/">Admin SED</a>' in html
     assert 'href="/review/target/test">Review data</a>' in html
-    assert 'aria-label="Search SDF catalog"' in html
-    assert 'aria-label="Catalogue navigation"' in html
+    assert 'aria-label="Search SEDs"' in html
+    assert 'aria-label="Site navigation"' in html
     assert '>Search</a>' not in html
     assert 'aria-label="Footer navigation"' in html
-    assert '>sdf home</a>' in html
-    assert 'href="/docs/sdf/">docs</a>' in html
+    assert '>home</a>' in html
+    assert 'href="/docs">docs</a>' in html
+    assert '<title>Test</title>' in html
     assert 'toolbar_location":"below"' in html
 
     with open(dataset.observations[0].source, 'a', encoding='utf-8') as handle:

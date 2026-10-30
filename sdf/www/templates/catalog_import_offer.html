@@ -1,6 +1,6 @@
 {% if query and total == 0 and import_enabled %}
 <section class="import-offer">
-  <h2>Not in SDF yet?</h2>
+  <h2>Not in sdb yet?</h2>
   {% if principal and principal.username %}
   <p>Ask SDB to identify <strong>{{ query }}</strong> in SIMBAD, collect its provider data, export it, and queue an SED fit.</p>
   <button id="import-target" type="button">Import {{ query }} from SIMBAD</button>

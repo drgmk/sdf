@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ title }} — SDF</title>
+  <title>{{ title }}</title>
   {{ bokeh_css|safe }}
   {{ bokeh_js|safe }}
   <style>
@@ -220,7 +220,7 @@
   </dialog>
 
   <footer class="sed-footer">
-    <nav class="footer-nav" aria-label="Footer navigation"><a href="/">sdf home</a><span aria-hidden="true">·</span><a href="/samples">samples</a>{% if review_base_url or review_url %}<span aria-hidden="true">·</span><a href="/docs/sdf/">docs</a>{% endif %}{% if operator %}<span aria-hidden="true">·</span><a href="/admin">admin</a>{% if review_base_url %}<span aria-hidden="true">·</span><a href="{{ review_base_url }}/">data review</a>{% endif %}<span aria-hidden="true">·</span><a href="/admin/jobs">jobs</a>{% endif %}</nav>
+    <nav class="footer-nav" aria-label="Footer navigation"><a href="/">home</a><span aria-hidden="true">·</span><a href="/samples">samples</a><span aria-hidden="true">·</span><a href="/docs">docs</a>{% if operator %}<span aria-hidden="true">·</span><a href="/admin">admin</a>{% if review_base_url %}<span aria-hidden="true">·</span><a href="{{ review_base_url }}/">data review</a>{% endif %}<span aria-hidden="true">·</span><a href="/admin/jobs">jobs</a>{% endif %}</nav>
     <span>generated {{ creation_time }} UTC</span>
   </footer>
 </main>
