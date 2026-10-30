@@ -1,4 +1,4 @@
-"""Catalog-wide local HTTP service over an SDB export root."""
+"""Catalog-wide local HTTP service over an sdb export root."""
 
 from __future__ import annotations
 
@@ -354,7 +354,7 @@ class CatalogService:
                 package = (self.root / name).resolve()
                 if self.root not in package.parents or not package.is_dir():
                     raise ValueError(
-                        'SDB exported an invalid package path: {}'.format(name)
+                        'sdb exported an invalid package path: {}'.format(name)
                     )
                 self.index.update_package(package)
             active = {
@@ -608,7 +608,7 @@ def serve_catalog(root, *, index_path=None, state_path=None, actor=None,
         review_base_url=review_base_url,
     )
     address, actual_port = server.server_address[:2]
-    print('SDF catalog: http://{}:{}/'.format(address, actual_port))
+    print('sdf-fits service: http://{}:{}/'.format(address, actual_port))
     print('Result index: {}'.format(server.catalog_service.index.path))
     print('Administrative state: {}'.format(server.catalog_service.state.path))
     runtime = CatalogRuntime(
@@ -713,7 +713,7 @@ class CatalogRuntime:
                 name='sdf-sdb-import', daemon=True,
             )
             self.import_thread.start()
-            print('SDB target import: enabled')
+            print('sdb target import: enabled')
 
     def stop(self):
         self.watch_stop.set()

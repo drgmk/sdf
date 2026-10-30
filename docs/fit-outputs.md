@@ -1,6 +1,6 @@
-# Using SDF fit outputs
+# Using `sdf` fit outputs
 
-Each retained SDF fit has two downloadable data products:
+Each retained `sdf` fit has two downloadable data products:
 
 - `result.json` is a compact, human-readable description and summary of the
   fit; and
@@ -401,7 +401,7 @@ for evidence, error, name, path in sorted(
 ```
 
 The public default is not necessarily the numerically highest-evidence model:
-SDF chooses the simplest model supported within its evidence threshold, and an
+`sdf` chooses the simplest model supported within its evidence threshold, and an
 administrator may override that choice. Read `fits/selection.json` to
 reproduce the display/default selection.
 
@@ -412,7 +412,7 @@ reproduce the display/default selection.
 - Fitted parameters retain the parameterization used by the model. For
   example, `log_Temp` and `log_lam0` remain logarithmic. Derived temperature
   and luminosity arrays are in the physical units given alongside them.
-- Posterior files retain a compact sample, normally capped by SDF's
+- Posterior files retain a compact sample, normally capped by `sdf`'s
   `n_samples_max`; they are not the sampler's complete native output.
 - The JSON summaries use the 16th, 50th, and 84th percentiles and can be
   asymmetric.

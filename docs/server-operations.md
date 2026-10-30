@@ -4,11 +4,11 @@ This guide covers running the catalog-wide website and fit service. The
 recommended combined deployment is maintained in the separate
 [`sdb-server`](https://github.com/drgmk/sdb-server) repository; it starts
 Apache, `sdf-fits serve`, and `sdb review serve` with one configuration and
-shared authentication. This document describes the SDF side of that stack.
+shared authentication. This document describes the `sdf` side of that stack.
 
 ## The service boundary
 
-One `sdf-fits serve` process operates over a complete SDB export root:
+One `sdf-fits serve` process operates over a complete `sdb` export root:
 
 ```shell
 sdf-fits serve /srv/sdb/export --workers 2
@@ -21,7 +21,7 @@ It provides:
 - a rebuildable result index;
 - durable fit policy, selection, and job state;
 - one or more isolated fit workers; and
-- a watcher for new or changed SDB exports.
+- a watcher for new or changed `sdb` exports.
 
 The service binds only to a loopback address. Publish it through the trusted
 reverse proxy rather than binding it directly to an external interface.
@@ -38,7 +38,7 @@ the authenticated configuration in
 
 ## Export-root state
 
-By default SDF creates two SQLite files beside the exported packages:
+By default `sdf` creates two SQLite files beside the exported packages:
 
 | File | Purpose | Recovery |
 | --- | --- | --- |
@@ -46,7 +46,7 @@ By default SDF creates two SQLite files beside the exported packages:
 | `sdf-operator.sqlite` | Policies, selections, fit/import jobs, and audit state | Back up; this is durable state |
 
 The result index is disposable. The administrative database is not: include it
-in normal server backups together with the authoritative SDB database and
+in normal server backups together with the authoritative `sdb` database and
 private authentication material.
 
 Package-local numerical results remain under each package's `fits/` directory.
@@ -93,9 +93,9 @@ Useful controls are:
 Interrupted running jobs are returned to the queue at startup. `SIGTERM` and
 an interactive interrupt both request an orderly worker shutdown.
 
-## SDB integration and imports
+## `sdb` integration and imports
 
-Target and sample import require the authoritative SDB paths:
+Target and sample import require the authoritative `sdb` paths:
 
 ```shell
 sdf-fits serve /srv/sdb/export \
@@ -107,18 +107,18 @@ sdf-fits serve /srv/sdb/export \
 ```
 
 Imports are disabled unless `--sdb-database` is supplied. Acquisition uses a
-single SDB writer, exports complete packages under a shared lock, updates the
-SDF result index, and queues needed first fits. The shared lock prevents a fit
+single `sdb` writer, exports complete packages under a shared lock, updates the
+`sdf` result index, and queues needed first fits. The shared lock prevents a fit
 from seeing a package halfway through export.
 
-Pass `--review-base-url /review` when the SDB review application is mounted on
+Pass `--review-base-url /review` when the `sdb` review application is mounted on
 the same site. Administrative SED pages then link directly to the corresponding
 review target.
 
 ## Authentication
 
-A production SDF service accepts identity only from a trusted loopback reverse
-proxy and checks users/roles in the authoritative SDB database:
+A production `sdf` service accepts identity only from a trusted loopback reverse
+proxy and checks users/roles in the authoritative `sdb` database:
 
 ```shell
 sdf-fits serve /srv/sdb/export \
@@ -128,8 +128,8 @@ sdf-fits serve /srv/sdb/export \
   --auth-cookie-secure
 ```
 
-If `--auth-database` is omitted it defaults to `--sdb-database`. Both SDF and
-SDB review must use the same stable session secret. See
+If `--auth-database` is omitted it defaults to `--sdb-database`. Both `sdf` and
+`sdb` review must use the same stable session secret. See
 [Authentication and authorization](catalog-auth.md) for the complete route and
 proxy model.
 

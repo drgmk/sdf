@@ -1,4 +1,4 @@
-# Using the SDF website
+# Using the `sdf` website
 
 This guide describes the public website and the additional tools available to
 ordinary signed-in users. It does not cover fit configuration or server
@@ -59,7 +59,7 @@ The compact fit-result links are:
 - **parameters (PNG)** for fitted-parameter distributions; and
 - **derived (PNG)** for physical derived-quantity distributions.
 
-See [Using SDF fit outputs](fit-outputs.md) for Python examples.
+See [Using `sdf` fit outputs](fit-outputs.md) for Python examples.
 
 ### Plot symbols
 
@@ -109,7 +109,7 @@ system has no current default result yet.
 
 Signing in adds private/shared samples and enables imports. It does not change
 the public content of individual SED pages. An account must exist both in the
-site's password system and in the SDB user database.
+site's password system and in the `sdb` user database.
 
 Ordinary accounts can:
 
@@ -117,14 +117,14 @@ Ordinary accounts can:
 - import a missing SIMBAD target from an unsuccessful search; and
 - create a private sample from a target list.
 
-Fit configuration and SDB data review require an administrator account.
+Fit configuration and `sdb` data review require an administrator account.
 
 ## Importing a missing target
 
 If a search finds no fitted system and imports are enabled, a signed-in user
 can request the exact search text as a SIMBAD identifier. The resulting status
-page follows the job through SDB acquisition, provider collection, export, and
-the first SDF fit. When complete it links to the new SED page.
+page follows the job through `sdb` acquisition, provider collection, export, and
+the first `sdf` fit. When complete it links to the new SED page.
 
 Imports may take several minutes because remote catalogues and MultiNest are
 not part of the web request itself. Provider warnings can be reported even
@@ -142,7 +142,7 @@ CSV/TSV files need a column named `target`, `simbad_name`, `identifier`,
 
 The first step checks the list locally and reports:
 
-- targets already present in SDB;
+- targets already present in `sdb`;
 - new identifiers that require SIMBAD; and
 - ambiguous local aliases that must be resolved before import.
 
@@ -150,4 +150,4 @@ Existing targets are reused rather than re-imported. After a successful check,
 submit the sample and follow its status page. New samples are private by
 default and visible only to their creator and administrators. Only an
 administrator can make a sample public; explicit sharing is managed by an
-administrator through SDB.
+administrator through `sdb`.

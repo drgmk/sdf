@@ -1,19 +1,19 @@
 # Catalog authentication and authorization
 
 This is a server-operator reference. Website behavior for ordinary accounts is
-described in [Using the SDF website](web-guide.md), and administrator fitting
+described in [Using the `sdf` website](web-guide.md), and administrator fitting
 controls in [Fit administration](admin-guide.md). The recommended combined
 proxy configuration is maintained in the separate
 [`sdb-server`](https://github.com/drgmk/sdb-server) deployment repository.
 
 `sdf-fits serve` can sit behind an HTTPS reverse proxy while retaining an
 existing Apache `.htpasswd` file. Apache verifies the password only at the
-login handoff; SDF never reads or stores passwords. Users, administrator roles,
+login handoff; `sdf` never reads or stores passwords. Users, administrator roles,
 sample ownership, visibility, and explicit sample grants live in the
-authoritative SDB SQLite database.
+authoritative `sdb` SQLite database.
 
-A successful login creates a signed, expiring session shared by the SDF catalog
-and SDB review applications. `.htgroup`, per-sample `.htaccess`, and a separate
+A successful login creates a signed, expiring session shared by the `sdf` catalog
+and `sdb` review applications. `.htgroup`, per-sample `.htaccess`, and a separate
 public-sample allowlist are not used.
 
 The route boundary is:
@@ -26,9 +26,9 @@ The route boundary is:
 | `/samples/new`, `/sample-imports/...` | any signed-in user; each import is private by default |
 | `/auth/login` | Apache-authenticated handoff that creates the signed session |
 | `/imports`, `/imports/ID` | any signed-in user; jobs are visible to their requester and administrators |
-| `/admin/...`, `/review/...` | SDB users with `is_admin` enabled |
+| `/admin/...`, `/review/...` | `sdb` users with `is_admin` enabled |
 
-Register accounts and manage roles with SDB. Usernames must match `.htpasswd`:
+Register accounts and manage roles with `sdb`. Usernames must match `.htpasswd`:
 
 ```shell
 sdb --database /srv/sdb/sdb.sqlite user add grant@example.com --admin
@@ -50,7 +50,7 @@ sdb --database /srv/sdb/sdb.sqlite sample delete reasons --yes \
 ```
 
 Deleting a sample removes the grouping, membership history, and grants but not
-the targets or their data. SDB retains a compact deletion audit record.
+the targets or their data. `sdb` retains a compact deletion audit record.
 
 Start both applications with the same stable secret (at least 32 bytes):
 
@@ -69,7 +69,7 @@ sdb --database /srv/sdb/sdb.sqlite review serve --all \
   --auth-login-url /auth/login
 ```
 
-Without proxy-auth options, SDF remains in local development mode and treats
+Without proxy-auth options, `sdf` remains in local development mode and treats
 the CLI actor as an administrator.
 
 Apache needs to authenticate only `/auth/login`; application code authorizes
@@ -81,7 +81,7 @@ RequestHeader unset X-SDF-User early
 
 <Location "/auth/login">
     AuthType Basic
-    AuthName "SDB"
+    AuthName "sdb"
     AuthUserFile /srv/sdb/.htpasswd
     Require valid-user
     RequestHeader set X-SDF-User "expr=%{REMOTE_USER}"
@@ -94,7 +94,7 @@ ProxyPassReverse / http://127.0.0.1:8765/
 ```
 
 With HTTPS, add `--auth-cookie-secure`. Keep `.htpasswd` and the session secret
-outside the document root. SDF refuses non-loopback bind addresses, so the
+outside the document root. `sdf` refuses non-loopback bind addresses, so the
 trusted identity header is accepted only from the local reverse proxy.
 
 The authenticated username is also the audit actor. POST bodies cannot
@@ -104,7 +104,7 @@ Signed-in users can import a missing SIMBAD target from search or create a
 private sample from up to 1000 text/CSV/TSV identifiers. Sample acquisition is
 preceded by a local check that distinguishes existing targets, new identifiers
 that require SIMBAD, and ambiguous aliases. Existing targets are reused without
-remote name resolution. Acquisition is durable and uses the same single SDB
+remote name resolution. Acquisition is durable and uses the same single `sdb`
 writer as individual imports; successful targets are exported and fitted even
 when some identifiers fail. Only administrators can make a newly imported
 sample public. Public individual SED pages remain public independently of

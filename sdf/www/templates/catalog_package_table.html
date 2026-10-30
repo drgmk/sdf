@@ -1,5 +1,5 @@
 <div class="table-wrap"><table>
-  <thead><tr><th>System</th><th>SDB identifiers</th><th>Fit state</th><th>Candidates</th><th>Job</th></tr></thead>
+  <thead><tr><th>System</th><th><code>sdb</code> identifiers</th><th>Fit state</th><th>Candidates</th><th>Job</th></tr></thead>
   <tbody>{% for package in packages %}<tr>
     <td><a class="targets" href="{{ system_base|default('/system') }}/{{ package.package_path|urlencode }}/">{{ package.target_labels|join(' + ') or package.package_path }}</a><br><span class="code muted">{{ package.package_path }}</span></td>
     <td class="code">{% for sdbid in package.sdbids %}{{ sdbid }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td>

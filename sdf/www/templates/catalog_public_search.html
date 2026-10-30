@@ -2,7 +2,7 @@
 {% block content %}
 <h1>Search results</h1>
 <p>Found {{ total }} system{% if total != 1 %}s{% endif %} matching <strong>{{ query }}</strong>.</p>
-<div class="table-wrap"><table><thead><tr><th>System</th><th>SDB identifiers</th></tr></thead><tbody>
+<div class="table-wrap"><table><thead><tr><th>System</th><th><code>sdb</code> identifiers</th></tr></thead><tbody>
 {% for package in packages %}<tr><td><a class="targets" href="{{ system_base }}/{{ package.package_path|urlencode }}/">{{ package.target_labels|join(' + ') or package.package_path }}</a></td><td class="code">{% for sdbid in package.sdbids %}{{ sdbid }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td></tr>{% else %}<tr><td colspan="2" class="muted">No matching fitted systems.</td></tr>{% endfor %}
 </tbody></table></div>
 {% include "catalog_import_offer.html" %}

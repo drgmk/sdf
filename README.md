@@ -1,8 +1,8 @@
-# sdf
+# `sdf`
 
 all your seds are belong to us
 
-SDF fits stellar and circumstellar-disk models to photometry and spectra. It
+`sdf` fits stellar and circumstellar-disk models to photometry and spectra. It
 supports single targets and hierarchical systems whose resolved and composite
 measurements must be fitted together.
 
@@ -29,7 +29,7 @@ make -C docs html
 Start with [the documentation guide](docs/README.md). The principal entry
 points are:
 
-- [Using the SDF website](docs/web-guide.md)
+- [Using the `sdf` website](docs/web-guide.md)
 - [Fit administration](docs/admin-guide.md)
 - [Server and fitting operations](docs/server-operations.md)
 - [Joint fitting reference](docs/joint-fitting.md)

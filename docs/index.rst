@@ -1,11 +1,14 @@
-sdf
-===
+``sdf``
+-------
 
-SDF fits stellar and circumstellar-disk models to photometry and spectra,
+``sdf`` fits stellar and circumstellar-disk models to photometry and spectra,
 including hierarchical systems with resolved and composite observations.
 
+`sdf` also provides a web interface for users to upload data, run fits,
+ and view results.
+
 Catalog import, association, review, and export are covered by the
-`SDB documentation </docs/sdb/>`_.
+`sdb data documentation </docs/sdb/>`_.
 
 Website users
 -------------

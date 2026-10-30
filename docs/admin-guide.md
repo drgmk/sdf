@@ -1,6 +1,6 @@
 # Fit administration
 
-This guide is for users with the SDB administrator role. It covers decisions
+This guide is for users with the `sdb` administrator role. It covers decisions
 made through the web interface: reviewing inputs, configuring model searches,
 queueing fits, and selecting the result shown publicly. Deployment and process
 management are covered separately in
@@ -11,7 +11,7 @@ management are covered separately in
 After signing in, the common header adds:
 
 - **Admin**, the fitting dashboard;
-- **Data review**, the SDB association and photometry-review application; and
+- **Data review**, the `sdb` association and photometry-review application; and
 - **Jobs**, the persistent target-import and fit queues.
 
 The normal and administrative SED pages share the same layout and results. The
@@ -21,7 +21,7 @@ visitor sees.
 
 ## Dashboard states
 
-The dashboard lists every package currently exported by SDB, not just packages
+The dashboard lists every package currently exported by `sdb`, not just packages
 that already have a result. It can be searched and filtered by state:
 
 - **current**: the retained default fit matches the exported inputs;
@@ -39,11 +39,11 @@ actor; the pre-filled reason can be edited.
 ## Review data before changing models
 
 Use **Review data** when the problem is an association, hierarchy, inclusion,
-or provider-data decision. Those changes belong in SDB. SDF fit controls alter
+or provider-data decision. Those changes belong in `sdb`. `sdf` fit controls alter
 model configuration and result presentation; they do not edit photometry or
-write review decisions back to SDB.
+write review decisions back to `sdb`.
 
-After SDB exports changed inputs, the SDF watcher indexes the package and
+After `sdb` exports changed inputs, the `sdf` watcher indexes the package and
 queues new or stale exports according to the server configuration. The old fit
 may remain visible with an **input changed** warning until the replacement
 finishes.
@@ -54,7 +54,7 @@ Open **Fit controls** on an administrative SED page. Configuration is shown
 separately for every physical contributor because components in one hierarchy
 can need different stellar models or disk limits.
 
-The normal state is **default config**. It displays the choices SDF would use
+The normal state is **default config**. It displays the choices `sdf` would use
 from exported metadata and automatic rules without storing a user override.
 Choose **Specify custom config** only when the default is unsuitable.
 
@@ -67,7 +67,7 @@ A custom contributor configuration contains:
   exceptional cases.
 
 Configuration is normally keyed by the physical SIMBAD identity so it follows
-that target across exports and future SDB identifiers. The page indicates when
+that target across exports and future `sdb` identifiers. The page indicates when
 a package-specific configuration is being used.
 
 Changing fields in the drawer does not fit immediately. Enter or accept the
@@ -81,12 +81,12 @@ it changes which configuration will be used for future fits.
 ## Evidence-guided model search
 
 The default search evaluates complete complexity levels. For example, every
-allowed one-disk placement in a binary is evaluated before SDF decides whether
+allowed one-disk placement in a binary is evaluated before `sdf` decides whether
 to proceed to two disks. The configured log-evidence threshold is 5.
 
 After fitting, candidates within 5 of the maximum evidence are treated as
 competitive, with evidence uncertainty handled conservatively near the
-boundary. SDF recommends the simplest competitive candidate. When equally
+boundary. `sdf` recommends the simplest competitive candidate. When equally
 complex placements are competitive, deterministic preferences favor:
 
 1. disks concentrated around fewer physical contributors;
@@ -107,14 +107,14 @@ inputs. Each entry shows its component shorthand, evidence, and state.
 - **shown** controls whether it appears as a public fit tab.
 - **Make default** makes it the first public tab and the result used by sample
   products.
-- **Use recommended** returns the default to SDF's current evidence-based
+- **Use recommended** returns the default to `sdf`'s current evidence-based
   recommendation.
 
 The default candidate must always be shown. Previewing is harmless: it neither
 changes selection nor queues MultiNest. Changing shown/default selection is
 also immediate and does not refit.
 
-**Recommended** is SDF's current automatic choice. **Default** is the choice
+**Recommended** is `sdf`'s current automatic choice. **Default** is the choice
 actually published. They differ when an administrator has intentionally
 overridden the recommendation.
 
@@ -126,7 +126,7 @@ message. Fit states are queued, running, completed, or failed.
 
 If a fit fails, first decide whether the failure is:
 
-- an input-data problem, handled through SDB review and re-export;
+- an input-data problem, handled through `sdb` review and re-export;
 - an inappropriate model configuration, corrected in Fit controls; or
 - an operational failure, diagnosed from the server/worker logs.
 
@@ -138,5 +138,5 @@ two workers fitting the same system simultaneously.
 Any signed-in user can request a missing target or create a private sample.
 Administrators can also create public samples and inspect all import jobs.
 Account roles, sample ownership, sharing, visibility, and deletion are managed
-with the SDB user/sample commands described in
+with the `sdb` user/sample commands described in
 [Authentication and authorization](catalog-auth.md).

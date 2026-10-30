@@ -8,7 +8,7 @@
 
 ## Status and purpose
 
-This document is the working design for extending SDF from fitting one
+This document is the working design for extending `sdf` from fitting one
 raw-photometry file at a time to fitting a package of resolved and unresolved
 observations together.  It also proposes the limited restructuring needed to
 make that extension maintainable.
@@ -24,9 +24,9 @@ fit.  Most targets will fit automatically; a minority will need corrected
 photometry or an explicit model choice.  For the current target data, however,
 it is useful to retain every completed model fit compactly: an operator can
 compare it with later alternatives or add it back to the public SED tabs
-without rerunning MultiNest.  SDF should distinguish this candidate library
+without rerunning MultiNest.  `sdf` should distinguish this candidate library
 from the smaller display selection that downstream users normally see.  Each
-candidate should record the SDF code state, model grids, fit configuration,
+candidate should record the `sdf` code state, model grids, fit configuration,
 and input state so that it can be understood and its analysis regenerated.
 
 Implementation is underway on `codex/joint-fitting`. The branch now has the
@@ -39,7 +39,7 @@ now has a shared public/operator SED page, persistent policy controls, retained
 fit selection, and a fit-job queue/worker boundary. See `joint-fitting.md` for
 the runnable development interface and current boundary.
 
-The SDB export contract remains deliberately small:
+The `sdb` export contract remains deliberately small:
 
 ```yaml
 version: 1
@@ -49,7 +49,7 @@ observations:
     - HD 113766B
 ```
 
-In actual exports these names currently appear as SDB IDs.  SDF should resolve
+In actual exports these names currently appear as `sdb` IDs.  `sdf` should resolve
 the files to target identities on load and should use canonical SIMBAD names
 for persistent user configuration and published identity.  The joint-fit file
 describes observation topology only; it should not accumulate fitting policy.
@@ -66,7 +66,7 @@ describes observation topology only; it should not accumulate fitting policy.
    a more complicated model without evidence.
 4. **Do not infer disk policy from stellar class.**  Any type of stellar model
    can host a disk.
-5. **Persistent operator choices use external identities, not generated SDB
+5. **Persistent operator choices use external identities, not generated `sdb`
    IDs.**  The primary key is the canonical SIMBAD main identifier, with a
    SIMBAD object identifier retained as an additional anchor when available.
 6. **Retained fits and displayed fits are different sets.**  Compact results
@@ -93,7 +93,7 @@ It contains:
 - the exact canonical SIMBAD `main_id` used for display;
 - a SIMBAD numeric object identifier when available;
 - known aliases needed to reconnect renamed or re-exported targets;
-- the current SDB ID as a source locator, not persistent identity;
+- the current `sdb` ID as a source locator, not persistent identity;
 - coordinates, spectral type, parallax, and their provenance;
 - the rawphot file from which this target's resolved observations and metadata
   were loaded.
@@ -103,7 +103,7 @@ the exact canonical spelling should be retained for display.  A target without
 a SIMBAD identity needs a fallback key; anything that has photometry to fit
 should exist in some catalogue from which we can generate a name, for example
 many 2MASS objects are not in simbad.
-Its generated SDB ID should not silently become a long-term policy key.
+Its generated `sdb` ID should not silently become a long-term policy key.
 
 ### `Observation`
 
@@ -387,7 +387,7 @@ It contains:
 - observations, predictions, and residuals;
 - warnings, degeneracies, and unresolved ownership;
 - the resolved model policy;
-- fit time plus the SDF revision, model-grid names/revisions, sampler, and
+- fit time plus the `sdf` revision, model-grid names/revisions, sampler, and
   material configuration state;
 - enough posterior samples to rerun `FitAnalysis` and regenerate plots without
   rerunning the sampler.
@@ -521,8 +521,8 @@ and keyed by canonical SIMBAD identity; a package-scoped exception is used
 when the same object genuinely needs different treatment in a particular
 analysis.
 
-SDF should snapshot the resolved policy into every fit result.  A portable
-package-local `sdf-fit.yml` remains useful for fits made outside the main SDB
+`sdf` should snapshot the resolved policy into every fit result.  A portable
+package-local `sdf-fit.yml` remains useful for fits made outside the main `sdb`
 installation and for reproducible transfer to another machine.
 
 ## Result products
@@ -571,7 +571,7 @@ the candidate directories.  `fits/selection.json` records the default and
 ordered SED tabs.  The central result index mirrors both for queries and the
 operator UI.
 
-MultiNest writes into `fits/.work/<candidate>/`.  On successful completion SDF
+MultiNest writes into `fits/.work/<candidate>/`.  On successful completion `sdf`
 first commits the compact candidate artifact, then may remove the large native
 sampler files.  Interrupted output can remain resumable.  Keeping completed
 native output may be a diagnostic option, but is not required to regenerate
@@ -584,13 +584,13 @@ Each candidate's compact result records:
 - candidate model components and physical ownership;
 - evidence and fitted-parameter summaries;
 - package identity plus separate data-state and fit-state markers;
-- physical targets, SIMBAD identities, aliases, and current SDB locators;
+- physical targets, SIMBAD identities, aliases, and current `sdb` locators;
 - observations and contributor mappings;
 - fitted parameters plus per-target and system derived values;
 - observation-level predictions, residuals, exclusions, and provenance;
 - references to the posterior and plots;
 - warnings and unresolved degeneracies;
-- fit time, SDF revision, sampler, model-grid identity, and material
+- fit time, `sdf` revision, sampler, model-grid identity, and material
   configuration state.
 
 `posterior.npz` retains the equal-weight posterior used by analysis, normally
@@ -621,7 +621,7 @@ visible to operators until rerun, but should not be used as the public default.
 Refitting the same model combination replaces that candidate directory rather
 than creating dated copies.
 
-The recorded SDF revision is primarily provenance.  A new commit should not
+The recorded `sdf` revision is primarily provenance.  A new commit should not
 automatically make every fit stale.  If a code change materially alters the
 likelihood or parameter interpretation, the operator can explicitly require a
 refit (and a lightweight fit-compatibility marker can be introduced if this
@@ -634,7 +634,7 @@ Plotting should load selected candidate results and numerical model grids, not
 unpickle a large live `Result` object.  A small view/adapter object may provide
 convenient arrays to existing plotting functions while they are migrated.  The
 public HTML generator reads `selection.json` and creates one tab per selected
-candidate, preserving the spirit of the current SDF page.  Operator previews
+candidate, preserving the spirit of the current `sdf` page.  Operator previews
 can load any candidate in the library without changing that selection.
 
 ## Query index and sample generation
@@ -647,7 +647,7 @@ Likely tables include:
 
 - `fit_packages`: package identity, input state, default fit, status,
   and update time;
-- `fit_targets`: canonical SIMBAD identity, aliases, current SDB ID, and
+- `fit_targets`: canonical SIMBAD identity, aliases, current `sdb` ID, and
   package membership;
 - `fit_candidates`: every retained candidate's model signature, evidence,
   freshness, location, and fit time;
@@ -670,9 +670,9 @@ sdf-index verify <export-root>
 `sdf-sample` normally queries the default candidate for target/system
 quantities and follows its result path for richer material.  It may explicitly
 request another retained candidate when needed.  Sample membership can remain
-owned by SDB;
+owned by `sdb`;
 the export manifest or identity mapping connects sample members to result
-packages.  If the index is absent, SDF can build it once rather than repeatedly
+packages.  If the index is absent, `sdf` can build it once rather than repeatedly
 trawling the tree.
 
 This preserves the performance reason for the old results database without
@@ -710,7 +710,7 @@ appear when code and tests establish a real boundary.
 
 ### Phase 0: branch, baseline, and direct defects
 
-- Work on `codex/joint-fitting`; the installed non-editable SDF remains
+- Work on `codex/joint-fitting`; the installed non-editable `sdf` remains
   unchanged while the source branch is developed.
 - Preserve the existing `.gitignore` change and generated example files.
 - Record current single-file CLI and result behaviour with characterization
@@ -785,7 +785,7 @@ a separate `sdf-operator.sqlite`: it is durable operational state, whereas
 `sdf-results.sqlite` remains a disposable materialized view.
 
 The catalog-wide operational layer is also implemented. `sdf-fits serve`
-opens one service over an SDB export root rather than one service per package.
+opens one service over an `sdb` export root rather than one service per package.
 The catalog indexes fitted and unfit exports, provides search, fit-state views,
 sample snapshots, system pages, and a persistent global job view. A configurable
 pool of isolated worker processes is supervised by the web process, and a cheap
@@ -797,9 +797,9 @@ service startup, or per worker if one pool process fails.
 
 Sample membership currently comes from the newest completed export manifest
 for each sample. This correctly treats a sample as a view over the common
-export catalog, but is a snapshot rather than a live SDB query. Search covers
-current exported SIMBAD names, SDB IDs, target keys, and observation IDs.
-Richer aliases require SDB to export them. SDF-to-SDB editing is deliberately
+export catalog, but is a snapshot rather than a live `sdb` query. Search covers
+current exported SIMBAD names, `sdb` IDs, target keys, and observation IDs.
+Richer aliases require `sdb` to export them. `sdf`-to-`sdb` editing is deliberately
 outside this phase: the service does not yet exclude photometry or otherwise
 mutate the source database.
 
@@ -818,8 +818,8 @@ already retained median component spectra; no extra fixed-band arrays or old
 `Result` reconstruction are needed. Disk contrast sums only stellar components
 owned by the disk host. This completes the planned indexed replacement for the
 legacy sample products and the first single-service operator workflow.
-Multiple simultaneous fitting workers, live SDB sample membership, richer
-alias export, and SDF-to-SDB edits remain possible later extensions rather than
+Multiple simultaneous fitting workers, live `sdb` sample membership, richer
+alias export, and `sdf`-to-`sdb` edits remain possible later extensions rather than
 requirements for this slice.
 
 ### Phase 7: optional samplers and performance
@@ -841,7 +841,7 @@ The implementation should not advance past each gate without:
 4. no fitting outcome dependent on rawphot discovery order;
 5. no model ownership inferred from component ordering;
 6. explicit units and identity provenance in candidate results;
-7. the SDF revision, model-grid identity, sampler, and material configuration
+7. the `sdf` revision, model-grid identity, sampler, and material configuration
    are recorded in each retained candidate;
 8. ability to rebuild the query index from candidate directories and
    `FitSelection`;
@@ -863,9 +863,9 @@ The implementation should not advance past each gate without:
 - Whether completed native MultiNest files should be removed by default or
   retained for selected fits only; the compact candidate must be sufficient
   for ordinary regeneration either way.
-- Whether the central policy/job/index store belongs operationally in SDF, in
-  the main SDB SQLite database, or behind a small interface with either
+- Whether the central policy/job/index store belongs operationally in `sdf`, in
+  the main `sdb` SQLite database, or behind a small interface with either
   implementation.  The domain model should not depend on this deployment
   choice.
 - How SIMBAD aliases and numeric object identifiers are exported so policies
-  survive a changed canonical main ID as well as a future SDB ID generation.
+  survive a changed canonical main ID as well as a future `sdb` ID generation.

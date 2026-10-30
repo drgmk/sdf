@@ -1,11 +1,11 @@
 # Joint fitting reference
 
-SDF can fit all resolved and composite observations of a hierarchical system
+`sdf` can fit all resolved and composite observations of a hierarchical system
 in one likelihood. The central distinction is between a physical contributor
 that owns a model and an observation scope that sees one or more contributors.
 
 This document defines the package and fitting behavior. Website use is covered
-by [Using the SDF website](web-guide.md), fit decisions by
+by [Using the `sdf` website](web-guide.md), fit decisions by
 [Fit administration](admin-guide.md), and process management by
 [Server and fitting operations](server-operations.md).
 
@@ -60,7 +60,7 @@ observations:
 ```
 
 An observation omitted from the file maps to itself. The identifiers connect
-files within the package; they are not persistent fit-policy identities. SDF
+files within the package; they are not persistent fit-policy identities. `sdf`
 resolves physical ownership and saved configuration to canonical SIMBAD
 identities where possible.
 
@@ -154,7 +154,7 @@ targets:
     search_mode: evidence-guided
 ```
 
-Without an explicit configuration, SDF infers a stellar family independently
+Without an explicit configuration, `sdf` infers a stellar family independently
 for every physical contributor from its metadata. Disk availability is not
 inferred from stellar class: white dwarfs and other unusual stars can still
 host disks. `max_disks` is a search limit, not a required disk count.
@@ -169,7 +169,7 @@ Configuration precedence is:
 
 The resolved configuration and its origin are copied into every result.
 Administrative configuration is keyed by external physical identity rather
-than generated SDB IDs, with package-specific state used only when necessary.
+than generated `sdb` IDs, with package-specific state used only when necessary.
 
 ## Candidates and search
 
@@ -188,12 +188,12 @@ The whole package uses one search mode:
 
 Evidence-guided search fits all placements at a disk-count level before
 judging the level. For example, every one-disk placement in a binary is
-evaluated before SDF decides whether to try two disks. The configured
+evaluated before `sdf` decides whether to try two disks. The configured
 log-evidence threshold is 5.
 
 After fitting, candidates within 5 of the maximum evidence are treated as
 competitive, with evidence uncertainty handled conservatively near the
-boundary. SDF recommends the simplest competitive candidate. Equivalent
+boundary. `sdf` recommends the simplest competitive candidate. Equivalent
 placements use deterministic tie-breakers: concentrate disks around fewer
 owners, prefer earlier hierarchy contributors, follow configured model-family
 order, and then prefer fewer numerical parameters.
@@ -234,12 +234,12 @@ Changing the selection never invokes the sampler. Re-fitting the same exact
 candidate replaces its artifact rather than creating dated result history.
 Other retained candidates remain available for comparison.
 
-See [Using SDF fit outputs](fit-outputs.md) for the numerical schemas and code
+See [Using `sdf` fit outputs](fit-outputs.md) for the numerical schemas and code
 examples.
 
 ## Freshness
 
-SDF keeps separate fingerprints for input data and material fit state.
+`sdf` keeps separate fingerprints for input data and material fit state.
 
 A candidate becomes non-current when, for example:
 
@@ -250,7 +250,7 @@ A candidate becomes non-current when, for example:
 
 Moving the package, changing shown/default selection, changing an alias-only
 identity file, or changing presentation code does not by itself make the
-numerical fit stale. The SDF revision remains recorded as provenance.
+numerical fit stale. The `sdf` revision remains recorded as provenance.
 
 Old candidates can be inspected with an **input changed** warning, but a stale
 candidate should not remain the public default after a replacement fit is
@@ -264,7 +264,7 @@ packages, identities, candidates, ownership, evidence, freshness, selection,
 and scalar fitted/derived quantities. It can always be rebuilt from retained
 artifacts.
 
-Sample membership remains an SDB concept. SDF projects visible samples through
+Sample membership remains an `sdb` concept. `sdf` projects visible samples through
 the current default candidate for each system. Physical contributors remain
 separate rows, disks stay under their owner, and composite observation rows
 retain their contributor list.
@@ -296,5 +296,5 @@ aware sample products from compact retained candidates.
 Ordinary unpackaged rawphot files still use the established single-target
 `Result` workflow. Legacy MySQL result writing is intentionally unavailable
 for joint packages; the retained artifacts and rebuildable result index replace
-that single-target-shaped output. SDF does not currently write photometry or
-association decisions back to SDB.
+that single-target-shaped output. `sdf` does not currently write photometry or
+association decisions back to `sdb`.

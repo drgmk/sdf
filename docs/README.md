@@ -1,15 +1,15 @@
-# SDF documentation
+# `sdf` documentation
 
-SDF's documentation is organized by what a reader is trying to do. Public web
+`sdf`'s documentation is organized by what a reader is trying to do. Public web
 features and administrative fitting controls deliberately have separate
 guides: most visitors should not need to understand model search, fit queues,
-or the SDB export layout.
+or the `sdb` export layout.
 
 ## Website users
 
-- [Using the SDF website](web-guide.md) explains search, SED pages, fit tabs,
+- [Using the `sdf` website](web-guide.md) explains search, SED pages, fit tabs,
   sample tables and plots, downloads, sign-in, and user-created samples.
-- [Using SDF fit outputs](fit-outputs.md) explains the downloadable JSON and
+- [Using `sdf` fit outputs](fit-outputs.md) explains the downloadable JSON and
   NPZ products with Python examples.
 
 ## Fit administrators
@@ -20,13 +20,13 @@ or the SDB export layout.
 ## Server operators
 
 - [Server and fitting operations](server-operations.md) covers
-  `sdf-fits serve`, worker and watcher behavior, state files, SDB integration,
+  `sdf-fits serve`, worker and watcher behavior, state files, `sdb` integration,
   and maintenance commands.
 - [Authentication and authorization](catalog-auth.md) describes the trusted
   reverse-proxy boundary, accounts, roles, sessions, and sample access.
 - The separate
   [`sdb-server`](https://github.com/drgmk/sdb-server) repository contains the
-  combined Apache/SDF/SDB deployment scripts.
+  combined Apache/`sdf`/`sdb` deployment scripts.
 
 ## Fit and data-model reference
 

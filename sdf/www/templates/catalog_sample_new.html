@@ -2,7 +2,7 @@
 {% block content %}
 <div class="page-head"><div><h1>Create a sample</h1><p class="muted">Import up to 1000 SIMBAD identifiers. Your private sample is only visible to you and administrators.</p></div><a class="button" href="/samples">Cancel</a></div>
 {% if not import_enabled %}
-<div class="message"><h2>Import is unavailable</h2><p>This server is not connected to an SDB database.</p></div>
+<div class="message"><h2>Import is unavailable</h2><p>This server is not connected to an <code>sdb</code> database.</p></div>
 {% else %}
 <form id="sample-import-form" class="sample-form">
   <label>Sample name<input id="sample-name" maxlength="100" required placeholder="My sample"></label>
@@ -73,7 +73,7 @@
       const row = document.createElement('tr');
       const requested = document.createElement('td'); requested.textContent = item.requested_name;
       const outcome = document.createElement('td');
-      if (item.status === 'existing') outcome.textContent = `Already in SDB as ${item.matches[0].main_id}`;
+      if (item.status === 'existing') outcome.textContent = `Already in sdb as ${item.matches[0].main_id}`;
       else if (item.status === 'new') outcome.textContent = 'New — requires SIMBAD';
       else outcome.textContent = `Ambiguous — ${item.matches.map(value => value.main_id).join(', ')}`;
       row.append(requested, outcome); body.appendChild(row);
