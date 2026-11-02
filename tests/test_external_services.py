@@ -33,3 +33,27 @@ def test_simbad_route_is_stable_and_relative():
     assert simbad_identifier_route('HD 1326') == (
         '/external/simbad/id?name=HD+1326'
     )
+
+
+def test_external_services_use_first_ordered_vizier_mirror(tmp_path):
+    config = tmp_path / 'sdb.toml'
+    config.write_text(
+        '[mirrors]\n'
+        'vizier = ["vizier.idia.ac.za", "vizier.cds.unistra.fr"]\n',
+        encoding='utf-8',
+    )
+
+    services = ExternalServices.from_sdb_config(config)
+
+    assert services.vizier_server == 'vizier.idia.ac.za'
+
+
+def test_external_services_honour_ordered_vizier_environment(monkeypatch):
+    monkeypatch.setenv(
+        'SDB_VIZIER_SERVERS',
+        'vizier.idia.ac.za,vizier.cds.unistra.fr',
+    )
+
+    services = ExternalServices.from_sdb_config()
+
+    assert services.vizier_server == 'vizier.idia.ac.za'

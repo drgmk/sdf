@@ -22,6 +22,15 @@ def _hostname(value, default):
         if parsed.port is not None else parsed.hostname
 
 
+def _primary(value):
+    """Return the first host from SDB's scalar or ordered mirror setting."""
+    if isinstance(value, (list, tuple)):
+        return value[0] if value else None
+    if isinstance(value, str) and ',' in value:
+        return value.split(',', 1)[0].strip()
+    return value
+
+
 @dataclass(frozen=True)
 class ExternalServices:
     simbad_server: str = 'simbad.cds.unistra.fr'
@@ -41,7 +50,11 @@ class ExternalServices:
                 cls.simbad_server,
             ),
             vizier_server=_hostname(
-                os.environ.get('SDB_VIZIER_SERVER') or mirrors.get('vizier'),
+                _primary(
+                    os.environ.get('SDB_VIZIER_SERVERS')
+                    or os.environ.get('SDB_VIZIER_SERVER')
+                    or mirrors.get('vizier')
+                ),
                 cls.vizier_server,
             ),
         )
