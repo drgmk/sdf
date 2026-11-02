@@ -28,11 +28,12 @@ class FakeSampler:
             problem.candidate.canonical_id, output_base, os.getcwd()
         ))
         midpoint = problem.transform_prior(np.repeat(0.5, problem.ndim))
+        log_likelihood = problem.log_likelihood(midpoint)
         return sdf.samplers.PosteriorRun(
             samples=np.vstack((midpoint, midpoint)),
             parameter_names=problem.parameter_names,
             sampler='fake',
-            log_likelihoods=np.array([-1.0, -1.0]),
+            log_likelihoods=np.array([log_likelihood, log_likelihood]),
             evidence=self.evidence_by_disk_count.get(disk_count, 0.0),
         )
 
@@ -90,6 +91,44 @@ def test_changed_inputs_use_a_fresh_resumable_work_directory(tmp_path):
     assert len(sampler.calls) == 2
     assert sampler.calls[0][2] != sampler.calls[1][2]
     assert all('/fits/.work/' in call[2] for call in sampler.calls)
+
+
+def test_forced_fit_uses_a_new_non_resuming_work_directory(tmp_path):
+    dataset = _fit_dataset(tmp_path)
+    candidate = sdf.model_selection.ModelCandidate.for_single_target(
+        dataset.targets[0].key, ('kurucz-0.0',)
+    )
+    sampler = FakeSampler()
+    coordinator = sdf.coordinator.FitCoordinator(tmp_path, sampler=sampler)
+
+    coordinator.fit_candidate(dataset, candidate)
+    coordinator.fit_candidate(dataset, candidate, force=True)
+
+    assert len(sampler.calls) == 2
+    assert sampler.calls[0][2] != sampler.calls[1][2]
+    assert '-fresh-' in sampler.calls[1][2]
+
+
+def test_invalid_retained_posterior_is_replaced_from_fresh_work_directory(
+        tmp_path):
+    dataset = _fit_dataset(tmp_path)
+    candidate = sdf.model_selection.ModelCandidate.for_single_target(
+        dataset.targets[0].key, ('kurucz-0.0',)
+    )
+    sampler = FakeSampler()
+    coordinator = sdf.coordinator.FitCoordinator(tmp_path, sampler=sampler)
+    first = coordinator.fit_candidate(dataset, candidate)
+    posterior_path = first.path / first.metadata['posterior']['file']
+    with np.load(posterior_path) as stored:
+        arrays = {name: stored[name] for name in stored.files}
+    arrays['samples'] = arrays['samples'].copy()
+    arrays['samples'][0, 0] = 1e12
+    np.savez_compressed(posterior_path, **arrays)
+
+    coordinator.fit_candidate(dataset, candidate)
+
+    assert len(sampler.calls) == 2
+    assert '-fresh-' in sampler.calls[1][2]
 
 
 def test_coordinator_reanalyses_old_candidate_without_resampling(tmp_path):

@@ -444,6 +444,44 @@ def test_catalog_runtime_starts_requested_isolated_worker_pool(
     assert [thread.name for thread in threads] == ['sdf-worker-supervisor']
 
 
+def test_catalog_runtime_allows_only_one_worker_service(tmp_path, monkeypatch):
+    class FakeProcess:
+        def __init__(self, *, target, args, name, daemon):
+            self.pid = 1
+
+        def start(self):
+            pass
+
+        def is_alive(self):
+            return True
+
+    class FakeThread:
+        def __init__(self, *, target, name, daemon):
+            pass
+
+        def start(self):
+            pass
+
+    state = sdf.catalog_server.OperatorState(
+        tmp_path / 'operator.sqlite'
+    ).initialize()
+    monkeypatch.setattr(
+        sdf.catalog_server.multiprocessing, 'Process', FakeProcess
+    )
+    monkeypatch.setattr(sdf.catalog_server, 'Thread', FakeThread)
+    first = sdf.catalog_server.CatalogRuntime(
+        SimpleNamespace(state=state), workers=1, watch=False,
+    )
+    second = sdf.catalog_server.CatalogRuntime(
+        SimpleNamespace(state=state), workers=1, watch=False,
+    )
+
+    first.start()
+    with pytest.raises(RuntimeError, match='already active'):
+        second.start()
+    first.worker_lock.release()
+
+
 def test_catalog_runtime_does_not_lock_around_sdb_import(
         tmp_path, monkeypatch):
     threads = []

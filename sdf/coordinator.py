@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, replace
 from pathlib import Path
 import subprocess
+from uuid import uuid4
 
 import numpy as np
 
@@ -22,9 +23,14 @@ from .dataset import FitDataset, canonical_fit_source
 from .diagnostic_plots import ensure_candidate_diagnostic_plots
 from .fit_priority import dataset_owner_order, recommend
 from .likelihood import FitProblem
+from .locking import InterProcessLock
 from .model_policy import resolve_package_policies
+from .posterior_validation import validate_posterior
 from .result_index import ResultIndex
 from .samplers import MultiNestSampler, PosteriorRun
+
+
+FIT_PROBLEM_SCHEMA = 1
 
 
 class FitCoordinator:
@@ -46,8 +52,10 @@ class FitCoordinator:
     def fit_candidate(self, dataset, candidate, policy=(), force=False):
         """Fit and atomically retain one candidate, reusing it when current."""
 
-        fit_state = _fit_state(candidate, self.sampler)
+        problem = FitProblem.compile(dataset, candidate)
+        fit_state = _fit_state(candidate, self.sampler, problem)
         existing = self.library.find(candidate.canonical_id)
+        existing_is_invalid = False
         existing_is_current = (
             existing is not None and
             existing.is_current(dataset, fit_state=fit_state)
@@ -57,11 +65,19 @@ class FitCoordinator:
             existing.metadata.get('analysis', {}).get('schema') ==
             ANALYSIS_SCHEMA
         )
-        if analysis_is_current and not force:
+        existing_is_valid = False
+        if existing_is_current:
+            try:
+                validate_posterior(problem, existing.posterior)
+            except utils.SdfError:
+                existing_is_current = False
+                existing_is_invalid = True
+            else:
+                existing_is_valid = True
+        if analysis_is_current and existing_is_valid and not force:
             ensure_candidate_diagnostic_plots(existing)
             return existing
 
-        problem = FitProblem.compile(dataset, candidate)
         if existing_is_current and not force:
             posterior = existing.posterior
         else:
@@ -70,13 +86,20 @@ class FitCoordinator:
                 input_fingerprint(dataset)[:8],
                 fit_fingerprint(fit_state)[:8],
             )
+            if force or existing_is_invalid:
+                work_name += '-fresh-' + uuid4().hex[:8]
             work_directory = self.library.fits_directory / '.work' / work_name
             work_directory.mkdir(parents=True, exist_ok=True)
             # MultiNest's Fortran filenames are limited to about 100
             # characters. Run from the candidate work directory so even
             # deeply nested SDB package paths use the short `./run_` base.
-            with utils.pushd(work_directory):
-                posterior = self.sampler.run(problem, './run_')
+            with InterProcessLock(
+                    work_directory / '.fit.lock',
+                    description='candidate fit {}'.format(
+                        candidate.canonical_id
+                    )):
+                with utils.pushd(work_directory):
+                    posterior = self.sampler.run(problem, './run_')
             if posterior.native_output is not None:
                 posterior = replace(
                     posterior,
@@ -85,6 +108,7 @@ class FitCoordinator:
                         relative_to(self.package_directory)
                     ),
                 )
+        validate_posterior(problem, posterior)
         posterior = _cap_posterior(posterior, cfg.fitting['n_samples_max'])
         analysis = FitAnalysis.run(problem, posterior)
         policy_payload = [
@@ -306,7 +330,7 @@ def _evidence(stored_candidate):
     return evidence
 
 
-def _fit_state(candidate, sampler):
+def _fit_state(candidate, sampler, problem):
     model_files = {}
     for model_name in sorted(set(candidate.model_names)):
         root = Path(cfg.models['loc'][model_name])
@@ -319,7 +343,10 @@ def _fit_state(candidate, sampler):
             for path in sorted(root.rglob('*')) if path.is_file()
         ]
     return {
+        'fit_problem_schema': FIT_PROBLEM_SCHEMA,
         'candidate_id': candidate.canonical_id,
+        'parameter_names': problem.parameter_names,
+        'parameter_ranges': problem.parameter_ranges,
         'model_files': model_files,
         'model_normalization_range': cfg.fitting['model_om_range'],
         'spectrum_normalization_range': cfg.fitting['spectra_norm_range'],

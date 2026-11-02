@@ -73,6 +73,9 @@ a package-specific configuration is being used.
 Changing fields in the drawer does not fit immediately. Enter or accept the
 reason and press **Queue fit** once for the complete system. All contributor
 changes are saved together and one background job evaluates the joint package.
+An unchanged candidate whose inputs and numerical configuration are current is
+validated and reused; queueing is not a forced rerun. Use `sdf-fits refit` for
+the uncommon diagnostic case that needs a completely fresh sampler run.
 
 Use **Use default config** to remove the custom override and return to the
 automatic choices. This is different from queueing an unchanged automatic fit:

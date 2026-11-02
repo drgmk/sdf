@@ -73,6 +73,11 @@ Atomic queue claims allow workers to share one administrative database. A
 package-level lock prevents overlapping fits of the same system. If a worker
 dies, only its claimed job is recovered and its slot is restarted.
 
+Only one worker-owning service may use an operator database at a time. A
+second `sdf-fits serve` process fails at startup instead of recovering or
+duplicating jobs owned by the first. Additional read-serving processes must
+use `--no-worker`.
+
 The export watcher indexes new and materially changed packages and queues them
 according to their state. It does not queue the entire pre-existing unfit
 backlog unless requested:
@@ -185,6 +190,11 @@ sdf-fits render PACKAGE
 sdf-fits select PACKAGE --default FIT --display FIT OTHER_FIT
 sdf-fits refit PACKAGE FIT
 ```
+
+`refit` and `fit --force` always use a new MultiNest work directory. They are
+therefore genuine from-scratch runs rather than resumes of retained native
+files. Ordinary automatic jobs continue to reuse a current validated
+candidate.
 
 Fit one exact owned component combination synchronously:
 

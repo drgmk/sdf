@@ -11,6 +11,7 @@ import sdf.samplers
 class FakeProblem:
     ndim = 2
     parameter_names = ('one', 'two')
+    parameter_ranges = ((0.0, 100.0), (0.0, 100.0))
 
     def __init__(self, offset):
         self.offset = offset
@@ -60,6 +61,7 @@ def test_multinest_callbacks_capture_their_problem(monkeypatch):
     assert calls[0][0].tolist() == [1.25, 1.75]
     assert calls[0][1] == 3.0
     assert calls[0][2]['outputfiles_basename'] == 'first_'
+    assert calls[0][2]['resume']
     assert calls[1][0].tolist() == [10.25, 10.75]
     assert calls[1][1] == 21.0
     assert first.seen[0].tolist() == [1.25, 1.75]
@@ -69,6 +71,7 @@ def test_multinest_callbacks_capture_their_problem(monkeypatch):
     assert first_run.log_likelihoods.tolist() == [-3.0, -6.0]
     assert first_run.evidence == 7.5
     assert first_run.evidence_error == 0.25
+    assert not first_run.options['resumed']
     assert second_run.native_output == 'second_'
 
 
@@ -85,3 +88,35 @@ def test_multinest_rejects_fortran_output_names_over_limit():
         sdf.samplers.MultiNestSampler().run(
             FakeProblem(0.0), 'x' * 90
         )
+
+
+def test_multinest_starts_clean_when_native_posterior_is_invalid(
+        tmp_path, monkeypatch):
+    calls = []
+    base = './run_'
+    (tmp_path / 'run_post_equal_weights.dat').write_text(
+        '1 999 -3\n', encoding='ascii'
+    )
+
+    def run(log_likelihood, prior, ndim, **kwargs):
+        calls.append(kwargs)
+
+    class Analyzer:
+        def __init__(self, outputfiles_basename, n_params):
+            pass
+
+        def get_equal_weighted_posterior(self):
+            return np.array([[1.0, 2.0, -3.0]])
+
+        def get_stats(self):
+            return {'global evidence': 1.0, 'global evidence error': 0.1}
+
+    monkeypatch.setitem(
+        sys.modules, 'pymultinest',
+        SimpleNamespace(run=run, Analyzer=Analyzer)
+    )
+
+    monkeypatch.chdir(tmp_path)
+    sdf.samplers.MultiNestSampler().run(FakeProblem(0.0), base)
+
+    assert not calls[0]['resume']

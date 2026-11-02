@@ -30,6 +30,7 @@ from .dataset import FitDataset
 from .export_catalog import ExportCatalog
 from .external_services import ExternalServices
 from .fit_management import FitManager
+from .locking import InterProcessLock
 from .operator_server import OperatorService
 from .operator_jobs import run_worker
 from .operator_state import OperatorState
@@ -651,24 +652,37 @@ class CatalogRuntime:
         self.watch_stop = Event()
         self.worker_processes = {}
         self.worker_ids = {}
+        self.worker_lock = None
         self.watch_thread = None
         self.supervisor_thread = None
         self.import_thread = None
 
     def start(self):
         if self.worker_enabled:
-            # No workers exist yet, so global recovery is safe. Subsequent
-            # restarts recover only work owned by the failed pool slot.
-            recovered = self.service.state.recover_running_jobs()
-            if recovered:
-                print('Recovered {} interrupted fit job(s)'.format(recovered))
-            for slot in range(self.worker_count):
-                self._start_worker(slot)
-            self.supervisor_thread = Thread(
-                target=self._supervise_worker,
-                name='sdf-worker-supervisor', daemon=True,
+            self.worker_lock = InterProcessLock(
+                Path(str(self.service.state.path) + '.workers.lock'),
+                description='fit worker service',
             )
-            self.supervisor_thread.start()
+            self.worker_lock.acquire()
+            try:
+                # The process-wide lock makes global recovery safe. Later
+                # pool-slot restarts recover only work owned by that slot.
+                recovered = self.service.state.recover_running_jobs()
+                if recovered:
+                    print('Recovered {} interrupted fit job(s)'.format(
+                        recovered
+                    ))
+                for slot in range(self.worker_count):
+                    self._start_worker(slot)
+                self.supervisor_thread = Thread(
+                    target=self._supervise_worker,
+                    name='sdf-worker-supervisor', daemon=True,
+                )
+                self.supervisor_thread.start()
+            except Exception:
+                self.worker_lock.release()
+                self.worker_lock = None
+                raise
         if self.watch_enabled:
             synchronizer = CatalogSynchronizer(self.service)
             self.watch_thread = Thread(
@@ -730,6 +744,9 @@ class CatalogRuntime:
             if process.is_alive():
                 process.terminate()
                 process.join(timeout=2)
+        if self.worker_lock is not None:
+            self.worker_lock.release()
+            self.worker_lock = None
 
     def _start_worker(self, slot):
         worker_id = '{}-{}'.format(id(self), slot + 1)
