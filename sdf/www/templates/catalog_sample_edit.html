@@ -116,8 +116,11 @@
     await queue('add', additions, addSubmit, addError);
   });
   document.getElementById('sample-member-filter').addEventListener('input', event => {
-    const query = event.target.value.trim().toLocaleLowerCase();
-    dialog.querySelectorAll('[data-member-label]').forEach(row => { row.hidden = query && !row.dataset.memberLabel.includes(query); });
+    const query = event.target.value.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+    dialog.querySelectorAll('[data-member-label]').forEach(row => {
+      const label = row.dataset.memberLabel.replace(/\s+/g, ' ');
+      row.hidden = query && !label.includes(query);
+    });
   });
   removeForm.addEventListener('submit', async event => {
     event.preventDefault();
