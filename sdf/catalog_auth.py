@@ -200,6 +200,33 @@ class CatalogAuthorizer:
             )
         return principal
 
+    def can_edit_sample(self, principal, sample_name):
+        """Return whether this principal may change sample membership."""
+
+        if not self.proxy_enabled:
+            return principal.is_admin
+        if not principal.authenticated:
+            return False
+        policy = self.access.sample(sample_name, principal.username)
+        if policy is None:
+            return False
+        if principal.is_admin:
+            return True
+        # Publishing is an administrator action, so changing the contents of
+        # an already-public sample is likewise kept administrator-only.
+        return (
+            policy.visibility == 'private'
+            and policy.owner_username == principal.username
+        )
+
+    def require_sample_edit(self, principal, sample_name):
+        self.require_authenticated(principal)
+        if not self.can_edit_sample(principal, sample_name):
+            raise AuthorizationDenied(
+                'editing sample {!r} is not permitted'.format(sample_name)
+            )
+        return principal
+
     def _session_username(self, cookie_header, *, now=None):
         token = _cookie_value(cookie_header, 'sdf_session')
         if not token:

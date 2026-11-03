@@ -105,6 +105,14 @@ The right side of the sample navigation provides downloads:
 An **Awaiting a current fit** section means that membership is known but the
 system has no current default result yet.
 
+Sample owners can use **Edit sample** on the Properties page to add identifiers
+or remove current members. Additions are checked locally first, then existing
+targets are reused and genuinely new targets are imported through SIMBAD.
+Removal changes only sample membership: the target, its fit, and memberships
+in other samples are retained. Shared samples are read-only for grantees.
+Administrators can edit any sample; changing a public sample is restricted to
+administrators.
+
 ## Signing in
 
 Signing in adds private/shared samples and enables imports. It does not change

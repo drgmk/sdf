@@ -140,6 +140,10 @@ two workers fitting the same system simultaneously.
 
 Any signed-in user can request a missing target or create a private sample.
 Administrators can also create public samples and inspect all import jobs.
+Private-sample owners can add or remove members from the sample Properties
+page. Administrators can edit any sample, including public and legacy
+ownerless samples. These edits retain the target and fitting products and
+publish a fresh sample export automatically.
 Account roles, sample ownership, sharing, visibility, and deletion are managed
 with the `sdb` user/sample commands described in
 [Authentication and authorization](catalog-auth.md).

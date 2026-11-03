@@ -45,6 +45,8 @@ def test_catalog_renders_unfit_search_sample_and_queue(tmp_path):
     assert 'HD 123' in service.render_public_search('123')
     assert 'test' in service.render_samples(principal)
     assert 'HD 123' in service.render_sample('test', principal)
+    assert 'Edit sample' in service.render_sample('test', principal)
+    assert 'Remove targets' in service.render_sample('test', principal)
     assert 'Queue automatic fit' in service.render_package_state(
         'package', admin=True, principal=principal,
     )
@@ -221,6 +223,31 @@ def test_completed_sample_import_renders_target_results(tmp_path):
     assert 'Sample imported' in page
     assert '49 Ceti' in page
     assert 'Existing target' in page
+    assert '/samples/Nearby/' in page
+
+
+def test_completed_sample_removal_renders_membership_results(tmp_path):
+    service = _catalog(tmp_path)
+    principal = service.auth.principal({})
+    job_id = service.state.queue_sample_acquisition(
+        'Nearby', ('sdb-test',), actor=principal.username,
+        operation='remove',
+    )
+    assert service.state.claim_next_sample_acquisition() is not None
+    service.state.finish_sample_acquisition(job_id, result={
+        'succeeded_count': 1,
+        'failed_count': 0,
+        'fit_job_ids': [],
+        'manifests': ['export-manifest.json'],
+        'member_results': [{'target': 'sdb-test', 'action_id': 4}],
+    })
+
+    page = service.render_sample_acquisition(job_id, principal)
+
+    assert 'Sample updated' in page
+    assert 'Membership results' in page
+    assert 'sdb-test' in page
+    assert 'Removed' in page
     assert '/samples/Nearby/' in page
 
 

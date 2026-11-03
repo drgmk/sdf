@@ -282,12 +282,14 @@ class CatalogService:
         )
 
     def queue_sample_acquisition(self, sample_name, targets, *, actor,
-                                 note=None, visibility='private'):
+                                 note=None, visibility='private',
+                                 operation='add', owner_username=None):
         if self.importer is None:
             raise ValueError('sample import is not configured')
         job_id = self.state.queue_sample_acquisition(
             sample_name, targets, actor=actor, note=note,
-            visibility=visibility,
+            visibility=visibility, operation=operation,
+            owner_username=owner_username,
         )
         return {'job_id': job_id, 'status': 'queued'}
 
@@ -413,11 +415,28 @@ class CatalogService:
         projection = self.sample_projection(sample)
         packages = self.packages(identifiers=sample.identifiers)
         projected = {system.package_path for system in projection.systems}
+        labels = {}
+        for system in projection.systems:
+            for target in system.targets:
+                aliases = {
+                    value for value in (
+                        target.target_key, target.main_id, target.sdbid,
+                    ) if value
+                }
+                for identifier in set(sample.identifiers) & aliases:
+                    labels[identifier] = target.label
+        members = tuple({
+            'identifier': identifier,
+            'label': labels.get(identifier, identifier),
+        } for identifier in sample.identifiers)
         return self.render_template(
             'catalog_sample.html', title=sample.name, sample=sample,
             projection=projection, rows=sample_table_rows(projection),
             pending=tuple(row for row in packages
                           if row['package_path'] not in projected),
+            sample_members=members,
+            can_edit=self.auth.can_edit_sample(principal, sample.name),
+            token=self.token,
             principal=principal, search_action='/search',
             system_base='/system',
             admin_access=principal.is_admin,
@@ -1076,14 +1095,63 @@ class _CatalogHandler(BaseHTTPRequestHandler):
                     raise PermissionError('invalid request token')
                 payload = self._payload()
                 visibility = payload.get('visibility', 'private')
+                sample_name = payload.get('sample_name')
+                owner_username = principal.username
+                if self.service.auth.proxy_enabled:
+                    policy = self.service.auth.access.sample(
+                        sample_name, principal.username,
+                    )
+                    if policy is not None:
+                        self.service.auth.require_sample_edit(
+                            principal, sample_name,
+                        )
+                        owner_username = policy.owner_username
+                else:
+                    try:
+                        owner_username = self.service.exports.sample(
+                            sample_name
+                        ).owner_username
+                    except KeyError:
+                        owner_username = principal.username
                 if visibility == 'public' and not principal.is_admin:
                     raise AuthorizationDenied(
                         'only administrators can publish a sample'
                     )
                 result = self.service.queue_sample_acquisition(
-                    payload.get('sample_name'), payload.get('targets', ()),
+                    sample_name, payload.get('targets', ()),
                     actor=principal.username, note=payload.get('note'),
-                    visibility=visibility,
+                    visibility=visibility, owner_username=owner_username,
+                )
+                self._json(result, status=HTTPStatus.ACCEPTED)
+                return
+            if parsed.path == '/sample-edits':
+                self.service.auth.require_authenticated(principal)
+                if self.headers.get('X-SDF-Token') != self.service.token:
+                    raise PermissionError('invalid request token')
+                payload = self._payload()
+                sample_name = payload.get('sample_name')
+                self.service.auth.require_sample_edit(principal, sample_name)
+                policy = (
+                    None if not self.service.auth.proxy_enabled
+                    else self.service.auth.access.sample(
+                        sample_name, principal.username,
+                    )
+                )
+                exported_owner = None
+                if policy is None:
+                    exported_owner = self.service.exports.sample(
+                        sample_name
+                    ).owner_username
+                operation = str(payload.get('operation') or '').strip()
+                if operation not in {'add', 'remove'}:
+                    raise ValueError('sample operation must be add or remove')
+                result = self.service.queue_sample_acquisition(
+                    sample_name, payload.get('targets', ()),
+                    actor=principal.username, operation=operation,
+                    owner_username=(
+                        policy.owner_username if policy is not None
+                        else exported_owner
+                    ),
                 )
                 self._json(result, status=HTTPStatus.ACCEPTED)
                 return

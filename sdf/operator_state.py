@@ -12,7 +12,7 @@ import sqlite3
 from .model_policy import TargetModelPolicy
 
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 
 @dataclass(frozen=True)
@@ -59,6 +59,8 @@ class AcquisitionJob:
 class SampleAcquisitionJob:
     id: int
     sample_name: str
+    operation: str
+    owner_username: str | None
     note: str | None
     visibility: str
     targets: tuple[str, ...]
@@ -146,6 +148,8 @@ class OperatorState:
                 CREATE TABLE IF NOT EXISTS sample_acquisition_jobs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     sample_name TEXT NOT NULL,
+                    operation TEXT NOT NULL DEFAULT 'add',
+                    owner_username TEXT,
                     note TEXT,
                     visibility TEXT NOT NULL,
                     targets TEXT NOT NULL,
@@ -170,7 +174,7 @@ class OperatorState:
                     'INSERT INTO operator_metadata VALUES (?, ?)',
                     ('schema_version', str(SCHEMA_VERSION)),
                 )
-            elif int(row['value']) in {1, 2, 3, 4}:
+            elif int(row['value']) in {1, 2, 3, 4, 5}:
                 if int(row['value']) == 1:
                     columns = {
                         value['name'] for value in connection.execute(
@@ -180,6 +184,22 @@ class OperatorState:
                     if 'worker_id' not in columns:
                         connection.execute(
                             'ALTER TABLE fit_jobs ADD COLUMN worker_id TEXT'
+                        )
+                if int(row['value']) < 6:
+                    columns = {
+                        value['name'] for value in connection.execute(
+                            'PRAGMA table_info(sample_acquisition_jobs)'
+                        )
+                    }
+                    if 'operation' not in columns:
+                        connection.execute(
+                            "ALTER TABLE sample_acquisition_jobs ADD COLUMN "
+                            "operation TEXT NOT NULL DEFAULT 'add'"
+                        )
+                    if 'owner_username' not in columns:
+                        connection.execute(
+                            "ALTER TABLE sample_acquisition_jobs ADD COLUMN "
+                            "owner_username TEXT"
                         )
                 connection.execute(
                     "UPDATE operator_metadata SET value = ? "
@@ -568,12 +588,15 @@ class OperatorState:
             return cursor.rowcount
 
     def queue_sample_acquisition(self, sample_name, targets, *, actor,
-                                 note=None, visibility='private'):
+                                 note=None, visibility='private',
+                                 operation='add', owner_username=None):
         self.initialize()
         sample_name = str(sample_name or '').strip()
         actor = str(actor or '').strip()
         note = str(note or '').strip() or None
         visibility = str(visibility or '').strip().lower()
+        operation = str(operation or '').strip().lower()
+        owner_username = str(owner_username or '').strip() or None
         targets = tuple(dict.fromkeys(
             ' '.join(str(value or '').split()) for value in targets
             if str(value or '').strip()
@@ -584,6 +607,8 @@ class OperatorState:
             raise ValueError('sample name is too long')
         if visibility not in {'private', 'public'}:
             raise ValueError('sample visibility must be private or public')
+        if operation not in {'add', 'remove'}:
+            raise ValueError('sample operation must be add or remove')
         if not actor:
             raise ValueError('actor is required')
         if not targets:
@@ -596,12 +621,12 @@ class OperatorState:
             cursor = connection.execute(
                 '''
                 INSERT INTO sample_acquisition_jobs (
-                    sample_name, note, visibility, targets, status, actor,
-                    created_at
-                ) VALUES (?, ?, ?, ?, 'queued', ?, ?)
+                    sample_name, operation, owner_username, note, visibility,
+                    targets, status, actor, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?)
                 ''',
                 (
-                    sample_name, note, visibility,
+                    sample_name, operation, owner_username, note, visibility,
                     json.dumps(targets), actor, _now(),
                 ),
             )
@@ -854,7 +879,9 @@ def _acquisition_job(row):
 def _sample_acquisition_job(row):
     row = dict(row)
     return SampleAcquisitionJob(
-        id=row['id'], sample_name=row['sample_name'], note=row['note'],
+        id=row['id'], sample_name=row['sample_name'],
+        operation=row.get('operation', 'add'),
+        owner_username=row.get('owner_username'), note=row['note'],
         visibility=row['visibility'], targets=tuple(json.loads(row['targets'])),
         status=row['status'], actor=row['actor'],
         created_at=row['created_at'], started_at=row['started_at'],

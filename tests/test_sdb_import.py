@@ -127,7 +127,7 @@ def test_sdb_importer_acquires_and_exports_sample(tmp_path):
     )
     result = importer.acquire_sample(SimpleNamespace(
         sample_name='Nearby', targets=('HD 123', 'Vega'), actor='alice',
-        visibility='private', note='Nearby systems',
+        owner_username='alice', visibility='private', note='Nearby systems',
     ))
 
     assert result['sample'] == 'Nearby'
@@ -135,6 +135,7 @@ def test_sdb_importer_acquires_and_exports_sample(tmp_path):
     assert result['failed_count'] == 1
     assert result['warnings']
     assert calls[0][calls[0].index('sample'):] [:2] == ['sample', 'acquire']
+    assert calls[0][calls[0].index('--owner') + 1] == 'alice'
     assert calls[1][-7:] == [
         'export', '--sample', 'Nearby', '--output-dir', str(export_root),
         '--workers', '1',
@@ -167,6 +168,50 @@ def test_sdb_importer_checks_sample_targets_without_importing(tmp_path):
     assert calls[0][-3:-1] == ['sample', 'check']
 
 
+def test_sdb_importer_removes_members_and_exports_sample(tmp_path):
+    export_root = tmp_path / 'export'
+    export_root.mkdir()
+    manifest = export_root / 'export-9-manifest.json'
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        if 'remove' in command:
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps({'action_id': len(calls)}), stderr='',
+            )
+        manifest.write_text(json.dumps({'packages': []}), encoding='utf-8')
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps({
+                'manifest': str(manifest), 'failed': 0,
+                'exported': 0, 'skipped': 0,
+            }), stderr='',
+        )
+
+    importer = sdf.sdb_import.SdbImporter(
+        sdf.sdb_import.SdbImportConfig.create(tmp_path / 'sdb.sqlite'),
+        export_root, runner=runner,
+    )
+    result = importer.acquire_sample(SimpleNamespace(
+        sample_name='Nearby', targets=('sdb-one', 'sdb-two'), actor='alice',
+        operation='remove', visibility='private', note=None,
+    ))
+
+    assert result['operation'] == 'remove'
+    assert result['succeeded_count'] == 2
+    assert result['failed_count'] == 0
+    assert result['packages'] == []
+    assert calls[0][calls[0].index('sample'):] [:3] == [
+        'sample', 'remove', 'Nearby',
+    ]
+    assert calls[-1][-7:] == [
+        'export', '--sample', 'Nearby', '--output-dir', str(export_root),
+        '--workers', '1',
+    ]
+
+
 def test_sdb_importer_retains_all_failed_sample_result_without_export(tmp_path):
     calls = []
 
@@ -193,7 +238,7 @@ def test_sdb_importer_retains_all_failed_sample_result_without_export(tmp_path):
     )
     result = importer.acquire_sample(SimpleNamespace(
         sample_name='New sample', targets=('New',), actor='alice',
-        visibility='private', note=None,
+        owner_username='alice', visibility='private', note=None,
     ))
 
     assert result['succeeded_count'] == 0

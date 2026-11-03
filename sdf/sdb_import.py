@@ -141,6 +141,9 @@ class SdbImporter:
     def acquire_sample(self, job):
         """Create one owned SDB sample, import its targets, and export it."""
 
+        if getattr(job, 'operation', 'add') == 'remove':
+            return self._remove_sample_members(job)
+
         environment = os.environ.copy()
         environment['SDB_ACTOR'] = str(job.actor)
         with tempfile.NamedTemporaryFile(
@@ -149,10 +152,12 @@ class SdbImporter:
             target_file.flush()
             command = [
                 *self.config.command(), 'sample', 'acquire', job.sample_name,
-                target_file.name, '--owner', job.actor,
-                '--visibility', job.visibility, '--actor', job.actor,
+                target_file.name, '--visibility', job.visibility,
+                '--actor', job.actor,
                 '--reason', 'Imported from the SDF sample page',
             ]
+            if getattr(job, 'owner_username', None):
+                command.extend(('--owner', job.owner_username))
             if job.note:
                 command.extend(('--note', job.note))
             acquired, status, stderr = self._json_command(
@@ -184,6 +189,7 @@ class SdbImporter:
             )
         result = {
             'sample': job.sample_name,
+            'operation': 'add',
             'requested_count': len(job.targets),
             'succeeded_count': int(acquired.get('succeeded_count', 0)),
             'failed_count': failed_count,
@@ -225,6 +231,79 @@ class SdbImporter:
             warnings.append(
                 'Targets were imported, but none is ready for a fitting package'
             )
+        return result
+
+    def _remove_sample_members(self, job):
+        """Remove selected members and publish a fresh sample snapshot."""
+
+        environment = os.environ.copy()
+        environment['SDB_ACTOR'] = str(job.actor)
+        removed = []
+        failed = []
+        for target in job.targets:
+            try:
+                value, status, stderr = self._json_command(
+                    [
+                        *self.config.command(), 'sample', 'remove',
+                        job.sample_name, target, '--actor', job.actor,
+                        '--reason', 'Removed from the SDF sample page',
+                    ],
+                    environment=environment,
+                )
+            except RuntimeError as error:
+                failed.append({'target': target, 'error': str(error)})
+                continue
+            if status != 0:
+                failed.append({
+                    'target': target,
+                    'error': _command_error(
+                        'SDB could not remove the target', status, stderr,
+                    ),
+                })
+                continue
+            removed.append({
+                'target': target,
+                'action_id': value.get('action_id'),
+            })
+
+        result = {
+            'sample': job.sample_name,
+            'operation': 'remove',
+            'requested_count': len(job.targets),
+            'succeeded_count': len(removed),
+            'failed_count': len(failed),
+            'member_results': removed + failed,
+            'packages': [],
+            'manifests': [],
+            'exported': 0,
+            'skipped': 0,
+            'warnings': [],
+        }
+        if failed:
+            result['warnings'].append(
+                '{} target removal(s) failed'.format(len(failed))
+            )
+
+        exported, export_status, export_stderr = self._json_command(
+            [
+                *self.config.command(), 'export', '--sample', job.sample_name,
+                '--output-dir', str(self.export_root), '--workers', '1',
+            ],
+            environment=environment,
+        )
+        if export_status != 0 or int(exported.get('failed', 0)):
+            raise RuntimeError(_command_error(
+                'Membership changed but SDB export failed',
+                export_status, export_stderr,
+            ))
+        manifest, packages = self._manifest_packages(
+            exported, allow_empty=True,
+        )
+        result.update(
+            packages=list(packages), manifests=[manifest.name],
+            exported=int(exported.get('exported', 0)),
+            skipped=int(exported.get('skipped', 0)),
+        )
         return result
 
     def check_sample_targets(self, targets):

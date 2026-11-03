@@ -255,7 +255,7 @@ def test_version_one_operator_database_is_migrated_in_place(tmp_path):
         columns = {
             row[1] for row in connection.execute('PRAGMA table_info(fit_jobs)')
         }
-    assert version == '5'
+    assert version == '6'
     assert 'worker_id' in columns
 
 
@@ -281,8 +281,51 @@ def test_version_two_operator_database_records_default_choices(tmp_path):
                 "SELECT name FROM sqlite_master WHERE type = 'table'"
             )
         }
-    assert version == '5'
+    assert version == '6'
     assert 'fit_policy_default' in tables
+
+
+def test_version_five_operator_database_adds_sample_edit_fields(tmp_path):
+    path = tmp_path / 'operator.sqlite'
+    with sqlite3.connect(path) as connection:
+        connection.executescript('''
+            CREATE TABLE operator_metadata (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            INSERT INTO operator_metadata VALUES ('schema_version', '5');
+            CREATE TABLE sample_acquisition_jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sample_name TEXT NOT NULL,
+                note TEXT,
+                visibility TEXT NOT NULL,
+                targets TEXT NOT NULL,
+                status TEXT NOT NULL,
+                actor TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                started_at TEXT,
+                completed_at TEXT,
+                result TEXT,
+                error TEXT,
+                worker_id TEXT
+            );
+            INSERT INTO sample_acquisition_jobs (
+                sample_name, note, visibility, targets, status, actor,
+                created_at
+            ) VALUES ('Existing', NULL, 'private', '["Vega"]', 'queued',
+                      'alice', '2026-01-01T00:00:00+00:00');
+        ''')
+
+    state = sdf.operator_state.OperatorState(path).initialize()
+    job = state.sample_acquisition(1)
+
+    assert job.operation == 'add'
+    assert job.owner_username is None
+    with sqlite3.connect(path) as connection:
+        version = connection.execute(
+            "SELECT value FROM operator_metadata WHERE key = 'schema_version'"
+        ).fetchone()[0]
+    assert version == '6'
 
 
 def test_acquisition_queue_coalesces_claims_completes_and_recovers(tmp_path):
@@ -330,6 +373,7 @@ def test_sample_acquisition_queue_validates_claims_and_completes(tmp_path):
     assert job.sample_name == 'Nearby stars'
     assert job.targets == ('HD 123', 'Vega')
     assert job.note == 'A test sample'
+    assert job.operation == 'add'
     assert job.status == 'running'
     assert state.recover_running_sample_acquisitions() == 1
 
@@ -340,6 +384,14 @@ def test_sample_acquisition_queue_validates_claims_and_completes(tmp_path):
     completed = state.sample_acquisition(job_id)
     assert completed.status == 'completed'
     assert completed.result['packages'] == ['one']
+
+    remove_id = state.queue_sample_acquisition(
+        'Nearby stars', ['sdb-one'], actor='alice', operation='remove',
+        owner_username='alice',
+    )
+    removal = state.sample_acquisition(remove_id)
+    assert removal.operation == 'remove'
+    assert removal.owner_username == 'alice'
 
     with pytest.raises(ValueError, match='1000'):
         state.queue_sample_acquisition(
