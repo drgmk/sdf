@@ -50,6 +50,7 @@ class SampleTarget:
     ra_deg: float | None
     dec_deg: float | None
     spectral_type: str | None
+    aliases: tuple[str, ...]
     stars: tuple[SampleStar, ...]
     disks: tuple[SampleDisk, ...]
 
@@ -66,6 +67,15 @@ class SampleTarget:
     def ra_hours(self):
         return None if self.ra_deg is None else self.ra_deg / 15.0
 
+    @property
+    def search_terms(self):
+        return tuple(dict.fromkeys(
+            value for value in (
+                self.label, self.target_key, self.main_id, self.sdbid,
+                *self.aliases,
+            ) if value
+        ))
+
 
 @dataclass(frozen=True)
 class SampleSystem:
@@ -77,6 +87,7 @@ class SampleSystem:
     data_current: bool
     matched_observations: tuple[str, ...]
     targets: tuple[SampleTarget, ...]
+    identity_aliases: tuple[tuple[str, tuple[str, ...]], ...]
     url: str
 
     @property
@@ -84,6 +95,15 @@ class SampleSystem:
         if self.matched_observations:
             return ' / '.join(self.matched_observations)
         return ' + '.join(target.label for target in self.targets)
+
+    @property
+    def search_terms(self):
+        values = [self.display_name, *self.matched_observations]
+        target_sdbids = {target.sdbid for target in self.targets}
+        for sdbid, aliases in self.identity_aliases:
+            if sdbid not in target_sdbids:
+                values.extend((sdbid, *aliases))
+        return tuple(dict.fromkeys(value for value in values if value))
 
 
 @dataclass(frozen=True)
@@ -128,6 +148,9 @@ def project_sample(index, name, identifiers=None, *, output_directory=None,
         target_metadata = _package_target_metadata(
             root / package['package_path']
         )
+        identity_aliases = _package_identity_aliases(
+            root / package['package_path']
+        )
         analysis = payload.get('analysis', {})
         fitted = {
             component['component_id']: component
@@ -170,6 +193,7 @@ def project_sample(index, name, identifiers=None, *, output_directory=None,
                 spectral_type=target_metadata.get(target_key, {}).get(
                     'spectral_type'
                 ),
+                aliases=identity_aliases.get(values.get('sdbid'), ()),
                 stars=stars, disks=disks,
             ))
         package_observations = observations_by_package.get(
@@ -188,6 +212,7 @@ def project_sample(index, name, identifiers=None, *, output_directory=None,
             data_current=bool(package['data_current']),
             matched_observations=matched_observations,
             targets=tuple(targets),
+            identity_aliases=tuple(sorted(identity_aliases.items())),
             url=_package_url(
                 root, package['package_path'], output_directory, sed_base_url
             ),
@@ -269,6 +294,9 @@ def sample_table_rows(projection):
             rows.append({
                 'system': system,
                 'target': target,
+                'filter_text': ' '.join(dict.fromkeys((
+                    *target.search_terms, *system.search_terms,
+                ))),
                 'star': star,
                 'disks': disks,
                 'temperature_k': _median(
@@ -481,6 +509,14 @@ def _package_target_metadata(package):
             'spectral_type': _optional_text(keywords.get('sp_type')),
         }
     return metadata
+
+
+def _package_identity_aliases(package):
+    path = Path(package) / 'identities.yml'
+    if not path.is_file():
+        return {}
+    from .identity_manifest import read_identity_manifest
+    return read_identity_manifest(path)
 
 
 def _rawphot_header(path):

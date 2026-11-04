@@ -30,6 +30,7 @@ from .dataset import FitDataset
 from .export_catalog import ExportCatalog
 from .external_services import ExternalServices
 from .fit_management import FitManager
+from .identity_manifest import read_identity_manifest
 from .locking import InterProcessLock
 from .operator_server import OperatorService
 from .operator_jobs import run_worker
@@ -416,18 +417,31 @@ class CatalogService:
         packages = self.packages(identifiers=sample.identifiers)
         projected = {system.package_path for system in projection.systems}
         labels = {}
+        search_terms = {}
+        for package in packages:
+            path = self.root / package['package_path'] / 'identities.yml'
+            if not path.is_file():
+                continue
+            for identifier, aliases in read_identity_manifest(path).items():
+                search_terms[identifier] = tuple(dict.fromkeys((
+                    identifier, *aliases,
+                )))
         for system in projection.systems:
+            for identifier, aliases in system.identity_aliases:
+                search_terms[identifier] = tuple(dict.fromkeys((
+                    identifier, *aliases,
+                )))
             for target in system.targets:
-                aliases = {
-                    value for value in (
-                        target.target_key, target.main_id, target.sdbid,
-                    ) if value
-                }
+                aliases = set(target.search_terms)
                 for identifier in set(sample.identifiers) & aliases:
                     labels[identifier] = target.label
+                    search_terms[identifier] = target.search_terms
         members = tuple({
             'identifier': identifier,
             'label': labels.get(identifier, identifier),
+            'filter_text': ' '.join(search_terms.get(
+                identifier, (labels.get(identifier, identifier), identifier),
+            )),
         } for identifier in sample.identifiers)
         return self.render_template(
             'catalog_sample.html', title=sample.name, sample=sample,

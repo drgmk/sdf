@@ -1,4 +1,5 @@
 import json
+import re
 import sqlite3
 from types import SimpleNamespace
 from threading import Thread
@@ -24,6 +25,11 @@ def _catalog(tmp_path):
         package / 'target-rawphot.txt',
         sdbid='sdb-test', main_id='HD 123',
     )
+    (package / 'identities.yml').write_text(
+        'version: 1\ntargets:\n  sdb-test:\n'
+        '    aliases:\n      - HD 123\n      - HIP 107000\n',
+        encoding='utf-8',
+    )
     (tmp_path / 'export-1-manifest.json').write_text(json.dumps({
         'schema': 'sdb-fit-package-export', 'schema_version': 2,
         'run_id': 1, 'status': 'completed',
@@ -44,11 +50,15 @@ def test_catalog_renders_unfit_search_sample_and_queue(tmp_path):
     assert 'HD 123' in service.render_dashboard()
     assert 'HD 123' in service.render_public_search('123')
     assert 'test' in service.render_samples(principal)
-    assert 'HD 123' in service.render_sample('test', principal)
-    assert 'Edit sample' in service.render_sample('test', principal)
-    assert 'Remove targets' in service.render_sample('test', principal)
+    sample_page = service.render_sample('test', principal)
+    assert 'HD 123' in sample_page
+    assert 'Edit sample' in sample_page
+    assert 'Remove targets' in sample_page
+    assert re.search(
+        r'<label data-member-label="[^"]*hip 107000', sample_page,
+    )
     assert '.sample-member-list label[hidden]{display:none}' in (
-        service.render_sample('test', principal)
+        sample_page
     )
     assert 'Queue automatic fit' in service.render_package_state(
         'package', admin=True, principal=principal,

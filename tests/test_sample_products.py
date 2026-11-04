@@ -92,7 +92,14 @@ def test_projection_finds_system_by_observation_and_marks_context(tmp_path):
 
 
 def test_projection_marks_direct_physical_target_member(tmp_path):
-    _, dataset, _ = _retained_package(tmp_path)
+    package, dataset, _ = _retained_package(tmp_path)
+    (package / 'identities.yml').write_text(
+        'version: 1\ntargets:\n  {}:\n'
+        '    aliases:\n      - HD 123\n      - HIP 107000\n'.format(
+            dataset.targets[0].sdbid
+        ),
+        encoding='utf-8',
+    )
     index = sdf.result_index.ResultIndex(tmp_path / 'sdf-results.sqlite')
     index.rebuild(tmp_path)
 
@@ -102,6 +109,10 @@ def test_projection_marks_direct_physical_target_member(tmp_path):
 
     target = projection.systems[0].targets[0]
     assert target.direct_member
+    assert target.aliases == ('HD 123', 'HIP 107000')
+    assert 'HIP 107000' in sdf.sample_products.sample_table_rows(
+        projection
+    )[0]['filter_text']
     assert target.stars[0].temperature_k['median'] > 0
 
 
@@ -123,7 +134,7 @@ def test_writers_create_hierarchy_table_votable_and_plots(tmp_path):
     assert 'Filter targets' in html
     assert 'T<sub>eff</sub>' in html
     assert 'sample member' not in html
-    assert 'sdb-test' not in html
+    assert '>sdb-test<' not in html
     assert outputs['votable'].is_file()
     assert outputs['photometry'].is_file()
     assert 'Bokeh' in outputs['plots'].read_text(encoding='utf-8')

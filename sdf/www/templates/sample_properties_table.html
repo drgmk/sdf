@@ -17,7 +17,7 @@
     <th><button type="button" data-column="9" data-type="number">R<sub>BB</sub> / au <span aria-hidden="true"></span></button></th>
   </tr></thead>
   <tbody>
-  {% for row in rows %}<tr data-filter="{{ row.target.label|lower }} {{ row.target.spectral_type or '' }}">
+  {% for row in rows %}<tr data-filter="{{ row.filter_text|lower }} {{ row.target.spectral_type or '' }}">
     <td data-sort="{{ row.target.label|lower }}"><a class="targets" href="{{ row.system.url }}">{{ row.target.label }}</a>{% if not row.target.direct_member %}<br><span class="context-note">system context</span>{% endif %}{% if not row.system.data_current %}<br><span class="context-note stale-note">input changed</span>{% endif %}</td>
     <td data-sort="{{ (row.target.spectral_type or '')|lower }}">{{ row.target.spectral_type or '—' }}</td>
     <td class="number" data-sort="{{ row.target.ra_hours if row.target.ra_hours is not none else '' }}">{% if row.target.ra_hours is not none %}{{ '%.3f'|format(row.target.ra_hours) }}{% else %}—{% endif %}</td>

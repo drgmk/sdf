@@ -15,7 +15,7 @@
     <label for="sample-member-filter"><strong>Current members</strong></label>
     <input id="sample-member-filter" type="search" placeholder="Filter targets" autocomplete="off">
     <div class="sample-member-list" id="sample-member-list">
-      {% for member in sample_members %}<label data-member-label="{{ member.label|lower }} {{ member.identifier|lower }}"><input type="checkbox" name="member" value="{{ member.identifier }}"><span>{{ member.label }}</span></label>{% else %}<p class="muted">This sample has no targets.</p>{% endfor %}
+      {% for member in sample_members %}<label data-member-label="{{ member.filter_text|lower }}"><input type="checkbox" name="member" value="{{ member.identifier }}"><span>{{ member.label }}</span></label>{% else %}<p class="muted">This sample has no targets.</p>{% endfor %}
     </div>
     <div class="warning" id="sample-remove-error" role="alert"></div>
     <div class="sample-dialog-actions"><button type="button" data-dialog-cancel>Cancel</button><button type="submit" id="sample-remove-submit">Remove selected</button></div>
