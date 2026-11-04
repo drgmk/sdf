@@ -47,6 +47,9 @@ def test_catalog_renders_unfit_search_sample_and_queue(tmp_path):
     assert 'HD 123' in service.render_sample('test', principal)
     assert 'Edit sample' in service.render_sample('test', principal)
     assert 'Remove targets' in service.render_sample('test', principal)
+    assert '.sample-member-list label[hidden]{display:none}' in (
+        service.render_sample('test', principal)
+    )
     assert 'Queue automatic fit' in service.render_package_state(
         'package', admin=True, principal=principal,
     )
