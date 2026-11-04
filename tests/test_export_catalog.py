@@ -62,3 +62,26 @@ def test_samples_use_latest_complete_root_snapshot_for_any_selector(tmp_path):
     assert samples[1].sample_date == '2026-08-01'
     assert samples[1].note == 'Disk sample'
     assert samples[1].run_id == 2
+
+
+def test_samples_prefer_lightweight_catalog_over_export_manifests(tmp_path):
+    _manifest(
+        tmp_path / 'export-2-manifest.json', 2, None, ['old'],
+        kind='all', samples=[{'name': 'deleted', 'sdbids': ['old']}],
+    )
+    (tmp_path / 'samples.json').write_text(json.dumps({
+        'schema': 'sdb-sample-catalog',
+        'schema_version': 1,
+        'generated_at': '2026-11-04T00:00:00+00:00',
+        'samples': [{
+            'name': 'current', 'sdbids': ['new'],
+            'owner_username': 'alice', 'visibility': 'private',
+        }],
+    }), encoding='utf-8')
+
+    samples = sdf.export_catalog.ExportCatalog(tmp_path).samples()
+
+    assert [sample.name for sample in samples] == ['current']
+    assert samples[0].identifiers == ('new',)
+    assert samples[0].manifest_path == tmp_path / 'samples.json'
+    assert samples[0].owner_username == 'alice'

@@ -154,7 +154,7 @@ class SdbImporter:
                 *self.config.command(), 'sample', 'acquire', job.sample_name,
                 target_file.name, '--visibility', job.visibility,
                 '--actor', job.actor,
-                '--reason', 'Imported from the SDF sample page',
+                '--reason', 'Imported from the web sample page',
             ]
             if getattr(job, 'owner_username', None):
                 command.extend(('--owner', job.owner_username))
@@ -246,7 +246,7 @@ class SdbImporter:
                     [
                         *self.config.command(), 'sample', 'remove',
                         job.sample_name, target, '--actor', job.actor,
-                        '--reason', 'Removed from the SDF sample page',
+                        '--reason', 'Removed from the web sample page',
                     ],
                     environment=environment,
                 )
@@ -283,6 +283,39 @@ class SdbImporter:
             result['warnings'].append(
                 '{} target removal(s) failed'.format(len(failed))
             )
+
+        empty, empty_status, empty_stderr = self._json_command(
+            [
+                *self.config.command(), 'sample', 'delete-if-empty',
+                job.sample_name, '--actor', job.actor,
+                '--reason', 'Deleted after its final member was removed '
+                'from the web sample page',
+            ],
+            environment=environment,
+        )
+        if empty_status != 0:
+            raise RuntimeError(_command_error(
+                'Membership changed but the empty-sample check failed',
+                empty_status, empty_stderr,
+            ))
+        result['sample_deleted'] = bool(empty.get('deleted'))
+        result['remaining_member_count'] = int(empty.get('member_count', 0))
+
+        if result['sample_deleted']:
+            catalog, catalog_status, catalog_stderr = self._json_command(
+                [
+                    *self.config.command(), 'sample', 'catalog',
+                    '--output-dir', str(self.export_root),
+                ],
+                environment=environment,
+            )
+            if catalog_status != 0:
+                raise RuntimeError(_command_error(
+                    'Sample was deleted but the served sample list could not '
+                    'be refreshed', catalog_status, catalog_stderr,
+                ))
+            result['sample_catalog'] = Path(catalog['path']).name
+            return result
 
         exported, export_status, export_stderr = self._json_command(
             [

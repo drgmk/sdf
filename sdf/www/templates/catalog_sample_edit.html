@@ -127,7 +127,11 @@
     const selected = Array.from(dialog.querySelectorAll('input[name=member]:checked')).map(input => input.value);
     if (!selected.length) { removeError.textContent = 'Select at least one target to remove.'; return; }
     const label = selected.length === 1 ? 'this target' : `these ${selected.length} targets`;
-    if (!window.confirm(`Remove ${label} from ${sampleName}? The targets and their fits will not be deleted.`)) return;
+    const deleting = selected.length === memberIds.size;
+    const consequence = deleting
+      ? 'This will leave the sample empty, so the sample itself will also be deleted. The targets and their fits will not be deleted.'
+      : 'The targets and their fits will not be deleted.';
+    if (!window.confirm(`Remove ${label} from ${sampleName}? ${consequence}`)) return;
     await queue('remove', selected, document.getElementById('sample-remove-submit'), removeError);
   });
 })();

@@ -181,6 +181,13 @@ def test_sdb_importer_removes_members_and_exports_sample(tmp_path):
                 returncode=0,
                 stdout=json.dumps({'action_id': len(calls)}), stderr='',
             )
+        if 'delete-if-empty' in command:
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps({
+                    'deleted': False, 'member_count': 3, 'deletion': None,
+                }), stderr='',
+            )
         manifest.write_text(json.dumps({'packages': []}), encoding='utf-8')
         return SimpleNamespace(
             returncode=0,
@@ -209,6 +216,55 @@ def test_sdb_importer_removes_members_and_exports_sample(tmp_path):
     assert calls[-1][-7:] == [
         'export', '--sample', 'Nearby', '--output-dir', str(export_root),
         '--workers', '1',
+    ]
+    assert any('delete-if-empty' in call for call in calls)
+
+
+def test_sdb_importer_deletes_sample_after_final_member(tmp_path):
+    export_root = tmp_path / 'export'
+    export_root.mkdir()
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        if 'remove' in command:
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps({'action_id': 1}), stderr='',
+            )
+        if 'delete-if-empty' in command:
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps({
+                    'deleted': True, 'member_count': 0,
+                    'deletion': {'name': 'Solo'},
+                }), stderr='',
+            )
+        assert 'catalog' in command
+        sample_catalog = export_root / 'samples.json'
+        sample_catalog.write_text('{}', encoding='utf-8')
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps({
+                'path': str(sample_catalog), 'sample_count': 0,
+            }), stderr='',
+        )
+
+    importer = sdf.sdb_import.SdbImporter(
+        sdf.sdb_import.SdbImportConfig.create(tmp_path / 'sdb.sqlite'),
+        export_root, runner=runner,
+    )
+    result = importer.acquire_sample(SimpleNamespace(
+        sample_name='Solo', targets=('sdb-one',), actor='alice',
+        operation='remove', visibility='private', note=None,
+    ))
+
+    assert result['sample_deleted'] is True
+    assert result['remaining_member_count'] == 0
+    assert result['sample_catalog'] == 'samples.json'
+    assert not any('export' in call for call in calls)
+    assert calls[-1][calls[-1].index('sample'):] == [
+        'sample', 'catalog', '--output-dir', str(export_root),
     ]
 
 

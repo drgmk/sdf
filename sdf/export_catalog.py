@@ -29,6 +29,21 @@ class ExportCatalog:
     def samples(self):
         """Return sample views represented by the current export root."""
 
+        catalog_path = self.root / 'samples.json'
+        try:
+            catalog = json.loads(catalog_path.read_text(encoding='utf-8'))
+        except (OSError, json.JSONDecodeError):
+            catalog = None
+        if (
+            isinstance(catalog, dict)
+            and catalog.get('schema') == 'sdb-sample-catalog'
+            and isinstance(catalog.get('samples'), list)
+        ):
+            return self._samples_from_rows(
+                catalog['samples'], run_id=0, path=catalog_path,
+                completed_at=catalog.get('generated_at'),
+            )
+
         manifests = []
         for path in sorted(self.root.glob('export-*-manifest.json')):
             try:
@@ -47,31 +62,10 @@ class ExportCatalog:
         ]
         if snapshots:
             run_id, path, payload = max(snapshots, key=lambda value: value[0])
-            samples = []
-            for row in payload['samples']:
-                if not isinstance(row, dict):
-                    continue
-                name = row.get('name')
-                identifiers = row.get('sdbids')
-                if (
-                    not isinstance(name, str) or not name.strip()
-                    or not isinstance(identifiers, list)
-                ):
-                    continue
-                samples.append(ExportSample(
-                    name=name.strip(),
-                    identifiers=tuple(dict.fromkeys(
-                        str(value) for value in identifiers
-                    )),
-                    run_id=run_id,
-                    manifest_path=path,
-                    completed_at=payload.get('completed_at'),
-                    sample_date=row.get('sample_date'),
-                    note=row.get('note'),
-                    owner_username=row.get('owner_username'),
-                    visibility=row.get('visibility') or 'private',
-                ))
-            return tuple(sorted(samples, key=lambda value: value.name.lower()))
+            return self._samples_from_rows(
+                payload['samples'], run_id=run_id, path=path,
+                completed_at=payload.get('completed_at'),
+            )
 
         samples = {}
         for run_id, path, payload in manifests:
@@ -97,6 +91,34 @@ class ExportCatalog:
             if previous is None or sample.run_id > previous.run_id:
                 samples[sample.name] = sample
         return tuple(samples[name] for name in sorted(samples, key=str.lower))
+
+    @staticmethod
+    def _samples_from_rows(rows, *, run_id, path, completed_at):
+        samples = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            name = row.get('name')
+            identifiers = row.get('sdbids')
+            if (
+                not isinstance(name, str) or not name.strip()
+                or not isinstance(identifiers, list)
+            ):
+                continue
+            samples.append(ExportSample(
+                name=name.strip(),
+                identifiers=tuple(dict.fromkeys(
+                    str(value) for value in identifiers
+                )),
+                run_id=run_id,
+                manifest_path=path,
+                completed_at=completed_at,
+                sample_date=row.get('sample_date'),
+                note=row.get('note'),
+                owner_username=row.get('owner_username'),
+                visibility=row.get('visibility') or 'private',
+            ))
+        return tuple(sorted(samples, key=lambda value: value.name.lower()))
 
     def sample(self, name):
         clean = str(name).strip()
