@@ -2,6 +2,7 @@ from .context import sdf
 from .test_coordinator import FakeSampler, _fit_dataset
 from .test_dataset import _write_rawphot
 from urllib.parse import parse_qs, urlparse
+from types import SimpleNamespace
 import numpy as np
 from bokeh.plotting import figure
 import sdf.coordinator
@@ -121,6 +122,7 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     assert 'href="/docs">docs</a>' in html
     assert '<title>Test</title>' in html
     assert 'toolbar_location":"below"' in html
+    assert '"title":"Limits"' in html
 
     with open(dataset.observations[0].source, 'a', encoding='utf-8') as handle:
         handle.write('\n\\ input changed after fitting\n')
@@ -192,6 +194,61 @@ def test_residual_bounds_keep_minimum_and_do_not_clip_data():
 
     assert low < -12.0
     assert high > 7.0
+
+
+def test_detection_limits_use_upper_limits_and_significant_excesses():
+    arrays = {
+        'wavelength_micron': np.array([12.0, 60.0, 100.0]),
+        'filter': np.array(['WISE12', 'IRAS60', 'IRAS100']),
+        'observed_flux': np.array([1.0, 0.5, 0.2]),
+        'observed_uncertainty': np.array([0.01, 0.05, 0.02]),
+        'observed_upper_limit': np.array([False, True, False]),
+        'observed_ignore': np.array([False, False, True]),
+        'component_prediction_median': np.array([[0.5, 0.1, 0.1]]),
+        'component_prediction_p16': np.array([[0.49, 0.09, 0.09]]),
+        'component_prediction_p84': np.array([[0.51, 0.11, 0.11]]),
+    }
+    target = {
+        'parallax_arcsec': {'median': 0.1},
+        'stellar_components': [{
+            'luminosity_lsun': {'median': 1.0},
+            'luminosity_at_1pc_lsun': {'median': 0.01},
+        }],
+    }
+    candidate = SimpleNamespace(
+        analysis_arrays=arrays,
+        metadata={
+            'components': [{
+                'owner_key': 'simbad:A', 'role': 'stellar',
+            }],
+            'analysis': {
+                'components': [{
+                    'owner_key': 'simbad:A',
+                    'parameters': {'Teff': {'median': 5800.0}},
+                }],
+                'targets': {'simbad:A': target},
+                'data_scopes': [{
+                    'kind': 'Photometry',
+                    'contributors': ['simbad:A'],
+                    'element_start': 0,
+                    'element_stop': 3,
+                }],
+                'derived_parameters': [],
+            },
+        },
+    )
+
+    limits = sdf.joint_plotting._detection_limits(candidate, 'simbad:A')
+
+    assert limits['filters'].tolist() == ['WISE12', 'IRAS60']
+    assert limits['basis'].tolist() == [
+        '3σ uncertainty', 'upper limit',
+    ]
+    assert limits['curves'].shape == (1000, 2)
+    assert np.all(limits['envelope'] == np.min(limits['curves'], axis=1))
+    assert np.any(limits['detection_lower'][:, 0] > 0)
+    assert not np.any(limits['detection_lower'][:, 1] > 0)
+    assert limits['radius_au'] is not None
 
 
 def test_fit_summaries_include_scientific_luminosities_and_modbb_shape():

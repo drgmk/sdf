@@ -12,9 +12,11 @@ from bokeh.models import (
     ColumnDataSource, Div, HoverTool, InlineStyleSheet, Range1d, Span,
     TabPanel, Tabs,
 )
-from bokeh.palettes import Category10
+from bokeh.palettes import Category10, Category20
 from bokeh.plotting import figure
 
+from . import filter as filter_module
+from .analytics import BB_Disk
 from .candidate_library import CandidateLibrary
 from .dataset import FitDataset, canonical_fit_source
 from .diagnostic_plots import ensure_candidate_diagnostic_plots
@@ -120,6 +122,9 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
                 candidate, owner_labels, component_labels
             ),
         ))
+    panels.append(_limits_tab(
+        by_id[default], owner_labels, component_labels, owner_colours,
+    ))
     active = next((
         index for index, candidate in enumerate(ordered)
         if candidate.candidate_id == default
@@ -187,6 +192,418 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
     )
     output.write_text(html, encoding='utf-8')
     return output
+
+
+def _limits_tab(candidate, owner_labels, component_labels, owner_colours):
+    """Build the system sensitivity view from the default retained fit."""
+
+    owner_panels = []
+    for owner_key in owner_labels:
+        limits = _detection_limits(candidate, owner_key)
+        if limits is None:
+            continue
+        label = (
+            component_labels.get(owner_key) or owner_labels.get(owner_key) or
+            owner_key
+        )
+        owner_panels.append(TabPanel(
+            child=_limits_panel(
+                limits, label, owner_colours.get(owner_key, '#285ea8')
+            ),
+            title=str(label),
+        ))
+
+    if not owner_panels:
+        child = Div(
+            text='''
+<section style="padding:16px;font:13px ui-sans-serif,system-ui,sans-serif">
+  <strong>Detection limits are not available</strong>
+  <p style="color:#526071">A stellar luminosity and usable photometry beyond
+  8 μm are needed to derive this view.</p>
+</section>''',
+            sizing_mode='stretch_width',
+        )
+    elif len(owner_panels) == 1:
+        child = owner_panels[0].child
+    else:
+        child = Tabs(
+            tabs=owner_panels, sizing_mode='stretch_width',
+            stylesheets=[InlineStyleSheet(css='''
+              :host { --base-font: ui-sans-serif, system-ui, sans-serif; }
+            ''')],
+        )
+    return TabPanel(child=child, title='Limits')
+
+
+def _limits_panel(limits, label, colour):
+    """Render one physical contributor's fractional-luminosity limits."""
+
+    radius_available = limits['radius_au'] is not None
+    x = limits['radius_au'] if radius_available else limits['temperature_k']
+    x_label = (
+        'Blackbody radius (au)' if radius_available else
+        'Disk temperature (K)'
+    )
+    fig = figure(
+        title='Detection limits · {}'.format(label),
+        x_axis_label=x_label, x_axis_type='log',
+        y_axis_label='Fractional luminosity', y_axis_type='log',
+        x_range=(float(np.min(x)), float(np.max(x))),
+        y_range=(1e-7, 2e-1),
+        tools='pan,wheel_zoom,box_zoom,reset,save',
+        active_scroll='wheel_zoom', aspect_ratio=GOLDEN_RATIO,
+        sizing_mode='stretch_width',
+    )
+    envelope_source = ColumnDataSource({
+        'x': x,
+        'limit': limits['envelope'],
+        'top': np.repeat(2e-1, len(x)),
+    })
+    fig.varea(
+        'x', 'limit', 'top', source=envelope_source,
+        fill_color='#dbeafe', fill_alpha=0.42,
+        legend_label='detectable',
+    )
+
+    colours = Category20[20]
+    excess_legend_added = False
+    for index in range(limits['curves'].shape[1]):
+        band = str(limits['filters'][index])
+        basis = str(limits['basis'][index])
+        band_colour = colours[index % len(colours)]
+        source = ColumnDataSource({
+            'x': x,
+            'limit': limits['curves'][:, index],
+            'lower': limits['detection_lower'][:, index],
+            'upper': limits['detection_upper'][:, index],
+            'band': np.repeat(band, len(x)),
+            'basis': np.repeat(basis, len(x)),
+        })
+        renderer = fig.line(
+            'x', 'limit', source=source, color=band_colour,
+            line_width=2.2,
+            line_dash='dashed' if basis == 'upper limit' else 'solid',
+            muted_alpha=0.15, legend_label=band,
+        )
+        fig.add_tools(HoverTool(
+            renderers=[renderer],
+            tooltips=[('band', '@band'), ('limit from', '@basis')],
+        ))
+        detected = limits['detection_lower'][:, index] > 0
+        if np.any(detected):
+            detection_source = ColumnDataSource({
+                'x': x[detected],
+                'lower': limits['detection_lower'][detected, index],
+                'upper': limits['detection_upper'][detected, index],
+            })
+            kwargs = {}
+            if not excess_legend_added:
+                kwargs['legend_label'] = 'excess range'
+                excess_legend_added = True
+            fig.varea(
+                'x', 'lower', 'upper', source=detection_source,
+                fill_color=band_colour, fill_alpha=0.14, **kwargs,
+            )
+
+    for curve, curve_label, dash in limits['reference_curves']:
+        fig.line(
+            x, curve, color='#94a3b8', line_width=1.8,
+            line_dash=dash, line_alpha=0.9, legend_label=curve_label,
+        )
+
+    for disk in limits['disk_samples']:
+        disk_x = (
+            disk['radius_au'] if radius_available else disk['temperature_k']
+        )
+        ok = (
+            np.isfinite(disk_x) & (disk_x > 0) &
+            np.isfinite(disk['fractional_luminosity']) &
+            (disk['fractional_luminosity'] > 0)
+        )
+        if not np.any(ok):
+            continue
+        fig.scatter(
+            disk_x[ok], disk['fractional_luminosity'][ok],
+            marker='circle', size=5, color=colour, alpha=0.12,
+            legend_label='fitted disk',
+        )
+
+    fig.grid.grid_line_alpha = 0.18
+    fig.outline_line_color = '#d1d5db'
+    if fig.legend:
+        fig.legend.location = 'top_left'
+        fig.legend.orientation = 'vertical'
+        fig.legend.click_policy = 'mute'
+        fig.legend.background_fill_alpha = 0.82
+        fig.legend.border_line_alpha = 0.25
+        fig.legend.label_text_font_size = '9pt'
+        fig.legend.ncols = 2
+        fig.legend.padding = 4
+        fig.legend.spacing = 4
+
+    note = '''
+<section style="padding:8px 10px 2px;font:13px ui-sans-serif,system-ui,sans-serif">
+  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+    <strong style="font-size:15px">Fractional-luminosity limits</strong>
+    <span style="color:#526071">based on the default stellar fit</span>
+  </div>
+  <p style="color:#526071;margin:3px 0 0">The blue region is detectable by at
+  least one band. Solid curves use 3σ measurement limits; dashed curves are
+  catalogue upper limits. Shaded coloured bands mark significant excess
+  ranges.</p>
+</section>'''
+    return column(
+        Div(text=note, sizing_mode='stretch_width'), fig,
+        sizing_mode='stretch_width',
+    )
+
+
+def _detection_limits(candidate, owner_key, min_wavelength=8.0, sn=3.0):
+    """Return plotting arrays for one target's detectable disk space."""
+
+    arrays = candidate.analysis_arrays
+    required = {
+        'observed_flux', 'observed_uncertainty', 'observed_upper_limit',
+        'observed_ignore', 'wavelength_micron', 'filter',
+        'component_prediction_median',
+    }
+    if not required.issubset(arrays):
+        return None
+
+    analysis = candidate.metadata.get('analysis', {})
+    target = analysis.get('targets', {}).get(owner_key)
+    if target is None:
+        return None
+    luminosity = sum(
+        _summary_median(component.get('luminosity_lsun')) or 0.0
+        for component in target.get('stellar_components', ())
+    )
+    luminosity_at_1pc = sum(
+        _summary_median(component.get('luminosity_at_1pc_lsun')) or 0.0
+        for component in target.get('stellar_components', ())
+    )
+    parallax = _summary_median(target.get('parallax_arcsec'))
+    distance = (
+        None if parallax is None or parallax <= 0 else 1.0 / parallax
+    )
+    if luminosity <= 0:
+        luminosity = None
+    if luminosity_at_1pc <= 0:
+        luminosity_at_1pc = None
+    if luminosity is None and luminosity_at_1pc is None:
+        return None
+
+    components = candidate.metadata.get('components', ())
+    stellar_indices = np.asarray([
+        index for index, component in enumerate(components)
+        if component.get('role') == 'stellar'
+    ], dtype=int)
+    if not len(stellar_indices):
+        return None
+
+    selected = []
+    for scope in analysis.get('data_scopes', ()):
+        if (
+            scope.get('kind') != 'Photometry' or
+            owner_key not in scope.get('contributors', ())
+        ):
+            continue
+        selected.extend(range(
+            int(scope['element_start']), int(scope['element_stop'])
+        ))
+    if not selected:
+        return None
+    selected = np.asarray(selected, dtype=int)
+
+    wavelength = np.asarray(arrays['wavelength_micron'][selected], dtype=float)
+    filters = np.asarray(arrays['filter'][selected]).astype(str)
+    observed = np.asarray(arrays['observed_flux'][selected], dtype=float)
+    uncertainty = np.asarray(
+        arrays['observed_uncertainty'][selected], dtype=float
+    )
+    upper_limit = np.asarray(
+        arrays['observed_upper_limit'][selected], dtype=bool
+    )
+    ignored = np.asarray(arrays['observed_ignore'][selected], dtype=bool)
+    component_median = np.asarray(
+        arrays['component_prediction_median'], dtype=float
+    )[:, selected]
+    stellar_flux = np.sum(component_median[stellar_indices], axis=0)
+    stellar_uncertainty = np.zeros_like(stellar_flux)
+    if {
+        'component_prediction_p16', 'component_prediction_p84'
+    }.issubset(arrays):
+        stellar_low = np.sum(np.asarray(
+            arrays['component_prediction_p16'], dtype=float
+        )[stellar_indices][:, selected], axis=0)
+        stellar_high = np.sum(np.asarray(
+            arrays['component_prediction_p84'], dtype=float
+        )[stellar_indices][:, selected], axis=0)
+        stellar_uncertainty = 0.5 * np.abs(stellar_high - stellar_low)
+
+    usable = (
+        ~ignored & np.isfinite(wavelength) &
+        (wavelength >= min_wavelength) & np.isfinite(observed) &
+        (observed > 0) & np.isfinite(uncertainty) &
+        np.isfinite(stellar_flux)
+    )
+    usable &= np.asarray([
+        not filter_module.iscolour(name) for name in filters
+    ], dtype=bool)
+    if not np.any(usable):
+        return None
+    wavelength = wavelength[usable]
+    filters = filters[usable]
+    observed = observed[usable]
+    uncertainty = uncertainty[usable]
+    upper_limit = upper_limit[usable]
+    stellar_flux = stellar_flux[usable]
+    stellar_uncertainty = stellar_uncertainty[usable]
+    combined_uncertainty = np.sqrt(
+        uncertainty**2 + stellar_uncertainty**2
+    )
+    valid_uncertainty = np.isfinite(combined_uncertainty) & \
+        (combined_uncertainty > 0)
+    usable_limit = upper_limit | valid_uncertainty
+    if not np.any(usable_limit):
+        return None
+    wavelength = wavelength[usable_limit]
+    filters = filters[usable_limit]
+    observed = observed[usable_limit]
+    upper_limit = upper_limit[usable_limit]
+    stellar_flux = stellar_flux[usable_limit]
+    combined_uncertainty = combined_uncertainty[usable_limit]
+
+    flux_limit = np.where(upper_limit, observed, 3.0 * combined_uncertainty)
+    excess = np.where(upper_limit, 0.0, observed - stellar_flux)
+    excess_uncertainty = np.where(
+        upper_limit, np.nan, combined_uncertainty
+    )
+    disk = BB_Disk(lstar=luminosity, distance=distance)
+    kwargs = {}
+    if distance is None:
+        kwargs['lstar_1pc'] = luminosity_at_1pc
+    curves = disk.f_limits(
+        wavelength, flux_limits=flux_limit, **kwargs
+    )
+    detections = disk.f_limits(
+        wavelength, flux_limits=excess, **kwargs
+    )
+    signal_to_noise = np.divide(
+        excess, excess_uncertainty,
+        out=np.zeros_like(excess), where=np.isfinite(excess_uncertainty),
+    )
+    detection_lower = np.zeros_like(curves)
+    detection_upper = curves.copy()
+    for index, value in enumerate(signal_to_noise):
+        if value > sn:
+            detection_lower[:, index] = detections[:, index] * (
+                1.0 - sn / value
+            )
+            detection_upper[:, index] = detections[:, index] * (
+                1.0 + sn / value
+            )
+    both_upper = np.maximum(detection_upper, curves)
+    for index in range(curves.shape[1]):
+        other = np.arange(curves.shape[1]) != index
+        if np.any(other):
+            detection_upper[:, index] = np.minimum(
+                detection_upper[:, index],
+                np.min(both_upper[:, other], axis=1),
+            )
+
+    reference_curves = []
+    teff = _owner_teff(candidate, owner_key)
+    if teff is not None and teff > 0:
+        reference_curves.append((
+            0.05 * disk.temperatures**3 / teff**3,
+            '5% photometry', 'solid',
+        ))
+    try:
+        alma = disk.f_limits(
+            np.asarray([880.0]), flux_limits=np.asarray([20e-6]),
+            fwhm=np.asarray([1.0]), **kwargs,
+        )[:, 0]
+    except (TypeError, ValueError):
+        alma = None
+    if alma is not None:
+        reference_curves.append((alma, '1 mm / 1″ / 20 μJy', 'dashed'))
+
+    return {
+        'temperature_k': disk.temperatures,
+        'radius_au': (
+            disk.blackbody_radii() if luminosity is not None else None
+        ),
+        'curves': curves,
+        'envelope': np.min(curves, axis=1),
+        'detection_lower': detection_lower,
+        'detection_upper': detection_upper,
+        'filters': filters,
+        'basis': np.where(upper_limit, 'upper limit', '3σ uncertainty'),
+        'reference_curves': tuple(reference_curves),
+        'disk_samples': _disk_limit_samples(candidate, owner_key),
+    }
+
+
+def _disk_limit_samples(candidate, owner_key, maximum=750):
+    """Extract aligned derived disk samples for the limits overlay."""
+
+    samples = candidate.analysis_arrays.get('derived_samples')
+    parameters = candidate.metadata.get('analysis', {}).get(
+        'derived_parameters', ()
+    )
+    if samples is None or not len(samples):
+        return ()
+    samples = np.asarray(samples, dtype=float)
+    by_component = {}
+    for index, parameter in enumerate(parameters):
+        if (
+            parameter.get('owner_key') != owner_key or
+            parameter.get('role') != 'disk' or
+            not parameter.get('component_id')
+        ):
+            continue
+        name = str(parameter.get('name', '')).rsplit('.', 1)[-1]
+        by_component.setdefault(parameter['component_id'], {})[name] = \
+            samples[:, index]
+    extracted = []
+    for values in by_component.values():
+        if not {'fractional_luminosity', 'temperature_k'}.issubset(values):
+            continue
+        count = len(values['fractional_luminosity'])
+        indices = (
+            np.arange(count) if count <= maximum else
+            np.linspace(0, count - 1, maximum, dtype=int)
+        )
+        extracted.append({
+            'fractional_luminosity': values['fractional_luminosity'][indices],
+            'temperature_k': values['temperature_k'][indices],
+            'radius_au': values.get(
+                'blackbody_radius_au',
+                np.repeat(np.nan, count),
+            )[indices],
+        })
+    return tuple(extracted)
+
+
+def _owner_teff(candidate, owner_key):
+    for component in candidate.metadata.get('analysis', {}).get(
+            'components', ()):
+        if component.get('owner_key') != owner_key:
+            continue
+        value = _summary_median(component.get('parameters', {}).get('Teff'))
+        if value is not None:
+            return value
+    return None
+
+
+def _summary_median(summary):
+    if not isinstance(summary, dict):
+        return None
+    value = summary.get('median')
+    if value is None or not np.isfinite(value):
+        return None
+    return float(value)
 
 
 def _candidate_panel(candidate, dataset, owner_labels, component_labels,

@@ -76,6 +76,14 @@ from fitting are still shown.
 The toolbar below the plots controls both panels. Panning or zooming one panel
 updates the shared wavelength range.
 
+The final **Limits** tab shows the fractional-luminosity detection space implied
+by the photometry beyond 8 μm and the default stellar fit. It defaults to
+blackbody radius when a distance is available. Solid curves are 3-sigma
+measurement limits, dashed curves come from catalogue upper limits, and the
+blue region is detectable in at least one band. Significant excess ranges and
+the fitted disk posterior are overlaid when present. Multiple systems get a
+separate limits sub-tab for each physical contributor.
+
 ## Samples
 
 The **Samples** link lists every sample visible to the current visitor:
