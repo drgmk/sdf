@@ -55,8 +55,11 @@ def test_proxy_authorizer_reads_database_roles_and_sample_policy(tmp_path):
     assert not auth.can_access_sample(bob, 'private')
     assert auth.can_edit_sample(grant, 'private')
     assert auth.can_edit_sample(alice, 'private')
-    assert not auth.can_edit_sample(bob, 'shared')
+    assert auth.can_edit_sample(bob, 'shared')
     assert not auth.can_edit_sample(alice, 'public')
+    assert auth.can_manage_sample_collaborators(bob, 'shared')
+    assert not auth.can_manage_sample_collaborators(alice, 'public')
+    assert auth.access.sample_collaborators('shared') == ('bob',)
     assert not anonymous.authenticated
 
     with pytest.raises(sdf.catalog_auth.AuthorizationDenied, match='disabled'):

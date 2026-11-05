@@ -168,6 +168,34 @@ def test_sdb_importer_checks_sample_targets_without_importing(tmp_path):
     assert calls[0][-3:-1] == ['sample', 'check']
 
 
+def test_sdb_importer_updates_sample_collaborator(tmp_path):
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append((command, kwargs))
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps({
+                'sample_id': 7, 'username': 'bob@example.com',
+            }),
+            stderr='',
+        )
+
+    importer = sdf.sdb_import.SdbImporter(
+        sdf.sdb_import.SdbImportConfig.create(tmp_path / 'sdb.sqlite'),
+        tmp_path, runner=runner,
+    )
+    result = importer.update_sample_collaborator(
+        'Nearby', 'bob@example.com', operation='share', actor='alice@example.com',
+    )
+
+    assert result['username'] == 'bob@example.com'
+    assert calls[0][0][-4:] == [
+        'sample', 'share', 'Nearby', 'bob@example.com',
+    ]
+    assert calls[0][1]['env']['SDB_ACTOR'] == 'alice@example.com'
+
+
 def test_sdb_importer_removes_members_and_exports_sample(tmp_path):
     export_root = tmp_path / 'export'
     export_root.mkdir()

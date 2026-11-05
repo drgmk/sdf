@@ -22,9 +22,9 @@ The route boundary is:
 | --- | --- |
 | `/`, `/search`, `/target/...`, `/system/...` | public |
 | `/samples` | public samples, plus owned/shared samples when signed in |
-| `/samples/NAME` | public, owner, explicit grantee, or administrator |
+| `/samples/NAME` | public, owner, collaborator, or administrator |
 | `/samples/new`, `/sample-imports/...` | any signed-in user; each import is private by default |
-| `/sample-edits` | owning user for a private sample, or an administrator |
+| `/sample-edits`, `/sample-collaborators` | owner or collaborator for a private sample, or an administrator |
 | `/auth/login` | Apache-authenticated handoff that creates the signed session |
 | `/imports`, `/imports/ID` | any signed-in user; jobs are visible to their requester and administrators |
 | `/admin/...`, `/review/...` | `sdb` users with `is_admin` enabled |
@@ -111,11 +111,13 @@ when some identifiers fail. Only administrators can make a newly imported
 sample public. Public individual SED pages remain public independently of
 sample access.
 
-An owner may add or remove members of their private sample from its Properties
-page. Explicit grantees have read access only. Administrators may edit all
-samples and are the only users permitted to change a public sample. Every
-membership change is recorded by `sdb`; the asynchronous job then republishes
-the sample snapshot before the web view changes.
+An owner or collaborator may add or remove members and manage collaborators for
+a private sample from its Properties page. The original owner remains the
+durable creator record; collaborators otherwise act as co-owners.
+Administrators may edit all samples and are the only users permitted to change
+a public sample. Every membership change is recorded by `sdb`; the asynchronous
+job then republishes the sample snapshot before the web view changes. Sharing
+itself is live authorization state and does not require an export or refit.
 
 Public system routes never serve `operator.html`. Live configuration pages are
 rendered ephemerally, avoiding persistence of the page token or authenticated

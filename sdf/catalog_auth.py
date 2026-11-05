@@ -80,6 +80,22 @@ class AccessDatabase:
             return None
         return SamplePolicy(row[0], row[1], row[2], bool(row[3]))
 
+    def sample_collaborators(self, sample_name):
+        """Return explicit collaborators for one sample."""
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                '''
+                SELECT g.username
+                FROM sample_grants AS g
+                JOIN samples AS s ON s.id = g.sample_id
+                WHERE s.name = ?
+                ORDER BY g.username
+                ''',
+                (str(sample_name),),
+            ).fetchall()
+        return tuple(row[0] for row in rows)
+
     def _connect(self):
         connection = sqlite3.connect(self.path, timeout=5.0)
         connection.execute('PRAGMA query_only = ON')
@@ -213,10 +229,30 @@ class CatalogAuthorizer:
         if principal.is_admin:
             return True
         # Publishing is an administrator action, so changing the contents of
-        # an already-public sample is likewise kept administrator-only.
+        # an already-public sample is likewise kept administrator-only.  A
+        # private sample's explicit collaborators are co-owners for editing.
         return (
             policy.visibility == 'private'
-            and policy.owner_username == principal.username
+            and (
+                policy.owner_username == principal.username
+                or policy.granted
+            )
+        )
+
+    def can_manage_sample_collaborators(self, principal, sample_name):
+        """Return whether a co-owner may change one private sharing list."""
+
+        if not self.proxy_enabled or not principal.authenticated:
+            return False
+        policy = self.access.sample(sample_name, principal.username)
+        return (
+            policy is not None
+            and policy.visibility == 'private'
+            and (
+                principal.is_admin
+                or policy.owner_username == principal.username
+                or policy.granted
+            )
         )
 
     def require_sample_edit(self, principal, sample_name):

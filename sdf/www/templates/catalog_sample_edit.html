@@ -3,6 +3,7 @@
   <div class="sample-dialog-tabs" role="tablist" aria-label="Sample edit operation">
     <button type="button" role="tab" aria-selected="true" data-sample-tab="add">Add targets</button>
     <button type="button" role="tab" aria-selected="false" data-sample-tab="remove">Remove targets</button>
+    {% if can_share %}<button type="button" role="tab" aria-selected="false" data-sample-tab="sharing">Sharing</button>{% endif %}
   </div>
   <form class="sample-dialog-panel" id="sample-add-panel" data-sample-panel="add">
     <label for="sample-add-targets"><strong>SIMBAD names or sdb identifiers</strong><br><span class="muted">One target per line. Existing targets are reused; new targets are imported.</span></label>
@@ -20,6 +21,17 @@
     <div class="warning" id="sample-remove-error" role="alert"></div>
     <div class="sample-dialog-actions"><button type="button" data-dialog-cancel>Cancel</button><button type="submit" id="sample-remove-submit">Remove selected</button></div>
   </form>
+  {% if can_share %}<form class="sample-dialog-panel" id="sample-sharing-panel" data-sample-panel="sharing" hidden>
+    <div><strong>Co-owners</strong>{% if sample_owner %}<br><span>{{ sample_owner }}</span> <span class="muted">creator</span>{% endif %}</div>
+    <p class="muted">Everyone listed here can view and edit this sample.</p>
+    <label for="sample-collaborator-username"><strong>Share with user</strong><br><span class="muted">Enter the exact username or account email.</span></label>
+    <input id="sample-collaborator-username" type="text" autocomplete="off">
+    <div class="sample-collaborator-list">
+      {% for username in collaborators %}<div class="sample-collaborator"><span>{{ username }}</span><button type="button" data-unshare-user="{{ username }}">Remove</button></div>{% else %}<p class="muted">This sample has no collaborators yet.</p>{% endfor %}
+    </div>
+    <div class="warning" id="sample-sharing-error" role="alert"></div>
+    <div class="sample-dialog-actions"><button type="button" data-dialog-cancel>Cancel</button><button type="submit" id="sample-sharing-submit">Share sample</button></div>
+  </form>{% endif %}
 </dialog>
 <script>
 (() => {
@@ -35,6 +47,7 @@
   const removeForm = document.getElementById('sample-remove-panel');
   const removeError = document.getElementById('sample-remove-error');
   const sampleName = {{ sample.name|tojson }};
+  const signedInUser = {{ principal.username|tojson }};
   const memberIds = new Set(Array.from(dialog.querySelectorAll('input[name=member]')).map(input => input.value));
   let checkedSignature = null;
   let checkedItems = [];
@@ -134,5 +147,35 @@
     if (!window.confirm(`Remove ${label} from ${sampleName}? ${consequence}`)) return;
     await queue('remove', selected, document.getElementById('sample-remove-submit'), removeError);
   });
+  const sharingForm = document.getElementById('sample-sharing-panel');
+  if (sharingForm) {
+    const sharingError = document.getElementById('sample-sharing-error');
+    const usernameInput = document.getElementById('sample-collaborator-username');
+    async function updateCollaborator(operation, username, button) {
+      button.disabled = true; sharingError.textContent = '';
+      try {
+        const response = await fetch('/sample-collaborators', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-SDF-Token': '{{ token }}'},
+          body: JSON.stringify({sample_name: sampleName, operation, username}),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Could not update sample sharing.');
+        if (operation === 'unshare' && username === signedInUser) window.location.assign('/samples');
+        else window.location.reload();
+      } catch (problem) { sharingError.textContent = problem.message; button.disabled = false; }
+    }
+    sharingForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      const username = usernameInput.value.trim();
+      if (!username) { sharingError.textContent = 'Enter a username.'; return; }
+      await updateCollaborator('share', username, document.getElementById('sample-sharing-submit'));
+    });
+    sharingForm.querySelectorAll('[data-unshare-user]').forEach(button => button.addEventListener('click', async () => {
+      const username = button.dataset.unshareUser;
+      if (!window.confirm(`Remove ${username} from this sample?`)) return;
+      await updateCollaborator('unshare', username, button);
+    }));
+  }
 })();
 </script>

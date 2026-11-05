@@ -367,6 +367,36 @@ class SdbImporter:
             ))
         return checked
 
+    def update_sample_collaborator(self, sample_name, username, *, operation,
+                                   actor):
+        """Add or remove one collaborator through the authoritative SDB CLI."""
+
+        operation = str(operation or '').strip().lower()
+        if operation not in {'share', 'unshare'}:
+            raise ValueError(
+                'sample collaborator operation must be share or unshare'
+            )
+        sample_name = str(sample_name or '').strip()
+        username = str(username or '').strip()
+        if not sample_name:
+            raise ValueError('sample name is required')
+        if not username:
+            raise ValueError('username is required')
+        environment = os.environ.copy()
+        environment['SDB_ACTOR'] = str(actor)
+        result, status, stderr = self._json_command(
+            [
+                *self.config.command(), 'sample', operation,
+                sample_name, username,
+            ],
+            environment=environment,
+        )
+        if status != 0:
+            raise RuntimeError(_command_error(
+                'SDB could not update sample collaborators', status, stderr,
+            ))
+        return result
+
     def _manifest_packages(self, summary, *, allow_empty=False):
         manifest = Path(summary['manifest']).expanduser().resolve()
         try:

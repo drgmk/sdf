@@ -82,7 +82,7 @@ The **Samples** link lists every sample visible to the current visitor:
 
 - public samples are visible without signing in;
 - private samples are visible to their owner;
-- shared samples are visible to explicitly granted users; and
+- shared samples are visible to their collaborators; and
 - administrators can see all samples.
 
 A sample page has the same navigation on each view:
@@ -105,13 +105,14 @@ The right side of the sample navigation provides downloads:
 An **Awaiting a current fit** section means that membership is known but the
 system has no current default result yet.
 
-Sample owners can use **Edit sample** on the Properties page to add identifiers
-or remove current members. Additions are checked locally first, then existing
-targets are reused and genuinely new targets are imported through SIMBAD.
-Removal changes only sample membership: the target, its fit, and memberships
-in other samples are retained. Shared samples are read-only for grantees.
-Administrators can edit any sample; changing a public sample is restricted to
-administrators.
+Sample owners and collaborators can use **Edit sample** on the Properties page
+to add identifiers or remove current members. Additions are checked locally
+first, then existing targets are reused and genuinely new targets are imported
+through SIMBAD. Removal changes only sample membership: the target, its fit,
+and memberships in other samples are retained. The Sharing tab accepts the
+exact username or account email of an existing user; collaborators can view
+and edit the sample and can add or remove other collaborators. Administrators
+can edit any sample; changing a public sample is restricted to administrators.
 
 ## Signing in
 

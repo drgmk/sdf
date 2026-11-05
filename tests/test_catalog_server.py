@@ -386,6 +386,49 @@ def test_proxy_auth_separates_public_sample_and_admin_access(tmp_path):
         assert 'private' not in read('/samples', 'bob')
         assert status('/samples/private', 'bob') == 403
 
+        collaborator_calls = []
+
+        class CollaboratorImporter:
+            def update_sample_collaborator(
+                    self, sample_name, username, *, operation, actor):
+                collaborator_calls.append(
+                    (sample_name, username, operation, actor)
+                )
+                return {
+                    'sample': sample_name, 'username': username,
+                    'operation': operation,
+                }
+
+        server.catalog_service.importer = CollaboratorImporter()
+        with sqlite3.connect(access_database) as connection:
+            connection.execute(
+                "INSERT INTO sample_grants VALUES (2, 'bob')"
+            )
+        shared_page = read('/samples/private', 'bob')
+        assert 'Edit sample' in shared_page
+        assert '>Sharing</button>' in shared_page
+        assert '<strong>Co-owners</strong>' in shared_page
+        assert 'alice' in shared_page
+        assert 'data-unshare-user="bob"' in shared_page
+
+        request = Request(
+            root + '/sample-collaborators',
+            data=json.dumps({
+                'sample_name': 'private', 'operation': 'share',
+                'username': 'grant',
+            }).encode(),
+            headers={
+                'Content-Type': 'application/json',
+                'X-SDF-Token': 'test-token',
+                'X-SDF-User': 'bob',
+            },
+            method='POST',
+        )
+        assert json.loads(urlopen(request).read())['username'] == 'grant'
+        assert collaborator_calls == [
+            ('private', 'grant', 'share', 'bob'),
+        ]
+
         session = server.catalog_service.auth.issue_session('alice')
         session_page = read('/samples', cookie='sdf_session=' + session)
         assert 'private' in session_page

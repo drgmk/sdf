@@ -299,6 +299,14 @@ class CatalogService:
             raise ValueError('sample import is not configured')
         return self.importer.check_sample_targets(targets)
 
+    def update_sample_collaborator(self, sample_name, username, *, operation,
+                                   actor):
+        if self.importer is None:
+            raise ValueError('sample collaboration is not configured')
+        return self.importer.update_sample_collaborator(
+            sample_name, username, operation=operation, actor=actor,
+        )
+
     def sample_acquisition(self, job_id, principal):
         job = self.state.sample_acquisition(job_id)
         if job.actor != principal.username and not principal.is_admin:
@@ -413,6 +421,23 @@ class CatalogService:
 
     def render_sample(self, name, principal):
         sample = self.exports.sample(name)
+        policy = (
+            None if not self.auth.proxy_enabled
+            else self.auth.access.sample(
+                sample.name,
+                principal.username if principal.authenticated else None,
+            )
+        )
+        can_share = (
+            self.importer is not None
+            and self.auth.can_manage_sample_collaborators(
+                principal, sample.name,
+            )
+        )
+        collaborators = (
+            self.auth.access.sample_collaborators(sample.name)
+            if can_share else ()
+        )
         projection = self.sample_projection(sample)
         packages = self.packages(identifiers=sample.identifiers)
         projected = {system.package_path for system in projection.systems}
@@ -450,6 +475,11 @@ class CatalogService:
                           if row['package_path'] not in projected),
             sample_members=members,
             can_edit=self.auth.can_edit_sample(principal, sample.name),
+            can_share=can_share, collaborators=collaborators,
+            sample_owner=(
+                policy.owner_username if policy is not None
+                else sample.owner_username
+            ),
             token=self.token,
             principal=principal, search_action='/search',
             system_base='/system',
@@ -1169,6 +1199,28 @@ class _CatalogHandler(BaseHTTPRequestHandler):
                 )
                 self._json(result, status=HTTPStatus.ACCEPTED)
                 return
+            if parsed.path == '/sample-collaborators':
+                self.service.auth.require_authenticated(principal)
+                if self.headers.get('X-SDF-Token') != self.service.token:
+                    raise PermissionError('invalid request token')
+                payload = self._payload()
+                sample_name = payload.get('sample_name')
+                if not self.service.auth.can_manage_sample_collaborators(
+                        principal, sample_name):
+                    raise AuthorizationDenied(
+                        'managing collaborators for this sample is not permitted'
+                    )
+                operation = str(payload.get('operation') or '').strip()
+                if operation not in {'share', 'unshare'}:
+                    raise ValueError(
+                        'sample collaborator operation must be share or unshare'
+                    )
+                result = self.service.update_sample_collaborator(
+                    sample_name, payload.get('username'),
+                    operation=operation, actor=principal.username,
+                )
+                self._json(result)
+                return
             if parsed.path == '/sample-checks':
                 self.service.auth.require_authenticated(principal)
                 if self.headers.get('X-SDF-Token') != self.service.token:
@@ -1211,7 +1263,8 @@ class _CatalogHandler(BaseHTTPRequestHandler):
             self._error(error, HTTPStatus.UNAUTHORIZED, json_response=True)
         except (AuthorizationDenied, PermissionError) as error:
             self._error(error, HTTPStatus.FORBIDDEN, json_response=True)
-        except (KeyError, ValueError, OSError, json.JSONDecodeError) as error:
+        except (KeyError, ValueError, RuntimeError, OSError,
+                json.JSONDecodeError) as error:
             self._error(error, HTTPStatus.BAD_REQUEST, json_response=True)
 
     def _payload(self):
