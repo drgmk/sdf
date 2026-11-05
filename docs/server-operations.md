@@ -18,6 +18,8 @@ It provides:
 
 - the public search, SED, and sample website;
 - the administrator dashboard and SED fit controls;
+- an administrator activity page combining catalogue inventory, audited
+  changes, queue health, and optional aggregate access-log statistics;
 - a rebuildable result index;
 - durable fit policy, selection, and job state;
 - one or more isolated fit workers; and
@@ -35,6 +37,20 @@ sdf-fits serve /path/to/export --actor Grant --port 8765
 Local mode treats the named actor as an administrator. Production should use
 the authenticated configuration in
 [Authentication and authorization](catalog-auth.md).
+
+For local page-use statistics, give the service the frontend access log:
+
+```shell
+sdf-fits serve /srv/sdb/export \
+  --access-log /srv/sdb-server/logs/apache-access.log \
+  ...
+```
+
+The activity page parses both Apache common logs and the extended format used
+by the reference `sdb-server` deployment. Client addresses are discarded while
+the report is built. The extended format adds user-agent and request-duration
+fields, allowing known crawlers to be excluded and median request time to be
+reported.
 
 ## Export-root state
 

@@ -12,12 +12,34 @@ After signing in, the common header adds:
 
 - **Admin**, the fitting dashboard;
 - **Data review**, the `sdb` association and photometry-review application; and
-- **Jobs**, the persistent target-import and fit queues.
+- **Jobs**, the persistent target-import and fit queues; and
+- **Activity**, catalogue inventory, website use, recent actions, and job
+  health.
 
 The normal and administrative SED pages share the same layout and results. The
 administrative page adds a **Fit controls** drawer and a **Review data** link.
 This keeps what an administrator evaluates visually identical to what a public
 visitor sees.
+
+## Site activity
+
+The **Activity** link opens `/admin/activity`. It combines three existing
+sources without creating a second domain-event store:
+
+- the disposable result index for fitted-system inventory;
+- the `sdb` and `sdf` audit/job databases for imports, sample edits, review
+  actions, exports, fits, and their authenticated actors; and
+- an optional Apache access log for aggregate page views, downloads, popular
+  SEDs and samples, searches, errors, and request timing.
+
+Choose 7, 30, or 90 days, or all recorded time. Access-log processing ignores
+known crawlers, assets, redirects, failed page requests, and API polling. It
+does not display or copy client addresses. Cloudflare Web Analytics remains
+the better source for visits, referrers, geography, device information, and
+browser-side performance.
+
+Pass `--access-log PATH` to `sdf-fits serve` to enable the local website-use
+sections. Inventory, changes, and job health remain available without it.
 
 ## Dashboard states
 

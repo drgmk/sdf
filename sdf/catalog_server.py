@@ -44,6 +44,7 @@ from .sample_products import (
     sample_votable, summary_text,
 )
 from .sdb_import import SdbImporter, run_acquisition_worker
+from .site_activity import activity_report
 
 
 class CatalogService:
@@ -53,7 +54,8 @@ class CatalogService:
                  token=None, rebuild=False, auth_user_header=None,
                  auth_database=None, auth_session_secret=None,
                  auth_cookie_secure=False,
-                 sdb_import_config=None, review_base_url=None):
+                 sdb_import_config=None, review_base_url=None,
+                 access_log=None):
         self.root = Path(root).expanduser().resolve()
         if not self.root.is_dir():
             raise ValueError('catalog root is not a directory: {}'.format(
@@ -89,6 +91,10 @@ class CatalogService:
         self.auth_cookie_secure = bool(auth_cookie_secure)
         self.review_base_url = (
             str(review_base_url).rstrip('/') if review_base_url else None
+        )
+        self.access_log = (
+            None if access_log is None
+            else Path(access_log).expanduser().resolve()
         )
         self.importer = (
             None if sdb_import_config is None
@@ -210,6 +216,27 @@ class CatalogService:
             search_action='/admin/search', page_base='/admin',
             system_base='/admin/system',
             import_enabled=self.importer is not None, token=self.token,
+            auth_enabled=self.auth.proxy_enabled,
+        )
+
+    def render_activity(self, principal, *, days=30):
+        """Render the admin-only inventory, use, and action overview."""
+
+        days = int(days)
+        if days not in {0, 7, 30, 90}:
+            raise ValueError('activity period must be 7, 30, 90, or all')
+        sdb_path = (
+            None if self.auth.access is None else self.auth.access.path
+        )
+        report = activity_report(
+            index_summary=asdict(self.index.summary()),
+            packages=self.packages(), state_path=self.state.path,
+            sdb_path=sdb_path, access_log=self.access_log, days=days,
+        )
+        return self.render_template(
+            'catalog_activity.html', title='Site activity', report=report,
+            principal=principal, admin=True, query='',
+            search_action='/admin/search', request_path='/admin/activity',
             auth_enabled=self.auth.proxy_enabled,
         )
 
@@ -636,7 +663,7 @@ def make_catalog_server(root, *, index_path=None, state_path=None, actor=None,
                         auth_user_header=None, auth_database=None,
                         auth_session_secret=None,
                         auth_cookie_secure=False, sdb_import_config=None,
-                        review_base_url=None):
+                        review_base_url=None, access_log=None):
     if host not in {'127.0.0.1', 'localhost', '::1'}:
         raise ValueError('catalog service must bind to a loopback address')
     service = CatalogService(
@@ -647,6 +674,7 @@ def make_catalog_server(root, *, index_path=None, state_path=None, actor=None,
         auth_cookie_secure=auth_cookie_secure,
         sdb_import_config=sdb_import_config,
         review_base_url=review_base_url,
+        access_log=access_log,
     )
     handler = partial(_CatalogHandler, service=service)
     server = ThreadingHTTPServer((host, port), handler)
@@ -660,7 +688,8 @@ def serve_catalog(root, *, index_path=None, state_path=None, actor=None,
                   poll_seconds=5.0, auth_user_header=None,
                   auth_database=None, auth_session_secret=None,
                   auth_cookie_secure=False,
-                  sdb_import_config=None, review_base_url=None):
+                  sdb_import_config=None, review_base_url=None,
+                  access_log=None):
     server = make_catalog_server(
         root, index_path=index_path, state_path=state_path, actor=actor,
         rebuild=rebuild, host=host, port=port,
@@ -670,6 +699,7 @@ def serve_catalog(root, *, index_path=None, state_path=None, actor=None,
         auth_cookie_secure=auth_cookie_secure,
         sdb_import_config=sdb_import_config,
         review_base_url=review_base_url,
+        access_log=access_log,
     )
     address, actual_port = server.server_address[:2]
     print('sdf-fits service: http://{}:{}/'.format(address, actual_port))
@@ -1015,6 +1045,14 @@ class _CatalogHandler(BaseHTTPRequestHandler):
             if parsed.path == '/admin/jobs':
                 self.service.auth.require_admin(principal)
                 self._html(self.service.render_jobs(principal))
+                return
+            if parsed.path == '/admin/activity':
+                self.service.auth.require_admin(principal)
+                values = parse_qs(parsed.query)
+                days = int(values.get('days', ['30'])[0])
+                self._html(self.service.render_activity(
+                    principal, days=days,
+                ))
                 return
             if (parsed.path.startswith('/admin/target/')
                     and parsed.path.endswith('/api/status')):

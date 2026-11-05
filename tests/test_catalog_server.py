@@ -372,6 +372,7 @@ def test_proxy_auth_separates_public_sample_and_admin_access(tmp_path):
         assert 'HD 123' in read('/samples/test')
         assert status('/samples/private') == 401
         assert status('/admin') == 401
+        assert status('/admin/activity') == 401
         assert post_status() == 401
 
         alice_page = read('/samples', 'alice')
@@ -381,6 +382,7 @@ def test_proxy_auth_separates_public_sample_and_admin_access(tmp_path):
         assert 'HD 123' in read('/samples/test', 'alice')
         assert 'HD 123' in read('/samples/private', 'alice')
         assert status('/admin', 'alice') == 403
+        assert status('/admin/activity', 'alice') == 403
         assert post_status('alice') == 403
 
         assert 'private' not in read('/samples', 'bob')
@@ -439,6 +441,11 @@ def test_proxy_auth_separates_public_sample_and_admin_access(tmp_path):
         assert 'href="/review/">Data review</a>' in dashboard
         assert 'href="/docs">Docs</a>' in dashboard
         assert 'href="/">Home</a>' in dashboard
+        assert 'href="/admin/activity">Activity</a>' in dashboard
+        activity = read('/admin/activity?days=7', 'grant')
+        assert '<h1>Site activity</h1>' in activity
+        assert 'What is here' in activity
+        assert 'Recent activity' in activity
         admin_page = read('/admin/system/package/', 'grant')
         assert 'Queue automatic fit' in admin_page
         assert 'Signed in as <strong>grant</strong>' in admin_page

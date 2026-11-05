@@ -534,6 +534,13 @@ def sdf_fits():
         help='SDB review mount URL used for target-level Review data links',
     )
     serve_parser.add_argument(
+        '--access-log', metavar='PATH',
+        help=(
+            'Apache access log used for aggregate admin activity statistics; '
+            'client addresses are never displayed or copied'
+        ),
+    )
+    serve_parser.add_argument(
         '--sdb-database', metavar='PATH',
         help=(
             'enable signed-in target import using this authoritative SDB '
@@ -608,6 +615,7 @@ def sdf_fits():
             auth_cookie_secure=args.auth_cookie_secure,
             sdb_import_config=sdb_import_config,
             review_base_url=args.review_base_url,
+            access_log=args.access_log,
         )
         return
 
