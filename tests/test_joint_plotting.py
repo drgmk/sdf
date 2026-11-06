@@ -5,6 +5,7 @@ from urllib.parse import parse_qs, urlparse
 from types import SimpleNamespace
 import numpy as np
 from bokeh.plotting import figure
+import sdf.analytics
 import sdf.coordinator
 import sdf.joint_plotting
 import sdf.model_selection
@@ -123,6 +124,7 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     assert '<title>Test</title>' in html
     assert 'toolbar_location":"below"' in html
     assert '"title":"Limits"' in html
+    assert 'excess range' not in html
 
     with open(dataset.observations[0].source, 'a', encoding='utf-8') as handle:
         handle.write('\n\\ input changed after fitting\n')
@@ -196,7 +198,7 @@ def test_residual_bounds_keep_minimum_and_do_not_clip_data():
     assert high > 7.0
 
 
-def test_detection_limits_use_upper_limits_and_significant_excesses():
+def test_detection_limits_match_noise_and_catalogue_upper_limits():
     arrays = {
         'wavelength_micron': np.array([12.0, 60.0, 100.0]),
         'filter': np.array(['WISE12', 'IRAS60', 'IRAS100']),
@@ -246,26 +248,21 @@ def test_detection_limits_use_upper_limits_and_significant_excesses():
     ]
     assert limits['curves'].shape == (1000, 2)
     assert np.all(limits['envelope'] == np.min(limits['curves'], axis=1))
-    assert np.any(limits['detection_lower'][:, 0] > 0)
-    assert not np.any(limits['detection_lower'][:, 1] > 0)
-    detected = sdf.joint_plotting._valid_detection_region(
-        limits['detection_lower'][:, 0],
-        limits['detection_upper'][:, 0],
+    expected_flux_limits = np.array([
+        3.0 * np.sqrt(0.01**2 + 0.01**2),
+        0.5,
+    ])
+    expected = sdf.analytics.BB_Disk(
+        lstar=1.0, distance=10.0,
+    ).f_limits(
+        np.array([12.0, 60.0]), flux_limits=expected_flux_limits,
     )
-    assert np.all(
-        limits['detection_lower'][detected, 0] >=
-        limits['curves'][detected, 0]
-    )
+    assert np.allclose(limits['curves'], expected)
+    trial_fractional_luminosity = limits['envelope'] * 1.01
+    assert np.all(np.any(
+        trial_fractional_luminosity[:, None] >= limits['curves'], axis=1,
+    ))
     assert limits['radius_au'] is not None
-
-
-def test_detection_region_excludes_crossed_and_non_finite_bounds():
-    valid = sdf.joint_plotting._valid_detection_region(
-        [1.0, 3.0, 0.0, np.nan, 1.0],
-        [2.0, 2.0, 2.0, 2.0, np.inf],
-    )
-
-    assert valid.tolist() == [True, False, False, False, False]
 
 
 def test_fit_summaries_include_scientific_luminosities_and_modbb_shape():

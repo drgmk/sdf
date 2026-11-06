@@ -266,7 +266,6 @@ def _limits_panel(limits, label, colour):
     )
 
     colours = Category20[20]
-    excess_legend_added = False
     for index in range(limits['curves'].shape[1]):
         band = str(limits['filters'][index])
         basis = str(limits['basis'][index])
@@ -274,8 +273,6 @@ def _limits_panel(limits, label, colour):
         source = ColumnDataSource({
             'x': x,
             'limit': limits['curves'][:, index],
-            'lower': limits['detection_lower'][:, index],
-            'upper': limits['detection_upper'][:, index],
             'band': np.repeat(band, len(x)),
             'basis': np.repeat(basis, len(x)),
         })
@@ -289,47 +286,6 @@ def _limits_panel(limits, label, colour):
             renderers=[renderer],
             tooltips=[('band', '@band'), ('limit from', '@basis')],
         ))
-        detected = _valid_detection_region(
-            limits['detection_lower'][:, index],
-            limits['detection_upper'][:, index],
-        )
-        if np.any(detected):
-            centre = limits['detection_centre'][detected, index]
-            lower = limits['detection_lower'][detected, index]
-            upper = limits['detection_upper'][detected, index]
-            centre = np.where(
-                (centre >= lower) & (centre <= upper), centre, np.nan
-            )
-            detection_source = ColumnDataSource({
-                'x': x[detected],
-                'lower': lower,
-                'upper': upper,
-                'centre': centre,
-                'band': np.repeat(band, np.sum(detected)),
-                'signal_to_noise': np.repeat(
-                    limits['signal_to_noise'][index], np.sum(detected)
-                ),
-            })
-            kwargs = {}
-            if not excess_legend_added:
-                kwargs['legend_label'] = 'excess range'
-                excess_legend_added = True
-            excess_renderer = fig.varea(
-                'x', 'lower', 'upper', source=detection_source,
-                fill_color=band_colour, fill_alpha=0.14, **kwargs,
-            )
-            fig.line(
-                'x', 'centre', source=detection_source,
-                color=band_colour, line_width=1.3, line_alpha=0.7,
-                line_dash='dotted',
-            )
-            fig.add_tools(HoverTool(
-                renderers=[excess_renderer],
-                tooltips=[
-                    ('excess band', '@band'),
-                    ('excess S/N', '@signal_to_noise{0.00}'),
-                ],
-            ))
 
     for curve, curve_label, dash in limits['reference_curves']:
         fig.line(
@@ -374,9 +330,10 @@ def _limits_panel(limits, label, colour):
     <span style="color:#526071">based on the default stellar fit</span>
   </div>
   <p style="color:#526071;margin:3px 0 0">The blue region is detectable by at
-  least one band. Solid curves use 3σ measurement limits; dashed curves are
-  catalogue upper limits. Shaded coloured bands mark significant excess
-  ranges, with the measured excess shown as a dotted centre line.</p>
+  least one observed band. Coloured solid curves use 3σ measurement limits;
+  coloured dashed curves are catalogue upper limits. Grey curves are reference
+  sensitivities. Points show the posterior distributions of disk components
+  in the default fit.</p>
 </section>'''
     return column(
         Div(text=note, sizing_mode='stretch_width'), fig,
@@ -384,14 +341,13 @@ def _limits_panel(limits, label, colour):
     )
 
 
-def _detection_limits(candidate, owner_key, min_wavelength=8.0, sn=3.0):
+def _detection_limits(candidate, owner_key, min_wavelength=8.0):
     """Return plotting arrays for one target's detectable disk space."""
 
     arrays = candidate.analysis_arrays
     required = {
         'observed_flux', 'observed_uncertainty', 'observed_upper_limit',
         'observed_ignore', 'wavelength_micron', 'filter',
-        'component_prediction_median',
     }
     if not required.issubset(arrays):
         return None
@@ -451,11 +407,7 @@ def _detection_limits(candidate, owner_key, min_wavelength=8.0, sn=3.0):
         arrays['observed_upper_limit'][selected], dtype=bool
     )
     ignored = np.asarray(arrays['observed_ignore'][selected], dtype=bool)
-    component_median = np.asarray(
-        arrays['component_prediction_median'], dtype=float
-    )[:, selected]
-    stellar_flux = np.sum(component_median[stellar_indices], axis=0)
-    stellar_uncertainty = np.zeros_like(stellar_flux)
+    stellar_uncertainty = np.zeros_like(observed)
     if {
         'component_prediction_p16', 'component_prediction_p84'
     }.issubset(arrays):
@@ -470,8 +422,7 @@ def _detection_limits(candidate, owner_key, min_wavelength=8.0, sn=3.0):
     usable = (
         ~ignored & np.isfinite(wavelength) &
         (wavelength >= min_wavelength) & np.isfinite(observed) &
-        (observed > 0) & np.isfinite(uncertainty) &
-        np.isfinite(stellar_flux)
+        (observed > 0) & np.isfinite(uncertainty)
     )
     usable &= np.asarray([
         not filter_module.iscolour(name) for name in filters
@@ -483,7 +434,6 @@ def _detection_limits(candidate, owner_key, min_wavelength=8.0, sn=3.0):
     observed = observed[usable]
     uncertainty = uncertainty[usable]
     upper_limit = upper_limit[usable]
-    stellar_flux = stellar_flux[usable]
     stellar_uncertainty = stellar_uncertainty[usable]
     combined_uncertainty = np.sqrt(
         uncertainty**2 + stellar_uncertainty**2
@@ -497,14 +447,9 @@ def _detection_limits(candidate, owner_key, min_wavelength=8.0, sn=3.0):
     filters = filters[usable_limit]
     observed = observed[usable_limit]
     upper_limit = upper_limit[usable_limit]
-    stellar_flux = stellar_flux[usable_limit]
     combined_uncertainty = combined_uncertainty[usable_limit]
 
     flux_limit = np.where(upper_limit, observed, 3.0 * combined_uncertainty)
-    excess = np.where(upper_limit, 0.0, observed - stellar_flux)
-    excess_uncertainty = np.where(
-        upper_limit, np.nan, combined_uncertainty
-    )
     disk = BB_Disk(lstar=luminosity, distance=distance)
     kwargs = {}
     if distance is None:
@@ -512,38 +457,6 @@ def _detection_limits(candidate, owner_key, min_wavelength=8.0, sn=3.0):
     curves = disk.f_limits(
         wavelength, flux_limits=flux_limit, **kwargs
     )
-    detections = disk.f_limits(
-        wavelength, flux_limits=excess, **kwargs
-    )
-    signal_to_noise = np.divide(
-        excess, excess_uncertainty,
-        out=np.zeros_like(excess), where=np.isfinite(excess_uncertainty),
-    )
-    detection_lower = np.zeros_like(curves)
-    detection_upper = curves.copy()
-    for index, value in enumerate(signal_to_noise):
-        if value > sn:
-            detection_lower[:, index] = detections[:, index] * (
-                1.0 - sn / value
-            )
-            detection_upper[:, index] = detections[:, index] * (
-                1.0 + sn / value
-            )
-    both_upper = np.maximum(detection_upper, curves)
-    for index in range(curves.shape[1]):
-        other = np.arange(curves.shape[1]) != index
-        if np.any(other):
-            detection_upper[:, index] = np.minimum(
-                detection_upper[:, index],
-                np.min(both_upper[:, other], axis=1),
-            )
-        if signal_to_noise[index] > sn:
-            # A confidence interval around a marginal excess can extend below
-            # the flux needed to detect that excess. The plotted significant
-            # region is its intersection with this band's detection space.
-            detection_lower[:, index] = np.maximum(
-                detection_lower[:, index], curves[:, index]
-            )
 
     reference_curves = []
     teff = _owner_teff(candidate, owner_key)
@@ -569,26 +482,11 @@ def _detection_limits(candidate, owner_key, min_wavelength=8.0, sn=3.0):
         ),
         'curves': curves,
         'envelope': np.min(curves, axis=1),
-        'detection_lower': detection_lower,
-        'detection_upper': detection_upper,
-        'detection_centre': detections,
-        'signal_to_noise': signal_to_noise,
         'filters': filters,
         'basis': np.where(upper_limit, 'upper limit', '3σ uncertainty'),
         'reference_curves': tuple(reference_curves),
         'disk_samples': _disk_limit_samples(candidate, owner_key),
     }
-
-
-def _valid_detection_region(lower, upper):
-    """Return only physically ordered, finite excess-confidence intervals."""
-
-    lower = np.asarray(lower, dtype=float)
-    upper = np.asarray(upper, dtype=float)
-    return (
-        np.isfinite(lower) & np.isfinite(upper) &
-        (lower > 0) & (upper > lower)
-    )
 
 
 def _disk_limit_samples(candidate, owner_key, maximum=750):
