@@ -1,15 +1,18 @@
 # Using `sdf` fit outputs
 
-Each retained `sdf` fit has two downloadable data products:
+An `sdf` system page has three downloadable data products:
 
 - `result.json` is a compact, human-readable description and summary of the
   fit; and
 - `posterior-<hash>.npz` contains the numerical posterior samples and arrays
-  used to inspect or reconstruct the fit.
+  used to inspect or reconstruct one fit; and
+- `plot-data.npz` contains the observed data, model predictions for every fit
+  shown on the page, and the detection-limit curves.
 
-The JSON is usually the easiest place to start. Use the NPZ when you need the
-sample distributions, correlations, component predictions, or spectra. The
-NPZ is self-describing and can also be used by itself.
+The JSON is usually the easiest place to start. Use the posterior NPZ when you
+need sample distributions or correlations. Use the plot-data NPZ to reproduce
+what the web page shows without locating and combining individual fit files.
+Both NPZ files are self-describing and can be used by themselves.
 
 ## Finding the files
 
@@ -18,6 +21,7 @@ directory:
 
 ```text
 <package>/
+  plot-data.npz
   fits/
     selection.json
     <model-name>--<candidate-hash>/
@@ -47,6 +51,57 @@ print(posterior_path)
 
 `fits/selection.json` says which retained candidates are displayed and which
 one is the current default. It does not duplicate the fit results.
+
+## Reading `plot-data.npz`
+
+The page-level plotting archive contains no pickled objects. Its
+`manifest_json` scalar describes each displayed fit, its components and data
+scopes, and maps human-readable array names to NPZ keys:
+
+```python
+import json
+import numpy as np
+
+with np.load("plot-data.npz", allow_pickle=False) as plot:
+    manifest = json.loads(str(plot["manifest_json"]))
+    for fit in manifest["fits"]:
+        by_name = {item["name"]: item["key"] for item in fit["arrays"]}
+        wave = plot[by_name["wavelength_micron"]]
+        observed = plot[by_name["observed_flux"]]
+        model = plot[by_name["prediction_median"]]
+        used = ~plot[by_name["observed_ignore"]]
+        print(fit["display_name"], len(wave), "data elements")
+```
+
+The observed arrays are repeated for each shown fit because fits can predate a
+data edit. This keeps every plotted fit independently reproducible.
+
+Detection limits are calculated for the default fit. Each manifest entry maps
+the temperature grid, optional blackbody-radius grid, individual band curves,
+their lower envelope, band names, and limit basis:
+
+```python
+import matplotlib.pyplot as plt
+
+with np.load("plot-data.npz", allow_pickle=False) as plot:
+    manifest = json.loads(str(plot["manifest_json"]))
+    limit = manifest["limits"][0]
+    key = limit["arrays"]
+    temperature = plot[key["temperature_k"]]
+    curves = plot[key["curves"]]
+    bands = plot[key["filters"]].astype(str)
+
+    for band, curve in zip(bands, curves.T):
+        plt.loglog(temperature, curve, label=band)
+    plt.xlabel("disk temperature / K")
+    plt.ylabel("fractional luminosity")
+    plt.legend()
+    plt.show()
+```
+
+Use `key["radius_au"]` instead of `key["temperature_k"]` for the radius
+view. The curve rows are identical; only the x coordinate changes. Reference
+curves and fitted-disk samples are also named in the manifest.
 
 ## Reading `result.json`
 

@@ -3,6 +3,7 @@ from .test_coordinator import FakeSampler, _fit_dataset
 from .test_dataset import _write_rawphot
 from urllib.parse import parse_qs, urlparse
 from types import SimpleNamespace
+import json
 import numpy as np
 from bokeh.plotting import figure
 import sdf.analytics
@@ -99,8 +100,8 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     assert 'Residual' in html
     assert 'current input' not in html
     assert 'fit input has changed' not in html
-    assert html.index('Fit results') < html.index('metadata (JSON)')
-    assert html.index('metadata (JSON)') < html.index('ln Z 0.00')
+    assert html.index('Fit results') < html.index('fit (JSON)')
+    assert html.index('fit (JSON)') < html.index('ln Z 0.00')
     assert '<h2>System</h2>' in html
     assert '>Results</a>' not in html
     assert '>Data</a>' not in html
@@ -108,7 +109,14 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     assert 'posterior-' in html
     assert 'parameters (PNG)' in html
     assert 'derived (PNG)' in html
-    assert r'metadata (JSON)&lt;/a&gt; \\u00b7 &lt;a' in html
+    assert r'fit (JSON)&lt;/a&gt; \\u00b7 &lt;a' in html
+    assert 'Plot data (NPZ)' in html
+    assert (tmp_path / 'plot-data.npz').is_file()
+    with np.load(tmp_path / 'plot-data.npz') as plot_data:
+        manifest = json.loads(str(plot_data['manifest_json']))
+        assert manifest['schema'] == 1
+        assert manifest['fits'][0]['candidate_id'] == stored.candidate_id
+        assert 'fit_0__observed_flux' in plot_data
     assert 'data-distribution-plot' in html
     assert 'id="distribution-dialog"' in html
     assert '>Download PNG</a>' in html
@@ -123,9 +131,10 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     assert 'href="/docs">docs</a>' in html
     assert '<title>Test</title>' in html
     assert 'toolbar_location":"below"' in html
-    assert '"title":"Limits"' in html
+    assert '"title":"Limits (vs. r)"' in html
+    assert '"title":"Limits (vs. T)"' in html
     assert 'excess range' not in html
-    assert '.bk-header .bk-tab:last-child { margin-left: auto; }' in html
+    assert '.bk-header .bk-tab:nth-last-child(2) { margin-left: auto; }' in html
 
     with open(dataset.observations[0].source, 'a', encoding='utf-8') as handle:
         handle.write('\n\\ input changed after fitting\n')
@@ -199,7 +208,7 @@ def test_residual_bounds_keep_minimum_and_do_not_clip_data():
     assert high > 7.0
 
 
-def test_detection_limits_match_noise_and_catalogue_upper_limits():
+def test_detection_limits_match_noise_and_catalogue_upper_limits(tmp_path):
     arrays = {
         'wavelength_micron': np.array([12.0, 60.0, 100.0]),
         'filter': np.array(['WISE12', 'IRAS60', 'IRAS100']),
@@ -219,8 +228,10 @@ def test_detection_limits_match_noise_and_catalogue_upper_limits():
         }],
     }
     candidate = SimpleNamespace(
+        candidate_id='test-candidate',
         analysis_arrays=arrays,
         metadata={
+            'display_name': 'test fit',
             'components': [{
                 'owner_key': 'simbad:A', 'role': 'stellar',
             }],
@@ -264,6 +275,19 @@ def test_detection_limits_match_noise_and_catalogue_upper_limits():
         trial_fractional_luminosity[:, None] >= limits['curves'], axis=1,
     ))
     assert limits['radius_au'] is not None
+
+    sdf.joint_plotting._write_plot_data(
+        tmp_path, (candidate,), candidate,
+    )
+    with np.load(tmp_path / 'plot-data.npz') as plot_data:
+        manifest = json.loads(str(plot_data['manifest_json']))
+        assert str(plot_data['artifact_type']) == 'sdf.plot-data'
+        assert manifest['limits'][0]['owner_key'] == 'simbad:A'
+        names = manifest['limits'][0]['arrays']
+        assert np.array_equal(
+            plot_data[names['temperature_k']], limits['temperature_k']
+        )
+        assert np.array_equal(plot_data[names['curves']], limits['curves'])
 
 
 def test_fit_summaries_include_scientific_luminosities_and_modbb_shape():

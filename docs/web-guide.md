@@ -49,13 +49,15 @@ Each fit contains:
 - a log-log SED and residual panel;
 - physical results grouped by the component that owns them;
 - log evidence, chi-squared, and the number of residual elements;
-- downloadable metadata and posterior arrays; and
+- downloadable fit metadata, posterior arrays, and plotting arrays; and
 - fitted-parameter and derived-quantity distribution plots when available.
 
 The compact fit-result links are:
 
-- **metadata (JSON)** for model identity, summaries, evidence, and provenance;
+- **fit (JSON)** for model identity, summaries, evidence, and provenance;
 - **posterior data (NPZ)** for labelled fitted and derived samples;
+- **Plot data (NPZ)** for the observed data, every displayed fit, and the
+  detection-limit curves;
 - **parameters (PNG)** for fitted-parameter distributions; and
 - **derived (PNG)** for physical derived-quantity distributions.
 
@@ -76,9 +78,10 @@ from fitting are still shown.
 The toolbar below the plots controls both panels. Panning or zooming one panel
 updates the shared wavelength range.
 
-The final **Limits** tab shows the fractional-luminosity detection space implied
-by the photometry beyond 8 μm and the default stellar fit. It defaults to
-blackbody radius when a distance is available. Solid curves are 3-sigma
+The final **Limits (vs. r)** and **Limits (vs. T)** tabs show the same
+fractional-luminosity detection space against blackbody radius and disk
+temperature. The limits are computed by `sdf.analytics.BB_Disk` from the
+photometry beyond 8 μm and the default stellar fit. Solid curves are 3-sigma
 measurement limits, dashed curves come from catalogue upper limits, and the
 blue region is detectable in at least one observed band. Grey curves are
 reference sensitivities and do not define that region. The fitted disk

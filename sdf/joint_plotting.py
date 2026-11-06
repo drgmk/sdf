@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from html import escape
+import json
+import os
 from pathlib import Path
+import tempfile
 
 import numpy as np
 from bokeh.embed import components
@@ -122,9 +125,18 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
                 candidate, owner_labels, component_labels
             ),
         ))
-    panels.append(_limits_tab(
-        by_id[default], owner_labels, component_labels, owner_colours,
+    default_candidate = by_id[default]
+    panels.extend((
+        _limits_tab(
+            default_candidate, owner_labels, component_labels, owner_colours,
+            x_axis='radius', title='Limits (vs. r)',
+        ),
+        _limits_tab(
+            default_candidate, owner_labels, component_labels, owner_colours,
+            x_axis='temperature', title='Limits (vs. T)',
+        ),
     ))
+    _write_plot_data(package_directory, ordered, default_candidate)
     active = next((
         index for index, candidate in enumerate(ordered)
         if candidate.candidate_id == default
@@ -133,7 +145,7 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
         tabs=panels, active=active, sizing_mode='stretch_width',
         stylesheets=[InlineStyleSheet(css='''
           :host { --base-font: ui-sans-serif, system-ui, sans-serif; }
-          .bk-header .bk-tab:last-child { margin-left: auto; }
+          .bk-header .bk-tab:nth-last-child(2) { margin-left: auto; }
         ''')],
     )
     plot_script, plot_div = components(tabs)
@@ -195,7 +207,8 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
     return output
 
 
-def _limits_tab(candidate, owner_labels, component_labels, owner_colours):
+def _limits_tab(candidate, owner_labels, component_labels, owner_colours, *,
+                x_axis, title):
     """Build the system sensitivity view from the default retained fit."""
 
     owner_panels = []
@@ -207,9 +220,12 @@ def _limits_tab(candidate, owner_labels, component_labels, owner_colours):
             component_labels.get(owner_key) or owner_labels.get(owner_key) or
             owner_key
         )
+        if x_axis == 'radius' and limits['radius_au'] is None:
+            continue
         owner_panels.append(TabPanel(
             child=_limits_panel(
-                limits, label, owner_colours.get(owner_key, '#285ea8')
+                limits, label, owner_colours.get(owner_key, '#285ea8'),
+                x_axis=x_axis,
             ),
             title=str(label),
         ))
@@ -233,18 +249,15 @@ def _limits_tab(candidate, owner_labels, component_labels, owner_colours):
               :host { --base-font: ui-sans-serif, system-ui, sans-serif; }
             ''')],
         )
-    return TabPanel(child=child, title='Limits')
+    return TabPanel(child=child, title=title)
 
 
-def _limits_panel(limits, label, colour):
+def _limits_panel(limits, label, colour, *, x_axis):
     """Render one physical contributor's fractional-luminosity limits."""
 
-    radius_available = limits['radius_au'] is not None
-    x = limits['radius_au'] if radius_available else limits['temperature_k']
-    x_label = (
-        'Blackbody radius (au)' if radius_available else
-        'Disk temperature (K)'
-    )
+    radius_axis = x_axis == 'radius'
+    x = limits['radius_au'] if radius_axis else limits['temperature_k']
+    x_label = 'Blackbody radius (au)' if radius_axis else 'Disk temperature (K)'
     fig = figure(
         title='Detection limits · {}'.format(label),
         x_axis_label=x_label, x_axis_type='log',
@@ -296,7 +309,7 @@ def _limits_panel(limits, label, colour):
 
     for disk in limits['disk_samples']:
         disk_x = (
-            disk['radius_au'] if radius_available else disk['temperature_k']
+            disk['radius_au'] if radius_axis else disk['temperature_k']
         )
         ok = (
             np.isfinite(disk_x) & (disk_x > 0) &
@@ -340,6 +353,123 @@ def _limits_panel(limits, label, colour):
         Div(text=note, sizing_mode='stretch_width'), fig,
         sizing_mode='stretch_width',
     )
+
+
+def _write_plot_data(package_directory, candidates, default_candidate):
+    """Write self-describing arrays needed to reproduce displayed plots."""
+
+    arrays = {
+        'artifact_type': np.asarray('sdf.plot-data'),
+        'schema_version': np.asarray(1, dtype=np.int64),
+    }
+    manifest = {
+        'schema': 1,
+        'description': (
+            'Arrays shown in the SED, residual, and detection-limit plots.'
+        ),
+        'fits': [],
+        'limits': [],
+    }
+    plot_names = (
+        'wavelength_micron', 'filter', 'observed_flux',
+        'observed_uncertainty', 'observed_upper_limit', 'observed_ignore',
+        'prediction_median', 'prediction_p16', 'prediction_p84', 'residual',
+        'component_prediction_median', 'component_prediction_p16',
+        'component_prediction_p84',
+        'spectrum_wavelength_micron', 'component_spectrum_median',
+        'component_spectrum_p16', 'component_spectrum_p84',
+    )
+    for fit_index, candidate in enumerate(candidates):
+        prefix = 'fit_{}'.format(fit_index)
+        included = []
+        for name in plot_names:
+            if name not in candidate.analysis_arrays:
+                continue
+            key = '{}__{}'.format(prefix, name)
+            arrays[key] = np.asarray(candidate.analysis_arrays[name])
+            included.append({'name': name, 'key': key})
+        manifest['fits'].append({
+            'index': fit_index,
+            'candidate_id': candidate.candidate_id,
+            'display_name': candidate.metadata.get('display_name'),
+            'components': candidate.metadata.get('components', ()),
+            'data_scopes': candidate.metadata.get('analysis', {}).get(
+                'data_scopes', ()
+            ),
+            'arrays': included,
+        })
+
+    owner_keys = []
+    for component in default_candidate.metadata.get('components', ()):
+        owner = component.get('owner_key')
+        if owner and owner not in owner_keys:
+            owner_keys.append(owner)
+    for limit_index, owner_key in enumerate(owner_keys):
+        limits = _detection_limits(default_candidate, owner_key)
+        if limits is None:
+            continue
+        prefix = 'limit_{}'.format(limit_index)
+        limit_arrays = {
+            'temperature_k': limits['temperature_k'],
+            'curves': limits['curves'],
+            'envelope': limits['envelope'],
+            'filters': limits['filters'],
+            'basis': limits['basis'],
+        }
+        if limits['radius_au'] is not None:
+            limit_arrays['radius_au'] = limits['radius_au']
+        reference = []
+        for reference_index, (curve, label, dash) in enumerate(
+                limits['reference_curves']):
+            name = 'reference_{}'.format(reference_index)
+            limit_arrays[name] = curve
+            reference.append({'array': name, 'label': label, 'dash': dash})
+        disk_samples = []
+        for disk_index, disk in enumerate(limits['disk_samples']):
+            sample_arrays = {}
+            for name, values in disk.items():
+                array_name = 'disk_{}__{}'.format(disk_index, name)
+                limit_arrays[array_name] = values
+                sample_arrays[name] = '{}__{}'.format(prefix, array_name)
+            disk_samples.append(sample_arrays)
+        for name, values in limit_arrays.items():
+            arrays['{}__{}'.format(prefix, name)] = np.asarray(values)
+        manifest['limits'].append({
+            'index': limit_index,
+            'owner_key': owner_key,
+            'candidate_id': default_candidate.candidate_id,
+            'arrays': {
+                name: '{}__{}'.format(prefix, name)
+                for name in limit_arrays
+            },
+            'reference_curves': reference,
+            'disk_samples': disk_samples,
+        })
+
+    arrays['manifest_json'] = np.asarray(json.dumps(
+        manifest, sort_keys=True, separators=(',', ':'),
+    ))
+    _atomic_npz(Path(package_directory) / 'plot-data.npz', arrays)
+
+
+def _atomic_npz(path, arrays):
+    """Replace one NumPy archive without exposing a partial file."""
+
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle, temporary = tempfile.mkstemp(
+        prefix='.' + path.name + '.', suffix='.tmp', dir=path.parent,
+    )
+    try:
+        with os.fdopen(handle, 'wb') as stream:
+            np.savez_compressed(stream, **arrays)
+        os.replace(temporary, path)
+    except BaseException:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def _detection_limits(candidate, owner_key, min_wavelength=8.0):
@@ -1007,12 +1137,14 @@ def _candidate_product_links(candidate):
     directory = 'fits/{}/'.format(candidate.path.name)
     links = [
         '<a style="color:#285ea8;text-decoration:none" href="{}">{}</a>'.format(
-            escape(directory + 'result.json'), 'metadata (JSON)'
+            escape(directory + 'result.json'), 'fit (JSON)'
         ),
         '<a style="color:#285ea8;text-decoration:none" href="{}">{}</a>'.format(
             escape(directory + candidate.metadata['posterior']['file']),
             'posterior data (NPZ)',
         ),
+        '<a style="color:#285ea8;text-decoration:none" '
+        'href="plot-data.npz">Plot data (NPZ)</a>',
     ]
     for label, title, filename in (
         ('parameters (PNG)', 'Fitted parameter posteriors', 'corner.png'),
