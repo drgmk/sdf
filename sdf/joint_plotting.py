@@ -1141,10 +1141,10 @@ def _candidate_product_links(candidate):
         ),
         '<a style="color:#285ea8;text-decoration:none" href="{}">{}</a>'.format(
             escape(directory + candidate.metadata['posterior']['file']),
-            'posterior data (NPZ)',
+            'posteriors (NPZ)',
         ),
         '<a style="color:#285ea8;text-decoration:none" '
-        'href="plot-data.npz">Plot data (NPZ)</a>',
+        'href="plot-data.npz">plot data (NPZ)</a>',
     ]
     for label, title, filename in (
         ('parameters (PNG)', 'Fitted parameter posteriors', 'corner.png'),

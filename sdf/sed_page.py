@@ -157,12 +157,12 @@ def candidate_page_rows(candidates, labels, default_candidate,
                 package_directory
             ).as_posix(),
         }, {
-            'label': 'posterior data (NPZ)',
+            'label': 'posteriors (NPZ)',
             'url': (candidate.path / candidate.metadata['posterior']['file']).relative_to(
                 package_directory
             ).as_posix(),
         }, {
-            'label': 'Plot data (NPZ)',
+            'label': 'plot data (NPZ)',
             'url': 'plot-data.npz',
         }]
         for label, filename in (

@@ -55,8 +55,8 @@ Each fit contains:
 The compact fit-result links are:
 
 - **fit (JSON)** for model identity, summaries, evidence, and provenance;
-- **posterior data (NPZ)** for labelled fitted and derived samples;
-- **Plot data (NPZ)** for the observed data, every displayed fit, and the
+- **posteriors (NPZ)** for labelled fitted and derived samples;
+- **plot data (NPZ)** for the observed data, every displayed fit, and the
   detection-limit curves;
 - **parameters (PNG)** for fitted-parameter distributions; and
 - **derived (PNG)** for physical derived-quantity distributions.

@@ -110,7 +110,8 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     assert 'parameters (PNG)' in html
     assert 'derived (PNG)' in html
     assert r'fit (JSON)&lt;/a&gt; \\u00b7 &lt;a' in html
-    assert 'Plot data (NPZ)' in html
+    assert 'posteriors (NPZ)' in html
+    assert 'plot data (NPZ)' in html
     assert (tmp_path / 'plot-data.npz').is_file()
     with np.load(tmp_path / 'plot-data.npz') as plot_data:
         manifest = json.loads(str(plot_data['manifest_json']))
