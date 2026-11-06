@@ -294,11 +294,17 @@ def _limits_panel(limits, label, colour):
             limits['detection_upper'][:, index],
         )
         if np.any(detected):
+            centre = limits['detection_centre'][detected, index]
+            lower = limits['detection_lower'][detected, index]
+            upper = limits['detection_upper'][detected, index]
+            centre = np.where(
+                (centre >= lower) & (centre <= upper), centre, np.nan
+            )
             detection_source = ColumnDataSource({
                 'x': x[detected],
-                'lower': limits['detection_lower'][detected, index],
-                'upper': limits['detection_upper'][detected, index],
-                'centre': limits['detection_centre'][detected, index],
+                'lower': lower,
+                'upper': upper,
+                'centre': centre,
                 'band': np.repeat(band, np.sum(detected)),
                 'signal_to_noise': np.repeat(
                     limits['signal_to_noise'][index], np.sum(detected)
@@ -530,6 +536,13 @@ def _detection_limits(candidate, owner_key, min_wavelength=8.0, sn=3.0):
             detection_upper[:, index] = np.minimum(
                 detection_upper[:, index],
                 np.min(both_upper[:, other], axis=1),
+            )
+        if signal_to_noise[index] > sn:
+            # A confidence interval around a marginal excess can extend below
+            # the flux needed to detect that excess. The plotted significant
+            # region is its intersection with this band's detection space.
+            detection_lower[:, index] = np.maximum(
+                detection_lower[:, index], curves[:, index]
             )
 
     reference_curves = []

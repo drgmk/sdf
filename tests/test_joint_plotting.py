@@ -248,6 +248,14 @@ def test_detection_limits_use_upper_limits_and_significant_excesses():
     assert np.all(limits['envelope'] == np.min(limits['curves'], axis=1))
     assert np.any(limits['detection_lower'][:, 0] > 0)
     assert not np.any(limits['detection_lower'][:, 1] > 0)
+    detected = sdf.joint_plotting._valid_detection_region(
+        limits['detection_lower'][:, 0],
+        limits['detection_upper'][:, 0],
+    )
+    assert np.all(
+        limits['detection_lower'][detected, 0] >=
+        limits['curves'][detected, 0]
+    )
     assert limits['radius_au'] is not None
 
 
