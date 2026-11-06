@@ -289,21 +289,41 @@ def _limits_panel(limits, label, colour):
             renderers=[renderer],
             tooltips=[('band', '@band'), ('limit from', '@basis')],
         ))
-        detected = limits['detection_lower'][:, index] > 0
+        detected = _valid_detection_region(
+            limits['detection_lower'][:, index],
+            limits['detection_upper'][:, index],
+        )
         if np.any(detected):
             detection_source = ColumnDataSource({
                 'x': x[detected],
                 'lower': limits['detection_lower'][detected, index],
                 'upper': limits['detection_upper'][detected, index],
+                'centre': limits['detection_centre'][detected, index],
+                'band': np.repeat(band, np.sum(detected)),
+                'signal_to_noise': np.repeat(
+                    limits['signal_to_noise'][index], np.sum(detected)
+                ),
             })
             kwargs = {}
             if not excess_legend_added:
                 kwargs['legend_label'] = 'excess range'
                 excess_legend_added = True
-            fig.varea(
+            excess_renderer = fig.varea(
                 'x', 'lower', 'upper', source=detection_source,
                 fill_color=band_colour, fill_alpha=0.14, **kwargs,
             )
+            fig.line(
+                'x', 'centre', source=detection_source,
+                color=band_colour, line_width=1.3, line_alpha=0.7,
+                line_dash='dotted',
+            )
+            fig.add_tools(HoverTool(
+                renderers=[excess_renderer],
+                tooltips=[
+                    ('excess band', '@band'),
+                    ('excess S/N', '@signal_to_noise{0.00}'),
+                ],
+            ))
 
     for curve, curve_label, dash in limits['reference_curves']:
         fig.line(
@@ -350,7 +370,7 @@ def _limits_panel(limits, label, colour):
   <p style="color:#526071;margin:3px 0 0">The blue region is detectable by at
   least one band. Solid curves use 3σ measurement limits; dashed curves are
   catalogue upper limits. Shaded coloured bands mark significant excess
-  ranges.</p>
+  ranges, with the measured excess shown as a dotted centre line.</p>
 </section>'''
     return column(
         Div(text=note, sizing_mode='stretch_width'), fig,
@@ -538,11 +558,24 @@ def _detection_limits(candidate, owner_key, min_wavelength=8.0, sn=3.0):
         'envelope': np.min(curves, axis=1),
         'detection_lower': detection_lower,
         'detection_upper': detection_upper,
+        'detection_centre': detections,
+        'signal_to_noise': signal_to_noise,
         'filters': filters,
         'basis': np.where(upper_limit, 'upper limit', '3σ uncertainty'),
         'reference_curves': tuple(reference_curves),
         'disk_samples': _disk_limit_samples(candidate, owner_key),
     }
+
+
+def _valid_detection_region(lower, upper):
+    """Return only physically ordered, finite excess-confidence intervals."""
+
+    lower = np.asarray(lower, dtype=float)
+    upper = np.asarray(upper, dtype=float)
+    return (
+        np.isfinite(lower) & np.isfinite(upper) &
+        (lower > 0) & (upper > lower)
+    )
 
 
 def _disk_limit_samples(candidate, owner_key, maximum=750):

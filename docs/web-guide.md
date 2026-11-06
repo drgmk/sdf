@@ -81,8 +81,9 @@ by the photometry beyond 8 μm and the default stellar fit. It defaults to
 blackbody radius when a distance is available. Solid curves are 3-sigma
 measurement limits, dashed curves come from catalogue upper limits, and the
 blue region is detectable in at least one band. Significant excess ranges and
-the fitted disk posterior are overlaid when present. Multiple systems get a
-separate limits sub-tab for each physical contributor.
+their dotted central estimates are overlaid when present, along with the fitted
+disk posterior. Multiple systems get a separate limits sub-tab for each
+physical contributor.
 
 ## Samples
 

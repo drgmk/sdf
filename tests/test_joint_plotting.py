@@ -251,6 +251,15 @@ def test_detection_limits_use_upper_limits_and_significant_excesses():
     assert limits['radius_au'] is not None
 
 
+def test_detection_region_excludes_crossed_and_non_finite_bounds():
+    valid = sdf.joint_plotting._valid_detection_region(
+        [1.0, 3.0, 0.0, np.nan, 1.0],
+        [2.0, 2.0, 2.0, 2.0, np.inf],
+    )
+
+    assert valid.tolist() == [True, False, False, False, False]
+
+
 def test_fit_summaries_include_scientific_luminosities_and_modbb_shape():
     stellar = sdf.joint_plotting._stellar_summary(
         {'parameters': {
