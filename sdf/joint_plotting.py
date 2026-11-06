@@ -133,6 +133,7 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
         tabs=panels, active=active, sizing_mode='stretch_width',
         stylesheets=[InlineStyleSheet(css='''
           :host { --base-font: ui-sans-serif, system-ui, sans-serif; }
+          .bk-header .bk-tab:last-child { margin-left: auto; }
         ''')],
     )
     plot_script, plot_div = components(tabs)

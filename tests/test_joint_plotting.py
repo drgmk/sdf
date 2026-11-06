@@ -125,6 +125,7 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     assert 'toolbar_location":"below"' in html
     assert '"title":"Limits"' in html
     assert 'excess range' not in html
+    assert '.bk-header .bk-tab:last-child { margin-left: auto; }' in html
 
     with open(dataset.observations[0].source, 'a', encoding='utf-8') as handle:
         handle.write('\n\\ input changed after fitting\n')
