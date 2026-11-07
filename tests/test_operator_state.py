@@ -255,7 +255,7 @@ def test_version_one_operator_database_is_migrated_in_place(tmp_path):
         columns = {
             row[1] for row in connection.execute('PRAGMA table_info(fit_jobs)')
         }
-    assert version == '6'
+    assert version == '7'
     assert 'worker_id' in columns
 
 
@@ -281,7 +281,7 @@ def test_version_two_operator_database_records_default_choices(tmp_path):
                 "SELECT name FROM sqlite_master WHERE type = 'table'"
             )
         }
-    assert version == '6'
+    assert version == '7'
     assert 'fit_policy_default' in tables
 
 
@@ -325,7 +325,7 @@ def test_version_five_operator_database_adds_sample_edit_fields(tmp_path):
         version = connection.execute(
             "SELECT value FROM operator_metadata WHERE key = 'schema_version'"
         ).fetchone()[0]
-    assert version == '6'
+    assert version == '7'
 
 
 def test_acquisition_queue_coalesces_claims_completes_and_recovers(tmp_path):
@@ -375,6 +375,19 @@ def test_sample_acquisition_queue_validates_claims_and_completes(tmp_path):
     assert job.note == 'A test sample'
     assert job.operation == 'add'
     assert job.status == 'running'
+    assert job.progress_stage == 'starting'
+    assert job.progress_current == 0
+    assert job.progress_total == 2
+    assert state.update_sample_acquisition_progress(job.id, {
+        'stage': 'providers',
+        'description': 'Updating catalogue providers',
+        'current': 1,
+        'total': 2,
+    })
+    progress = state.sample_acquisition(job.id)
+    assert progress.progress_stage == 'providers'
+    assert progress.progress_message == 'Updating catalogue providers'
+    assert progress.progress_current == 1
     assert state.recover_running_sample_acquisitions() == 1
 
     job = state.claim_next_sample_acquisition(worker_id='import-2')

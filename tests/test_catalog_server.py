@@ -239,6 +239,27 @@ def test_completed_sample_import_renders_target_results(tmp_path):
     assert '/samples/Nearby/' in page
 
 
+def test_running_sample_import_renders_progress(tmp_path):
+    service = _catalog(tmp_path)
+    principal = service.auth.principal({})
+    job_id = service.state.queue_sample_acquisition(
+        'Nearby', ('49 Ceti', 'Vega'), actor=principal.username,
+    )
+    assert service.state.claim_next_sample_acquisition() is not None
+    service.state.update_sample_acquisition_progress(job_id, {
+        'stage': 'targets',
+        'description': 'Resolving sample identifiers',
+        'current': 1,
+        'total': 2,
+    })
+
+    page = service.render_sample_acquisition(job_id, principal)
+
+    assert 'Resolving sample identifiers' in page
+    assert '1 of 2' in page
+    assert '<progress value="1" max="2">' in page
+
+
 def test_completed_sample_removal_renders_membership_results(tmp_path):
     service = _catalog(tmp_path)
     principal = service.auth.principal({})

@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+from threading import Event, Thread
 
 
 @dataclass(frozen=True)
@@ -138,12 +139,19 @@ class SdbImporter:
             'warnings': warnings,
         }
 
-    def acquire_sample(self, job):
+    def acquire_sample(self, job, *, progress=None):
         """Create one owned SDB sample, import its targets, and export it."""
 
         if getattr(job, 'operation', 'add') == 'remove':
             return self._remove_sample_members(job)
 
+        progress = progress or (lambda event: None)
+        progress({
+            'stage': 'starting',
+            'description': 'Starting sample import',
+            'current': 0,
+            'total': len(job.targets),
+        })
         environment = os.environ.copy()
         environment['SDB_ACTOR'] = str(job.actor)
         with tempfile.NamedTemporaryFile(
@@ -160,8 +168,8 @@ class SdbImporter:
                 command.extend(('--owner', job.owner_username))
             if job.note:
                 command.extend(('--note', job.note))
-            acquired, status, stderr = self._json_command(
-                command, environment=environment,
+            acquired, status, stderr = self._json_command_with_progress(
+                command, environment=environment, progress=progress,
             )
         # Exit 1 means that useful work completed but one or more targets or
         # optional provider updates failed. Exit 2 is a command-level failure.
@@ -203,6 +211,12 @@ class SdbImporter:
         if not result['succeeded_count']:
             return result
 
+        progress({
+            'stage': 'exporting',
+            'description': 'Exporting successful targets',
+            'current': None,
+            'total': None,
+        })
         exported, export_status, export_stderr = self._json_command(
             [
                 *self.config.command(), 'export', '--sample', job.sample_name,
@@ -232,6 +246,29 @@ class SdbImporter:
                 'Targets were imported, but none is ready for a fitting package'
             )
         return result
+
+    def _json_command_with_progress(
+            self, command, *, environment, progress):
+        """Run an SDB command while forwarding its JSONL progress sidecar."""
+
+        with tempfile.NamedTemporaryFile(
+                mode='w', encoding='utf-8', suffix='.jsonl') as event_file:
+            child_environment = dict(environment)
+            child_environment['SDB_PROGRESS_FILE'] = event_file.name
+            stop = Event()
+            watcher = Thread(
+                target=_watch_progress_file,
+                args=(event_file.name, progress, stop),
+                name='sdb-import-progress', daemon=True,
+            )
+            watcher.start()
+            try:
+                return self._json_command(
+                    command, environment=child_environment,
+                )
+            finally:
+                stop.set()
+                watcher.join(timeout=2)
 
     def _remove_sample_members(self, job):
         """Remove selected members and publish a fresh sample snapshot."""
@@ -462,7 +499,12 @@ def run_acquisition_worker(state, importer, *, on_export=None,
             continue
         try:
             if sample_job is not None:
-                result = importer.acquire_sample(sample_job)
+                progress = lambda event: state.update_sample_acquisition_progress(
+                    sample_job.id, event,
+                )
+                result = importer.acquire_sample(
+                    sample_job, progress=progress,
+                )
                 callback = on_sample_export or on_export
                 actor = sample_job.actor
             else:
@@ -470,6 +512,13 @@ def run_acquisition_worker(state, importer, *, on_export=None,
                 callback = on_export
                 actor = job.actor
             if callback is not None:
+                if sample_job is not None:
+                    progress({
+                        'stage': 'publishing',
+                        'description': 'Publishing the sample and queueing fits',
+                        'current': None,
+                        'total': None,
+                    })
                 enriched = callback(result, actor=actor)
                 if enriched is not None:
                     result = enriched
@@ -484,6 +533,43 @@ def run_acquisition_worker(state, importer, *, on_export=None,
                 state.finish_sample_acquisition(sample_job.id, result=result)
             else:
                 state.finish_acquisition(job.id, result=result)
+
+
+def _watch_progress_file(path, callback, stop, poll_seconds=0.2):
+    """Forward the latest complete event from an append-only JSONL file."""
+
+    position = 0
+    remainder = ''
+
+    def drain():
+        nonlocal position, remainder
+        try:
+            with open(path, encoding='utf-8') as handle:
+                handle.seek(position)
+                chunk = handle.read()
+                position = handle.tell()
+        except FileNotFoundError:
+            return
+        if not chunk:
+            return
+        remainder += chunk
+        lines = remainder.split('\n')
+        remainder = lines.pop()
+        latest = None
+        for line in lines:
+            try:
+                latest = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+        if latest is not None:
+            try:
+                callback(latest)
+            except Exception:
+                pass
+
+    while not stop.wait(poll_seconds):
+        drain()
+    drain()
 
 
 def _optional_path(value):

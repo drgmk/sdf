@@ -95,12 +95,22 @@ def test_sdb_importer_acquires_and_exports_sample(tmp_path):
     export_root.mkdir()
     manifest = export_root / 'export-8-manifest.json'
     calls = []
+    progress_events = []
 
     def runner(command, **kwargs):
         calls.append(command)
         if 'acquire' in command:
             target_file = command[command.index('acquire') + 2]
             assert open(target_file, encoding='utf-8').read() == 'HD 123\nVega\n'
+            with open(
+                kwargs['env']['SDB_PROGRESS_FILE'], 'a', encoding='utf-8',
+            ) as handle:
+                handle.write(json.dumps({
+                    'stage': 'targets',
+                    'description': 'Resolving sample identifiers',
+                    'current': 1,
+                    'total': 2,
+                }) + '\n')
             return SimpleNamespace(
                 returncode=1,
                 stdout=json.dumps({
@@ -128,12 +138,14 @@ def test_sdb_importer_acquires_and_exports_sample(tmp_path):
     result = importer.acquire_sample(SimpleNamespace(
         sample_name='Nearby', targets=('HD 123', 'Vega'), actor='alice',
         owner_username='alice', visibility='private', note='Nearby systems',
-    ))
+    ), progress=progress_events.append)
 
     assert result['sample'] == 'Nearby'
     assert result['packages'] == ['sdb-test']
     assert result['failed_count'] == 1
     assert result['warnings']
+    assert any(event.get('current') == 1 for event in progress_events)
+    assert progress_events[-1]['stage'] == 'exporting'
     assert calls[0][calls[0].index('sample'):] [:2] == ['sample', 'acquire']
     assert calls[0][calls[0].index('--owner') + 1] == 'alice'
     assert calls[1][-7:] == [
@@ -341,8 +353,12 @@ def test_acquisition_worker_drains_sample_queue(tmp_path):
     stopped = Event()
 
     class Importer:
-        def acquire_sample(self, job):
+        def acquire_sample(self, job, *, progress=None):
             assert job.sample_name == 'Nearby'
+            progress({
+                'stage': 'targets', 'description': 'Resolving Vega',
+                'current': 1, 'total': 1,
+            })
             return {'sample': job.sample_name, 'packages': ['vega']}
 
     def register(result, *, actor):

@@ -12,7 +12,7 @@ import sqlite3
 from .model_policy import TargetModelPolicy
 
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 
 @dataclass(frozen=True)
@@ -72,6 +72,11 @@ class SampleAcquisitionJob:
     result: dict | None
     error: str | None
     worker_id: str | None
+    progress_stage: str | None
+    progress_current: int | None
+    progress_total: int | None
+    progress_message: str | None
+    progress_updated_at: str | None
 
 
 class OperatorState:
@@ -160,7 +165,12 @@ class OperatorState:
                     completed_at TEXT,
                     result TEXT,
                     error TEXT,
-                    worker_id TEXT
+                    worker_id TEXT,
+                    progress_stage TEXT,
+                    progress_current INTEGER,
+                    progress_total INTEGER,
+                    progress_message TEXT,
+                    progress_updated_at TEXT
                 );
                 CREATE INDEX IF NOT EXISTS sample_acquisition_jobs_status
                     ON sample_acquisition_jobs(status, id);
@@ -174,8 +184,9 @@ class OperatorState:
                     'INSERT INTO operator_metadata VALUES (?, ?)',
                     ('schema_version', str(SCHEMA_VERSION)),
                 )
-            elif int(row['value']) in {1, 2, 3, 4, 5}:
-                if int(row['value']) == 1:
+            elif int(row['value']) in {1, 2, 3, 4, 5, 6}:
+                old_version = int(row['value'])
+                if old_version == 1:
                     columns = {
                         value['name'] for value in connection.execute(
                             'PRAGMA table_info(fit_jobs)'
@@ -185,7 +196,7 @@ class OperatorState:
                         connection.execute(
                             'ALTER TABLE fit_jobs ADD COLUMN worker_id TEXT'
                         )
-                if int(row['value']) < 6:
+                if old_version < 6:
                     columns = {
                         value['name'] for value in connection.execute(
                             'PRAGMA table_info(sample_acquisition_jobs)'
@@ -201,6 +212,24 @@ class OperatorState:
                             "ALTER TABLE sample_acquisition_jobs ADD COLUMN "
                             "owner_username TEXT"
                         )
+                if old_version < 7:
+                    columns = {
+                        value['name'] for value in connection.execute(
+                            'PRAGMA table_info(sample_acquisition_jobs)'
+                        )
+                    }
+                    for name, declaration in (
+                        ('progress_stage', 'TEXT'),
+                        ('progress_current', 'INTEGER'),
+                        ('progress_total', 'INTEGER'),
+                        ('progress_message', 'TEXT'),
+                        ('progress_updated_at', 'TEXT'),
+                    ):
+                        if name not in columns:
+                            connection.execute(
+                                'ALTER TABLE sample_acquisition_jobs '
+                                'ADD COLUMN {} {}'.format(name, declaration)
+                            )
                 connection.execute(
                     "UPDATE operator_metadata SET value = ? "
                     "WHERE key = 'schema_version'",
@@ -674,20 +703,59 @@ class OperatorState:
                 connection.commit()
                 return None
             started_at = _now()
+            target_total = len(json.loads(row['targets']))
             connection.execute(
                 "UPDATE sample_acquisition_jobs SET status = 'running', "
-                "started_at = ?, worker_id = ?, error = NULL WHERE id = ?",
-                (started_at, worker_id, row['id']),
+                "started_at = ?, worker_id = ?, error = NULL, "
+                "progress_stage = 'starting', progress_current = 0, "
+                "progress_total = ?, progress_message = ?, "
+                "progress_updated_at = ? WHERE id = ?",
+                (
+                    started_at, worker_id, target_total,
+                    'Starting sample update', started_at, row['id'],
+                ),
             )
             connection.commit()
             values = dict(row)
             values.update(
                 status='running', started_at=started_at,
                 worker_id=worker_id, error=None,
+                progress_stage='starting', progress_current=0,
+                progress_total=target_total,
+                progress_message='Starting sample update',
+                progress_updated_at=started_at,
             )
             return _sample_acquisition_job(values)
         finally:
             connection.close()
+
+    def update_sample_acquisition_progress(self, job_id, event):
+        """Persist the latest bounded progress event for one running job."""
+
+        description = str(event.get('description') or 'Working').strip()[:500]
+        current = event.get('current')
+        total = event.get('total')
+        current = None if current is None else max(0, int(current))
+        total = None if total is None else max(0, int(total))
+        if current is not None and total is not None:
+            current = min(current, total)
+        updated_at = str(event.get('updated_at') or _now())
+        stage = str(event.get('stage') or description).strip()[:100]
+        with _connection(self.path) as connection:
+            cursor = connection.execute(
+                '''
+                UPDATE sample_acquisition_jobs
+                SET progress_stage = ?, progress_current = ?,
+                    progress_total = ?, progress_message = ?,
+                    progress_updated_at = ?
+                WHERE id = ? AND status = 'running'
+                ''',
+                (
+                    stage, current, total, description, updated_at,
+                    int(job_id),
+                ),
+            )
+            return cursor.rowcount == 1
 
     def finish_sample_acquisition(self, job_id, *, result=None, error=None):
         status = 'failed' if error else 'completed'
@@ -696,10 +764,15 @@ class OperatorState:
             cursor = connection.execute(
                 '''
                 UPDATE sample_acquisition_jobs
-                SET status = ?, completed_at = ?, result = ?, error = ?
+                SET status = ?, completed_at = ?, result = ?, error = ?,
+                    progress_stage = ?, progress_message = ?,
+                    progress_updated_at = ?
                 WHERE id = ? AND status = 'running'
                 ''',
-                (status, _now(), payload, error, int(job_id)),
+                (
+                    status, _now(), payload, error, status,
+                    error or 'Sample update complete', _now(), int(job_id),
+                ),
             )
             if cursor.rowcount != 1:
                 raise ValueError(
@@ -714,7 +787,10 @@ class OperatorState:
                 SET status = 'queued', started_at = NULL,
                     completed_at = NULL,
                     error = 'server stopped before completion',
-                    worker_id = NULL
+                    worker_id = NULL, progress_stage = 'queued',
+                    progress_current = 0,
+                    progress_message = 'Waiting to resume',
+                    progress_updated_at = NULL
                 WHERE status = 'running'
                 '''
             )
@@ -888,6 +964,11 @@ def _sample_acquisition_job(row):
         completed_at=row['completed_at'],
         result=(None if row['result'] is None else json.loads(row['result'])),
         error=row['error'], worker_id=row['worker_id'],
+        progress_stage=row['progress_stage'],
+        progress_current=row['progress_current'],
+        progress_total=row['progress_total'],
+        progress_message=row['progress_message'],
+        progress_updated_at=row['progress_updated_at'],
     )
 
 
