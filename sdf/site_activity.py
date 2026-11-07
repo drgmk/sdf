@@ -338,15 +338,15 @@ def _access_projection(path, *, cutoff, now, days, package_labels):
                 if query:
                     searches[query] += 1
     if days and days <= 90:
-        start = (now - timedelta(days=days - 1)).date()
+        end = now.date()
         daily_rows = tuple({
-            'date': (start + timedelta(days=offset)).isoformat(),
-            'count': daily[(start + timedelta(days=offset)).isoformat()],
+            'date': (end - timedelta(days=offset)).isoformat(),
+            'count': daily[(end - timedelta(days=offset)).isoformat()],
         } for offset in range(days))
     else:
         daily_rows = tuple(
             {'date': date, 'count': count}
-            for date, count in sorted(daily.items())
+            for date, count in sorted(daily.items(), reverse=True)
         )
     return {
         'available': True, 'page_views': page_views,

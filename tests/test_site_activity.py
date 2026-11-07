@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import sqlite3
 
 from .context import sdf
@@ -119,3 +119,25 @@ def test_common_access_log_without_agent_remains_usable(tmp_path):
     )
     assert report['traffic']['page_views'] == 1
     assert report['traffic']['median_ms'] is None
+
+
+def test_daily_page_views_are_newest_first(tmp_path):
+    log = tmp_path / 'access.log'
+    now = datetime.now().astimezone()
+    stamps = (
+        (now - timedelta(days=2)).strftime('%d/%b/%Y:%H:%M:%S %z'),
+        now.strftime('%d/%b/%Y:%H:%M:%S %z'),
+    )
+    log.write_text('\n'.join(
+        '127.0.0.1 - - [{0}] "GET / HTTP/1.1" 200 12'.format(stamp)
+        for stamp in stamps
+    ), encoding='utf-8')
+
+    report = activity_report(
+        index_summary={}, packages=(), state_path=tmp_path / 'missing.sqlite',
+        access_log=log, days=7,
+    )
+
+    dates = [row['date'] for row in report['traffic']['daily']]
+    assert dates == sorted(dates, reverse=True)
+    assert report['traffic']['daily'][0]['count'] == 1
