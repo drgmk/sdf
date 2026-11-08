@@ -150,7 +150,7 @@ def test_sdb_importer_acquires_and_exports_sample(tmp_path):
     assert progress_events[-1]['stage'] == 'exporting'
     assert calls[0][calls[0].index('sample'):] [:2] == ['sample', 'acquire']
     assert calls[0][calls[0].index('--owner') + 1] == 'alice'
-    assert timeouts == [43200.0, 1800.0]
+    assert timeouts == [43200.0, 43200.0]
     assert calls[1][-7:] == [
         'export', '--sample', 'Nearby', '--output-dir', str(export_root),
         '--workers', '1',

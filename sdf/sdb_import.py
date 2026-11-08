@@ -227,6 +227,7 @@ class SdbImporter:
                 '--output-dir', str(self.export_root), '--workers', '1',
             ],
             environment=environment,
+            timeout_seconds=self.config.sample_timeout_seconds,
         )
         if export_status != 0 or int(exported.get('failed', 0)):
             warnings.append(
