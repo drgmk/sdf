@@ -95,10 +95,12 @@ def test_sdb_importer_acquires_and_exports_sample(tmp_path):
     export_root.mkdir()
     manifest = export_root / 'export-8-manifest.json'
     calls = []
+    timeouts = []
     progress_events = []
 
     def runner(command, **kwargs):
         calls.append(command)
+        timeouts.append(kwargs['timeout'])
         if 'acquire' in command:
             target_file = command[command.index('acquire') + 2]
             assert open(target_file, encoding='utf-8').read() == 'HD 123\nVega\n'
@@ -148,6 +150,7 @@ def test_sdb_importer_acquires_and_exports_sample(tmp_path):
     assert progress_events[-1]['stage'] == 'exporting'
     assert calls[0][calls[0].index('sample'):] [:2] == ['sample', 'acquire']
     assert calls[0][calls[0].index('--owner') + 1] == 'alice'
+    assert timeouts == [43200.0, 1800.0]
     assert calls[1][-7:] == [
         'export', '--sample', 'Nearby', '--output-dir', str(export_root),
         '--workers', '1',

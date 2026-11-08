@@ -745,8 +745,10 @@ class OperatorState:
             cursor = connection.execute(
                 '''
                 UPDATE sample_acquisition_jobs
-                SET progress_stage = ?, progress_current = ?,
-                    progress_total = ?, progress_message = ?,
+                SET progress_stage = ?,
+                    progress_current = COALESCE(?, progress_current),
+                    progress_total = COALESCE(?, progress_total),
+                    progress_message = ?,
                     progress_updated_at = ?
                 WHERE id = ? AND status = 'running'
                 ''',

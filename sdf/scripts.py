@@ -571,6 +571,14 @@ def sdf_fits():
         metavar='SECONDS',
         help='maximum time for each SDB command during import (default: 1800)',
     )
+    serve_parser.add_argument(
+        '--sdb-sample-import-timeout', type=float, default=43200.0,
+        metavar='SECONDS',
+        help=(
+            'final wall-clock guard for a resumable sample import '
+            '(default: 43200)'
+        ),
+    )
     args = parser.parse_args()
 
     if args.command == 'serve':
@@ -582,6 +590,8 @@ def sdf_fits():
             parser.error('--sdb-database is required with SDB import options')
         if args.sdb_import_timeout <= 0:
             parser.error('--sdb-import-timeout must be positive')
+        if args.sdb_sample_import_timeout <= 0:
+            parser.error('--sdb-sample-import-timeout must be positive')
         auth_database = args.auth_database or args.sdb_database
         if args.auth_user_header is not None and auth_database is None:
             parser.error(
@@ -600,6 +610,7 @@ def sdf_fits():
                 reference_database=args.sdb_reference_database,
                 cache_database=args.sdb_cache_database,
                 timeout_seconds=args.sdb_import_timeout,
+                sample_timeout_seconds=args.sdb_sample_import_timeout,
             )
         serve_catalog(
             args.package, index_path=args.index, state_path=args.state,

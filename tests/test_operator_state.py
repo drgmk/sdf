@@ -388,6 +388,15 @@ def test_sample_acquisition_queue_validates_claims_and_completes(tmp_path):
     assert progress.progress_stage == 'providers'
     assert progress.progress_message == 'Updating catalogue providers'
     assert progress.progress_current == 1
+    state.update_sample_acquisition_progress(job.id, {
+        'stage': 'allwise',
+        'description': 'Starting AllWISE chunks',
+        'current': None,
+        'total': None,
+    })
+    progress = state.sample_acquisition(job.id)
+    assert progress.progress_current == 1
+    assert progress.progress_total == 2
     assert state.recover_running_sample_acquisitions() == 1
 
     job = state.claim_next_sample_acquisition(worker_id='import-2')

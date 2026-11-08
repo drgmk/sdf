@@ -21,10 +21,12 @@ class SdbImportConfig:
     cache_database: Path | None = None
     config: Path | None = None
     timeout_seconds: float = 1800.0
+    sample_timeout_seconds: float = 43200.0
 
     @classmethod
     def create(cls, database, *, executable='sdb', reference_database=None,
-               cache_database=None, config=None, timeout_seconds=1800.0):
+               cache_database=None, config=None, timeout_seconds=1800.0,
+               sample_timeout_seconds=43200.0):
         database = Path(database).expanduser().resolve()
         return cls(
             executable=str(executable), database=database,
@@ -32,6 +34,7 @@ class SdbImportConfig:
             cache_database=_optional_path(cache_database),
             config=_optional_path(config),
             timeout_seconds=float(timeout_seconds),
+            sample_timeout_seconds=float(sample_timeout_seconds),
         )
 
     def command(self):
@@ -170,6 +173,7 @@ class SdbImporter:
                 command.extend(('--note', job.note))
             acquired, status, stderr = self._json_command_with_progress(
                 command, environment=environment, progress=progress,
+                timeout_seconds=self.config.sample_timeout_seconds,
             )
         # Exit 1 means that useful work completed but one or more targets or
         # optional provider updates failed. Exit 2 is a command-level failure.
@@ -248,7 +252,7 @@ class SdbImporter:
         return result
 
     def _json_command_with_progress(
-            self, command, *, environment, progress):
+            self, command, *, environment, progress, timeout_seconds=None):
         """Run an SDB command while forwarding its JSONL progress sidecar."""
 
         with tempfile.NamedTemporaryFile(
@@ -265,6 +269,7 @@ class SdbImporter:
             try:
                 return self._json_command(
                     command, environment=child_environment,
+                    timeout_seconds=timeout_seconds,
                 )
             finally:
                 stop.set()
@@ -452,11 +457,16 @@ class SdbImporter:
             raise RuntimeError('SDB export produced no complete fitting package')
         return manifest, packages
 
-    def _json_command(self, command, *, environment):
+    def _json_command(self, command, *, environment, timeout_seconds=None):
+        timeout_seconds = (
+            self.config.timeout_seconds
+            if timeout_seconds is None
+            else float(timeout_seconds)
+        )
         try:
             completed = self.runner(
                 command, check=False, capture_output=True, text=True,
-                timeout=self.config.timeout_seconds, env=environment,
+                timeout=timeout_seconds, env=environment,
             )
         except (OSError, subprocess.SubprocessError) as error:
             raise RuntimeError('could not run SDB: {}'.format(error)) from error
