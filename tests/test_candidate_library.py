@@ -118,6 +118,19 @@ def test_posterior_artifact_describes_fitted_derived_and_component_axes(
         assert metadata['array_axes']['samples'] == [
             'sample', 'parameter_names'
         ]
+        assert 'component_spectrum_median' not in artifact.files
+
+    sed_path = stored.path / stored.metadata['sed_data']['file']
+    with np.load(sed_path) as artifact:
+        assert artifact['artifact_type'].item() == 'sdf.sed-data'
+        assert artifact['schema_version'].item() == 1
+        assert artifact['component_spectrum_median'].shape == (1, 2)
+        assert artifact['spectrum_wavelength_micron'].tolist() == [1.0, 2.0]
+        assert 'derived_samples' not in artifact.files
+        metadata = json.loads(artifact['metadata_json'].item())
+        assert metadata['array_axes']['component_spectrum_median'] == [
+            'component_ids', 'spectrum_wavelength_micron'
+        ]
 
 
 def test_legacy_posterior_can_load_and_refresh_without_refitting(tmp_path):
@@ -128,28 +141,33 @@ def test_legacy_posterior_can_load_and_refresh_without_refitting(tmp_path):
         analysis_arrays={'prediction': np.array([1.0, 2.0])},
     )
     path = stored.path / stored.metadata['posterior']['file']
-    with np.load(path) as current:
+    sed_path = stored.path / stored.metadata['sed_data']['file']
+    with np.load(path) as current, np.load(sed_path) as sed_data:
         legacy = {
-            name if name != 'prediction' else 'analysis__prediction':
-            current[name]
-            for name in ('samples', 'log_likelihoods', 'prediction')
+            'samples': current['samples'],
+            'log_likelihoods': current['log_likelihoods'],
+            'analysis__prediction': sed_data['prediction'],
         }
     np.savez_compressed(path, **legacy)
+    sed_path.unlink()
     result_path = stored.path / 'result.json'
     result = json.loads(result_path.read_text(encoding='utf-8'))
     result['posterior'].pop('artifact_schema')
+    result.pop('sed_data')
     result_path.write_text(json.dumps(result), encoding='utf-8')
 
     loaded = library.load(stored.path)
     assert loaded.analysis_arrays['prediction'].tolist() == [1.0, 2.0]
-    assert library.refresh_posterior_artifacts() == 1
-    assert library.refresh_posterior_artifacts() == 0
+    assert library.refresh_artifacts() == 1
+    assert library.refresh_artifacts() == 0
     with np.load(path) as refreshed:
-        assert 'prediction' in refreshed.files
+        assert 'prediction' not in refreshed.files
         assert 'analysis__prediction' not in refreshed.files
         assert refreshed['parameter_names'].tolist() == list(
             posterior.parameter_names
         )
+    with np.load(stored.path / 'sed-data.npz') as refreshed:
+        assert refreshed['prediction'].tolist() == [1.0, 2.0]
 
 
 def test_refit_replaces_exact_candidate_without_result_history(tmp_path):

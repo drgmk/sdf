@@ -66,7 +66,7 @@ def test_new_cli_top_level_help_is_operational(
             ('never invokes a sampler', '--all', '--threshold LOG_EVIDENCE'),
         ),
         (
-            ['sdf-fits', 'refresh-posteriors', '--help'],
+            ['sdf-fits', 'refresh-artifacts', '--help'],
             ('self-describing', 'never invokes a sampler', '--all'),
         ),
     ),
@@ -267,14 +267,14 @@ def test_sdf_fits_reprioritizes_every_package_and_rebuilds_once(
     assert '"reprioritized": 2' in capsys.readouterr().out
 
 
-def test_sdf_fits_refreshes_posterior_metadata_for_every_package(
+def test_sdf_fits_refreshes_numerical_artifacts_for_every_package(
         monkeypatch, tmp_path, capsys):
     packages = (tmp_path / 'one', tmp_path / 'two')
     calls = []
 
     monkeypatch.setattr(
         sys, 'argv',
-        ['sdf-fits', 'refresh-posteriors', str(tmp_path), '--all'],
+        ['sdf-fits', 'refresh-artifacts', str(tmp_path), '--all'],
     )
     monkeypatch.setattr(
         sdf.scripts, 'discover_packages', lambda root: packages,
@@ -284,7 +284,7 @@ def test_sdf_fits_refreshes_posterior_metadata_for_every_package(
         def __init__(self, package):
             calls.append(package)
 
-        def refresh_posterior_artifacts(self):
+        def refresh_artifacts(self):
             return 2
 
     monkeypatch.setattr(sdf.scripts, 'CandidateLibrary', FakeLibrary)

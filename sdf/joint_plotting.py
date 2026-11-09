@@ -55,6 +55,15 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
         dataset = FitDataset.from_path(source)
     library = CandidateLibrary(package_directory)
     candidates = library.candidates()
+    if any(
+        'sed_data' not in candidate.metadata or
+        not (candidate.path / candidate.metadata.get(
+            'sed_data', {}
+        ).get('file', 'sed-data.npz')).is_file()
+        for candidate in candidates
+    ):
+        library.refresh_artifacts()
+        candidates = library.candidates()
     if not candidates:
         raise ValueError('joint package has no retained candidates to plot')
 
@@ -113,6 +122,11 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
     )
     title = _system_title(systems, owner_labels, package_directory)
 
+    default_candidate = by_id[default]
+    limit_data_paths = _write_limits_data(
+        package_directory, default_candidate
+    )
+    (Path(package_directory) / 'plot-data.npz').unlink(missing_ok=True)
     panels = []
     for candidate in ordered:
         panels.append(TabPanel(
@@ -125,18 +139,18 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
                 candidate, owner_labels, component_labels
             ),
         ))
-    default_candidate = by_id[default]
     panels.extend((
         _limits_tab(
             default_candidate, owner_labels, component_labels, owner_colours,
+            data_paths=limit_data_paths,
             x_axis='radius', title='Limits (vs. r)',
         ),
         _limits_tab(
             default_candidate, owner_labels, component_labels, owner_colours,
+            data_paths=limit_data_paths,
             x_axis='temperature', title='Limits (vs. T)',
         ),
     ))
-    _write_plot_data(package_directory, ordered, default_candidate)
     active = next((
         index for index, candidate in enumerate(ordered)
         if candidate.candidate_id == default
@@ -208,7 +222,7 @@ def write_joint_results_page(package_directory, output=None, *, dataset=None,
 
 
 def _limits_tab(candidate, owner_labels, component_labels, owner_colours, *,
-                x_axis, title):
+                data_paths, x_axis, title):
     """Build the system sensitivity view from the default retained fit."""
 
     owner_panels = []
@@ -225,7 +239,7 @@ def _limits_tab(candidate, owner_labels, component_labels, owner_colours, *,
         owner_panels.append(TabPanel(
             child=_limits_panel(
                 limits, label, owner_colours.get(owner_key, '#285ea8'),
-                x_axis=x_axis,
+                data_url=data_paths.get(owner_key), x_axis=x_axis,
             ),
             title=str(label),
         ))
@@ -252,7 +266,7 @@ def _limits_tab(candidate, owner_labels, component_labels, owner_colours, *,
     return TabPanel(child=child, title=title)
 
 
-def _limits_panel(limits, label, colour, *, x_axis):
+def _limits_panel(limits, label, colour, *, data_url=None, x_axis):
     """Render one physical contributor's fractional-luminosity limits."""
 
     radius_axis = x_axis == 'radius'
@@ -337,119 +351,113 @@ def _limits_panel(limits, label, colour, *, x_axis):
         fig.legend.padding = 4
         fig.legend.spacing = 4
 
+    download = '' if data_url is None else (
+        '<a style="margin-left:auto;color:#285ea8;text-decoration:none" '
+        'href="{}">limits plot data (NPZ)</a>'.format(escape(data_url))
+    )
     note = '''
 <section style="padding:8px 10px 2px;font:13px ui-sans-serif,system-ui,sans-serif">
   <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
     <strong style="font-size:15px">Fractional-luminosity limits</strong>
     <span style="color:#526071">based on the default stellar fit</span>
+    {}
   </div>
   <p style="color:#526071;margin:3px 0 0">The blue region is detectable by at
   least one observed band. Coloured solid curves use 3σ measurement limits;
   coloured dashed curves are catalogue upper limits. Grey curves are reference
   sensitivities. Points show the posterior distributions of disk components
   in the default fit.</p>
-</section>'''
+</section>'''.format(download)
     return column(
         Div(text=note, sizing_mode='stretch_width'), fig,
         sizing_mode='stretch_width',
     )
 
 
-def _write_plot_data(package_directory, candidates, default_candidate):
-    """Write self-describing arrays needed to reproduce displayed plots."""
+def _write_limits_data(package_directory, default_candidate):
+    """Write one flat, self-describing limits archive per contributor."""
 
-    arrays = {
-        'artifact_type': np.asarray('sdf.plot-data'),
-        'schema_version': np.asarray(1, dtype=np.int64),
-    }
-    manifest = {
-        'schema': 1,
-        'description': (
-            'Arrays shown in the SED, residual, and detection-limit plots.'
-        ),
-        'fits': [],
-        'limits': [],
-    }
-    plot_names = (
-        'wavelength_micron', 'filter', 'observed_flux',
-        'observed_uncertainty', 'observed_upper_limit', 'observed_ignore',
-        'prediction_median', 'prediction_p16', 'prediction_p84', 'residual',
-        'component_prediction_median', 'component_prediction_p16',
-        'component_prediction_p84',
-        'spectrum_wavelength_micron', 'component_spectrum_median',
-        'component_spectrum_p16', 'component_spectrum_p84',
-    )
-    for fit_index, candidate in enumerate(candidates):
-        prefix = 'fit_{}'.format(fit_index)
-        included = []
-        for name in plot_names:
-            if name not in candidate.analysis_arrays:
-                continue
-            key = '{}__{}'.format(prefix, name)
-            arrays[key] = np.asarray(candidate.analysis_arrays[name])
-            included.append({'name': name, 'key': key})
-        manifest['fits'].append({
-            'index': fit_index,
-            'candidate_id': candidate.candidate_id,
-            'display_name': candidate.metadata.get('display_name'),
-            'components': candidate.metadata.get('components', ()),
-            'data_scopes': candidate.metadata.get('analysis', {}).get(
-                'data_scopes', ()
-            ),
-            'arrays': included,
-        })
-
+    directory = Path(package_directory) / 'limits-data'
+    paths = {}
+    written = set()
     owner_keys = []
     for component in default_candidate.metadata.get('components', ()):
-        owner = component.get('owner_key')
-        if owner and owner not in owner_keys:
-            owner_keys.append(owner)
-    for limit_index, owner_key in enumerate(owner_keys):
+        owner_key = component.get('owner_key')
+        if owner_key and owner_key not in owner_keys:
+            owner_keys.append(owner_key)
+    for index, owner_key in enumerate(owner_keys, start=1):
         limits = _detection_limits(default_candidate, owner_key)
         if limits is None:
             continue
-        prefix = 'limit_{}'.format(limit_index)
-        limit_arrays = {
-            'temperature_k': limits['temperature_k'],
-            'curves': limits['curves'],
-            'envelope': limits['envelope'],
-            'filters': limits['filters'],
-            'basis': limits['basis'],
+        references = limits['reference_curves']
+        disk_samples = limits['disk_samples']
+        arrays = {
+            'artifact_type': np.asarray('sdf.limits-data'),
+            'schema_version': np.asarray(1, dtype=np.int64),
+            'temperature_k': np.asarray(limits['temperature_k']),
+            'curves': np.asarray(limits['curves']),
+            'envelope': np.asarray(limits['envelope']),
+            'filters': np.asarray(limits['filters'], dtype=str),
+            'basis': np.asarray(limits['basis'], dtype=str),
+            'reference_curves': _stack_limit_arrays(
+                [item[0] for item in references],
+                len(limits['temperature_k']),
+            ),
+            'reference_labels': np.asarray(
+                [item[1] for item in references], dtype=str
+            ),
+            'reference_dashes': np.asarray(
+                [item[2] for item in references], dtype=str
+            ),
+            'disk_component_ids': np.asarray(
+                [item['component_id'] for item in disk_samples], dtype=str
+            ),
+            'disk_fractional_luminosity': _stack_limit_arrays(
+                [item['fractional_luminosity'] for item in disk_samples]
+            ),
+            'disk_temperature_k': _stack_limit_arrays(
+                [item['temperature_k'] for item in disk_samples]
+            ),
+            'disk_radius_au': _stack_limit_arrays(
+                [item['radius_au'] for item in disk_samples]
+            ),
         }
         if limits['radius_au'] is not None:
-            limit_arrays['radius_au'] = limits['radius_au']
-        reference = []
-        for reference_index, (curve, label, dash) in enumerate(
-                limits['reference_curves']):
-            name = 'reference_{}'.format(reference_index)
-            limit_arrays[name] = curve
-            reference.append({'array': name, 'label': label, 'dash': dash})
-        disk_samples = []
-        for disk_index, disk in enumerate(limits['disk_samples']):
-            sample_arrays = {}
-            for name, values in disk.items():
-                array_name = 'disk_{}__{}'.format(disk_index, name)
-                limit_arrays[array_name] = values
-                sample_arrays[name] = '{}__{}'.format(prefix, array_name)
-            disk_samples.append(sample_arrays)
-        for name, values in limit_arrays.items():
-            arrays['{}__{}'.format(prefix, name)] = np.asarray(values)
-        manifest['limits'].append({
-            'index': limit_index,
-            'owner_key': owner_key,
+            arrays['radius_au'] = np.asarray(limits['radius_au'])
+        arrays['metadata_json'] = np.asarray(json.dumps({
+            'artifact_type': 'sdf.limits-data',
+            'schema_version': 1,
+            'description': (
+                'Detection-limit curves and displayed disk samples for one '
+                'physical contributor.'
+            ),
             'candidate_id': default_candidate.candidate_id,
-            'arrays': {
-                name: '{}__{}'.format(prefix, name)
-                for name in limit_arrays
+            'owner_key': owner_key,
+            'array_axes': {
+                'curves': ['temperature_k', 'filters'],
+                'reference_curves': ['reference_labels', 'temperature_k'],
+                'disk_fractional_luminosity': [
+                    'disk_component_ids', 'sample'
+                ],
+                'disk_temperature_k': ['disk_component_ids', 'sample'],
+                'disk_radius_au': ['disk_component_ids', 'sample'],
             },
-            'reference_curves': reference,
-            'disk_samples': disk_samples,
-        })
+        }, sort_keys=True, separators=(',', ':')))
+        path = directory / 'component-{}.npz'.format(index)
+        _atomic_npz(path, arrays)
+        written.add(path)
+        paths[owner_key] = path.relative_to(package_directory).as_posix()
+    if directory.is_dir():
+        for old_path in directory.glob('component-*.npz'):
+            if old_path not in written:
+                old_path.unlink()
+    return paths
 
-    arrays['manifest_json'] = np.asarray(json.dumps(
-        manifest, sort_keys=True, separators=(',', ':'),
-    ))
-    _atomic_npz(Path(package_directory) / 'plot-data.npz', arrays)
+
+def _stack_limit_arrays(values, width=0):
+    if not values:
+        return np.empty((0, width), dtype=float)
+    return np.stack(tuple(np.asarray(value) for value in values))
 
 
 def _atomic_npz(path, arrays):
@@ -642,7 +650,7 @@ def _disk_limit_samples(candidate, owner_key, maximum=750):
         by_component.setdefault(parameter['component_id'], {})[name] = \
             samples[:, index]
     extracted = []
-    for values in by_component.values():
+    for component_id, values in by_component.items():
         if not {'fractional_luminosity', 'temperature_k'}.issubset(values):
             continue
         count = len(values['fractional_luminosity'])
@@ -651,6 +659,7 @@ def _disk_limit_samples(candidate, owner_key, maximum=750):
             np.linspace(0, count - 1, maximum, dtype=int)
         )
         extracted.append({
+            'component_id': component_id,
             'fractional_luminosity': values['fractional_luminosity'][indices],
             'temperature_k': values['temperature_k'][indices],
             'radius_au': values.get(
@@ -1137,14 +1146,18 @@ def _candidate_product_links(candidate):
     directory = 'fits/{}/'.format(candidate.path.name)
     links = [
         '<a style="color:#285ea8;text-decoration:none" href="{}">{}</a>'.format(
-            escape(directory + 'result.json'), 'fit (JSON)'
+            escape(directory + 'result.json'), 'results (JSON)'
         ),
         '<a style="color:#285ea8;text-decoration:none" href="{}">{}</a>'.format(
             escape(directory + candidate.metadata['posterior']['file']),
-            'posteriors (NPZ)',
+            'posterior samples (NPZ)',
         ),
         '<a style="color:#285ea8;text-decoration:none" '
-        'href="plot-data.npz">plot data (NPZ)</a>',
+        'href="{}">SED plot data (NPZ)</a>'.format(
+            escape(directory + candidate.metadata.get(
+                'sed_data', {}
+            ).get('file', 'sed-data.npz'))
+        ),
     ]
     for label, title, filename in (
         ('parameters (PNG)', 'Fitted parameter posteriors', 'corner.png'),

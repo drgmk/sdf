@@ -152,18 +152,22 @@ def candidate_page_rows(candidates, labels, default_candidate,
                 'model': component['model_name'],
             })
         links = [{
-            'label': 'fit (JSON)',
+            'label': 'results (JSON)',
             'url': (candidate.path / 'result.json').relative_to(
                 package_directory
             ).as_posix(),
         }, {
-            'label': 'posteriors (NPZ)',
+            'label': 'posterior samples (NPZ)',
             'url': (candidate.path / candidate.metadata['posterior']['file']).relative_to(
                 package_directory
             ).as_posix(),
         }, {
-            'label': 'plot data (NPZ)',
-            'url': 'plot-data.npz',
+            'label': 'SED plot data (NPZ)',
+            'url': (candidate.path / candidate.metadata.get(
+                'sed_data', {}
+            ).get('file', 'sed-data.npz')).relative_to(
+                package_directory
+            ).as_posix(),
         }]
         for label, filename in (
             ('fit posteriors', 'corner.png'),

@@ -17,6 +17,8 @@ from .samplers import PosteriorRun
 
 
 POSTERIOR_ARTIFACT_SCHEMA = 1
+SED_DATA_ARTIFACT_SCHEMA = 1
+SED_DATA_FILENAME = 'sed-data.npz'
 
 
 @dataclass(frozen=True)
@@ -131,15 +133,24 @@ class CandidateLibrary:
                 'native_output': posterior.native_output,
                 'artifact_schema': POSTERIOR_ARTIFACT_SCHEMA,
             },
+            'sed_data': {
+                'file': SED_DATA_FILENAME,
+                'artifact_schema': SED_DATA_ARTIFACT_SCHEMA,
+            },
             'analysis': analysis or {},
             'analysis_arrays': sorted((analysis_arrays or {}).keys()),
             'policy': policy or {},
             'provenance': provenance or {},
         }
-        arrays = _posterior_artifact_arrays(
-            posterior, analysis_arrays or {}, metadata
+        analysis_arrays = analysis_arrays or {}
+        _atomic_npz(
+            posterior_path,
+            _posterior_artifact_arrays(posterior, analysis_arrays, metadata),
         )
-        _atomic_npz(posterior_path, arrays)
+        _atomic_npz(
+            candidate_directory / SED_DATA_FILENAME,
+            _sed_data_artifact_arrays(analysis_arrays, metadata),
+        )
         _atomic_json(candidate_directory / 'result.json', metadata)
 
         for old_posterior in candidate_directory.glob('posterior-*.npz'):
@@ -155,7 +166,8 @@ class CandidateLibrary:
             (candidate_directory / 'result.json').read_text(encoding='utf-8')
         )
         posterior_meta = metadata['posterior']
-        with np.load(candidate_directory / posterior_meta['file']) as arrays:
+        posterior_path = candidate_directory / posterior_meta['file']
+        with np.load(posterior_path) as arrays:
             posterior = PosteriorRun(
                 samples=arrays['samples'],
                 parameter_names=tuple(posterior_meta['parameter_names']),
@@ -175,9 +187,30 @@ class CandidateLibrary:
                 native_output=posterior_meta.get('native_output'),
             )
             analysis_arrays = {}
-            for name in metadata.get('analysis_arrays', ()):
-                key = name if name in arrays else 'analysis__' + name
-                analysis_arrays[name] = arrays[key]
+            if 'derived_samples' in arrays:
+                analysis_arrays['derived_samples'] = arrays[
+                    'derived_samples'
+                ]
+            sed_data_path = candidate_directory / metadata.get(
+                'sed_data', {}
+            ).get('file', SED_DATA_FILENAME)
+            if sed_data_path.is_file():
+                with np.load(sed_data_path) as sed_arrays:
+                    for name in metadata.get('analysis_arrays', ()):
+                        if name == 'derived_samples':
+                            continue
+                        if name in sed_arrays:
+                            analysis_arrays[name] = sed_arrays[name]
+            else:
+                # Before schema 1, numerical analysis and posterior arrays
+                # shared one archive. Keep those candidates loadable so the
+                # refresh command can split them without another fit.
+                for name in metadata.get('analysis_arrays', ()):
+                    if name in analysis_arrays:
+                        continue
+                    key = name if name in arrays else 'analysis__' + name
+                    if key in arrays:
+                        analysis_arrays[name] = arrays[key]
         return StoredCandidate(
             candidate_directory, metadata, posterior, analysis_arrays
         )
@@ -200,28 +233,50 @@ class CandidateLibrary:
                 return candidate
         return None
 
-    def refresh_posterior_artifacts(self):
-        """Make retained posterior files self-describing without refitting."""
+    def refresh_artifacts(self):
+        """Split and refresh retained numerical artifacts without refitting."""
 
         refreshed = 0
         for candidate in self.candidates():
             posterior_path = (
                 candidate.path / candidate.metadata['posterior']['file']
             )
-            if _posterior_artifact_is_current(
-                    posterior_path, candidate.metadata):
+            sed_data_path = candidate.path / candidate.metadata.get(
+                'sed_data', {}
+            ).get('file', SED_DATA_FILENAME)
+            if (
+                _posterior_artifact_is_current(
+                    posterior_path, candidate.metadata
+                ) and
+                _sed_data_artifact_is_current(
+                    sed_data_path, candidate.metadata
+                )
+            ):
                 continue
             metadata = dict(candidate.metadata)
             metadata['posterior'] = dict(metadata['posterior'])
             metadata['posterior'][
                 'artifact_schema'
             ] = POSTERIOR_ARTIFACT_SCHEMA
-            arrays = _posterior_artifact_arrays(
-                candidate.posterior, candidate.analysis_arrays, metadata
+            metadata['sed_data'] = {
+                'file': SED_DATA_FILENAME,
+                'artifact_schema': SED_DATA_ARTIFACT_SCHEMA,
+            }
+            _atomic_npz(
+                posterior_path,
+                _posterior_artifact_arrays(
+                    candidate.posterior, candidate.analysis_arrays, metadata
+                ),
             )
-            _atomic_npz(posterior_path, arrays)
+            _atomic_npz(
+                candidate.path / SED_DATA_FILENAME,
+                _sed_data_artifact_arrays(
+                    candidate.analysis_arrays, metadata
+                ),
+            )
             _atomic_json(candidate.path / 'result.json', metadata)
             refreshed += 1
+        (self.package_directory / 'plot-data.npz').unlink(missing_ok=True)
         return refreshed
 
     def write_selection(self, selection):
@@ -326,28 +381,9 @@ def _posterior_artifact_arrays(posterior, analysis_arrays, metadata):
         arrays['log_likelihoods'] = posterior.log_likelihoods
     if posterior.weights is not None:
         arrays['weights'] = posterior.weights
-    reserved = set(arrays) | {
-        'metadata_json', 'derived_parameter_names',
-        'derived_parameter_labels', 'derived_parameter_units',
-        'derived_parameter_owner_keys', 'derived_parameter_component_ids',
-        'derived_parameter_roles', 'component_ids', 'component_owner_keys',
-        'component_roles', 'component_model_names',
-    }
-    for name, values in analysis_arrays.items():
-        if name in reserved:
-            raise ValueError(
-                'analysis array name is reserved: {}'.format(name)
-            )
-        values = np.asarray(values)
-        if values.dtype.hasobject:
-            try:
-                values = values.astype(str)
-            except (TypeError, ValueError) as error:
-                raise TypeError(
-                    'analysis array {} cannot use object dtype'.format(name)
-                ) from error
-        arrays[name] = values
-
+    derived_samples = analysis_arrays.get('derived_samples')
+    if derived_samples is not None:
+        arrays['derived_samples'] = np.asarray(derived_samples)
     derived = metadata.get('analysis', {}).get('derived_parameters', ())
     derived_samples = arrays.get('derived_samples')
     if derived_samples is not None and (
@@ -383,6 +419,51 @@ def _posterior_artifact_arrays(posterior, analysis_arrays, metadata):
     return arrays
 
 
+def _sed_data_artifact_arrays(analysis_arrays, metadata):
+    """Return flat, self-describing arrays needed to reproduce one SED."""
+
+    arrays = {
+        'artifact_type': np.asarray('sdf.sed-data'),
+        'schema_version': np.asarray(
+            SED_DATA_ARTIFACT_SCHEMA, dtype=np.int64
+        ),
+    }
+    reserved = {
+        'artifact_type', 'schema_version', 'metadata_json',
+        'component_ids', 'component_owner_keys', 'component_roles',
+        'component_model_names',
+    }
+    for name, values in analysis_arrays.items():
+        if name == 'derived_samples':
+            continue
+        if name in reserved:
+            raise ValueError(
+                'analysis array name is reserved: {}'.format(name)
+            )
+        values = np.asarray(values)
+        if values.dtype.hasobject:
+            try:
+                values = values.astype(str)
+            except (TypeError, ValueError) as error:
+                raise TypeError(
+                    'analysis array {} cannot use object dtype'.format(name)
+                ) from error
+        arrays[name] = values
+
+    components = metadata.get('components', ())
+    arrays.update({
+        'component_ids': _metadata_strings(components, 'component_id'),
+        'component_owner_keys': _metadata_strings(components, 'owner_key'),
+        'component_roles': _metadata_strings(components, 'role'),
+        'component_model_names': _metadata_strings(components, 'model_name'),
+    })
+    arrays['metadata_json'] = np.asarray(json.dumps(
+        _sed_data_artifact_metadata(metadata),
+        sort_keys=True, separators=(',', ':'), default=_json_default,
+    ))
+    return arrays
+
+
 def _posterior_artifact_metadata(metadata):
     analysis = metadata.get('analysis', {})
     targets = []
@@ -395,8 +476,8 @@ def _posterior_artifact_metadata(metadata):
         'artifact_type': 'sdf.posterior',
         'schema_version': POSTERIOR_ARTIFACT_SCHEMA,
         'description': (
-            'Retained fitted posterior samples and regenerable SDF analysis '
-            'arrays. Rows of samples and derived_samples correspond.'
+            'Retained fitted and derived posterior samples. Rows of samples '
+            'and derived_samples correspond.'
         ),
         'candidate_id': metadata['candidate_id'],
         'display_name': metadata['display_name'],
@@ -407,6 +488,23 @@ def _posterior_artifact_metadata(metadata):
         'array_axes': {
             'samples': ['sample', 'parameter_names'],
             'derived_samples': ['sample', 'derived_parameter_names'],
+        },
+    }
+
+
+def _sed_data_artifact_metadata(metadata):
+    return {
+        'artifact_type': 'sdf.sed-data',
+        'schema_version': SED_DATA_ARTIFACT_SCHEMA,
+        'description': (
+            'Observed data, model predictions, residuals, and component '
+            'spectra needed to reproduce one retained SED plot.'
+        ),
+        'candidate_id': metadata['candidate_id'],
+        'display_name': metadata['display_name'],
+        'components': metadata.get('components', []),
+        'data_scopes': metadata.get('analysis', {}).get('data_scopes', []),
+        'array_axes': {
             'component_prediction_p16': ['component_ids', 'observation'],
             'component_prediction_median': [
                 'component_ids', 'observation'
@@ -447,7 +545,36 @@ def _posterior_artifact_is_current(path, metadata):
             required.issubset(arrays.files) and
             not any(name.startswith('analysis__') for name in arrays.files) and
             str(arrays['artifact_type']) == 'sdf.posterior' and
-            int(arrays['schema_version']) == POSTERIOR_ARTIFACT_SCHEMA
+            int(arrays['schema_version']) == POSTERIOR_ARTIFACT_SCHEMA and
+            not any(
+                name in arrays.files
+                for name in metadata.get('analysis_arrays', ())
+                if name != 'derived_samples'
+            )
+        )
+
+
+def _sed_data_artifact_is_current(path, metadata):
+    if metadata.get('sed_data', {}).get(
+            'artifact_schema') != SED_DATA_ARTIFACT_SCHEMA:
+        return False
+    if not path.is_file():
+        return False
+    required = {
+        'artifact_type', 'schema_version', 'metadata_json',
+        'component_ids', 'component_owner_keys', 'component_roles',
+        'component_model_names',
+    }
+    with np.load(path) as arrays:
+        expected = {
+            name for name in metadata.get('analysis_arrays', ())
+            if name != 'derived_samples'
+        }
+        return (
+            required.issubset(arrays.files) and
+            expected.issubset(arrays.files) and
+            str(arrays['artifact_type']) == 'sdf.sed-data' and
+            int(arrays['schema_version']) == SED_DATA_ARTIFACT_SCHEMA
         )
 
 

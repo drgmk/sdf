@@ -423,15 +423,15 @@ def sdf_fits():
         help='significance threshold (default: configured ev_threshold)',
     )
     refresh_parser = _sdf_fits_command(
-        subparsers, 'refresh-posteriors',
-        'Add labels and metadata to retained posterior files.',
-        'Rewrites compact NPZ artifacts so their fitted, derived, and model '
-        'component axes are self-describing. This is a metadata-only '
-        'operation and never invokes a sampler. Pass one PACKAGE, or use '
-        '--all with an EXPORT_ROOT.',
+        subparsers, 'refresh-artifacts',
+        'Refresh retained posterior and SED data files.',
+        'Splits older combined NPZ files and makes their fitted, derived, '
+        'and model component axes self-describing. This operation never '
+        'invokes a sampler. Pass one PACKAGE, or use --all with an '
+        'EXPORT_ROOT.',
         examples=(
-            'sdf-fits refresh-posteriors PACKAGE',
-            'sdf-fits refresh-posteriors /data/sdb/export --all',
+            'sdf-fits refresh-artifacts PACKAGE',
+            'sdf-fits refresh-artifacts /data/sdb/export --all',
         ),
     )
     refresh_parser.add_argument(
@@ -661,11 +661,11 @@ def sdf_fits():
         }, sort_keys=True))
         return
 
-    if args.command == 'refresh-posteriors':
+    if args.command == 'refresh-artifacts':
         root = Path(args.package).expanduser().resolve()
         packages = discover_packages(root) if args.all else (root,)
         refreshed = sum(
-            CandidateLibrary(package).refresh_posterior_artifacts()
+            CandidateLibrary(package).refresh_artifacts()
             for package in packages
         )
         print(json.dumps({

@@ -100,8 +100,8 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     assert 'Residual' in html
     assert 'current input' not in html
     assert 'fit input has changed' not in html
-    assert html.index('Fit results') < html.index('fit (JSON)')
-    assert html.index('fit (JSON)') < html.index('ln Z 0.00')
+    assert html.index('Fit results') < html.index('results (JSON)')
+    assert html.index('results (JSON)') < html.index('ln Z 0.00')
     assert '<h2>System</h2>' in html
     assert '>Results</a>' not in html
     assert '>Data</a>' not in html
@@ -109,15 +109,13 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     assert 'posterior-' in html
     assert 'parameters (PNG)' in html
     assert 'derived (PNG)' in html
-    assert r'fit (JSON)&lt;/a&gt; \\u00b7 &lt;a' in html
-    assert 'posteriors (NPZ)' in html
-    assert 'plot data (NPZ)' in html
-    assert (tmp_path / 'plot-data.npz').is_file()
-    with np.load(tmp_path / 'plot-data.npz') as plot_data:
-        manifest = json.loads(str(plot_data['manifest_json']))
-        assert manifest['schema'] == 1
-        assert manifest['fits'][0]['candidate_id'] == stored.candidate_id
-        assert 'fit_0__observed_flux' in plot_data
+    assert r'results (JSON)&lt;/a&gt; \\u00b7 &lt;a' in html
+    assert 'posterior samples (NPZ)' in html
+    assert 'SED plot data (NPZ)' in html
+    with np.load(stored.path / 'sed-data.npz') as plot_data:
+        assert str(plot_data['artifact_type']) == 'sdf.sed-data'
+        assert 'observed_flux' in plot_data
+        assert 'manifest_json' not in plot_data
     assert 'data-distribution-plot' in html
     assert 'id="distribution-dialog"' in html
     assert '>Download PNG</a>' in html
@@ -277,18 +275,16 @@ def test_detection_limits_match_noise_and_catalogue_upper_limits(tmp_path):
     ))
     assert limits['radius_au'] is not None
 
-    sdf.joint_plotting._write_plot_data(
-        tmp_path, (candidate,), candidate,
-    )
-    with np.load(tmp_path / 'plot-data.npz') as plot_data:
-        manifest = json.loads(str(plot_data['manifest_json']))
-        assert str(plot_data['artifact_type']) == 'sdf.plot-data'
-        assert manifest['limits'][0]['owner_key'] == 'simbad:A'
-        names = manifest['limits'][0]['arrays']
+    paths = sdf.joint_plotting._write_limits_data(tmp_path, candidate)
+    with np.load(tmp_path / paths['simbad:A']) as plot_data:
+        metadata = json.loads(str(plot_data['metadata_json']))
+        assert str(plot_data['artifact_type']) == 'sdf.limits-data'
+        assert metadata['owner_key'] == 'simbad:A'
         assert np.array_equal(
-            plot_data[names['temperature_k']], limits['temperature_k']
+            plot_data['temperature_k'], limits['temperature_k']
         )
-        assert np.array_equal(plot_data[names['curves']], limits['curves'])
+        assert np.array_equal(plot_data['curves'], limits['curves'])
+        assert plot_data['reference_curves'].shape == (2, 1000)
 
 
 def test_fit_summaries_include_scientific_luminosities_and_modbb_shape():

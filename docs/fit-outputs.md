@@ -1,18 +1,20 @@
 # Using `sdf` fit outputs
 
-An `sdf` system page has three downloadable data products:
+An `sdf` system page separates quantitative fit results from the arrays used
+to draw its plots:
 
-- `result.json` is a compact, human-readable description and summary of the
-  fit; and
-- `posterior-<hash>.npz` contains the numerical posterior samples and arrays
-  used to inspect or reconstruct one fit; and
-- `plot-data.npz` contains the observed data, model predictions for every fit
-  shown on the page, and the detection-limit curves.
+- `result.json` is a compact, human-readable summary of one fit;
+- `posterior-<hash>.npz` contains its fitted and derived posterior samples;
+- `sed-data.npz` contains the observations, predictions, residuals, and model
+  spectra shown for that fit; and
+- `limits-data/component-<n>.npz` contains the detection-limit plot for one
+  physical contributor.
 
-The JSON is usually the easiest place to start. Use the posterior NPZ when you
-need sample distributions or correlations. Use the plot-data NPZ to reproduce
-what the web page shows without locating and combining individual fit files.
-Both NPZ files are self-describing and can be used by themselves.
+Start with the JSON when medians and uncertainties are sufficient. Use the
+posterior NPZ for quantitative distributions and correlations. Use the SED or
+limits NPZ to reproduce a web figure. The plot archives deliberately contain
+the exact reduced coordinates displayed by the site; they are not an
+alternative source of posterior results.
 
 ## Finding the files
 
@@ -21,12 +23,14 @@ directory:
 
 ```text
 <package>/
-  plot-data.npz
+  limits-data/
+    component-1.npz
   fits/
     selection.json
     <model-name>--<candidate-hash>/
       result.json
       posterior-<posterior-hash>.npz
+      sed-data.npz
       corner.png
       distributions.png
 ```
@@ -50,58 +54,9 @@ print(posterior_path)
 ```
 
 `fits/selection.json` says which retained candidates are displayed and which
-one is the current default. It does not duplicate the fit results.
-
-## Reading `plot-data.npz`
-
-The page-level plotting archive contains no pickled objects. Its
-`manifest_json` scalar describes each displayed fit, its components and data
-scopes, and maps human-readable array names to NPZ keys:
-
-```python
-import json
-import numpy as np
-
-with np.load("plot-data.npz", allow_pickle=False) as plot:
-    manifest = json.loads(str(plot["manifest_json"]))
-    for fit in manifest["fits"]:
-        by_name = {item["name"]: item["key"] for item in fit["arrays"]}
-        wave = plot[by_name["wavelength_micron"]]
-        observed = plot[by_name["observed_flux"]]
-        model = plot[by_name["prediction_median"]]
-        used = ~plot[by_name["observed_ignore"]]
-        print(fit["display_name"], len(wave), "data elements")
-```
-
-The observed arrays are repeated for each shown fit because fits can predate a
-data edit. This keeps every plotted fit independently reproducible.
-
-Detection limits are calculated for the default fit. Each manifest entry maps
-the temperature grid, optional blackbody-radius grid, individual band curves,
-their lower envelope, band names, and limit basis:
-
-```python
-import matplotlib.pyplot as plt
-
-with np.load("plot-data.npz", allow_pickle=False) as plot:
-    manifest = json.loads(str(plot["manifest_json"]))
-    limit = manifest["limits"][0]
-    key = limit["arrays"]
-    temperature = plot[key["temperature_k"]]
-    curves = plot[key["curves"]]
-    bands = plot[key["filters"]].astype(str)
-
-    for band, curve in zip(bands, curves.T):
-        plt.loglog(temperature, curve, label=band)
-    plt.xlabel("disk temperature / K")
-    plt.ylabel("fractional luminosity")
-    plt.legend()
-    plt.show()
-```
-
-Use `key["radius_au"]` instead of `key["temperature_k"]` for the radius
-view. The curve rows are identical; only the x coordinate changes. Reference
-curves and fitted-disk samples are also named in the manifest.
+one is the current default. It does not duplicate the fit results. Each fit
+keeps its own observations because a retained alternative may predate a data
+edit.
 
 ## Reading `result.json`
 
@@ -114,6 +69,7 @@ The most useful top-level entries are:
 | `completed_at` | Fit completion time |
 | `components` | Model components, physical owners, roles, and model names |
 | `posterior` | Posterior filename, evidence, sampler, and sample count |
+| `sed_data` | SED plotting filename and artifact schema |
 | `analysis` | Parameter and physical-result summaries, fit statistics, and data scopes |
 | `policy` | Model-search configuration used for the target or components |
 | `provenance` | Available code and input provenance |
@@ -214,7 +170,7 @@ for name, values in arrays.items():
 Not every fit needs every optional array. Test for a name with
 `if name in arrays` when writing code that will process many systems.
 
-## Fitted and derived samples
+### Fitted and derived samples
 
 `samples` contains the parameters sampled directly by the fitter. Its columns
 are named, in order, by `parameter_names`:
@@ -313,7 +269,27 @@ ordinary NumPy percentiles are appropriate. If a future or alternative
 sampler writes a `weights` array, use it when calculating distributions. A
 `log_likelihoods` array, when present, has one value per retained sample.
 
-## Photometry, predictions, and residuals
+## Reading SED plot data
+
+`sed-data.npz` is local to one retained fit and uses direct, stable array
+names. It contains no posterior samples and needs no manifest or key mapping:
+
+```python
+sed_path = candidate_dir / result["sed_data"]["file"]
+
+with np.load(sed_path, allow_pickle=False) as archive:
+    arrays = {name: archive[name] for name in archive.files}
+
+print(arrays["artifact_type"].item())  # sdf.sed-data
+metadata = json.loads(arrays["metadata_json"].item())
+print(metadata["display_name"])
+```
+
+The archive contains the coordinates needed to reproduce the SED and residual
+panels. It is a presentation product: use `result.json` or the posterior NPZ
+when extracting physical measurements.
+
+### Photometry, predictions, and residuals
 
 The observation axis is described by arrays of equal length:
 
@@ -401,7 +377,7 @@ These are contributions to each observed element. `prediction_median` is the
 median total prediction; it is preferable to summing independently computed
 component percentiles.
 
-## Model spectra
+### Model spectra
 
 Median component spectra are stored on a common wavelength grid:
 
@@ -424,15 +400,45 @@ spectral products. Observed photometry and spectral samples share the
 observation arrays described above.
 
 To divide that axis into its original photometry or spectral products, use
-`analysis.data_scopes` from `result.json`:
+`data_scopes` from the SED metadata (the same information is under
+`analysis.data_scopes` in `result.json`):
 
 ```python
-for scope in result["analysis"]["data_scopes"]:
+for scope in metadata["data_scopes"]:
     section = slice(scope["element_start"], scope["element_stop"])
     print(scope["kind"], scope["observation_id"], observed[section].shape)
     if scope["kind"] == "Spectrum":
         print(scope.get("instrument"), scope.get("segment_id"))
 ```
+
+## Reading limits plot data
+
+Each limits sub-tab links to a flat archive for one physical contributor. The
+same file supplies both the radius and temperature views:
+
+```python
+import matplotlib.pyplot as plt
+
+with np.load("limits-data/component-1.npz", allow_pickle=False) as limits:
+    temperature = limits["temperature_k"]
+    curves = limits["curves"]
+    bands = limits["filters"].astype(str)
+
+    for band, curve in zip(bands, curves.T):
+        plt.loglog(temperature, curve, label=band)
+
+plt.xlabel("disk temperature / K")
+plt.ylabel("fractional luminosity")
+plt.legend()
+plt.show()
+```
+
+Use `radius_au` as the x coordinate for the radius view. `envelope` is the
+lower envelope of the band curves. Reference curves use the parallel
+`reference_curves`, `reference_labels`, and `reference_dashes` arrays. The
+displayed disk distributions use `disk_fractional_luminosity`,
+`disk_temperature_k`, and `disk_radius_au`; their first axis follows
+`disk_component_ids`.
 
 ## Comparing retained candidates
 
@@ -473,16 +479,18 @@ reproduce the display/default selection.
   asymmetric.
 - `observed_ignore` and `observed_upper_limit` are distinct. Ignored data are
   retained for inspection but did not constrain the fit.
-- Component predictions and spectra are labelled by the parallel
-  `component_*` arrays. Do not assume that row 0 is always the primary star.
-- `metadata_json` makes the NPZ independently understandable, while
-  `result.json` remains the most convenient source for summaries and fit
+- Component predictions and spectra in `sed-data.npz` are labelled by its
+  parallel `component_*` arrays. Do not assume that row 0 is always the
+  primary star.
+- Each NPZ has a small `metadata_json` scalar describing its identity and
+  array axes. It contains no array-key indirection.
+- `result.json` remains the most convenient source for summaries and fit
   configuration.
 
-Artifacts written before the self-describing labels were introduced can be
-updated without rerunning the fit:
+Combined artifacts written before the posterior/SED split can be updated
+without rerunning the fit:
 
 ```shell
-sdf-fits refresh-posteriors /path/to/package
-sdf-fits refresh-posteriors /path/to/export-root --all
+sdf-fits refresh-artifacts /path/to/package
+sdf-fits refresh-artifacts /path/to/export-root --all
 ```

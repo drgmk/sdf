@@ -54,12 +54,16 @@ Each fit contains:
 
 The compact fit-result links are:
 
-- **fit (JSON)** for model identity, summaries, evidence, and provenance;
-- **posteriors (NPZ)** for labelled fitted and derived samples;
-- **plot data (NPZ)** for the observed data, every displayed fit, and the
-  detection-limit curves;
+- **results (JSON)** for model identity, summaries, evidence, and provenance;
+- **posterior samples (NPZ)** for labelled fitted and derived distributions;
+- **SED plot data (NPZ)** for the observations, predictions, residuals, and
+  model spectra shown for that fit;
 - **parameters (PNG)** for fitted-parameter distributions; and
 - **derived (PNG)** for physical derived-quantity distributions.
+
+Each limits sub-tab separately links **limits plot data (NPZ)** for its
+physical contributor. Plot archives contain direct named arrays and do not
+need the posterior file to reproduce the displayed figure.
 
 See [Using `sdf` fit outputs](fit-outputs.md) for Python examples.
 

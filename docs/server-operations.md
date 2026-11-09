@@ -188,10 +188,10 @@ Reapply current evidence-priority rules without sampling:
 sdf-fits reprioritize /srv/sdb/export --all
 ```
 
-Refresh older posterior NPZ metadata without sampling:
+Split and refresh older numerical artifacts without sampling:
 
 ```shell
-sdf-fits refresh-posteriors /srv/sdb/export --all
+sdf-fits refresh-artifacts /srv/sdb/export --all
 ```
 
 ## Package-level commands

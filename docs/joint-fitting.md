@@ -212,6 +212,7 @@ package/
     <readable-model-name>--<identity-hash>/
       result.json
       posterior-<content-hash>.npz
+      sed-data.npz
       corner.png
       distributions.png
     .work/
@@ -220,8 +221,10 @@ package/
 
 `result.json` contains identities, component ownership, evidence, fit state,
 resolved configuration, summaries, observation scopes, and provenance.
-`posterior-*.npz` contains capped posterior samples, labelled derived samples,
-observation/model arrays, component predictions, and model spectra.
+`posterior-*.npz` contains capped fitted and labelled derived posterior
+samples. `sed-data.npz` is the independently downloadable display cache: it
+contains the observations, model predictions, residuals, component
+predictions, and model spectra for that candidate.
 
 `selection.json` independently records:
 
