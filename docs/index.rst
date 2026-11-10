@@ -18,6 +18,8 @@ Website users
 
    web-guide
    fit-outputs
+   fit-output-plots
+   fit-output-multiple-systems
 
 Fit administrators
 ------------------

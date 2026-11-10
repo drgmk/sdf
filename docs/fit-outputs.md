@@ -1,5 +1,23 @@
 # Using `sdf` fit outputs
 
+This is the reference for the values stored in each downloadable artifact.
+For complete plotting examples, continue with:
+
+- [Reproducing SED and limits plots](fit-output-plots.md), including observed
+  spectra and posterior draws of disk models; and
+- [Plotting a multiple system](fit-output-multiple-systems.md), which extends
+  the SED recipe to resolved and composite observations.
+
+## Choose the right file
+
+| Task | Start with |
+| --- | --- |
+| Quote a fitted or derived value | `result.json` |
+| Calculate a different interval, probability, or correlation | `posterior-<hash>.npz` |
+| Reproduce the served SED and residual panels | `sed-data.npz` |
+| Reproduce a limits plot | `limits-data/component-<n>.npz` |
+| Draw new model spectra from posterior rows | posterior NPZ plus an installed `sdf` model grid |
+
 An `sdf` system page separates quantitative fit results from the arrays used
 to draw its plots:
 
@@ -86,6 +104,40 @@ analysis = result["analysis"]
 print(f"chi-squared = {analysis['chi_squared']:.1f}")
 print(f"residuals = {analysis['n_residuals']}")
 ```
+
+### A compact results table
+
+The following example extracts the common physical results without depending
+on a particular target name, number of components, or disk model. Values in
+the JSON are summaries with `median`, `minus`, and `plus` entries:
+
+```python
+def formatted(summary, unit=""):
+    if summary is None:
+        return "—"
+    suffix = f" {unit}" if unit else ""
+    return (
+        f"{summary['median']:.4g} "
+        f"-{summary['minus']:.2g} +{summary['plus']:.2g}{suffix}"
+    )
+
+for owner_key, target in result["analysis"]["targets"].items():
+    print(target["main_id"], f"[{owner_key}]")
+    for star in target.get("stellar_components", []):
+        print("  star", star["model_name"])
+        print("    Lstar =", formatted(star.get("luminosity_lsun"), "Lsun"))
+        print("    Rstar =", formatted(star.get("radius_rsun"), "Rsun"))
+    for disk in target.get("disk_components", []):
+        print("  disk", disk["model_name"])
+        print("    Tdisk =", formatted(disk.get("temperature_k"), "K"))
+        print("    Ldisk/Lstar =", formatted(disk.get("fractional_luminosity")))
+        print("    Rbb =", formatted(disk.get("blackbody_radius_au"), "au"))
+```
+
+Keys can be absent when a quantity cannot be derived, so use `.get()` in
+code intended to process heterogeneous systems. The raw fitted parameters,
+including modified-blackbody `beta` and `log_lam0`, are in
+`analysis.parameters` and are also grouped beneath `analysis.components`.
 
 More positive log-evidence is preferred when comparing candidates for the same
 input data. Evidence should not be compared between unrelated systems or fits
@@ -269,7 +321,47 @@ ordinary NumPy percentiles are appropriate. If a future or alternative
 sampler writes a `weights` array, use it when calculating distributions. A
 `log_likelihoods` array, when present, has one value per retained sample.
 
+### Calculate your own statistics
+
+This helper handles both the usual equal-weight archives and an archive with
+explicit sample weights:
+
+```python
+def posterior_quantile(values, probabilities, weights=None):
+    values = np.asarray(values, dtype=float)
+    probabilities = np.asarray(probabilities, dtype=float)
+    if weights is None:
+        return np.quantile(values, probabilities)
+
+    weights = np.asarray(weights, dtype=float)
+    valid = np.isfinite(values) & np.isfinite(weights) & (weights > 0)
+    order = np.argsort(values[valid])
+    values = values[valid][order]
+    weights = weights[valid][order]
+    cumulative = (np.cumsum(weights) - 0.5 * weights) / weights.sum()
+    return np.interp(probabilities, cumulative, values)
+
+weights = arrays.get("weights")
+q16, q50, q84 = posterior_quantile(temperature, [0.16, 0.50, 0.84], weights)
+print(f"T = {q50:.1f} -{q50-q16:.1f} +{q84-q50:.1f} K")
+print("P(T > 100 K) =", np.average(temperature > 100, weights=weights))
+```
+
+Rows remain aligned across fitted parameters, derived parameters,
+`log_likelihoods`, and `weights`. Consequently, calculate correlations and
+compound conditions row by row rather than independently resampling columns:
+
+```python
+correlation = np.corrcoef(radius, luminosity)[0, 1]
+probability = np.average(
+    (radius > 50) & (luminosity > 1e-4), weights=weights
+)
+```
+
 ## Reading SED plot data
+
+The complete, executable recipe is in
+[Reproducing SED and limits plots](fit-output-plots.md#reproduce-the-sed-and-residual-panels).
 
 `sed-data.npz` is local to one retained fit and uses direct, stable array
 names. It contains no posterior samples and needs no manifest or key mapping:
@@ -407,11 +499,21 @@ To divide that axis into its original photometry or spectral products, use
 for scope in metadata["data_scopes"]:
     section = slice(scope["element_start"], scope["element_stop"])
     print(scope["kind"], scope["observation_id"], observed[section].shape)
-    if scope["kind"] == "Spectrum":
+    if scope["kind"] == "ObsSpectrum":
         print(scope.get("instrument"), scope.get("segment_id"))
 ```
 
+An observed spectral segment is stored in the same observation arrays as the
+photometry. Its scope supplies the corresponding slice. Plot
+`wavelength_micron[section]` against `observed_flux[section]` for the data and
+against `prediction_median[section]` for the fitted spectrum. The plotting
+guide does this automatically for every spectral scope.
+
 ## Reading limits plot data
+
+For complete temperature and radius figures, including the detectable region,
+reference curves, and fitted-disk posterior, see
+[Reproduce the limits plots](fit-output-plots.md#reproduce-the-limits-plots).
 
 Each limits sub-tab links to a flat archive for one physical contributor. The
 same file supplies both the radius and temperature views:
@@ -494,3 +596,9 @@ without rerunning the fit:
 sdf-fits refresh-artifacts /path/to/package
 sdf-fits refresh-artifacts /path/to/export-root --all
 ```
+
+## Further examples
+
+- [Reproducing SED and limits plots](fit-output-plots.md)
+- [Plotting a multiple system](fit-output-multiple-systems.md)
+- [Using the `sdf` website](web-guide.md)

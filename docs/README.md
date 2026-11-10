@@ -11,6 +11,10 @@ or the `sdb` export layout.
   sample tables and plots, downloads, sign-in, and user-created samples.
 - [Using `sdf` fit outputs](fit-outputs.md) explains the downloadable JSON and
   NPZ products with Python examples.
+- [Reproducing SED and limits plots](fit-output-plots.md) provides complete
+  plotting recipes, including spectra and posterior disk-model draws.
+- [Plotting a multiple system](fit-output-multiple-systems.md) extends those
+  recipes to resolved and composite observations.
 
 ## Fit administrators
 
