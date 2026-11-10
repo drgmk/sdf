@@ -1150,7 +1150,7 @@ def _candidate_product_links(candidate):
         ),
         '<a style="color:#285ea8;text-decoration:none" href="{}">{}</a>'.format(
             escape(directory + candidate.metadata['posterior']['file']),
-            'posterior samples (NPZ)',
+            'posteriors (NPZ)',
         ),
         '<a style="color:#285ea8;text-decoration:none" '
         'href="{}">SED plot data (NPZ)</a>'.format(

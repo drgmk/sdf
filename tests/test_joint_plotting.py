@@ -110,7 +110,7 @@ def test_joint_results_page_contains_candidate_and_scoped_plot(tmp_path):
     assert 'parameters (PNG)' in html
     assert 'derived (PNG)' in html
     assert r'results (JSON)&lt;/a&gt; \\u00b7 &lt;a' in html
-    assert 'posterior samples (NPZ)' in html
+    assert 'posteriors (NPZ)' in html
     assert 'SED plot data (NPZ)' in html
     with np.load(stored.path / 'sed-data.npz') as plot_data:
         assert str(plot_data['artifact_type']) == 'sdf.sed-data'
