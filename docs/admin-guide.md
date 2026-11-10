@@ -39,7 +39,10 @@ the better source for visits, referrers, geography, device information, and
 browser-side performance.
 
 Pass `--access-log PATH` to `sdf-fits serve` to enable the local website-use
-sections. Inventory, changes, and job health remain available without it.
+sections. Use `--activity-timezone ZONE`, for example
+`--activity-timezone Pacific/Auckland`, to group daily views and display event
+times in that IANA timezone. The page states the active zone and abbreviation.
+Inventory, changes, and job health remain available without an access log.
 
 ## Dashboard states
 

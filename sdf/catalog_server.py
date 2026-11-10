@@ -56,7 +56,7 @@ class CatalogService:
                  auth_database=None, auth_session_secret=None,
                  auth_cookie_secure=False,
                  sdb_import_config=None, review_base_url=None,
-                 access_log=None):
+                 access_log=None, activity_timezone='UTC'):
         self.root = Path(root).expanduser().resolve()
         if not self.root.is_dir():
             raise ValueError('catalog root is not a directory: {}'.format(
@@ -97,6 +97,7 @@ class CatalogService:
             None if access_log is None
             else Path(access_log).expanduser().resolve()
         )
+        self.activity_timezone = str(activity_timezone)
         self.importer = (
             None if sdb_import_config is None
             else SdbImporter(sdb_import_config, self.root)
@@ -239,6 +240,7 @@ class CatalogService:
             index_summary=asdict(self.index.summary()),
             packages=self.packages(), state_path=self.state.path,
             sdb_path=sdb_path, access_log=self.access_log, days=days,
+            display_timezone=self.activity_timezone,
         )
         return self.render_template(
             'catalog_activity.html', title='Site activity', report=report,
@@ -692,7 +694,8 @@ def make_catalog_server(root, *, index_path=None, state_path=None, actor=None,
                         auth_user_header=None, auth_database=None,
                         auth_session_secret=None,
                         auth_cookie_secure=False, sdb_import_config=None,
-                        review_base_url=None, access_log=None):
+                        review_base_url=None, access_log=None,
+                        activity_timezone='UTC'):
     if host not in {'127.0.0.1', 'localhost', '::1'}:
         raise ValueError('catalog service must bind to a loopback address')
     service = CatalogService(
@@ -704,6 +707,7 @@ def make_catalog_server(root, *, index_path=None, state_path=None, actor=None,
         sdb_import_config=sdb_import_config,
         review_base_url=review_base_url,
         access_log=access_log,
+        activity_timezone=activity_timezone,
     )
     handler = partial(_CatalogHandler, service=service)
     server = ThreadingHTTPServer((host, port), handler)
@@ -718,7 +722,7 @@ def serve_catalog(root, *, index_path=None, state_path=None, actor=None,
                   auth_database=None, auth_session_secret=None,
                   auth_cookie_secure=False,
                   sdb_import_config=None, review_base_url=None,
-                  access_log=None):
+                  access_log=None, activity_timezone='UTC'):
     server = make_catalog_server(
         root, index_path=index_path, state_path=state_path, actor=actor,
         rebuild=rebuild, host=host, port=port,
@@ -729,6 +733,7 @@ def serve_catalog(root, *, index_path=None, state_path=None, actor=None,
         sdb_import_config=sdb_import_config,
         review_base_url=review_base_url,
         access_log=access_log,
+        activity_timezone=activity_timezone,
     )
     address, actual_port = server.server_address[:2]
     print('sdf-fits service: http://{}:{}/'.format(address, actual_port))

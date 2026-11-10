@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta, timezone
 import sqlite3
+from zoneinfo import ZoneInfo
 
 from .context import sdf
-from sdf.site_activity import activity_report
+from sdf.site_activity import _access_projection, activity_report
 
 
 def test_activity_report_combines_inventory_actions_and_filtered_traffic(
@@ -87,6 +88,7 @@ def test_activity_report_combines_inventory_actions_and_filtered_traffic(
         packages=({'package_path': 'package', 'status': 'unfit',
                    'target_labels': ('HD 123',), 'sdbids': ('sdb-test',)},),
         state_path=state.path, sdb_path=sdb_path, access_log=log, days=30,
+        display_timezone='Pacific/Auckland',
     )
 
     assert report['inventory']['database_targets'] == 1
@@ -104,6 +106,8 @@ def test_activity_report_combines_inventory_actions_and_filtered_traffic(
         {'label': 'Nearby', 'count': 1},
     )
     assert any(event['kind'] == 'Sample' for event in report['events'])
+    assert report['timezone'] == 'Pacific/Auckland'
+    assert report['events'][0]['created_at'].endswith(('+12:00', '+13:00'))
 
 
 def test_common_access_log_without_agent_remains_usable(tmp_path):
@@ -141,3 +145,21 @@ def test_daily_page_views_are_newest_first(tmp_path):
     dates = [row['date'] for row in report['traffic']['daily']]
     assert dates == sorted(dates, reverse=True)
     assert report['traffic']['daily'][0]['count'] == 1
+
+
+def test_daily_page_views_use_configured_timezone_at_utc_boundary(tmp_path):
+    log = tmp_path / 'access.log'
+    log.write_text(
+        '127.0.0.1 - - [11/Nov/2026:07:22:53 +1300] '
+        '"GET / HTTP/1.1" 200 12\n',
+        encoding='utf-8',
+    )
+
+    report = _access_projection(
+        log, cutoff=None,
+        now=datetime(2026, 11, 10, 18, 30, tzinfo=timezone.utc),
+        days=7, package_labels={},
+        display_timezone=ZoneInfo('Pacific/Auckland'),
+    )
+
+    assert report['daily'][0] == {'date': '2026-11-11', 'count': 1}

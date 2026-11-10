@@ -43,6 +43,7 @@ For local page-use statistics, give the service the frontend access log:
 ```shell
 sdf-fits serve /srv/sdb/export \
   --access-log /srv/sdb-server/logs/apache-access.log \
+  --activity-timezone Pacific/Auckland \
   ...
 ```
 
@@ -50,7 +51,9 @@ The activity page parses both Apache common logs and the extended format used
 by the reference `sdb-server` deployment. Client addresses are discarded while
 the report is built. The extended format adds user-agent and request-duration
 fields, allowing known crawlers to be excluded and median request time to be
-reported.
+reported. Timestamps remain stored and compared in UTC; the configured
+activity timezone controls the displayed event times and the calendar dates
+used for daily page-view totals.
 
 ## Export-root state
 

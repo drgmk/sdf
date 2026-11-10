@@ -185,6 +185,7 @@ def test_sdf_fits_serve_starts_catalog_worker_and_watcher(monkeypatch, tmp_path)
         'sdb_import_config': None,
         'review_base_url': None,
         'access_log': None,
+        'activity_timezone': 'UTC',
     })]
 
 

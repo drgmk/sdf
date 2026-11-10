@@ -10,6 +10,7 @@ import re
 import sqlite3
 from statistics import median
 from urllib.parse import parse_qs, unquote, urlsplit
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 _ACCESS_LINE = re.compile(
@@ -29,7 +30,8 @@ _DOWNLOAD_SUFFIXES = {
 
 
 def activity_report(*, index_summary, packages, state_path, sdb_path=None,
-                    access_log=None, days=30, limit=60):
+                    access_log=None, days=30, limit=60,
+                    display_timezone='UTC'):
     """Build the complete admin activity projection.
 
     This deliberately reads existing authoritative/audit databases.  It does
@@ -38,6 +40,7 @@ def activity_report(*, index_summary, packages, state_path, sdb_path=None,
     """
 
     days = max(0, int(days))
+    display_timezone = _report_timezone(display_timezone)
     now = datetime.now(timezone.utc)
     cutoff = None if days == 0 else now - timedelta(days=days)
     packages = tuple(packages)
@@ -56,14 +59,14 @@ def activity_report(*, index_summary, packages, state_path, sdb_path=None,
     sdb = _sdb_projection(sdb_path, cutoff=cutoff)
     traffic = _access_projection(
         access_log, cutoff=cutoff, now=now, days=days,
-        package_labels=package_labels,
+        package_labels=package_labels, display_timezone=display_timezone,
     )
-    events = sorted(
+    events = tuple(_event_in_timezone(row, display_timezone) for row in sorted(
         (*operator['events'], *sdb['events']),
         key=lambda row: _timestamp(row['created_at']) or datetime.min.replace(
             tzinfo=timezone.utc
         ), reverse=True,
-    )[:limit]
+    )[:limit])
 
     inventory = dict(index_summary)
     inventory.update(sdb['inventory'])
@@ -77,6 +80,8 @@ def activity_report(*, index_summary, packages, state_path, sdb_path=None,
     return {
         'days': days,
         'period': 'all recorded time' if days == 0 else 'last {} days'.format(days),
+        'timezone': getattr(display_timezone, 'key', str(display_timezone)),
+        'timezone_abbreviation': now.astimezone(display_timezone).tzname(),
         'inventory': inventory,
         'changes': changes,
         'jobs': operator['jobs'],
@@ -291,7 +296,8 @@ def _sdb_events(connection, tables, cutoff):
     return tuple(events)
 
 
-def _access_projection(path, *, cutoff, now, days, package_labels):
+def _access_projection(path, *, cutoff, now, days, package_labels,
+                       display_timezone=timezone.utc):
     empty = {
         'available': False, 'page_views': 0, 'downloads': 0,
         'server_errors': 0, 'median_ms': None, 'daily': (),
@@ -328,7 +334,10 @@ def _access_projection(path, *, cutoff, now, days, package_labels):
             if kind is None:
                 continue
             page_views += 1
-            daily[record['when'].date().isoformat()] += 1
+            local_date = record['when'].astimezone(
+                display_timezone
+            ).date().isoformat()
+            daily[local_date] += 1
             if kind == 'system' and identifier:
                 systems[package_labels.get(identifier, identifier)] += 1
             elif kind == 'sample' and identifier:
@@ -338,7 +347,7 @@ def _access_projection(path, *, cutoff, now, days, package_labels):
                 if query:
                     searches[query] += 1
     if days and days <= 90:
-        end = now.date()
+        end = now.astimezone(display_timezone).date()
         daily_rows = tuple({
             'date': (end - timedelta(days=offset)).isoformat(),
             'count': daily[(end - timedelta(days=offset)).isoformat()],
@@ -430,6 +439,16 @@ def _event(created_at, kind, description, actor):
     }
 
 
+def _event_in_timezone(event, display_timezone):
+    localized = dict(event)
+    created_at = _timestamp(event['created_at'])
+    if created_at is not None:
+        localized['created_at'] = created_at.astimezone(
+            display_timezone
+        ).isoformat()
+    return localized
+
+
 def _job_verb(status):
     return {
         'completed': 'Completed', 'failed': 'Failed', 'running': 'Running',
@@ -474,6 +493,19 @@ def _timestamp(value):
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
+
+
+def _report_timezone(value):
+    if not isinstance(value, str):
+        if hasattr(value, 'utcoffset'):
+            return value
+        raise ValueError('activity timezone must be an IANA timezone name')
+    try:
+        return ZoneInfo(value)
+    except ZoneInfoNotFoundError as error:
+        raise ValueError(
+            'unknown activity timezone: {}'.format(value)
+        ) from error
 
 
 def _sqlite_time(value):

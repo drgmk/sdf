@@ -541,6 +541,13 @@ def sdf_fits():
         ),
     )
     serve_parser.add_argument(
+        '--activity-timezone', default='UTC', metavar='ZONE',
+        help=(
+            'IANA timezone used for activity dates and displayed times '
+            '(default: UTC; for example Pacific/Auckland)'
+        ),
+    )
+    serve_parser.add_argument(
         '--sdb-database', metavar='PATH',
         help=(
             'enable signed-in target import using this authoritative SDB '
@@ -627,6 +634,7 @@ def sdf_fits():
             sdb_import_config=sdb_import_config,
             review_base_url=args.review_base_url,
             access_log=args.access_log,
+            activity_timezone=args.activity_timezone,
         )
         return
 
