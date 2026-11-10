@@ -75,10 +75,13 @@ def test_public_system_render_is_revision_cached_and_uses_shared_resources(
     tmp_path, monkeypatch,
 ):
     service = _catalog(tmp_path)
-    monkeypatch.setattr(service, 'package', lambda package_path: {
-        'package_path': 'package',
-        'status': 'fitted',
-    })
+    package_calls = []
+
+    def package(package_path):
+        package_calls.append(package_path)
+        return {'package_path': 'package', 'status': 'fitted'}
+
+    monkeypatch.setattr(service, 'package', package)
     calls = []
 
     def render(manager, output, **options):
@@ -92,6 +95,7 @@ def test_public_system_render_is_revision_cached_and_uses_shared_resources(
     assert service.render_public_system('package') == 'render 1'
     assert service.render_public_system('package') == 'render 1'
     assert len(calls) == 1
+    assert package_calls == ['package']
     assert calls[0]['inline'] is False
 
     identities = tmp_path / 'package' / 'identities.yml'

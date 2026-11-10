@@ -619,14 +619,10 @@ class CatalogService:
 
     def render_public_system(self, package_path, *, principal=None):
         principal = principal or self.auth.principal({})
-        row = self.package(package_path)
-        if row['status'] in {'unfit', 'needs selection'}:
-            return self.render_package_state(
-                package_path, principal=principal,
-            )
-        directory = self.package_directory(package_path)
+        clean = _safe_relative(package_path)
+        directory = self.root / clean
         cache_key = (
-            row['package_path'], principal.username, bool(principal.is_admin),
+            clean, principal.username, bool(principal.is_admin),
         )
         stamp = _public_system_stamp(directory)
         with self._public_system_cache_lock:
@@ -634,6 +630,12 @@ class CatalogService:
             if cached is not None and cached[0] == stamp:
                 self._public_system_cache.move_to_end(cache_key)
                 return cached[1]
+        row = self.package(clean)
+        if row['status'] in {'unfit', 'needs selection'}:
+            return self.render_package_state(
+                clean, principal=principal,
+            )
+        directory = self.root / row['package_path']
         with tempfile.NamedTemporaryFile(
             prefix='sdf-public-', suffix='.html', delete=False,
         ) as temporary:
