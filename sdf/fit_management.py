@@ -145,7 +145,7 @@ class FitManager:
     def render(self, output=None, fits=None, dataset=None, operator=False,
                policy_store=None, operator_api=None, operator_token=None,
                operator_actor=None, operator_actor_locked=False,
-               navigation=None):
+               navigation=None, inline=True):
         candidate_ids = None
         if fits is not None:
             candidate_ids = tuple(self.resolve(reference) for reference in fits)
@@ -156,6 +156,7 @@ class FitManager:
             operator_token=operator_token, operator_actor=operator_actor,
             operator_actor_locked=operator_actor_locked,
             navigation=navigation,
+            inline=inline,
         )
 
     def fit_exact(self, stellar, disks=(), *, force=False, nospec=False,

@@ -71,6 +71,39 @@ def test_catalog_renders_unfit_search_sample_and_queue(tmp_path):
     assert service.state.jobs()[0].package_path == str(tmp_path / 'package')
 
 
+def test_public_system_render_is_revision_cached_and_uses_shared_resources(
+    tmp_path, monkeypatch,
+):
+    service = _catalog(tmp_path)
+    monkeypatch.setattr(service, 'package', lambda package_path: {
+        'package_path': 'package',
+        'status': 'fitted',
+    })
+    calls = []
+
+    def render(manager, output, **options):
+        calls.append(options)
+        path = sdf.catalog_server.Path(output)
+        path.write_text('render {}'.format(len(calls)), encoding='utf-8')
+        return path
+
+    monkeypatch.setattr(sdf.catalog_server.FitManager, 'render', render)
+
+    assert service.render_public_system('package') == 'render 1'
+    assert service.render_public_system('package') == 'render 1'
+    assert len(calls) == 1
+    assert calls[0]['inline'] is False
+
+    identities = tmp_path / 'package' / 'identities.yml'
+    identities.write_text(
+        identities.read_text(encoding='utf-8') + '\n# updated\n',
+        encoding='utf-8',
+    )
+
+    assert service.render_public_system('package') == 'render 2'
+    assert len(calls) == 2
+
+
 def test_catalog_http_routes_and_rejects_bad_token(tmp_path):
     _catalog(tmp_path)
     (tmp_path / 'package' / 'operator.html').write_text(

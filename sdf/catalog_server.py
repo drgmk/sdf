@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, OrderedDict
 from dataclasses import asdict
 from functools import partial
 import getpass
@@ -12,6 +12,7 @@ import io
 import json
 import mimetypes
 import multiprocessing
+import os
 from pathlib import Path, PurePosixPath
 import secrets
 import signal
@@ -103,6 +104,12 @@ class CatalogService:
         self.export_sync_lock = RLock()
         self._operators = {}
         self._sample_cache = {}
+        self._public_system_cache = OrderedDict()
+        self._public_system_cache_lock = RLock()
+        # Served documents contain plot data and are a few MB each even with
+        # shared Bokeh resources. Keep a useful recent working set without
+        # turning a long-running catalog process into an unbounded HTML cache.
+        self._public_system_cache_size = 24
 
     def render_template(self, template_name, **values):
         values.setdefault('review_base_url', self.review_base_url)
@@ -617,20 +624,40 @@ class CatalogService:
             return self.render_package_state(
                 package_path, principal=principal,
             )
+        directory = self.package_directory(package_path)
+        cache_key = (
+            row['package_path'], principal.username, bool(principal.is_admin),
+        )
+        stamp = _public_system_stamp(directory)
+        with self._public_system_cache_lock:
+            cached = self._public_system_cache.get(cache_key)
+            if cached is not None and cached[0] == stamp:
+                self._public_system_cache.move_to_end(cache_key)
+                return cached[1]
         with tempfile.NamedTemporaryFile(
             prefix='sdf-public-', suffix='.html', delete=False,
         ) as temporary:
             name = temporary.name
         try:
             output = FitManager(
-                self.package_directory(package_path)
+                directory
             ).render(
                 name,
                 navigation=self.sed_navigation(
                     package_path, principal=principal, admin=False,
                 ),
+                inline=False,
             )
-            return output.read_text(encoding='utf-8')
+            document = output.read_text(encoding='utf-8')
+            with self._public_system_cache_lock:
+                self._public_system_cache[cache_key] = (stamp, document)
+                self._public_system_cache.move_to_end(cache_key)
+                while (
+                    len(self._public_system_cache)
+                    > self._public_system_cache_size
+                ):
+                    self._public_system_cache.popitem(last=False)
+            return document
         finally:
             try:
                 Path(name).unlink()
@@ -1374,6 +1401,42 @@ def _render(template_name, **values):
     )
     environment.filters['summary'] = summary_text
     return environment.get_template(template_name).render(**values)
+
+
+def _public_system_stamp(directory):
+    """Return the cheap package revision that affects a rendered SED page.
+
+    Sampler workspaces and files produced by page rendering itself are omitted.
+    Inputs, retained results, selection, and diagnostic images remain part of
+    the revision, so exports and completed fits invalidate only their package.
+    """
+
+    directory = Path(directory)
+    ignored_names = {
+        'index.html', 'operator.html', 'plot-data.npz', '.sdf-fit.lock',
+    }
+    states = []
+    for root, directories, filenames in os.walk(directory):
+        directories[:] = [
+            name for name in directories
+            if name not in {'.work', 'limits-data'}
+        ]
+        root = Path(root)
+        for filename in filenames:
+            if filename in ignored_names:
+                continue
+            path = root / filename
+            try:
+                stat = path.stat()
+            except FileNotFoundError:
+                # Atomic fit/export updates can replace a file between the
+                # directory listing and stat. The next request sees it.
+                continue
+            relative = path.relative_to(directory)
+            states.append((
+                relative.as_posix(), stat.st_mtime_ns, stat.st_size,
+            ))
+    return tuple(sorted(states))
 
 
 def _safe_relative(value):
