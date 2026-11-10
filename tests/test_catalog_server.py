@@ -124,6 +124,11 @@ def test_catalog_http_routes_and_rejects_bad_token(tmp_path):
     root = 'http://127.0.0.1:{}'.format(server.server_address[1])
     try:
         assert 'Search fitted systems' in urlopen(root + '/').read().decode()
+        status_page = urlopen(root + '/status').read().decode()
+        assert '<h1>System status</h1>' in status_page
+        assert '<meta http-equiv="refresh" content="10">' in status_page
+        assert '<h2>Job health</h2>' in status_page
+        assert 'Private reason' not in status_page
         assert 'HD 123' in urlopen(root + '/search?q=123').read().decode()
         sample_page = urlopen(root + '/samples/test/').read().decode()
         assert 'class="sample-page"' in sample_page
@@ -422,6 +427,7 @@ def test_proxy_auth_separates_public_sample_and_admin_access(tmp_path):
 
     try:
         assert 'Search fitted systems' in read('/')
+        assert '<h1>System status</h1>' in read('/status')
         assert 'No public fit' in read('/system/package/')
         public_page = read('/samples')
         assert 'test' in public_page

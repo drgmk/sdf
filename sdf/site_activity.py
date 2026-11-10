@@ -90,6 +90,45 @@ def activity_report(*, index_summary, packages, state_path, sdb_path=None,
     }
 
 
+def job_health(state_path, *, display_timezone='UTC'):
+    """Return a small, non-identifying projection of background work."""
+
+    queues = {
+        'fits': {},
+        'target imports': {},
+        'sample imports': {},
+    }
+    path = Path(state_path)
+    if path.is_file():
+        with _read_connection(path) as connection:
+            tables = _tables(connection)
+            for label, table in (
+                    ('fits', 'fit_jobs'),
+                    ('target imports', 'acquisition_jobs'),
+                    ('sample imports', 'sample_acquisition_jobs')):
+                if table not in tables:
+                    continue
+                queues[label] = dict(connection.execute(
+                    'SELECT status, count(*) FROM {} GROUP BY status'.format(
+                        table
+                    )
+                ).fetchall())
+
+    queued = sum(values.get('queued', 0) for values in queues.values())
+    running = sum(values.get('running', 0) for values in queues.values())
+    zone = _report_timezone(display_timezone)
+    checked = datetime.now(timezone.utc).astimezone(zone)
+    return {
+        'queues': queues,
+        'queued': queued,
+        'running': running,
+        'active': queued + running,
+        'checked_at': checked.strftime('%Y-%m-%d %H:%M:%S'),
+        'timezone': getattr(zone, 'key', str(zone)),
+        'timezone_abbreviation': checked.tzname(),
+    }
+
+
 def _operator_projection(path, *, cutoff, package_labels):
     empty = {
         'counts': {

@@ -3,7 +3,7 @@ import sqlite3
 from zoneinfo import ZoneInfo
 
 from .context import sdf
-from sdf.site_activity import _access_projection, activity_report
+from sdf.site_activity import _access_projection, activity_report, job_health
 
 
 def test_activity_report_combines_inventory_actions_and_filtered_traffic(
@@ -163,3 +163,33 @@ def test_daily_page_views_use_configured_timezone_at_utc_boundary(tmp_path):
     )
 
     assert report['daily'][0] == {'date': '2026-11-11', 'count': 1}
+
+
+def test_job_health_is_aggregate_and_non_identifying(tmp_path):
+    state = sdf.operator_state.OperatorState(
+        tmp_path / 'operator.sqlite'
+    ).initialize()
+    package = tmp_path / 'package'
+    package.mkdir()
+    state.queue_package(
+        package, target_keys=('simbad:HD 123',), actor='alice',
+        reason='Private reason',
+    )
+    state.queue_acquisition('Vega', actor='bob')
+    state.claim_next_acquisition(worker_id='import-1')
+    state.queue_sample_acquisition(
+        'Private sample', ('HD 123',), actor='alice'
+    )
+
+    health = job_health(
+        state.path, display_timezone='Pacific/Auckland'
+    )
+
+    assert health['queued'] == 2
+    assert health['running'] == 1
+    assert health['queues']['fits']['queued'] == 1
+    assert health['queues']['target imports']['running'] == 1
+    assert health['queues']['sample imports']['queued'] == 1
+    assert health['timezone'] == 'Pacific/Auckland'
+    assert 'alice' not in str(health)
+    assert 'Private sample' not in str(health)

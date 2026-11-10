@@ -19,6 +19,19 @@ components and any composite observations.
 Individual system pages are public. Signing in is not required to inspect a
 fit or download its products.
 
+## Background work and status
+
+The **Status** link opens a lightweight view of background fitting, target
+imports, and sample imports. It shows aggregate queued, running, completed,
+and failed counts without exposing target names, private sample names, or
+users. A short summary says whether work is active, waiting, or caught up, and
+the page refreshes every 10 seconds.
+
+After requesting an import, its own progress page remains the detailed view:
+it shows the current stage and target count and refreshes automatically. The
+status page is useful after navigating away, or while a completed sample
+import is generating a larger queue of SED fits.
+
 ## Reading an SED page
 
 The page header gives the system name and a compact description of the default

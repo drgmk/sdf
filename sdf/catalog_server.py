@@ -45,7 +45,7 @@ from .sample_products import (
     sample_votable, summary_text,
 )
 from .sdb_import import SdbImporter, run_acquisition_worker
-from .site_activity import activity_report
+from .site_activity import activity_report, job_health
 
 
 class CatalogService:
@@ -247,6 +247,18 @@ class CatalogService:
             principal=principal, admin=True, query='',
             search_action='/admin/search', request_path='/admin/activity',
             auth_enabled=self.auth.proxy_enabled,
+        )
+
+    def render_status(self, principal=None):
+        """Render the public, non-identifying background-work summary."""
+
+        return self.render_template(
+            'catalog_status.html', title='System status',
+            health=job_health(
+                self.state.path, display_timezone=self.activity_timezone
+            ),
+            principal=principal, query='', search_action='/search',
+            request_path='/status', auth_enabled=self.auth.proxy_enabled,
         )
 
     def render_public_home(self, principal=None):
@@ -959,6 +971,9 @@ class _CatalogHandler(BaseHTTPRequestHandler):
                 return
             if parsed.path == '/':
                 self._html(self.service.render_public_home(principal))
+                return
+            if parsed.path in {'/status', '/status/'}:
+                self._html(self.service.render_status(principal))
                 return
             if parsed.path == '/search':
                 values = parse_qs(parsed.query)
