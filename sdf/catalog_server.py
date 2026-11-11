@@ -48,6 +48,18 @@ from .sdb_import import SdbImporter, run_acquisition_worker
 from .site_activity import activity_report, job_health
 
 
+def _acquisition_refresh_key(job):
+    """Return the small piece of job state that changes the progress page."""
+
+    return ':'.join(
+        str(value or '') for value in (
+            job.status,
+            job.completed_at,
+            getattr(job, 'progress_updated_at', None),
+        )
+    )
+
+
 class CatalogService:
     """Application operations shared by the catalog HTTP boundary."""
 
@@ -328,6 +340,7 @@ class CatalogService:
             system_base='/system', auth_enabled=self.auth.proxy_enabled,
             request_path='/imports/{}'.format(job.id),
             admin_access=principal.is_admin,
+            refresh_key=_acquisition_refresh_key(job),
         )
 
     def queue_sample_acquisition(self, sample_name, targets, *, actor,
@@ -381,6 +394,7 @@ class CatalogService:
             auth_enabled=self.auth.proxy_enabled,
             request_path='/sample-imports/{}'.format(job.id),
             admin_access=principal.is_admin,
+            refresh_key=_acquisition_refresh_key(job),
         )
 
     def register_acquisition_export(self, result, *, actor):
@@ -988,6 +1002,13 @@ class _CatalogHandler(BaseHTTPRequestHandler):
                 job_id = parsed.path.removeprefix('/imports/').strip('/')
                 if not job_id.isdigit():
                     raise KeyError('target import not found')
+                if parse_qs(parsed.query).get('poll') == ['1']:
+                    job = self.service.acquisition(int(job_id), principal)
+                    self._json({
+                        'status': job.status,
+                        'refresh_key': _acquisition_refresh_key(job),
+                    })
+                    return
                 self._html(self.service.render_acquisition(
                     int(job_id), principal
                 ))
@@ -999,6 +1020,15 @@ class _CatalogHandler(BaseHTTPRequestHandler):
                 ).strip('/')
                 if not job_id.isdigit():
                     raise KeyError('sample import not found')
+                if parse_qs(parsed.query).get('poll') == ['1']:
+                    job = self.service.sample_acquisition(
+                        int(job_id), principal
+                    )
+                    self._json({
+                        'status': job.status,
+                        'refresh_key': _acquisition_refresh_key(job),
+                    })
+                    return
                 self._html(self.service.render_sample_acquisition(
                     int(job_id), principal
                 ))

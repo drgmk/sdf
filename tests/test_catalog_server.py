@@ -222,6 +222,13 @@ def test_signed_in_search_can_queue_and_view_sdb_import(tmp_path):
         assert 'Vega' in page
         assert 'Some import steps can take longer' in page
         assert 'href="/status">Status</a>' in page
+        assert '<meta http-equiv="refresh"' not in page
+        assert 'Progress is temporarily unavailable' in page
+        poll = json.loads(urlopen(
+            root + '/imports/{}?poll=1'.format(job_id)
+        ).read())
+        assert poll['status'] == 'queued'
+        assert poll['refresh_key'].startswith('queued:')
 
         sample_form = urlopen(root + '/samples/new').read().decode()
         assert 'Create a sample' in sample_form
@@ -244,10 +251,17 @@ def test_signed_in_search_can_queue_and_view_sdb_import(tmp_path):
         page = urlopen(
             root + '/sample-imports/{}'.format(sample_job_id)
         ).read().decode()
-        assert 'Waiting to import' in page
+        assert 'Waiting to update' in page
         assert 'Nearby' in page
         assert 'Some import steps can take longer' in page
         assert 'href="/status">Status</a>' in page
+        assert '<meta http-equiv="refresh"' not in page
+        assert 'Progress is temporarily unavailable' in page
+        poll = json.loads(urlopen(
+            root + '/sample-imports/{}?poll=1'.format(sample_job_id)
+        ).read())
+        assert poll['status'] == 'queued'
+        assert poll['refresh_key'].startswith('queued:')
     finally:
         server.shutdown()
         server.server_close()
