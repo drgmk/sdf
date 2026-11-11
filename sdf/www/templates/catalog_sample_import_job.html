@@ -2,6 +2,7 @@
 {% block head %}{% if auto_refresh %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
 {% block content %}
 <div class="page-head"><div><h1>{{ job.sample_name }}</h1><p class="muted">Sample {% if job.operation == 'remove' %}edit{% else %}import{% endif %} #{{ job.id }}, {{ job.targets|length }} requested target{% if job.targets|length != 1 %}s{% endif %}</p></div><span class="status {{ job.status }}">{{ job.status }}</span></div>
+{% if job.status in ['queued', 'running'] %}{% include "catalog_import_timeout_note.html" %}{% endif %}
 {% if job.status == 'queued' %}
 <div class="message"><h2>Waiting to update</h2><p>The sample change is queued behind any earlier <code>sdb</code> work. This page refreshes automatically.</p></div>
 {% elif job.status == 'running' %}

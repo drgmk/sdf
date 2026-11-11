@@ -220,6 +220,8 @@ def test_signed_in_search_can_queue_and_view_sdb_import(tmp_path):
         page = urlopen(root + '/imports/{}'.format(job_id)).read().decode()
         assert 'Waiting to import' in page
         assert 'Vega' in page
+        assert 'Some import steps can take longer' in page
+        assert 'href="/status">Status</a>' in page
 
         sample_form = urlopen(root + '/samples/new').read().decode()
         assert 'Create a sample' in sample_form
@@ -244,6 +246,8 @@ def test_signed_in_search_can_queue_and_view_sdb_import(tmp_path):
         ).read().decode()
         assert 'Waiting to import' in page
         assert 'Nearby' in page
+        assert 'Some import steps can take longer' in page
+        assert 'href="/status">Status</a>' in page
     finally:
         server.shutdown()
         server.server_close()

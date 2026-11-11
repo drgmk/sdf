@@ -167,7 +167,10 @@ the first `sdf` fit. When complete it links to the new SED page.
 
 Imports may take several minutes because remote catalogues and MultiNest are
 not part of the web request itself. Provider warnings can be reported even
-when a usable target and fit were created.
+when a usable target and fit were created. A long import step can also outlast
+the browser or proxy timeout while continuing normally in the background. If
+an import progress page times out, use **Status** in the common header to check
+whether target or sample import work is still running.
 
 ## Creating a sample
 

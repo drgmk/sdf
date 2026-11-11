@@ -2,6 +2,7 @@
 {% block head %}{% if auto_refresh %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
 {% block content %}
 <div class="page-head"><div><h1>{{ job.query }}</h1><p class="muted">Target import #{{ job.id }}, requested by {{ job.actor }}</p></div><span class="status {{ job.status }}">{{ job.status }}</span></div>
+{% if job.status in ['queued', 'running'] %}{% include "catalog_import_timeout_note.html" %}{% endif %}
 {% if job.status == 'queued' %}
 <div class="message"><h2>Waiting to import</h2><p>The request is queued behind any earlier target import. This page refreshes automatically.</p></div>
 {% elif job.status == 'running' %}
