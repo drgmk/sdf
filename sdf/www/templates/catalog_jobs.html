@@ -1,6 +1,6 @@
 {% extends "catalog_base.html" %}
 {% block content %}
-<h1>Jobs</h1><p class="muted">Imports and slow fits run outside HTTP requests and remain visible here across server restarts.</p>
+<h1>Jobs</h1>
 <h2>Target imports</h2>
 <div class="table-wrap"><table><thead><tr><th>Job</th><th>SIMBAD identifier</th><th>Status</th><th>Requested</th><th>User</th><th>Error</th></tr></thead><tbody>
 {% for job in acquisitions %}<tr><td class="code"><a href="/imports/{{ job.id }}">#{{ job.id }}</a></td><td>{{ job.query }}</td><td><span class="status {{ job.status }}">{{ job.status }}</span></td><td>{{ job.created_at }}</td><td>{{ job.actor }}</td><td>{{ job.error or '—' }}</td></tr>{% else %}<tr><td colspan="6" class="muted">No target imports yet.</td></tr>{% endfor %}

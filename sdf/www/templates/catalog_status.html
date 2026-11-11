@@ -13,6 +13,5 @@
 
 <h2>Job health</h2>
 <div class="table-wrap"><table><thead><tr><th>Queue</th><th>Queued</th><th>Running</th><th>Completed</th><th>Failed</th></tr></thead><tbody>{% for label, values in health.queues.items() %}<tr><td>{{ label|title }}</td><td>{{ values.get('queued', 0) }}</td><td>{{ values.get('running', 0) }}</td><td>{{ values.get('completed', 0) }}</td><td>{{ values.get('failed', 0) }}</td></tr>{% endfor %}</tbody></table></div>
-<p class="muted">Completed and failed columns are retained totals. Detailed import pages show the current stage and target-level progress without exposing another user's sample or targets here.</p>
 <p class="muted">Checked {{ health.checked_at }} {{ health.timezone_abbreviation or health.timezone }}.</p>
 {% endblock %}

@@ -44,7 +44,7 @@ def test_operator_page_contains_live_policy_and_all_retained_fits(tmp_path):
     html = service.render_page()
 
     assert html.count('Queue fit') == 1
-    assert 'Fits are queued here and processed in the background.' in html
+    assert 'Fits are queued here and processed in the background.' not in html
     assert 'test-token' in html
     assert first.path.name in html
     assert second.path.name in html

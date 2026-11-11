@@ -177,9 +177,8 @@
 
   {% if operator %}
   <aside id="fit-controls" class="operator-drawer" hidden aria-label="Fit controls">
-    <div class="drawer-head"><div><h2>Fit controls</h2><p class="muted">Choose model configurations and manage saved fits.</p></div><button id="close-fit-controls" type="button" aria-label="Close fit controls">×</button></div>
+    <div class="drawer-head"><div><h2>Fit controls</h2></div><button id="close-fit-controls" type="button" aria-label="Close fit controls">×</button></div>
     {% if not operator_api %}<p class="queue-note">This rendered page is read-only. Use <code>sdf-fits serve</code> to save choices and queue fits.</p>{% endif %}
-    {% if operator_api %}<p class="queue-note">Fits are queued here and processed in the background.</p>{% endif %}
     {% for job in queued_jobs %}<p class="queue-note">Fit job {{ job.id }} queued{% if job.reason %}: {{ job.reason }}{% endif %}</p>{% endfor %}
     <section class="operator-section">
       <h2>Model configuration</h2>

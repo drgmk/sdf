@@ -2,8 +2,8 @@
 {% block content %}
 <h1>{{ title }}</h1>
 <div class="summary-line"><span class="status {{ package.status|replace(' ', '-') }}">{{ package.status }}</span><span>{{ package.candidate_count }} retained candidates</span><span class="code">{{ package.package_path }}</span></div>
-{% if package.status == 'unfit' %}<div class="message"><h2>Ready for an initial fit</h2><p>This system is exported and indexed, but has no retained fit candidate yet.</p>
+{% if package.status == 'unfit' %}<div class="message"><h2>Ready for an initial fit</h2>
 <div class="actions">{% if actor_locked %}<span class="muted">Signed in as <strong>{{ actor }}</strong></span><input id="actor" type="hidden" value="{{ actor }}">{% else %}<label>Actor<input id="actor" value="{{ actor }}"></label>{% endif %}<label>Reason<input id="reason" size="42" value="Fit {{ title }}"></label><button id="queue">Queue automatic fit</button></div><p id="result" class="muted"></p></div>
 <script>document.getElementById('queue').addEventListener('click',async()=>{const button=document.getElementById('queue');button.disabled=true;const response=await fetch(location.pathname+'api/queue',{method:'POST',headers:{'Content-Type':'application/json','X-SDF-Token':{{ token|tojson }}},body:JSON.stringify({actor:document.getElementById('actor').value,reason:document.getElementById('reason').value})});const value=await response.json();document.getElementById('result').textContent=response.ok?`Fit job ${value.job_id} queued`:value.error;button.disabled=false;});</script>
-{% else %}<div class="message"><h2>A default fit has not been selected</h2><p>Use the retained-fit CLI to choose the initial displayed/default candidate. Catalog selection controls will be added here next.</p></div>{% endif %}
+{% else %}<div class="message"><h2>No default fit selected</h2></div>{% endif %}
 {% endblock %}

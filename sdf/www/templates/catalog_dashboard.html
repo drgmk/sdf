@@ -1,7 +1,6 @@
 {% extends "catalog_base.html" %}
 {% block content %}
 <h1>{% if query %}Search results{% else %}SED catalogue{% endif %}</h1>
-<p class="muted">Every fitting package currently exported by <code>sdb</code>, including systems that have not yet been fit.</p>
 <div class="cards">
   <a class="card" href="{{ page_base }}"><strong>{{ summary.index.packages }}</strong><span>systems</span></a>
   <a class="card" href="{{ page_base }}?status=current"><strong>{{ summary.status.get('current', 0) }}</strong><span>current</span></a>

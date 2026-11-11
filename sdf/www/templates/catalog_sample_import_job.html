@@ -4,9 +4,9 @@
 {% if job.status in ['queued', 'running'] %}{% include "catalog_import_timeout_note.html" %}{% endif %}
 {% if auto_refresh %}{% include "catalog_import_poll.html" %}{% endif %}
 {% if job.status == 'queued' %}
-<div class="message"><h2>Waiting to update</h2><p>The sample change is queued behind any earlier <code>sdb</code> work. This page refreshes automatically.</p></div>
+<div class="message"><h2>Waiting to update</h2><p>The sample change is queued behind any earlier <code>sdb</code> work.</p></div>
 {% elif job.status == 'running' %}
-<div class="message"><h2>Updating the sample</h2><p>{% if job.progress_message %}{{ job.progress_message }}{% elif job.operation == 'remove' %}<code>sdb</code> is removing the selected memberships and publishing a fresh sample view.{% else %}<code>sdb</code> is resolving the identifiers, updating configured providers, and exporting successful targets.{% endif %}</p>{% if job.progress_total is not none and job.progress_current is not none %}<progress value="{{ job.progress_current }}" max="{{ job.progress_total or 1 }}"></progress><p class="muted">{{ job.progress_current }} of {{ job.progress_total }}{% if job.progress_stage %} · {{ job.progress_stage }}{% endif %}</p>{% endif %}<p class="muted">This page refreshes automatically.</p></div>
+<div class="message"><h2>Updating the sample</h2><p>{% if job.progress_message %}{{ job.progress_message }}{% elif job.operation == 'remove' %}<code>sdb</code> is removing the selected memberships and publishing a fresh sample view.{% else %}<code>sdb</code> is resolving the identifiers, updating configured providers, and exporting successful targets.{% endif %}</p>{% if job.progress_total is not none and job.progress_current is not none %}<progress value="{{ job.progress_current }}" max="{{ job.progress_total or 1 }}"></progress><p class="muted">{{ job.progress_current }} of {{ job.progress_total }}{% if job.progress_stage %} · {{ job.progress_stage }}{% endif %}</p>{% endif %}</div>
 {% elif job.status == 'failed' %}
 <div class="message"><h2>Sample update failed</h2><p>{{ job.error }}</p><p><a href="/samples/{{ job.sample_name|urlencode }}/">Return to sample</a></p></div>
 {% else %}

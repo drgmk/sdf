@@ -1,7 +1,7 @@
 {% extends "catalog_base.html" %}
 {% block body_class %}activity-page{% endblock %}
 {% block content %}
-<div class="page-head activity-head"><div><h1>Site activity</h1><p class="muted">Inventory, meaningful changes, and local page use. Times and daily totals use {{ report.timezone }}{% if report.timezone_abbreviation %} ({{ report.timezone_abbreviation }}){% endif %}. Client addresses are not shown or retained in this report.</p></div><nav class="period-links" aria-label="Activity period">{% for value, label in [(7, '7 days'), (30, '30 days'), (90, '90 days'), (0, 'All')] %}<a class="button{% if report.days == value %} selected{% endif %}" href="/admin/activity?days={{ value }}">{{ label }}</a>{% endfor %}</nav></div>
+<div class="page-head activity-head"><div><h1>Site activity</h1><p class="muted">Times and daily totals use {{ report.timezone }}{% if report.timezone_abbreviation %} ({{ report.timezone_abbreviation }}){% endif %}.</p></div><nav class="period-links" aria-label="Activity period">{% for value, label in [(7, '7 days'), (30, '30 days'), (90, '90 days'), (0, 'All')] %}<a class="button{% if report.days == value %} selected{% endif %}" href="/admin/activity?days={{ value }}">{{ label }}</a>{% endfor %}</nav></div>
 
 <h2>What is here</h2>
 <div class="cards activity-cards">
@@ -33,7 +33,7 @@
   <div class="card"><strong>{{ report.traffic.server_errors }}</strong><span>server errors</span></div>
   <div class="card"><strong>{% if report.traffic.median_ms is not none %}{{ report.traffic.median_ms }} ms{% else %}—{% endif %}</strong><span>median request time</span></div>
 </div>
-<p class="muted">Local page views exclude known crawlers, assets, API polling, redirects, and failed requests. Use Cloudflare Web Analytics for visits, referrers, geography, and browser performance.</p>
+<p class="muted">Local page views exclude known crawlers, assets, API polling, redirects, and failed requests.</p>
 {% if report.traffic.daily %}<div class="activity-bars" aria-label="Daily page views">{% for row in report.traffic.daily %}<div class="activity-bar-row"><time datetime="{{ row.date }}">{{ row.date }}</time><div class="activity-bar-track"><span style="width:{% if report.traffic.daily_max %}{{ 100 * row.count / report.traffic.daily_max }}{% else %}0{% endif %}%"></span></div><strong>{{ row.count }}</strong></div>{% endfor %}</div>{% endif %}
 <div class="activity-columns">
   {% for title, rows in [('Most-viewed SEDs', report.traffic.top_systems), ('Most-viewed samples', report.traffic.top_samples), ('Searches', report.traffic.top_searches)] %}<section><h3>{{ title }}</h3>{% if rows %}<ol class="activity-ranking">{% for row in rows %}<li><span>{{ row.label }}</span><strong>{{ row.count }}</strong></li>{% endfor %}</ol>{% else %}<p class="muted">No recorded use.</p>{% endif %}</section>{% endfor %}
