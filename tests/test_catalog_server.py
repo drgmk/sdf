@@ -18,6 +18,33 @@ def test_sigterm_handler_uses_normal_keyboard_interrupt_cleanup():
         sdf.catalog_server._raise_keyboard_interrupt(None, None)
 
 
+def test_public_home_and_status_show_admin_navigation_for_admins():
+    principal = SimpleNamespace(username='grant', is_admin=True)
+    common = {
+        'principal': principal,
+        'auth_enabled': True,
+        'query': '',
+        'search_action': '/search',
+        'review_base_url': '/review',
+    }
+    home = sdf.catalog_server._render(
+        'catalog_public_home.html', title='sdb', request_path='/', **common
+    )
+    status = sdf.catalog_server._render(
+        'catalog_status.html', title='System status', request_path='/status',
+        health={
+            'running': 0, 'queued': 0, 'queues': {},
+            'checked_at': 'now', 'timezone': 'Pacific/Auckland',
+            'timezone_abbreviation': 'NZDT',
+        },
+        **common
+    )
+
+    for page in (home, status):
+        assert 'href="/admin">Admin</a>' in page
+        assert 'href="/review/">Data review</a>' in page
+
+
 def _catalog(tmp_path):
     package = tmp_path / 'package'
     package.mkdir()
@@ -123,7 +150,7 @@ def test_catalog_http_routes_and_rejects_bad_token(tmp_path):
     thread.start()
     root = 'http://127.0.0.1:{}'.format(server.server_address[1])
     try:
-        assert 'Search fitted systems' in urlopen(root + '/').read().decode()
+        assert 'Welcome to <code>sdb</code>' in urlopen(root + '/').read().decode()
         status_page = urlopen(root + '/status').read().decode()
         assert '<h1>System status</h1>' in status_page
         assert '<meta http-equiv="refresh" content="10">' in status_page
@@ -444,7 +471,7 @@ def test_proxy_auth_separates_public_sample_and_admin_access(tmp_path):
         return 200
 
     try:
-        assert 'Search fitted systems' in read('/')
+        assert 'Welcome to <code>sdb</code>' in read('/')
         assert '<h1>System status</h1>' in read('/status')
         assert 'No public fit' in read('/system/package/')
         public_page = read('/samples')
