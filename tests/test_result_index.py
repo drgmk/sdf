@@ -102,6 +102,7 @@ def test_rebuild_skips_export_package_without_usable_observations(tmp_path):
 
     assert summary == sdf.result_index.IndexSummary(0, 0, 0, 0, 0, 0)
     assert index.catalog_packages() == ()
+    assert index.verify(tmp_path) == ()
 
 
 def test_catalog_search_ignores_identifier_spacing_and_ranks_exact_first(

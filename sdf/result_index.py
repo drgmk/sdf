@@ -467,6 +467,20 @@ class ResultIndex:
                 for path in _discover_packages(root)
             }
             for path in sorted(discovered_packages - indexed_packages):
+                package = root / path
+                try:
+                    _, observations = _current_package_structure(package)
+                except utils.SdfError:
+                    observations = {}
+                if (
+                    not observations
+                    and not any((package / 'fits').glob('*/result.json'))
+                ):
+                    # Rawphot shells can exist before export has assigned any
+                    # usable measurements.  Rebuild deliberately leaves these
+                    # out, so verification must not make every server start
+                    # rebuild the same unindexable package again.
+                    continue
                 problems.append('exported package absent from index: {}'.format(
                     path
                 ))
