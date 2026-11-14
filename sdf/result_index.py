@@ -13,6 +13,8 @@ import sqlite3
 import tempfile
 import unicodedata
 
+from . import utils
+
 
 SCHEMA_VERSION = 4
 
@@ -56,7 +58,14 @@ class ResultIndex:
                     ('root', str(root)),
                 )
                 for package in _discover_packages(root):
-                    _index_package(connection, root, package)
+                    try:
+                        _index_package(connection, root, package)
+                    except utils.SdfError:
+                        # An export can briefly contain a rawphot shell before
+                        # any usable measurements have been assigned.  It is
+                        # not a fit package yet and must not prevent the
+                        # catalogue from serving every valid package.
+                        continue
                 connection.commit()
                 summary = _summary(connection)
             finally:
@@ -114,7 +123,10 @@ class ResultIndex:
                 'DELETE FROM fit_packages WHERE path = ?', (package_path,)
             )
             if _is_package(package):
-                _index_package(connection, root, package)
+                try:
+                    _index_package(connection, root, package)
+                except utils.SdfError:
+                    pass
         return self.summary()
 
     def catalog_packages(self, query=None, identifiers=None):
@@ -684,6 +696,14 @@ def _index_package(connection, root, package):
             package, ', '.join(sorted(missing))
         ))
 
+    targets, observations = _current_package_structure(
+        package, allow_empty=bool(results)
+    )
+    if not results and not observations:
+        raise utils.SdfError(
+            'fit package contains no usable photometry or spectra'
+        )
+
     connection.execute(
         '''
         INSERT INTO fit_packages
@@ -694,9 +714,6 @@ def _index_package(connection, root, package):
             package_path, current_input, default,
             datetime.now(timezone.utc).isoformat(),
         ),
-    )
-    targets, observations = _current_package_structure(
-        package, allow_empty=bool(results)
     )
     for path, result in zip(result_paths, results):
         posterior = result['posterior']
@@ -908,6 +925,10 @@ def _package_input_fingerprint(package):
 
     try:
         dataset = FitDataset.from_path(package)
+        if dataset is None:
+            raise utils.SdfError(
+                'fit package contains no usable photometry or spectra'
+            )
     except Exception:
         # Retained candidate libraries can outlive a readable input format.
         # Keep those libraries indexable while still tracking every package

@@ -87,6 +87,23 @@ def test_rebuild_indexes_exported_package_before_it_is_fit(tmp_path):
     assert index.catalog_packages(identifiers=('sdb-unfit',)) == rows
 
 
+def test_rebuild_skips_export_package_without_usable_observations(tmp_path):
+    from .test_dataset import _write_empty_rawphot
+
+    package = tmp_path / 'incomplete'
+    package.mkdir()
+    _write_empty_rawphot(
+        package / 'target-rawphot.txt',
+        sdbid='sdb-incomplete', main_id='HD 15003',
+    )
+    index = sdf.result_index.ResultIndex(tmp_path / 'results.sqlite')
+
+    summary = index.rebuild(tmp_path)
+
+    assert summary == sdf.result_index.IndexSummary(0, 0, 0, 0, 0, 0)
+    assert index.catalog_packages() == ()
+
+
 def test_catalog_search_ignores_identifier_spacing_and_ranks_exact_first(
         tmp_path):
     from .test_dataset import _write_rawphot
