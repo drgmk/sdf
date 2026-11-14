@@ -233,7 +233,7 @@ class CatalogService:
             summary=self.summary(), samples=self.exports.samples(),
             status_filter=status or '', total=total, page=page,
             page_count=page_count, admin=True, principal=principal,
-            search_action='/admin/search', page_base='/admin',
+            search_action='/admin/search', page_base='/admin/search',
             system_base='/admin/system',
             import_enabled=self.importer is not None, token=self.token,
             auth_enabled=self.auth.proxy_enabled,
@@ -257,7 +257,7 @@ class CatalogService:
         return self.render_template(
             'catalog_activity.html', title='Site activity', report=report,
             principal=principal, admin=True, query='',
-            search_action='/admin/search', request_path='/admin/activity',
+            search_action='/admin/search', request_path='/admin',
             auth_enabled=self.auth.proxy_enabled,
         )
 
@@ -1102,12 +1102,9 @@ class _CatalogHandler(BaseHTTPRequestHandler):
             if parsed.path in {'/admin', '/admin/'}:
                 self.service.auth.require_admin(principal)
                 values = parse_qs(parsed.query)
-                query = values.get('q', [''])[0].strip()
-                status = values.get('status', [''])[0].strip()
-                page = int(values.get('page', ['1'])[0])
-                self._html(self.service.render_dashboard(
-                    query or None, status=status or None, page=page,
-                    principal=principal,
+                days = int(values.get('days', ['30'])[0])
+                self._html(self.service.render_activity(
+                    principal, days=days,
                 ))
                 return
             if parsed.path == '/admin/search':

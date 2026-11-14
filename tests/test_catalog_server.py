@@ -74,7 +74,9 @@ def test_catalog_renders_unfit_search_sample_and_queue(tmp_path):
     service = _catalog(tmp_path)
     principal = service.auth.principal({})
 
-    assert 'HD 123' in service.render_dashboard()
+    dashboard = service.render_dashboard()
+    assert 'HD 123' in dashboard
+    assert 'href="/admin/search?status=current"' in dashboard
     assert 'HD 123' in service.render_public_search('123')
     assert 'test' in service.render_samples(principal)
     sample_page = service.render_sample('test', principal)
@@ -546,16 +548,20 @@ def test_proxy_auth_separates_public_sample_and_admin_access(tmp_path):
         assert 'alice' in session_page
 
         dashboard = read('/admin', 'grant')
-        assert 'SED catalogue' in dashboard
+        assert '<h1>Site activity</h1>' in dashboard
+        assert 'What is here' in dashboard
+        assert 'Recent activity' in dashboard
         assert 'href="/review/">Data review</a>' in dashboard
         assert 'href="/docs">Docs</a>' in dashboard
         assert 'href="/">Home</a>' in dashboard
-        assert 'href="/admin/activity">Activity</a>' in dashboard
+        assert 'href="/admin/jobs">Jobs</a>' in dashboard
+        assert '>Activity</a>' not in dashboard
         activity = read('/admin/activity?days=7', 'grant')
         assert '<h1>Site activity</h1>' in activity
         assert 'What is here' in activity
         assert 'Recent activity' in activity
         assert 'Times and daily totals use UTC (UTC)' in activity
+        assert 'href="/admin?days=30"' in activity
         admin_page = read('/admin/system/package/', 'grant')
         assert 'Queue automatic fit' in admin_page
         assert 'Signed in as <strong>grant</strong>' in admin_page
