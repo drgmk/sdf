@@ -69,6 +69,10 @@ def test_new_cli_top_level_help_is_operational(
             ['sdf-fits', 'refresh-artifacts', '--help'],
             ('self-describing', 'never invokes a sampler', '--all'),
         ),
+        (
+            ['sdf-fits', 'cleanup', '--help'],
+            ('Dry-run is the default', '--apply', '--superseded-days DAYS'),
+        ),
     ),
 )
 def test_sdf_fits_subcommand_help_explains_effects(

@@ -27,6 +27,7 @@ from sdf.catalog_auth import read_session_secret
 from sdf.candidate_library import CandidateLibrary
 from sdf.sample_products import write_sample_products
 from sdf.sdb_import import SdbImportConfig
+from sdf.work_cleanup import cleanup_sampler_work
 
 
 def sdf_fit():
@@ -442,6 +443,49 @@ def sdf_fits():
         '--all', action='store_true',
         help='refresh every fitted package below EXPORT_ROOT',
     )
+    cleanup_parser = _sdf_fits_command(
+        subparsers, 'cleanup',
+        'Inspect or remove expired sampler-native work files.',
+        'Scans fits/.work below EXPORT_ROOT. Dry-run is the default; no files '
+        'are removed unless --apply is supplied. Active fit jobs and held fit '
+        'locks are always protected.',
+        examples=(
+            'sdf-fits cleanup /data/sdb/export',
+            'sdf-fits cleanup /data/sdb/export --apply',
+            'sdf-fits cleanup /data/sdb/export --verbose',
+        ),
+    )
+    cleanup_parser.add_argument(
+        'package', metavar='EXPORT_ROOT',
+        help='SDB export root containing fitting packages',
+    )
+    cleanup_parser.add_argument(
+        '--state', metavar='PATH',
+        help=(
+            'administrative job SQLite path '
+            '(default: EXPORT_ROOT/sdf-operator.sqlite when it exists)'
+        ),
+    )
+    cleanup_parser.add_argument(
+        '--superseded-days', type=_positive_int, default=7, metavar='DAYS',
+        help='retain completed superseded work for this many days (default: 7)',
+    )
+    cleanup_parser.add_argument(
+        '--committed-days', type=_positive_int, default=30, metavar='DAYS',
+        help='retain work referenced by compact results for this many days (default: 30)',
+    )
+    cleanup_parser.add_argument(
+        '--interrupted-days', type=_positive_int, default=30, metavar='DAYS',
+        help='retain resumable interrupted work for this many days (default: 30)',
+    )
+    cleanup_parser.add_argument(
+        '--apply', action='store_true',
+        help='remove eligible work; without this option only report it',
+    )
+    cleanup_parser.add_argument(
+        '--verbose', action='store_true',
+        help='list each work directory eligible for removal',
+    )
     serve_parser = _sdf_fits_command(
         subparsers, 'serve',
         'Serve the catalog-wide SDF administrative UI and fitting loop.',
@@ -681,6 +725,30 @@ def sdf_fits():
         }, sort_keys=True))
         return
 
+    if args.command == 'cleanup':
+        root = Path(args.package).expanduser().resolve()
+        state_path = (
+            Path(args.state).expanduser().resolve()
+            if args.state is not None else root / 'sdf-operator.sqlite'
+        )
+        active_packages = set()
+        if state_path.is_file():
+            state = OperatorState(state_path)
+            for status in ('queued', 'running'):
+                active_packages.update(
+                    job.package_path for job in state.jobs(status=status)
+                )
+        report = cleanup_sampler_work(
+            root,
+            superseded_days=args.superseded_days,
+            committed_days=args.committed_days,
+            interrupted_days=args.interrupted_days,
+            apply=args.apply,
+            active_packages=active_packages,
+        )
+        _print_cleanup_report(report, verbose=args.verbose)
+        return
+
     manager = FitManager(args.package)
 
     if args.command == 'list':
@@ -816,6 +884,46 @@ def _positive_int(value):
     if parsed < 1:
         raise argparse.ArgumentTypeError('must be a positive integer')
     return parsed
+
+
+def _print_cleanup_report(report, *, verbose=False):
+    action = 'removed' if report.apply else 'would remove'
+    print('{} sampler work directories ({})'.format(
+        len(report.items), _format_bytes(report.total_bytes)
+    ))
+    for category in ('superseded', 'committed', 'interrupted'):
+        items = [item for item in report.items if item.category == category]
+        eligible = [item for item in items if item.eligible]
+        print('{}: {} total ({}), {} eligible ({})'.format(
+            category, len(items),
+            _format_bytes(sum(item.size_bytes for item in items)),
+            len(eligible),
+            _format_bytes(sum(item.size_bytes for item in eligible)),
+        ))
+    amount = report.removed_bytes if report.apply else report.eligible_bytes
+    count = sum(
+        item.removed if report.apply else item.eligible
+        for item in report.items
+    )
+    print('{} {} directories ({})'.format(action, count, _format_bytes(amount)))
+    if not report.apply:
+        print('Dry run only; pass --apply to remove eligible work.')
+    if verbose:
+        for item in report.items:
+            if item.eligible:
+                verb = 'removed' if item.removed else 'eligible'
+                print('{}\t{}\t{:.1f}d\t{}\t{}'.format(
+                    verb, item.category, item.age_days,
+                    _format_bytes(item.size_bytes), item.path,
+                ))
+
+
+def _format_bytes(value):
+    value = float(value)
+    for unit in ('B', 'KiB', 'MiB', 'GiB', 'TiB'):
+        if value < 1024.0 or unit == 'TiB':
+            return '{:.1f} {}'.format(value, unit)
+        value /= 1024.0
 
 
 def _sdf_fits_command(subparsers, name, summary, detail, examples=()):

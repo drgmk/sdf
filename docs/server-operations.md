@@ -72,6 +72,28 @@ Package-local numerical results remain under each package's `fits/` directory.
 Large sampler-native output may exist temporarily in `fits/.work/` but is not
 required for normal result display after a candidate has been committed.
 
+### Sampler-work retention
+
+Inspect expired native sampler output across an export root with:
+
+```shell
+sdf-fits cleanup /srv/sdb/export
+```
+
+This is a dry run. It classifies work as committed, superseded, or interrupted
+and reports the space eligible under the default retention periods. Remove the
+reported directories only after review:
+
+```shell
+sdf-fits cleanup /srv/sdb/export --apply
+```
+
+The defaults retain superseded completed work for seven days and committed or
+interrupted work for 30 days. Adjust them with `--superseded-days`,
+`--committed-days`, and `--interrupted-days`. Queued/running packages and work
+directories with a held fit lock are always protected. Use `--verbose` to list
+each eligible directory.
+
 ## Workers and export watcher
 
 The default service supervises one worker. Increase concurrency only for
