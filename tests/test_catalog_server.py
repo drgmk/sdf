@@ -98,6 +98,12 @@ def test_catalog_renders_unfit_search_sample_and_queue(tmp_path):
 
     assert result['status'] == 'queued'
     assert service.state.jobs()[0].package_path == str(tmp_path / 'package')
+    jobs_page = service.render_jobs(principal)
+    assert '<body class="jobs-page">' in jobs_page
+    assert jobs_page.count('class="table-wrap job-table-wrap"') == 2
+    assert 'aria-labelledby="target-imports-heading" tabindex="0"' in jobs_page
+    assert 'aria-labelledby="fits-heading" tabindex="0"' in jobs_page
+    assert '.job-table-wrap{max-height:calc(100vh - 150px)' in jobs_page
 
 
 def test_public_system_render_is_revision_cached_and_uses_shared_resources(
