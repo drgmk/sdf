@@ -1,6 +1,7 @@
 import fcntl
 import json
 import os
+import time
 
 from .context import sdf
 from sdf.work_cleanup import cleanup_sampler_work
@@ -130,3 +131,36 @@ def test_cleanup_protects_package_with_unreadable_result(tmp_path):
         'package has unreadable retained result metadata'
     )
     assert work.is_dir()
+
+
+def test_cleanup_lock_creation_does_not_refresh_work_age(tmp_path):
+    now = time.time()
+    package = tmp_path / 'target'
+    work = _work(package, 'old', age_days=8, now=now)
+
+    report = cleanup_sampler_work(tmp_path, now=now, apply=True)
+
+    assert report.items[0].eligible
+    assert report.items[0].removed
+    assert report.items[0].reason == (
+        'removed past 7-day superseded retention'
+    )
+    assert not work.exists()
+
+
+def test_cleanup_recovers_work_refreshed_by_an_earlier_lock(tmp_path):
+    now = time.time()
+    package = tmp_path / 'target'
+    work = _work(package, 'old', age_days=8, now=now)
+
+    # The original cleanup bug left this exact state behind: old sampler
+    # content plus a newly-created lock and newly-refreshed directory mtime.
+    (work / '.fit.lock').touch()
+    os.utime(work, (now, now))
+
+    report = cleanup_sampler_work(tmp_path, now=now, apply=True)
+
+    assert report.items[0].age_days >= 8
+    assert report.items[0].eligible
+    assert report.items[0].removed
+    assert not work.exists()

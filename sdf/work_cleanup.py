@@ -140,9 +140,11 @@ def _referenced_work_directories(package):
     return referenced, valid
 
 
-def _size_and_newest(directory):
+def _size_and_newest(directory, *, directory_mtime=None):
     size = 0
-    newest = directory.stat().st_mtime
+    if directory_mtime is None:
+        directory_mtime = directory.stat().st_mtime
+    newest = None
     for base, directories, files in os.walk(directory):
         directories[:] = [
             name for name in directories
@@ -159,7 +161,16 @@ def _size_and_newest(directory):
             except FileNotFoundError:
                 continue
             size += stat.st_size
-            newest = max(newest, stat.st_mtime)
+            newest = (
+                stat.st_mtime if newest is None else
+                max(newest, stat.st_mtime)
+            )
+    # A lock created by cleanup changes the containing directory mtime but is
+    # not sampler activity.  Use content timestamps whenever content exists;
+    # the directory timestamp is only meaningful for an otherwise empty work
+    # directory.
+    if newest is None:
+        newest = directory_mtime
     return size, newest
 
 
@@ -183,6 +194,10 @@ def _lock_is_held(path):
 def _remove_if_still_eligible(package, directory, thresholds, now):
     lock_path = directory / '.fit.lock'
     try:
+        # Creating a missing lock file changes the work directory mtime.  Keep
+        # the pre-lock value so our own safety mechanism cannot make old work
+        # appear newly active during the locked recheck below.
+        directory_mtime = directory.stat().st_mtime
         handle = lock_path.open('a+')
     except FileNotFoundError:
         return False, 'work directory disappeared before cleanup'
@@ -196,7 +211,9 @@ def _remove_if_still_eligible(package, directory, thresholds, now):
             return False, 'retained result metadata became unreadable'
         category = _category(directory, referenced)
         threshold = thresholds[category]
-        _, newest = _size_and_newest(directory)
+        _, newest = _size_and_newest(
+            directory, directory_mtime=directory_mtime
+        )
         age_days = max(0.0, (now - newest) / 86400.0)
         if age_days < threshold:
             return False, 'work changed while cleanup was scanning'
