@@ -1,0 +1,22 @@
+{% extends "catalog_base.html" %}
+{% block content %}
+<div class="page-head"><div><h1>{{ job.sample_name }}</h1><p class="muted">Sample {% if job.operation == 'remove' %}edit{% else %}import{% endif %} #{{ job.id }}, {{ job.targets|length }} requested target{% if job.targets|length != 1 %}s{% endif %}</p></div><span class="status {{ job.status }}">{{ job.status }}</span></div>
+{% if job.status in ['queued', 'running'] %}{% include "catalog_import_timeout_note.html" %}{% endif %}
+{% if auto_refresh %}{% include "catalog_import_poll.html" %}{% endif %}
+{% if job.status == 'queued' %}
+<div class="message"><h2>Waiting to update</h2><p>The sample change is queued behind any earlier <code>sdb</code> work.</p></div>
+{% elif job.status == 'running' %}
+<div class="message"><h2>Updating the sample</h2><p>{% if job.progress_message %}{{ job.progress_message }}{% elif job.operation == 'remove' %}<code>sdb</code> is removing the selected memberships and publishing a fresh sample view.{% else %}<code>sdb</code> is resolving the identifiers, updating configured providers, and exporting successful targets.{% endif %}</p>{% if job.progress_total is not none and job.progress_current is not none %}<progress value="{{ job.progress_current }}" max="{{ job.progress_total or 1 }}"></progress><p class="muted">{{ job.progress_current }} of {{ job.progress_total }}{% if job.progress_stage %} · {{ job.progress_stage }}{% endif %}</p>{% endif %}</div>
+{% elif job.status == 'failed' %}
+<div class="message"><h2>Sample update failed</h2><p>{{ job.error }}</p><p><a href="/samples/{{ job.sample_name|urlencode }}/">Return to sample</a></p></div>
+{% else %}
+<div class="message"><h2>{% if job.result.sample_deleted %}Sample deleted{% elif job.operation == 'remove' %}Sample updated{% else %}Sample imported{% endif %}</h2><p>{{ job.result.succeeded_count }} target{% if job.result.succeeded_count != 1 %}s{% endif %} {% if job.operation == 'remove' %}removed{% else %}added or imported{% endif %}; {{ job.result.failed_count }} failed.{% if job.result.sample_deleted %} The sample had no members remaining and was deleted.{% endif %}{% if job.result.fit_job_ids %} Needed fits have been queued.{% endif %}</p>{% for warning in job.result.get('warnings', ()) %}<p class="warning">{{ warning }}</p>{% endfor %}{% if job.result.sample_deleted %}<p><a class="button" href="/samples">Return to samples</a></p>{% elif job.result.manifests %}<p><a class="button" href="/samples/{{ job.sample_name|urlencode }}/">Open sample</a></p>{% endif %}</div>
+{% if job.operation == 'remove' %}
+<h2>Membership results</h2>
+<div class="table-wrap"><table><thead><tr><th>Target</th><th>Result</th></tr></thead><tbody>{% for item in job.result.member_results %}<tr><td>{{ item.target }}</td><td>{% if item.error %}<span class="warning">{{ item.error }}</span>{% else %}Removed{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+{% else %}
+{% set target_result = job.result.import_result.import_result %}<h2>Target results</h2>
+<div class="table-wrap"><table><thead><tr><th>Input</th><th>Result</th></tr></thead><tbody>{% for item in target_result['items'] %}<tr><td>{{ item.requested_name }}</td><td>{% if item.status == 'existing' %}Existing target{% elif item.status == 'created' %}New target created{% else %}<span class="warning">{{ item.error or 'Failed' }}</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+{% endif %}
+{% endif %}
+{% endblock %}

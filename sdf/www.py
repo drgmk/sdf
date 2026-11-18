@@ -14,6 +14,7 @@ from . import plotting
 from . import db
 from . import utils
 from . import config as cfg
+from .external_services import ExternalServices
 
 
 def www_all(results, write_path=None, sed_file='index.html',
@@ -124,6 +125,9 @@ def sed_page(results, file='index.html', f_limits_file='f_limits.html',
                json_file=os.path.basename(results[0].pmn_dir) + '/' + os.path.basename(results[0].json),
                file_dir=os.path.basename(results[0].pmn_dir) + '/',
                main_id=results[0].obs_keywords['main_id'],
+               simbad_url=ExternalServices.from_sdb_config().simbad_identifier_url(
+                   results[0].obs_keywords['main_id']
+               ),
                spty=results[0].obs_keywords['sp_type'],
                ra=results[0].obs_keywords['raj2000'],
                dec=results[0].obs_keywords['dej2000'],
@@ -174,6 +178,9 @@ def f_limits_page(results, file='f_limits.html', sed_file='index.html',
                json_file=os.path.basename(results[0].pmn_dir) + '/' +
                          os.path.basename(results[0].json),
                main_id=results[0].obs_keywords['main_id'],
+               simbad_url=ExternalServices.from_sdb_config().simbad_identifier_url(
+                   results[0].obs_keywords['main_id']
+               ),
                spty=results[0].obs_keywords['sp_type'],
                ra=results[0].obs_keywords['raj2000'],
                dec=results[0].obs_keywords['dej2000'],
@@ -225,19 +232,11 @@ def cleanup_calibration_dirs():
 
 
 def create_dir(wwwroot, sample):
-    """Create sample directories and .htaccess if necessary."""
+    """Create a legacy static-output sample directory if necessary.
 
-    # make dir and .htaccess if dir doesn't exist
+    Access control belongs to the catalog application. Static product
+    generation must not create per-sample Apache policy files.
+    """
+
     if not os.path.isdir(wwwroot+sample):
         os.mkdir(wwwroot+sample)
-
-    # make .htaccess if needed, don't put one in those ending with "_"
-    # so those directories remain visible to those not logged in
-    if sample[-1] != '_':
-        fd = open(wwwroot+sample+'/.htaccess', 'w')
-        fd.write('AuthName "Must login"\n')
-        fd.write('AuthType Basic\n')
-        fd.write('AuthUserFile '+cfg.file['www_root']+'.htpasswd\n')
-        fd.write('AuthGroupFile '+cfg.file['www_root']+'.htgroup\n')
-        fd.write('require group admin '+sample+'\n')
-        fd.close()

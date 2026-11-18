@@ -14,11 +14,8 @@ from . import utils
 from . import result
 from . import db
 from . import config as cfg
-
-# these are for getting info to pymultinest
-global_obs = ()
-global_mod = ()
-global_p_rng = ()
+from .likelihood import FitProblem
+from .samplers import MultiNestSampler
 
 
 def fit_results(file, update_mn=False, update_an=False,
@@ -307,7 +304,7 @@ def concat_obs(o):
     for obs in o:
         if isinstance(obs, photometry.Photometry):
             obs_wav = np.append(obs_wav, obs.mean_wavelength())
-            obs_filt = np.append(obs_fnu, obs.filters)
+            obs_filt = np.append(obs_filt, obs.filters)
             obs_fnu = np.append(obs_fnu, obs.fnujy)
             obs_e_fnu = np.append(obs_e_fnu, obs.e_fnujy)
             obs_ispec = np.append(obs_ispec, np.repeat(-1, len(obs.filters)))
@@ -331,7 +328,7 @@ def concat_obs(o):
             obs_nel, obs_wav, obs_filt, obs_bibcode)
 
 
-def residual(param, *args):
+def residual(param, *args, projection=None):
     """Return residuals for a model compared to observation.
         
     The structure of the observation and models needs to
@@ -373,7 +370,9 @@ def residual(param, *args):
     obs_e_fnu = obs_e_fnu * spec_norm
 
     # get model fluxes, including filling of colours/indices
-    mod_fnu, _ = model.model_fluxes(m, param, obs_nel)
+    mod_fnu, _ = model.model_fluxes(
+        m, param, obs_nel, projection=projection
+    )
 
     # residuals in significance units, setting zero where (photometry)
     # is to be ignored, and for upper limits (but amended below)
@@ -447,50 +446,18 @@ def lnlike(param, *args):
         return -np.inf
 
 
-def multinest_prior(cube, ndim, nparam):
-    """Prior for pymultinest, turns values given in each element
-    of cube from range 0-1 to the range for that parameter
-    """
-    
-    # get parameter ranges
-    global global_p_rng
-    pars = global_p_rng
-
-    for i in range(ndim):
-        cube[i] = pars[i][0] + cube[i] * (pars[i][1]-pars[i][0])
-
-
-def multinest_lnlike(cube, ndim, nparam):
-    """Return log likelihood."""
-    
-    global global_obs, global_mod
-    o, m = (global_obs, global_mod)
-    param = np.array([])
-    for i in range(ndim):
-        param = np.append(param, cube[i])
-    return lnlike(param, o, m)
-
-
 def multinest(o, m, dir_):
-    """Run pymultinest to fit model(s) to photometry."""
-    
-    import pymultinest as pmn
-    
-    dir_ = dir_.rstrip('/')
-    
-    m_info = model.models_info(m)
-    pmn_out = dir_ + '/'+m_info['name'] + cfg.fitting['pmn_model_suffix']
-    global global_obs, global_mod, global_p_rng
-    global_obs = o
-    global_mod = m
-    global_p_rng = m_info['p_rng']
+    """Run MultiNest for already loaded observations/models.
 
-    pmn.run(multinest_lnlike, multinest_prior, m_info['ndim'],
-            n_live_points=cfg.fitting['n_live'],
-            n_iter_before_update=cfg.fitting['n_update'],
-            multimodal=True, sampling_efficiency=0.3,
-            verbose=cfg.fitting['verb'],
-            outputfiles_basename=pmn_out)
+    This compatibility entry point now delegates to the sampler adapter and
+    no longer stores callback inputs in module globals.
+    """
+
+    dir_ = dir_.rstrip('/')
+    problem = FitProblem.from_models(o, m)
+    pmn_out = dir_ + '/' + problem.model_info['name'] \
+        + cfg.fitting['pmn_model_suffix']
+    MultiNestSampler().run(problem, pmn_out)
 
 
 def pmn_models(dir_):

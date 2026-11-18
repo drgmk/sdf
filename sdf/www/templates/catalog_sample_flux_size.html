@@ -1,0 +1,7 @@
+{% extends "catalog_base.html" %}
+{% block body_class %}sample-page{% endblock %}
+{% block head %}{{ bokeh_css|safe }}{{ bokeh_js|safe }}{% endblock %}
+{% block content %}
+<div class="sample-head"><h1>{{ sample.name }}</h1>{% set sample_page = 'flux-size' %}{% include "catalog_sample_nav.html" %}</div>
+<div class="plot-box">{{ plot_div|safe }}</div>{{ plot_script|safe }}
+{% endblock %}

@@ -1,0 +1,9 @@
+targets:
+  Synthetic Spectrum:
+    stellar_models:
+    - phoenix_sol
+    disk_models:
+    - modbb_disk_r
+    max_disks: 0
+    search_mode: evidence-guided
+    reddening: false

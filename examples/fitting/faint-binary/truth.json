@@ -1,0 +1,29 @@
+{
+  "model": "phoenix_sol",
+  "filters": [
+    "UJ",
+    "BJ",
+    "VJ",
+    "RC",
+    "IC",
+    "GAIA.G",
+    "2MJ",
+    "2MH",
+    "2MKS",
+    "WISE12",
+    "WISE22",
+    "PACS70"
+  ],
+  "components": {
+    "Synthetic Faint A": [
+      6000.0,
+      4.5,
+      -2.6
+    ],
+    "Synthetic Faint B": [
+      6000.0,
+      4.5,
+      -5.6
+    ]
+  }
+}

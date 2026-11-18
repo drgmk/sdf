@@ -1,0 +1,181 @@
+<dialog class="sample-edit-dialog" id="sample-edit-dialog">
+  <div class="sample-dialog-head"><h2>Edit {{ sample.name }}</h2><button class="dialog-close" type="button" aria-label="Close">×</button></div>
+  <div class="sample-dialog-tabs" role="tablist" aria-label="Sample edit operation">
+    <button type="button" role="tab" aria-selected="true" data-sample-tab="add">Add targets</button>
+    <button type="button" role="tab" aria-selected="false" data-sample-tab="remove">Remove targets</button>
+    {% if can_share %}<button type="button" role="tab" aria-selected="false" data-sample-tab="sharing">Sharing</button>{% endif %}
+  </div>
+  <form class="sample-dialog-panel" id="sample-add-panel" data-sample-panel="add">
+    <label for="sample-add-targets"><strong>SIMBAD names or sdb identifiers</strong><br><span class="muted">One target per line. Existing targets are reused; new targets are imported.</span></label>
+    <textarea id="sample-add-targets" rows="6" placeholder="HD 123&#10;Vega"></textarea>
+    <div class="sample-dialog-result" id="sample-add-result" hidden></div>
+    <div class="warning" id="sample-add-error" role="alert"></div>
+    <div class="sample-dialog-actions"><button type="button" data-dialog-cancel>Cancel</button><button type="submit" id="sample-add-submit">Check targets</button></div>
+  </form>
+  <form class="sample-dialog-panel" id="sample-remove-panel" data-sample-panel="remove" hidden>
+    <label for="sample-member-filter"><strong>Current members</strong></label>
+    <input id="sample-member-filter" type="search" placeholder="Filter targets" autocomplete="off">
+    <div class="sample-member-list" id="sample-member-list">
+      {% for member in sample_members %}<label data-member-label="{{ member.filter_text|lower }}"><input type="checkbox" name="member" value="{{ member.identifier }}"><span>{{ member.label }}</span></label>{% else %}<p class="muted">This sample has no targets.</p>{% endfor %}
+    </div>
+    <div class="warning" id="sample-remove-error" role="alert"></div>
+    <div class="sample-dialog-actions"><button type="button" data-dialog-cancel>Cancel</button><button type="submit" id="sample-remove-submit">Remove selected</button></div>
+  </form>
+  {% if can_share %}<form class="sample-dialog-panel" id="sample-sharing-panel" data-sample-panel="sharing" hidden>
+    <div><strong>Co-owners</strong>{% if sample_owner %}<br><span>{{ sample_owner }}</span> <span class="muted">creator</span>{% endif %}</div>
+    <p class="muted">Everyone listed here can view and edit this sample.</p>
+    <label for="sample-collaborator-username"><strong>Share with user</strong><br><span class="muted">Enter the exact username or account email.</span></label>
+    <input id="sample-collaborator-username" type="text" autocomplete="off">
+    <div class="sample-collaborator-list">
+      {% for username in collaborators %}<div class="sample-collaborator"><span>{{ username }}</span><button type="button" data-unshare-user="{{ username }}">Remove</button></div>{% else %}<p class="muted">This sample has no collaborators yet.</p>{% endfor %}
+    </div>
+    <div class="warning" id="sample-sharing-error" role="alert"></div>
+    <div class="sample-dialog-actions"><button type="button" data-dialog-cancel>Cancel</button><button type="submit" id="sample-sharing-submit">Share sample</button></div>
+  </form>{% endif %}
+</dialog>
+<script>
+(() => {
+  const dialog = document.getElementById('sample-edit-dialog');
+  const open = document.getElementById('sample-edit-open');
+  const tabs = Array.from(dialog.querySelectorAll('[data-sample-tab]'));
+  const panels = Array.from(dialog.querySelectorAll('[data-sample-panel]'));
+  const addForm = document.getElementById('sample-add-panel');
+  const addText = document.getElementById('sample-add-targets');
+  const addResult = document.getElementById('sample-add-result');
+  const addError = document.getElementById('sample-add-error');
+  const addSubmit = document.getElementById('sample-add-submit');
+  const removeForm = document.getElementById('sample-remove-panel');
+  const removeError = document.getElementById('sample-remove-error');
+  const sampleName = {{ sample.name|tojson }};
+  const signedInUser = {{ principal.username|tojson }};
+  const memberIds = new Set(Array.from(dialog.querySelectorAll('input[name=member]')).map(input => input.value));
+  let checkedSignature = null;
+  let checkedItems = [];
+
+  function targets() {
+    return [...new Set(addText.value.split(/\r?\n/).map(value => value.replace(/\s+/g, ' ').trim()).filter(value => value && !value.startsWith('#')))];
+  }
+  function selectTab(name) {
+    tabs.forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.sampleTab === name)));
+    panels.forEach(panel => { panel.hidden = panel.dataset.samplePanel !== name; });
+  }
+  function resetCheck() {
+    checkedSignature = null; checkedItems = []; addResult.hidden = true;
+    addResult.replaceChildren(); addSubmit.textContent = 'Check targets';
+  }
+  function alreadyMember(item) {
+    return item.status === 'existing' && item.matches.length === 1 && memberIds.has(item.matches[0].sdbid);
+  }
+  function renderCheck(result) {
+    const summary = document.createElement('p');
+    const already = result.items.filter(alreadyMember).length;
+    summary.className = 'muted';
+    summary.textContent = `${result.existing_count} existing in sdb, ${result.new_count} new, ${already} already in this sample`;
+    const table = document.createElement('table');
+    const body = document.createElement('tbody');
+    for (const item of result.items) {
+      const row = document.createElement('tr');
+      const name = document.createElement('td'); name.textContent = item.requested_name;
+      const status = document.createElement('td');
+      if (alreadyMember(item)) status.textContent = 'Already in sample';
+      else if (item.status === 'existing') status.textContent = `Add existing target ${item.matches[0].main_id}`;
+      else if (item.status === 'new') status.textContent = 'Import from SIMBAD and add';
+      else status.textContent = `Ambiguous: ${item.matches.map(match => match.main_id).join(', ')}`;
+      row.append(name, status); body.appendChild(row);
+    }
+    table.appendChild(body); addResult.replaceChildren(summary, table); addResult.hidden = false;
+  }
+  async function queue(operation, values, button, error) {
+    button.disabled = true; error.textContent = '';
+    try {
+      const response = await fetch('/sample-edits', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-SDF-Token': '{{ token }}'},
+        body: JSON.stringify({sample_name: sampleName, operation, targets: values}),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not update the sample.');
+      window.location.assign(`/sample-imports/${result.job_id}`);
+    } catch (problem) { error.textContent = problem.message; button.disabled = false; }
+  }
+
+  open.addEventListener('click', () => dialog.showModal());
+  dialog.querySelector('.dialog-close').addEventListener('click', () => dialog.close());
+  dialog.querySelectorAll('[data-dialog-cancel]').forEach(button => button.addEventListener('click', () => dialog.close()));
+  dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
+  tabs.forEach(tab => tab.addEventListener('click', () => selectTab(tab.dataset.sampleTab)));
+  addText.addEventListener('input', resetCheck);
+  addForm.addEventListener('submit', async event => {
+    event.preventDefault(); addError.textContent = '';
+    const values = targets();
+    if (!values.length) { addError.textContent = 'Enter at least one target.'; return; }
+    if (values.length > 1000) { addError.textContent = 'Sample edits are limited to 1000 targets.'; return; }
+    const signature = JSON.stringify(values);
+    if (checkedSignature !== signature) {
+      addSubmit.disabled = true; addSubmit.textContent = 'Checking…';
+      try {
+        const response = await fetch('/sample-checks', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-SDF-Token': '{{ token }}'}, body: JSON.stringify({targets: values})});
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Could not check targets.');
+        checkedItems = result.items; renderCheck(result);
+        if (result.ambiguous_count) throw new Error('Resolve ambiguous identifiers before adding targets.');
+        checkedSignature = signature; addSubmit.textContent = 'Add targets';
+      } catch (problem) { addError.textContent = problem.message; if (!checkedSignature) addSubmit.textContent = 'Check targets'; }
+      finally { addSubmit.disabled = false; }
+      return;
+    }
+    const additions = checkedItems.filter(item => !alreadyMember(item)).map(item => item.requested_name);
+    if (!additions.length) { addError.textContent = 'All of these targets are already in the sample.'; return; }
+    await queue('add', additions, addSubmit, addError);
+  });
+  document.getElementById('sample-member-filter').addEventListener('input', event => {
+    const query = event.target.value.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+    dialog.querySelectorAll('[data-member-label]').forEach(row => {
+      const label = row.dataset.memberLabel.replace(/\s+/g, ' ');
+      row.hidden = query && !label.includes(query);
+    });
+  });
+  removeForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    const selected = Array.from(dialog.querySelectorAll('input[name=member]:checked')).map(input => input.value);
+    if (!selected.length) { removeError.textContent = 'Select at least one target to remove.'; return; }
+    const label = selected.length === 1 ? 'this target' : `these ${selected.length} targets`;
+    const deleting = selected.length === memberIds.size;
+    const consequence = deleting
+      ? 'This will leave the sample empty, so the sample itself will also be deleted. The targets and their fits will not be deleted.'
+      : 'The targets and their fits will not be deleted.';
+    if (!window.confirm(`Remove ${label} from ${sampleName}? ${consequence}`)) return;
+    await queue('remove', selected, document.getElementById('sample-remove-submit'), removeError);
+  });
+  const sharingForm = document.getElementById('sample-sharing-panel');
+  if (sharingForm) {
+    const sharingError = document.getElementById('sample-sharing-error');
+    const usernameInput = document.getElementById('sample-collaborator-username');
+    async function updateCollaborator(operation, username, button) {
+      button.disabled = true; sharingError.textContent = '';
+      try {
+        const response = await fetch('/sample-collaborators', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-SDF-Token': '{{ token }}'},
+          body: JSON.stringify({sample_name: sampleName, operation, username}),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Could not update sample sharing.');
+        if (operation === 'unshare' && username === signedInUser) window.location.assign('/samples');
+        else window.location.reload();
+      } catch (problem) { sharingError.textContent = problem.message; button.disabled = false; }
+    }
+    sharingForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      const username = usernameInput.value.trim();
+      if (!username) { sharingError.textContent = 'Enter a username.'; return; }
+      await updateCollaborator('share', username, document.getElementById('sample-sharing-submit'));
+    });
+    sharingForm.querySelectorAll('[data-unshare-user]').forEach(button => button.addEventListener('click', async () => {
+      const username = button.dataset.unshareUser;
+      if (!window.confirm(`Remove ${username} from this sample?`)) return;
+      await updateCollaborator('unshare', username, button);
+    }));
+  }
+})();
+</script>

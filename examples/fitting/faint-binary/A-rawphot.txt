@@ -1,0 +1,21 @@
+\id='A'
+\main_id='Synthetic Faint A'
+\sp_type='G2V'
+\plx_value=50.0
+\plx_err=0.1
+|  Band|                Phot|                   Err|                   Sys| Lim|Unit|  bibcode|                 Note1|exclude|
+|  char|              double|                double|                double|long|char|     char|                  char|   long|
+|      |                    |                      |                      |    |    |         |                      |       |
+|  null|                null|                  null|                  null|null|null|     null|                  null|   null|
+     UJ   3.2469227843212347     0.0649384556864247    0.03246922784321235    0   Jy synthetic exact model photometry       0
+     BJ    8.125165778980366    0.16250331557960732    0.08125165778980366    0   Jy synthetic exact model photometry       0
+     VJ   12.831980268132526     0.2566396053626505    0.12831980268132526    0   Jy synthetic exact model photometry       0
+     RC   15.070001145121957     0.3014000229024391    0.15070001145121956    0   Jy synthetic exact model photometry       0
+     IC    15.98217145365505      0.319643429073101     0.1598217145365505    0   Jy synthetic exact model photometry       0
+ GAIA.G    12.99672736144619     0.2599345472289238     0.1299672736144619    0   Jy synthetic exact model photometry       0
+    2MJ   14.790927510619024     0.2958185502123805    0.14790927510619026    0   Jy synthetic exact model photometry       0
+    2MH   12.640618852456763     0.2528123770491353    0.12640618852456764    0   Jy synthetic exact model photometry       0
+   2MKS    8.460908648578103    0.16921817297156205    0.08460908648578103    0   Jy synthetic exact model photometry       0
+ WISE12     0.37441367242884     0.0074882734485768     0.0037441367242884    0   Jy synthetic exact model photometry       0
+ WISE22  0.10406966967245104  0.0020813933934490207  0.0010406966967245104    0   Jy synthetic exact model photometry       0
+ PACS70 0.010431181455372007 0.00020862362910744014 0.00010431181455372007    0   Jy synthetic exact model photometry       0

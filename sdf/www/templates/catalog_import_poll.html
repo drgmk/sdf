@@ -1,0 +1,32 @@
+<p id="import-poll-warning" class="warning" role="status" hidden>Progress is temporarily unavailable. The import may still be running; this page will keep trying. You can also check <a href="/status">Status</a>.</p>
+<script>
+(() => {
+  const currentKey = {{ refresh_key|tojson }};
+  const warning = document.getElementById('import-poll-warning');
+  const endpoint = new URL(window.location.href);
+  endpoint.searchParams.set('poll', '1');
+  async function poll() {
+    try {
+      const response = await fetch(endpoint, {
+        cache: 'no-store',
+        headers: {'Accept': 'application/json'}
+      });
+      if (response.redirected && new URL(response.url).pathname === '/auth/login') {
+        window.location.assign(response.url);
+        return;
+      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const state = await response.json();
+      warning.hidden = true;
+      if (state.refresh_key !== currentKey) {
+        window.location.reload();
+        return;
+      }
+    } catch (problem) {
+      warning.hidden = false;
+    }
+    window.setTimeout(poll, 5000);
+  }
+  window.setTimeout(poll, 5000);
+})();
+</script>

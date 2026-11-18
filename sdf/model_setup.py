@@ -455,8 +455,10 @@ def phoenix_cool_spectra(resolution=100, overwrite=False,
 
     Use a subset of the BT-Settl-AGS2009 models for cool stars.
 
-    .. todo:: yes, there alarming jumps in the spectra, these are present
-    in the raw files and I'd guess where the opacities aren't available.
+    Notes
+    -----
+    Some abrupt changes are present in the source spectra, probably where
+    opacity data are unavailable; they are not introduced by this function.
 
     Parameters
     ----------

@@ -159,21 +159,10 @@ class Model(object):
         self.log_fnujy_sr_hashed = utils.hashable(tmp)
 
     def rginterpolator(self):
-        """Return a regular grid interpolator.
-            
-        Memoizing doesn't appear to save any time.
-        
-        This was the chunk of code in fnujy below:
-        
-        # scipy.RegularGridInterpolator, save a bit of time since the
-        # interpolator object is the same for each model. first we
-        # create grid points we want, each row is just the different
-        # filter numbers assigned above with the parameters appended
-#        pargrid = np.tile(par, len(wave_arr)).reshape((len(wave_arr), len(par)))
-#        pargrid = np.insert(pargrid, 0, wave_arr, axis=1)
-#        f = self.rginterpolator()
-#        fluxes = f(pargrid)
+        """Return a regular-grid interpolator over wavelength and parameters.
 
+        Memoizing this object has not produced a measurable speed improvement;
+        the method remains available for interpolation experiments.
         """
     
         if isinstance(self, PhotModel):
@@ -199,12 +188,12 @@ class Model(object):
         This is spline interpolation. This doesn't matter too much since
         any high dynamic range parameters are already log spaced.
 
-        .. todo:: this is the core of the sdf code in terms of execution
-        time. Experiments so far find that map_coordinates is faster
-        than RegularGridInterpolator, but is hindered somewhat by the
-        need to do interpolation first to find the grid points needed by
-        map_coordinates. np.interp seems to be faster than scipy
-        UnivariateSpline or simple 1pt interpolation for this step.
+        Notes
+        -----
+        This is a performance-critical operation. Experiments find
+        ``map_coordinates`` faster than ``RegularGridInterpolator``, although
+        the physical parameter values must first be mapped to grid positions.
+        ``numpy.interp`` is currently used for that mapping.
             
         """
 
@@ -890,13 +879,12 @@ class SpecModel(Model):
     def interp_to_wavelengths(self, wavelength, log=True):
         """Interpolate the model to the given wavelengths.
 
-        .. todo:: this only needs to be run at the beginning of a fit but
-        is very slow, especially when there are spectra, speed it up!
-
-        .. todo:: this is straight linear/log interpolation, but could
-        smooth the spectra first since the given wavelength grid will
-        almost certainly be near the spectral resolution of whatever
-        instrument it came from. Probably use resample.
+        Notes
+        -----
+        This preparation is run at the beginning of a fit and can be slow for
+        spectra. It performs direct linear or logarithmic interpolation; the
+        joint-fitting spectrum preparation path separately handles instrumental
+        resolution where resolving-power metadata are available.
         """
 
         # check we need to do something
@@ -934,8 +922,102 @@ class SpecModel(Model):
         # and update the hashed version
         self.fill_log_fnujy_sr_hashed()
 
+    def prepare_for_spectrum(self, wavelength, resolving_power=None):
+        """Prepare this grid once for an observed spectral segment.
 
-def model_fluxes(m, param, obs_nel, phot_only=False):
+        A segment with explicit resolving power is compared with a model that
+        has first been convolved to that resolution and sampled at the
+        observed wavelengths.  If the model grid is already coarser than the
+        requested response it cannot be sharpened, so the established
+        interpolation behavior is retained and recorded on the prepared
+        model.
+        """
+
+        wavelength = np.asarray(wavelength, dtype=float)
+        order = np.argsort(self.wavelength)
+        if not np.array_equal(order, np.arange(len(order))):
+            self.wavelength = self.wavelength[order]
+            self.fnujy_sr = self.fnujy_sr[order]
+        native_resolution = self.sampling_resolution()
+        target_resolution = _representative_resolution(resolving_power)
+        if (
+            target_resolution is None or
+            native_resolution <= target_resolution
+        ):
+            self.interp_to_wavelengths(wavelength)
+            self.resolution_match = {
+                'method': 'interpolate',
+                'native_resolving_power': native_resolution,
+                'target_resolving_power': target_resolution,
+                'under_resolved': (
+                    target_resolution is not None and
+                    native_resolution < target_resolution
+                ),
+            }
+            return
+
+        if np.ndim(resolving_power) == 0:
+            response = float(resolving_power)
+        else:
+            response = np.asarray(resolving_power, dtype=float)
+        kernel = utils.spectral_resample_matrix(
+            self.wavelength,
+            wavelength,
+            response,
+            native_resolving_power=native_resolution,
+        )
+        output_shape = (len(wavelength),) + self.fnujy_sr.shape[1:]
+        flattened = self.fnujy_sr.reshape(len(self.wavelength), -1)
+        self.wavelength = wavelength
+        self.fnujy_sr = np.asarray(kernel @ flattened).reshape(output_shape)
+        self.i = np.arange(len(self.wavelength))
+        self.n_i = len(self.i)
+        self.fill_log_fnujy_sr_hashed()
+        self.resolution_match = {
+            'method': 'gaussian_convolution',
+            'native_resolving_power': native_resolution,
+            'target_resolving_power': target_resolution,
+            'under_resolved': False,
+        }
+
+    def sampling_resolution(self):
+        """Return the median resolving power represented by this grid."""
+
+        wavelength = np.sort(np.asarray(self.wavelength, dtype=float))
+        midpoint = 0.5 * (wavelength[1:] + wavelength[:-1])
+        return float(np.median(midpoint / np.diff(wavelength)))
+
+
+def _representative_resolution(value):
+    if value is None:
+        return None
+    values = np.asarray(value, dtype=float)
+    if np.any(~np.isfinite(values)) or np.any(values <= 0):
+        raise utils.SdfError(
+            'spectral resolving power must be finite and positive'
+        )
+    return float(np.median(values))
+
+
+def _resolution_cache_key(value):
+    if value is None:
+        return None
+    values = np.asarray(value, dtype=float)
+    if values.ndim == 0:
+        return float(values)
+    return tuple(float(item) for item in values)
+
+
+@lru_cache(maxsize=32)
+def _prepared_spec_model(name, wavelengths, resolving_power):
+    prepared = SpecModel.read_model(name).copy()
+    prepared.prepare_for_spectrum(
+        np.asarray(wavelengths, dtype=float), resolving_power,
+    )
+    return prepared
+
+
+def model_fluxes(m, param, obs_nel, phot_only=False, projection=None):
     """Get model fluxes and put in arrays.
     
     all_fnu is everything added up, with colours/indices added properly,
@@ -943,31 +1025,49 @@ def model_fluxes(m, param, obs_nel, phot_only=False):
     comp_fnu_col[i] contains these with colours computed.
     """
     
+    n_observations = len(m[0]) if isinstance(m[0], tuple) else 1
+    if projection is None:
+        projection = np.ones((n_observations, len(m)), dtype=bool)
+    projection = np.asarray(projection, dtype=bool)
+    if projection.shape != (n_observations, len(m)):
+        raise utils.SdfError(
+            'component projection has shape {}, expected {}'.format(
+                projection.shape, (n_observations, len(m))
+            )
+        )
+
     comp_fnu = []
     all_fnu = []
     i0 = 0
     # loop over model components
-    for comp in m:
+    for component_index, comp in enumerate(m):
         # loop over phot/spectra for this component if they exist
         if not isinstance(comp, tuple):
             comp = (comp, )
         flux = np.array([])
+        projected_flux = np.array([])
         # params same for all in each component
         nparam = len(comp[0].parameters)+1
-        for mod in comp:
+        for observation_index, mod in enumerate(comp):
             if phot_only:
                 if not isinstance(mod, PhotModel):
                     continue
             fnu = mod.fnujy(param[i0:i0+nparam])
             flux = np.append(flux, fnu)
+            if projection[observation_index, component_index]:
+                projected_flux = np.append(projected_flux, fnu)
+            else:
+                projected_flux = np.append(
+                    projected_flux, np.zeros_like(fnu)
+                )
         
         # since we don't know how long all_fnu will be, make sure
         # comp_fnu has first dimension equal number of components 
         if len(all_fnu) == 0:
-            all_fnu = flux
+            all_fnu = projected_flux
             comp_fnu = np.array([flux])
         else:
-            all_fnu += flux
+            all_fnu += projected_flux
             comp_fnu = np.vstack((comp_fnu, flux))
         i0 += nparam
     
@@ -976,6 +1076,10 @@ def model_fluxes(m, param, obs_nel, phot_only=False):
     comp_fnu_col = np.zeros((len(comp_fnu), len(mod_fnu)))
     for i, fnu in enumerate(comp_fnu):
         comp_fnu_col[i] = fill_colours(m[0], fnu, obs_nel)
+        visible = np.repeat(
+            projection[:, i], np.asarray(obs_nel, dtype=int)
+        )
+        comp_fnu_col[i, np.invert(visible)] = 0.0
 
     return mod_fnu, comp_fnu_col
 
@@ -1168,7 +1272,7 @@ def fill_colours(comp, mod_fnu, obs_nel):
                         filt = filter.Filter.get(fname)
                         mag = filt.flux2mag(mod_fnu[irel])
                         mags += mag * cb['filterw'][j]
-                    mod_fnu[i] = mags
+                    mod_fnu[i0comp+i] = mags
             final_fnu = np.append(final_fnu,
                                   mod_fnu[i0comp:i0comp+obs_nel[k]])
             i0comp += len(mod.filters)
@@ -1211,8 +1315,11 @@ def get_models(obs, names):
                 fmod = fmod + (phmod, )
             
             if isinstance(o, spectrum.ObsSpectrum):
-                spmod = sp.copy()
-                spmod.interp_to_wavelengths(o.wavelength)
+                spmod = _prepared_spec_model(
+                    name,
+                    tuple(float(value) for value in o.wavelength),
+                    _resolution_cache_key(o.resolving_power),
+                ).copy()
                 omod = omod + (spmod, )
                 
         # always want a full spectrum in full model, but only one

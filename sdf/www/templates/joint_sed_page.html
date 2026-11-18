@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }}</title>
+  {{ bokeh_css|safe }}
+  {{ bokeh_js|safe }}
+  <style>
+    {% include "catalog_header_styles.css" %}
+    :root { color-scheme:light; --ink:#172033; --muted:#526071;
+      --line:#dce3ea; --soft:#f3f5f7; --accent:#285ea8; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--soft); color:var(--ink);
+      font-family:ui-sans-serif,system-ui,-apple-system,sans-serif; }
+    a { color:var(--accent); text-decoration:none; }
+    a:hover { text-decoration:underline; }
+    .sed-shell { width:min(1120px,100%); margin:0 auto; padding:8px; }
+    .sed-head,.system-card,.operator-drawer {
+      background:white; border:1px solid var(--line); border-radius:8px; }
+    .sed-head { padding:9px 12px; margin-bottom:7px; }
+    .sed-title-row { display:flex; align-items:center; gap:12px;
+      justify-content:space-between; }
+    .title-group { display:flex; align-items:center; gap:12px; min-width:0;
+      flex-wrap:wrap; }
+    h1 { margin:0; font-size:22px; line-height:1.15; }
+    h2 { margin:0 0 8px; font-size:15px; }
+    p { margin:4px 0; }
+    .muted { color:var(--muted); }
+    .default-config { display:flex; align-items:center; gap:5px; flex-wrap:wrap;
+      color:var(--muted); font-size:12px; }
+    .config-chip { display:inline-flex; align-items:center; gap:4px;
+      border:1px solid var(--line); border-left:4px solid var(--chip-colour);
+      border-radius:12px; padding:2px 7px 2px 6px; color:var(--ink);
+      background:#f8fafc; font-weight:600; white-space:nowrap; }
+    .page-actions { display:flex; gap:7px; flex-wrap:wrap; }
+    button,.page-action { border:1px solid #bdc8d6; border-radius:5px;
+      padding:6px 10px; background:white; color:var(--ink); font:inherit;
+      cursor:pointer; }
+    button:hover,.page-action:hover { background:#eef3f8; text-decoration:none; }
+    .content-grid { display:grid; grid-template-columns:190px minmax(0,1fr);
+      align-items:start; gap:7px; }
+    .system-card { padding:10px; position:sticky; top:66px; font-size:12px; }
+    .system-tree + .system-tree { border-top:1px solid var(--line);
+      margin-top:9px; padding-top:9px; }
+    .system-node { min-width:0; }
+    .system-node.child { position:relative; margin:7px 0 0 13px;
+      padding-left:14px; border-left:1px solid #cbd5e1; }
+    .system-node.child::before { content:""; position:absolute; left:0; top:11px;
+      width:9px; border-top:1px solid #cbd5e1; }
+    .node-head { display:flex; align-items:center; gap:5px; min-width:0; }
+    .component-token { flex:0 0 auto; min-width:26px; border-radius:11px;
+      padding:2px 6px; text-align:center; font-weight:700; background:#edf2f7;
+      border:1px solid #d6dee8; }
+    .child .component-token { border-left:4px solid var(--node-colour);
+      padding-left:4px; }
+    .node-label { min-width:0; overflow-wrap:anywhere; font-weight:650; }
+    .node-meta { color:var(--muted); margin:3px 0 0 31px; line-height:1.3; }
+    .system-links { display:flex; gap:6px; flex-wrap:wrap; margin:4px 0 0 31px;
+      font-size:11px; }
+    .archive-links { border-top:1px dotted var(--line); margin-top:7px;
+      padding-top:6px; }
+    .main-column { min-width:0; }
+    .default-badge { background:#dff3e4; color:#176b37; border-radius:10px;
+      padding:2px 7px; font-size:11px; white-space:nowrap; }
+    .recommended-badge { background:#e8eefc; color:#294d94; border-radius:10px;
+      padding:2px 7px; font-size:11px; white-space:nowrap; }
+    .stale-badge { background:#fff0cf; color:#7a4b00; border-radius:10px;
+      padding:2px 7px; font-size:11px; white-space:nowrap; }
+    .plot-region { min-width:0; background:white; border:1px solid var(--line);
+      border-radius:8px; padding:0 6px 6px; overflow:hidden; }
+    .operator-drawer { position:fixed; z-index:1000; right:10px; top:68px;
+      bottom:10px; width:min(430px,calc(100vw - 20px)); padding:16px;
+      overflow:auto; box-shadow:0 12px 35px rgba(23,32,51,.22); }
+    .operator-drawer[hidden] { display:none; }
+    .drawer-head { display:flex; justify-content:space-between; gap:10px;
+      align-items:flex-start; }
+    .operator-section { border-top:1px solid var(--line); padding-top:12px;
+      margin-top:12px; }
+    .operator-target,.operator-fit { border:1px solid var(--line);
+      border-radius:6px; padding:9px; margin-top:7px; }
+    .operator-target.pending-reset { background:#f8fafc; border-style:dashed; }
+    #system-fit-form { position:sticky; top:-1px; z-index:2; background:white;
+      border-bottom:1px solid var(--line); padding:2px 0 10px; }
+    .operator-form { display:grid; grid-template-columns:1fr 1fr; gap:8px;
+      margin-top:9px; }
+    .operator-form label { color:var(--muted); font-size:12px; }
+    .operator-form select,.operator-form input { display:block; width:100%;
+      margin-top:3px; border:1px solid #bdc8d6; border-radius:5px;
+      padding:6px; background:white; color:var(--ink); font:inherit; }
+    .operator-form .wide { grid-column:1 / -1; }
+    .operator-actions { display:flex; align-items:center; gap:7px;
+      flex-wrap:wrap; grid-column:1 / -1; }
+    .operator-status { min-height:18px; color:var(--muted); font-size:12px; }
+    .operator-status.error { color:#a12622; }
+    .fit-actions { display:flex; align-items:center; gap:7px; flex-wrap:wrap;
+      margin-top:7px; font-size:13px; }
+    .queue-note { background:#fff7df; border:1px solid #ead59b;
+      border-radius:6px; padding:8px; margin-top:9px; }
+    button[disabled],input[disabled],select[disabled] { cursor:not-allowed;
+      opacity:.55; }
+    .sed-footer { display:flex; justify-content:space-between; gap:12px;
+      align-items:center; margin-top:7px; padding:9px 12px; background:white;
+      border:1px solid var(--line); border-radius:8px; color:var(--muted);
+      font-size:11px; }
+    .footer-nav { display:flex; gap:7px; align-items:center; }
+    .distribution-dialog { width:min(1120px,calc(100vw - 28px));
+      max-width:none; max-height:calc(100vh - 28px); padding:0;
+      border:1px solid var(--line); border-radius:9px;
+      box-shadow:0 18px 55px rgba(15,23,42,.3); }
+    .distribution-dialog::backdrop { background:rgba(15,23,42,.48); }
+    .distribution-head { position:sticky; top:0; z-index:1; display:flex;
+      justify-content:space-between; align-items:center; gap:12px;
+      padding:9px 12px; background:white; border-bottom:1px solid var(--line); }
+    .distribution-head h2 { margin:0; }
+    .distribution-actions { display:flex; align-items:center; gap:8px; }
+    .distribution-body { padding:10px; background:#f8fafc; text-align:center;
+      overflow:auto; }
+    .distribution-body img { display:block; max-width:100%; height:auto;
+      margin:0 auto; background:white; cursor:zoom-in; }
+    .distribution-body img.full-size { max-width:none; cursor:zoom-out; }
+    @media (max-width:800px) {
+      .sed-title-row { display:block; }
+      .page-actions { margin-top:10px; }
+      .content-grid { grid-template-columns:1fr; }
+      .system-card { position:static; }
+      .system-tree { display:inline-block; vertical-align:top; min-width:220px;
+        margin-right:12px; }
+    }
+  </style>
+</head>
+<body class="sed-page{% if operator %} operator-mode{% endif %}">
+{% include "catalog_header.html" %}
+<main class="sed-shell">
+  <header class="sed-head">
+    <div class="sed-title-row">
+      <div class="title-group">
+        <h1>{{ title }}</h1>
+        {% if default_fit %}<div class="default-config" aria-label="Default fit" data-candidate="{{ default_fit.reference }}"><span>Default</span>{% for part in default_fit.shorthand %}<span class="config-chip" style="--chip-colour:{{ part.colour }}" title="{{ part.title }}">{% if part.owner %}{{ part.owner }} {% endif %}{{ part.symbols }}</span>{% endfor %}</div>{% endif %}
+      </div>
+      <nav class="page-actions" aria-label="SED actions">
+        {% if review_url and (admin_access or operator) %}<a class="page-action" href="{{ review_url }}">Review data</a>{% endif %}
+        {% if admin_url and not operator %}<a class="page-action" href="{{ admin_url }}">Admin SED</a>{% endif %}
+        {% if operator %}<button id="open-fit-controls" type="button" aria-controls="fit-controls" aria-expanded="false">Fit controls</button>{% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <div class="content-grid">
+    <aside class="system-card" aria-label="System information">
+      <h2>System</h2>
+      {% for system in systems %}
+      <section class="system-tree">
+        <div class="system-node root">
+          <div class="node-head"><span class="component-token">{{ system.component or '★' }}</span><span class="node-label">{% if system.external_links %}<a href="{{ system.external_links[0].url }}" target="_blank" rel="noopener">{{ system.label }}</a>{% else %}{{ system.label }}{% endif %}</span></div>
+          {% if system.spectral_type or system.distance_pc %}<div class="node-meta">{% if system.spectral_type %}{{ system.spectral_type }}{% endif %}{% if system.spectral_type and system.distance_pc %} · {% endif %}{% if system.distance_pc %}d={{ '%.1f'|format(system.distance_pc) }} pc{% endif %}</div>{% endif %}
+          <div class="system-links">{% if system.input_file %}<a href="{{ system.input_file }}">data</a>{% endif %}{% for link in system.external_links %}{% if link.label == 'SIMBAD' %}<a href="{{ link.url }}" target="_blank" rel="noopener">SIMBAD</a>{% endif %}{% endfor %}</div>
+          {% if system.external_links|length > 1 %}<div class="system-links archive-links">{% for link in system.external_links %}{% if link.label != 'SIMBAD' %}<a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.label }}</a>{% endif %}{% endfor %}</div>{% endif %}
+        </div>
+        {% for child in system.children %}
+        <div class="system-node child" style="--node-colour:{{ child.colour or '#64748b' }}">
+          <div class="node-head"><span class="component-token">{{ child.component or '★' }}</span><span class="node-label">{% if child.external_links %}<a href="{{ child.external_links[0].url }}" target="_blank" rel="noopener">{{ child.label }}</a>{% else %}{{ child.label }}{% endif %}</span></div>
+          {% if child.spectral_type or child.distance_pc %}<div class="node-meta">{% if child.spectral_type %}{{ child.spectral_type }}{% endif %}{% if child.spectral_type and child.distance_pc %} · {% endif %}{% if child.distance_pc %}d={{ '%.1f'|format(child.distance_pc) }} pc{% endif %}</div>{% endif %}
+          <div class="system-links">{% if child.input_file %}<a href="{{ child.input_file }}">data</a>{% endif %}{% for link in child.external_links %}{% if link.label == 'SIMBAD' %}<a href="{{ link.url }}" target="_blank" rel="noopener">SIMBAD</a>{% endif %}{% endfor %}</div>
+        </div>
+        {% endfor %}
+      </section>
+      {% endfor %}
+    </aside>
+
+    <section class="main-column">
+      <section class="plot-region" aria-label="SED plots">
+        {{ plot_div|safe }}
+      </section>
+    </section>
+  </div>
+
+  {% if operator %}
+  <aside id="fit-controls" class="operator-drawer" hidden aria-label="Fit controls">
+    <div class="drawer-head"><div><h2>Fit controls</h2></div><button id="close-fit-controls" type="button" aria-label="Close fit controls">×</button></div>
+    {% if not operator_api %}<p class="queue-note">This rendered page is read-only. Use <code>sdf-fits serve</code> to save choices and queue fits.</p>{% endif %}
+    {% for job in queued_jobs %}<p class="queue-note">Fit job {{ job.id }} queued{% if job.reason %}: {{ job.reason }}{% endif %}</p>{% endfor %}
+    <section class="operator-section">
+      <h2>Model configuration</h2>
+      <form id="system-fit-form" class="operator-form">
+        {% if operator_actor_locked %}<div class="wide muted">Signed in as <strong>{{ operator_actor }}</strong><input name="actor" type="hidden" value="{{ operator_actor }}"></div>{% else %}<label class="wide">Actor<input name="actor" value="{{ operator_actor or '' }}" autocomplete="name"{% if not operator_api %} disabled{% endif %}></label>{% endif %}
+        <label class="wide">Reason<input name="reason" value="Update model choices and fit {{ title }}"{% if not operator_api %} disabled{% endif %}></label>
+        <div class="operator-actions"><button type="submit"{% if not operator_api %} disabled{% endif %}>Queue fit</button><span class="operator-status" role="status"></span></div>
+      </form>
+      {% for target in targets %}
+      <div class="operator-target" data-target-key="{{ target.key }}">
+        <strong>{{ target.label }}</strong>
+        <p class="muted config-source">{{ target.policy.config_label }}</p>
+        <form class="operator-form policy-form" data-target-label="{{ target.label }}" data-custom="{% if target.policy.custom %}yes{% else %}no{% endif %}">
+          <input type="hidden" name="target_key" value="{{ target.key }}">
+          <input type="hidden" name="scope" value="{{ target.policy.save_scope }}">
+          <label>Stellar model<select name="stellar_model"{% if not operator_api or not target.policy.custom %} disabled{% endif %}>{% for model in target.stellar_options %}<option value="{{ model }}"{% if model == target.policy.stellar_model %} selected{% endif %}>{{ model }}</option>{% endfor %}</select></label>
+          <label>Disk model<select name="disk_model"{% if not operator_api or not target.policy.custom %} disabled{% endif %}><option value=""{% if not target.policy.disk_model %} selected{% endif %}>not used</option>{% for model in target.disk_options %}<option value="{{ model }}"{% if model == target.policy.disk_model %} selected{% endif %}>{{ model }}</option>{% endfor %}</select></label>
+          <label>Maximum disks<input name="max_disks" type="number" min="0" max="5" value="{{ target.policy.max_disks }}"{% if not operator_api or not target.policy.custom %} disabled{% endif %}></label>
+          <label>Search<select name="search_mode"{% if not operator_api or not target.policy.custom %} disabled{% endif %}><option value="evidence-guided"{% if target.policy.search_mode == 'evidence-guided' %} selected{% endif %}>evidence guided</option><option value="exhaustive"{% if target.policy.search_mode == 'exhaustive' %} selected{% endif %}>exhaustive</option></select></label>
+          <div class="operator-actions"><button class="config-mode" type="button"{% if not operator_api %} disabled{% endif %}>{% if target.policy.custom %}Use default config{% else %}Specify custom config{% endif %}</button><span class="muted config-note">{% if not target.policy.custom %}Default choices shown above{% endif %}</span></div>
+        </form>
+      </div>
+      {% endfor %}
+    </section>
+    <section class="operator-section">
+      <h2>Available fits</h2>
+      {% for fit in available_fits %}<div class="operator-fit" data-fit-reference="{{ fit.reference }}"><strong>{% for part in fit.shorthand %}{% if part.owner %}{{ part.owner }} {% endif %}{{ part.symbols }}{% if not loop.last %} · {% endif %}{% endfor %}</strong>{% if fit.default %} <span class="default-badge">default</span>{% endif %}{% if fit.recommended %} <span class="recommended-badge">recommended</span>{% endif %}<p class="muted">ln Z {% if fit.evidence is not none %}{{ '%.2f'|format(fit.evidence) }}{% if fit.delta_evidence %} · Δ{{ '%.2f'|format(fit.delta_evidence) }}{% endif %}{% else %}not available{% endif %}{% if not fit.current %} · input changed{% endif %}</p><div class="fit-actions"><a href="{{ fit.preview_url }}">Preview</a><label><input class="display-fit" type="checkbox"{% if fit.displayed %} checked{% endif %}{% if fit.default or not operator_api %} disabled{% endif %}> shown</label>{% if fit.recommended and not fit.default %}<button class="recommended-fit" type="button"{% if not operator_api %} disabled{% endif %}>Use recommended</button>{% endif %}{% if not fit.default %}<button class="default-fit" type="button"{% if not operator_api %} disabled{% endif %}>Make default</button>{% endif %}<span class="operator-status" role="status"></span></div></div>{% endfor %}
+    </section>
+  </aside>
+  {% endif %}
+
+  <dialog id="distribution-dialog" class="distribution-dialog" aria-labelledby="distribution-title">
+    <div class="distribution-head">
+      <h2 id="distribution-title">Posterior distributions</h2>
+      <div class="distribution-actions"><a id="distribution-download" class="page-action" href="#" download>Download PNG</a><button id="close-distribution" type="button" aria-label="Close distribution plot">×</button></div>
+    </div>
+    <div class="distribution-body"><img id="distribution-image" alt=""></div>
+  </dialog>
+
+  <footer class="sed-footer">
+    <nav class="footer-nav" aria-label="Footer navigation"><a href="/">home</a><span aria-hidden="true">·</span><a href="/samples">samples</a><span aria-hidden="true">·</span><a href="/status">status</a><span aria-hidden="true">·</span><a href="/docs">docs</a>{% if operator %}<span aria-hidden="true">·</span><a href="/admin">admin</a>{% if review_base_url %}<span aria-hidden="true">·</span><a href="{{ review_base_url }}/">data review</a>{% endif %}<span aria-hidden="true">·</span><a href="/admin/jobs">jobs</a>{% endif %}</nav>
+    <span>generated {{ creation_time }} UTC</span>
+  </footer>
+</main>
+{{ plot_script|safe }}
+<script>
+(() => {
+  const dialog = document.getElementById('distribution-dialog');
+  const image = document.getElementById('distribution-image');
+  const title = document.getElementById('distribution-title');
+  const download = document.getElementById('distribution-download');
+  document.addEventListener('click', event => {
+    const link = event.composedPath().find(node =>
+      node instanceof Element && node.matches('[data-distribution-plot]')
+    );
+    if (!link) return;
+    event.preventDefault();
+    image.src = link.href;
+    image.alt = link.dataset.plotTitle;
+    title.textContent = link.dataset.plotTitle;
+    download.href = link.href;
+    dialog.showModal();
+  });
+  document.getElementById('close-distribution').addEventListener('click', () => dialog.close());
+  image.addEventListener('click', () => image.classList.toggle('full-size'));
+  dialog.addEventListener('close', () => image.classList.remove('full-size'));
+  dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
+})();
+</script>
+{% if operator %}
+<script>
+(() => {
+  const api = {{ operator_api|tojson }};
+  const token = {{ operator_token|tojson }};
+  const drawer = document.getElementById('fit-controls');
+  const open = document.getElementById('open-fit-controls');
+  const close = document.getElementById('close-fit-controls');
+  const setOpen = value => { drawer.hidden = !value; open.setAttribute('aria-expanded', String(value)); };
+  open.addEventListener('click', () => setOpen(true));
+  close.addEventListener('click', () => setOpen(false));
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') setOpen(false); });
+  if (sessionStorage.getItem('sdf-fit-controls-open') === 'yes') {
+    sessionStorage.removeItem('sdf-fit-controls-open'); setOpen(true);
+  }
+  const reloadOpen = () => {
+    sessionStorage.setItem('sdf-fit-controls-open', 'yes'); location.reload();
+  };
+  const send = async (path, payload) => {
+    const response = await fetch(api + path, {
+      method: 'POST', headers: {'Content-Type': 'application/json', 'X-SDF-Token': token},
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Request failed');
+    return result;
+  };
+  const policyForms = Array.from(document.querySelectorAll('.policy-form'));
+  policyForms.forEach(form => {
+    const initialCustom = form.dataset.custom === 'yes';
+    const source = form.closest('.operator-target').querySelector('.config-source');
+    const initialLabel = source.textContent;
+    const modeButton = form.querySelector('.config-mode');
+    const note = form.querySelector('.config-note');
+    const controls = Array.from(form.querySelectorAll('select,input[type="number"]'));
+    const initialValues = Object.fromEntries(
+      controls.map(control => [control.name, control.value])
+    );
+    const diskModel = form.elements.disk_model;
+    const maxDisks = form.elements.max_disks;
+    let previousMaxDisks = Math.max(1, Number(maxDisks.value) || 1);
+    form.dataset.dirty = 'no';
+    form.dataset.reset = 'no';
+    form.dataset.valuesDirty = 'no';
+    form.dataset.mode = initialCustom ? 'custom' : 'default';
+    form.addEventListener('submit', event => event.preventDefault());
+    const updateMode = () => {
+      const custom = form.dataset.mode === 'custom';
+      const changedMode = custom !== initialCustom;
+      form.dataset.reset = initialCustom && !custom ? 'yes' : 'no';
+      form.dataset.dirty = (changedMode || form.dataset.valuesDirty === 'yes') ? 'yes' : 'no';
+      form.closest('.operator-target').classList.toggle('pending-reset', initialCustom && !custom);
+      controls.forEach(control => { control.disabled = !custom || !api; });
+      if (initialCustom) {
+        modeButton.textContent = custom ? 'Use default config' : 'Keep custom config';
+        source.textContent = custom ? initialLabel : 'Default config (not saved)';
+        note.textContent = custom ? '' : 'will be restored when the fit is queued';
+      } else {
+        modeButton.textContent = custom ? 'Cancel custom config' : 'Specify custom config';
+        source.textContent = custom ? 'Custom config (not saved)' : initialLabel;
+        note.textContent = custom ? 'change the choices above, then queue the fit' : 'Default choices shown above';
+      }
+    };
+    controls.forEach(control => {
+      control.addEventListener('change', () => {
+        if (control === diskModel) {
+          if (!diskModel.value) {
+            previousMaxDisks = Math.max(1, Number(maxDisks.value) || previousMaxDisks);
+            maxDisks.value = 0;
+          } else if (Number(maxDisks.value) === 0) {
+            maxDisks.value = previousMaxDisks;
+          }
+        } else if (control === maxDisks && Number(maxDisks.value) > 0 && !diskModel.value) {
+          const preferred = Array.from(diskModel.options).find(option => option.value === 'modbb_disk_r');
+          const fallback = Array.from(diskModel.options).find(option => option.value);
+          diskModel.value = (preferred || fallback).value;
+        }
+        form.dataset.valuesDirty = 'yes';
+        updateMode();
+      });
+    });
+    modeButton.addEventListener('click', () => {
+      form.dataset.mode = form.dataset.mode === 'custom' ? 'default' : 'custom';
+      if (!initialCustom && form.dataset.mode === 'default') {
+        controls.forEach(control => { control.value = initialValues[control.name]; });
+        previousMaxDisks = Math.max(1, Number(maxDisks.value) || 1);
+        form.dataset.valuesDirty = 'no';
+      }
+      updateMode();
+    });
+    updateMode();
+  });
+  const systemForm = document.getElementById('system-fit-form');
+  const systemStatus = systemForm.querySelector('.operator-status');
+  const actor = systemForm.elements.actor;
+  const actorLocked = {{ operator_actor_locked|tojson }};
+  if (!actorLocked && !actor.value) actor.value = localStorage.getItem('sdf-operator-actor') || '';
+  systemForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    systemStatus.classList.remove('error');
+    systemStatus.textContent = 'Saving choices…';
+    const shared = Object.fromEntries(new FormData(systemForm));
+    const changes = policyForms.filter(form => form.dataset.dirty === 'yes').map(form => {
+      const values = Object.fromEntries(new FormData(form));
+      values.max_disks = Number(values.max_disks);
+      values.reset = form.dataset.reset === 'yes';
+      return values;
+    });
+    try {
+      const result = await send('/system-policy', {...shared, changes});
+      if (!actorLocked) localStorage.setItem('sdf-operator-actor', shared.actor);
+      systemStatus.textContent = `System fit job ${result.job_id} queued`;
+      setTimeout(reloadOpen, 350);
+    } catch (error) {
+      systemStatus.classList.add('error');
+      systemStatus.textContent = error.message;
+    }
+  });
+  document.querySelectorAll('.operator-fit').forEach(card => {
+    const reference = card.dataset.fitReference;
+    const status = card.querySelector('.operator-status');
+    const shown = card.querySelector('.display-fit');
+    if (shown && !shown.disabled) shown.addEventListener('change', async () => {
+      try { await send('/selection', {reference, action: 'display', displayed: shown.checked}); reloadOpen(); }
+      catch (error) { shown.checked = !shown.checked; status.classList.add('error'); status.textContent = error.message; }
+    });
+    const makeDefault = card.querySelector('.default-fit');
+    if (makeDefault) makeDefault.addEventListener('click', async () => {
+      try { await send('/selection', {reference, action: 'default'}); reloadOpen(); }
+      catch (error) { status.classList.add('error'); status.textContent = error.message; }
+    });
+    const useRecommended = card.querySelector('.recommended-fit');
+    if (useRecommended) useRecommended.addEventListener('click', async () => {
+      try { await send('/selection', {reference, action: 'recommended'}); reloadOpen(); }
+      catch (error) { status.classList.add('error'); status.textContent = error.message; }
+    });
+  });
+})();
+</script>
+{% endif %}
+</body>
+</html>

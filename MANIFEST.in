@@ -2,3 +2,6 @@ include sdf/sdf.conf
 graft sdf/data
 graft sdf/calibration
 graft sdf/www
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude .DS_Store

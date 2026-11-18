@@ -1,0 +1,19 @@
+{% extends "catalog_base.html" %}
+{% block content %}
+<div class="page-head"><div><h1>{{ job.query }}</h1><p class="muted">Target import #{{ job.id }}, requested by {{ job.actor }}</p></div><span class="status {{ job.status }}">{{ job.status }}</span></div>
+{% if job.status in ['queued', 'running'] %}{% include "catalog_import_timeout_note.html" %}{% endif %}
+{% if auto_refresh %}{% include "catalog_import_poll.html" %}{% endif %}
+{% if job.status == 'queued' %}
+<div class="message"><h2>Waiting to import</h2><p>The request is queued behind any earlier target import.</p></div>
+{% elif job.status == 'running' %}
+<div class="message"><h2>Building the SED input</h2><p><code>sdb</code> is identifying the target in SIMBAD, refreshing configured providers, and exporting a fitting package.</p></div>
+{% elif job.status == 'failed' %}
+<div class="message"><h2>Import failed</h2><p>{{ job.error }}</p><p>Check the SIMBAD identifier and <a href="/search?q={{ job.query|urlencode }}">try the search again</a>.</p></div>
+{% else %}
+<div class="message"><h2>Imported and exported</h2>
+  {% if packages %}<p>The fitting package is available. A first fit is queued or running when needed.</p>{% else %}<p>The export completed and is being added to the SED catalogue.</p>{% endif %}
+  {% for warning in job.result.get('warnings', ()) %}<p class="warning">{{ warning }}</p>{% endfor %}
+</div>
+{% if packages %}<h2>SED system{% if packages|length != 1 %}s{% endif %}</h2>{% include "catalog_package_table.html" %}{% endif %}
+{% endif %}
+{% endblock %}

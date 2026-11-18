@@ -241,6 +241,111 @@ def resample_matrix(wave_in, new_wave, old_R=np.inf, kern_width=5):
     return sparse.coo_matrix((pdf, (x_indices, y_indices)), shape=(M, N))
 
 
+def spectral_resample_matrix(
+        wave_in, wave_out, resolving_power, native_resolving_power=np.inf,
+        kernel_width=5.0):
+    """Return a sparse operator that matches a model to a spectral segment.
+
+    Unlike :func:`resample_matrix`, the requested resolving power is explicit;
+    output sampling is not assumed to equal spectral resolution.  Gaussian
+    line-spread functions are combined in quadrature, so an already broadened
+    model is only degraded by the additional width required at each output
+    wavelength.
+
+    The returned matrix has shape ``(len(wave_out), len(wave_in))`` and can be
+    multiplied by either a one-dimensional spectrum or a model cube flattened
+    along every axis except wavelength.
+    """
+
+    wave_in = np.asarray(wave_in, dtype=float)
+    wave_out = np.asarray(wave_out, dtype=float)
+    if (
+        wave_in.ndim != 1 or wave_out.ndim != 1 or
+        len(wave_in) < 2 or len(wave_out) == 0
+    ):
+        raise SdfError("spectral wavelength grids must be one-dimensional")
+    if not np.all(np.diff(wave_in) > 0):
+        raise SdfError("input spectral wavelength grid must be increasing")
+    if not np.all(np.diff(wave_out) > 0):
+        raise SdfError("output spectral wavelength grid must be increasing")
+    if wave_out[0] < wave_in[0] or wave_out[-1] > wave_in[-1]:
+        raise SdfError(
+            "spectral model does not cover {:.6g}--{:.6g} micron".format(
+                wave_out[0], wave_out[-1]
+            )
+        )
+
+    target_r = np.asarray(resolving_power, dtype=float)
+    if target_r.ndim == 0:
+        target_r = np.repeat(float(target_r), len(wave_out))
+    if target_r.shape != wave_out.shape:
+        raise SdfError(
+            "resolving power must be scalar or match output wavelengths"
+        )
+    if np.any(~np.isfinite(target_r)) or np.any(target_r <= 0):
+        raise SdfError("resolving power must be finite and positive")
+
+    native_r = np.asarray(native_resolving_power, dtype=float)
+    if native_r.ndim == 0:
+        native_r = np.repeat(float(native_r), len(wave_out))
+    if native_r.shape != wave_out.shape:
+        raise SdfError(
+            "native resolving power must be scalar or match output wavelengths"
+        )
+    target_fwhm = wave_out / target_r
+    native_fwhm = np.where(
+        np.isfinite(native_r), wave_out / native_r, 0.0
+    )
+    convolution_fwhm2 = target_fwhm**2 - native_fwhm**2
+    if np.any(convolution_fwhm2 <= 0):
+        raise SdfError(
+            "model resolving power must exceed the requested resolution"
+        )
+    sigma = np.sqrt(convolution_fwhm2) / 2.3548200450309493
+
+    # Approximate the integration width represented by each input sample.
+    edges = np.empty(len(wave_in) + 1)
+    edges[1:-1] = 0.5 * (wave_in[:-1] + wave_in[1:])
+    edges[0] = wave_in[0] - 0.5 * (wave_in[1] - wave_in[0])
+    edges[-1] = wave_in[-1] + 0.5 * (wave_in[-1] - wave_in[-2])
+    widths = np.diff(edges)
+
+    rows = []
+    columns = []
+    weights = []
+    for row, (wavelength, width) in enumerate(zip(wave_out, sigma)):
+        lower = np.searchsorted(
+            wave_in, wavelength - kernel_width * width, side='left'
+        )
+        upper = np.searchsorted(
+            wave_in, wavelength + kernel_width * width, side='right'
+        )
+        lower = max(0, lower)
+        upper = min(len(wave_in), upper)
+        if upper <= lower:
+            nearest = int(np.argmin(np.abs(wave_in - wavelength)))
+            lower, upper = nearest, nearest + 1
+        indices = np.arange(lower, upper)
+        values = np.exp(
+            -0.5 * ((wave_in[indices] - wavelength) / width)**2
+        ) * widths[indices]
+        total = np.sum(values)
+        if not np.isfinite(total) or total <= 0:
+            raise SdfError(
+                "could not construct spectral response at {} micron".format(
+                    wavelength
+                )
+            )
+        values /= total
+        rows.extend([row] * len(indices))
+        columns.extend(indices.tolist())
+        weights.extend(values.tolist())
+    return sparse.csr_matrix(
+        (weights, (rows, columns)),
+        shape=(len(wave_out), len(wave_in)),
+    )
+
+
 def get_sdb_keywords(file):
     """Get keywords from a sdb file."""
 

@@ -1,0 +1,7 @@
+{% extends "catalog_base.html" %}
+{% block content %}
+<div class="page-head"><div><h1>Samples</h1></div><div class="page-links">{% if principal.authenticated and import_enabled %}<a class="button" href="/samples/new">Create sample</a>{% elif auth_enabled and not principal.authenticated %}<a class="button" href="/auth/login?next=%2Fsamples">Sign in to see private samples</a>{% endif %}</div></div>
+<div class="table-wrap"><table><thead><tr><th>Sample</th><th>Access</th><th>Targets</th><th>Updated</th></tr></thead><tbody>
+{% for row in samples %}<tr><td><a class="targets" href="/samples/{{ row.sample.name|urlencode }}/">{{ row.sample.name }}</a>{% if row.sample.note %}<br><span class="muted">{{ row.sample.note }}</span>{% endif %}</td><td><span class="badge {{ row.access }}">{{ row.access }}</span></td><td>{{ row.sample.identifiers|length }}</td><td>{{ row.sample.completed_at or '—' }}</td></tr>{% else %}<tr><td colspan="4">No samples are currently available.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

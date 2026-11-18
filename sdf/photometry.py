@@ -89,7 +89,11 @@ class Photometry(object):
             sum_ = 0.0
             for par in ['Phot', 'Err', 'Sys']:
                 if not np.isfinite(row[par]):
-                    utils.SdfError("non-finite {} value {} in {}".format(par, row[par], file))
+                    raise utils.SdfError(
+                        "non-finite {} value {} in {}".format(
+                            par, row[par], file
+                        )
+                    )
                 sum_ += row[par]
         
             p = Photometry()
@@ -118,7 +122,7 @@ class Photometry(object):
                 p.upperlim = np.array([True])
 
             # or if zero fluxes and errors
-            if sum == 0.0:
+            if sum_ == 0.0:
                 p.ignore = np.array([True])
 
             self.addto(p)
@@ -136,7 +140,7 @@ class Photometry(object):
 
     @property
     def nused(self):
-        return np.sum(self.ignore is False)
+        return np.sum(np.invert(self.ignore))
 
     def fill_fnujy(self):
         """Convert measurements to Jy and fill fnujy/e_fnujy arrays.

@@ -1,0 +1,11 @@
+{% extends "catalog_base.html" %}
+{% block body_class %}sample-page{% endblock %}
+{% block content %}
+<div class="sample-head"><div class="sample-title-line"><h1>{{ sample.name }}</h1>{% if can_edit %}<button type="button" id="sample-edit-open">Edit sample</button>{% endif %}</div>{% set sample_page = 'properties' %}{% include "catalog_sample_nav.html" %}</div>
+<p class="muted">{{ sample.identifiers|length }} targets · {{ projection.systems|length }} fitted systems</p>
+{% if sample.note %}<p>{{ sample.note }}</p>{% endif %}
+{% if projection.unmatched %}<p class="warning">{{ projection.unmatched|length }} sample target{% if projection.unmatched|length != 1 %}s{% endif %} do not yet have an indexed default fit.</p>{% endif %}
+{% include "sample_properties_table.html" %}
+{% if pending %}<h2>Awaiting a current fit</h2>{% set packages = pending %}{% include "catalog_package_table.html" %}{% endif %}
+{% if can_edit %}{% include "catalog_sample_edit.html" %}{% endif %}
+{% endblock %}

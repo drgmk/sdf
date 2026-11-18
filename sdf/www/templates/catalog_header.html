@@ -1,0 +1,5 @@
+<header class="site-header"><div class="site-bar">
+  {% set has_admin_access = admin or admin_access or (principal and principal.is_admin) %}
+  <nav class="site-nav" aria-label="Site navigation"><a href="/">Home</a><a href="/samples">Samples</a><a href="/status">Status</a><a href="/docs">Docs</a>{% if has_admin_access %}<a href="/admin">Admin</a>{% endif %}{% if review_base_url and has_admin_access %}<a href="{{ review_base_url }}/">Data review</a>{% endif %}{% if admin %}<a href="/admin/jobs">Jobs</a>{% endif %}{% if principal and principal.username %}<span class="site-identity">{{ principal.username }}</span>{% if auth_enabled %}<a href="/auth/logout">Sign out</a>{% endif %}{% elif auth_enabled %}<a href="/auth/login?next={{ request_path|default('/samples')|urlencode }}">Sign in</a>{% endif %}</nav>
+  <form class="site-search" action="{{ search_action|default('/search') }}" method="get"><input name="q" value="{{ query|default('') }}" placeholder="target, component, or sdb ID" aria-label="Search SEDs"><button>Search</button></form>
+</div></header>

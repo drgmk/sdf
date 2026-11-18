@@ -1,0 +1,21 @@
+{% extends "catalog_base.html" %}
+{% block content %}
+<h1><code>sdb</code></h1>
+<div class="message"><h2>Welcome to <code>sdb</code></h2>
+    <p>This is the second version of <code>sdb</code>. Underlying this website is a target and photometry database (<code>sdb</code>), and software that
+        fits exported photometry with stellar models (<code>sdf</code>). The main changes from the first version are that the <code>sdb</code> database is
+        now based on sqlite, <code>sdb</code> and <code>sdf</code> can now handle multiple stellar systems, and the user interface is much more capable.
+    </p>
+    <p>Typical users will only see SEDs and samples. An account is needed to access and create private samples, and to import
+        new targets. Users with admin privileges can do more, e.g. configure targets.
+    </p>
+    <p>There are no private data here, so all individual SED pages are public. Samples, which are simply groupings of
+        targets, can be private.</p>
+    <p>Another change is that you should feel free to use what you need from this site. I will not insist on sanity checking things before they
+        go out into the wild. So be critical, and if you need some help, please ask!
+    </p>
+    <p>There is no specific reference for <code>sdb</code> or <code>sdf</code>, but the method was first described reasonably comprehensively
+    in Ben Yelverton's PhD paper on binaries; <a href="https://ui.adsabs.harvard.edu/abs/2019MNRAS.488.3588Y/abstract">2019MNRAS.488.3588Y</a>.
+    If you use this website somewhere that a citation is appropriate, please cite that paper.</p>
+</div>
+{% endblock %}

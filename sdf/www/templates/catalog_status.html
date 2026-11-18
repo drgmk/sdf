@@ -1,0 +1,17 @@
+{% extends "catalog_base.html" %}
+{% block head %}<meta http-equiv="refresh" content="10">{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>System status</h1><p class="muted">Background imports and fitting. This page refreshes every 10 seconds.</p></div></div>
+
+{% if health.running %}
+<div class="message"><h2>Work is active</h2><p>{{ health.running }} job{% if health.running != 1 %}s are{% else %} is{% endif %} running and {{ health.queued }} {% if health.queued == 1 %}is{% else %}are{% endif %} queued.</p></div>
+{% elif health.queued %}
+<div class="message"><h2>Work is waiting</h2><p>{{ health.queued }} job{% if health.queued != 1 %}s are{% else %} is{% endif %} queued and should start when a worker is available.</p></div>
+{% else %}
+<div class="message"><h2>All caught up</h2><p>No imports or fits are currently queued or running.</p></div>
+{% endif %}
+
+<h2>Job health</h2>
+<div class="table-wrap"><table><thead><tr><th>Queue</th><th>Queued</th><th>Running</th><th>Completed</th><th>Failed</th></tr></thead><tbody>{% for label, values in health.queues.items() %}<tr><td>{{ label|title }}</td><td>{{ values.get('queued', 0) }}</td><td>{{ values.get('running', 0) }}</td><td>{{ values.get('completed', 0) }}</td><td>{{ values.get('failed', 0) }}</td></tr>{% endfor %}</tbody></table></div>
+<p class="muted">Checked {{ health.checked_at }} {{ health.timezone_abbreviation or health.timezone }}.</p>
+{% endblock %}

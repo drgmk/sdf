@@ -1,0 +1,48 @@
+{% extends "catalog_base.html" %}
+{% block body_class %}activity-page{% endblock %}
+{% block content %}
+<div class="page-head activity-head"><div><h1>Site activity</h1><p class="muted">Times and daily totals use {{ report.timezone }}{% if report.timezone_abbreviation %} ({{ report.timezone_abbreviation }}){% endif %}.</p></div><nav class="period-links" aria-label="Activity period">{% for value, label in [(7, '7 days'), (30, '30 days'), (90, '90 days'), (0, 'All')] %}<a class="button{% if report.days == value %} selected{% endif %}" href="{{ request_path }}?days={{ value }}">{{ label }}</a>{% endfor %}</nav></div>
+
+<h2>What is here</h2>
+<div class="cards activity-cards">
+  <div class="card"><strong>{{ report.inventory.database_targets }}</strong><span>database targets</span></div>
+  <div class="card"><strong>{{ report.inventory.packages }}</strong><span>SED systems</span></div>
+  <div class="card"><strong>{{ report.inventory.current_packages }}</strong><span>current fits</span></div>
+  <div class="card"><strong>{{ report.inventory.unfit_packages }}</strong><span>unfit systems</span></div>
+  <div class="card"><strong>{{ report.inventory.observations }}</strong><span>fit observations</span></div>
+  <div class="card"><strong>{{ report.inventory.spectra }}</strong><span>spectral assets</span></div>
+  <div class="card"><strong>{{ report.inventory.samples }}</strong><span>samples</span><small>{{ report.inventory.public_samples }} public · {{ report.inventory.private_samples }} private</small></div>
+  <div class="card"><strong>{{ report.inventory.users }}</strong><span>registered users</span></div>
+</div>
+
+<h2>Changes — {{ report.period }}</h2>
+<div class="cards activity-cards">
+  <div class="card"><strong>{{ report.changes.targets_added }}</strong><span>targets added</span></div>
+  <div class="card"><strong>{{ report.changes.target_imports }}</strong><span>target imports completed</span></div>
+  <div class="card"><strong>{{ report.changes.fits_completed }}</strong><span>fits completed</span></div>
+  <div class="card"><strong>{{ report.changes.targets_exported }}</strong><span>targets exported</span></div>
+  <div class="card"><strong>{{ report.changes.sample_edits }}</strong><span>sample edits</span></div>
+  <div class="card"><strong>{{ report.changes.review_actions }}</strong><span>data-review actions</span></div>
+</div>
+
+<h2>Website use — {{ report.period }}</h2>
+{% if report.traffic.available %}
+<div class="cards activity-cards">
+  <div class="card"><strong>{{ report.traffic.page_views }}</strong><span>local page views</span></div>
+  <div class="card"><strong>{{ report.traffic.downloads }}</strong><span>data downloads</span></div>
+  <div class="card"><strong>{{ report.traffic.server_errors }}</strong><span>server errors</span></div>
+  <div class="card"><strong>{% if report.traffic.median_ms is not none %}{{ report.traffic.median_ms }} ms{% else %}—{% endif %}</strong><span>median request time</span></div>
+</div>
+<p class="muted">Local page views exclude known crawlers, assets, API polling, redirects, and failed requests.</p>
+{% if report.traffic.daily %}<div class="activity-bars" aria-label="Daily page views">{% for row in report.traffic.daily %}<div class="activity-bar-row"><time datetime="{{ row.date }}">{{ row.date }}</time><div class="activity-bar-track"><span style="width:{% if report.traffic.daily_max %}{{ 100 * row.count / report.traffic.daily_max }}{% else %}0{% endif %}%"></span></div><strong>{{ row.count }}</strong></div>{% endfor %}</div>{% endif %}
+<div class="activity-columns">
+  {% for title, rows in [('Most-viewed SEDs', report.traffic.top_systems), ('Most-viewed samples', report.traffic.top_samples), ('Searches', report.traffic.top_searches)] %}<section><h3>{{ title }}</h3>{% if rows %}<ol class="activity-ranking">{% for row in rows %}<li><span>{{ row.label }}</span><strong>{{ row.count }}</strong></li>{% endfor %}</ol>{% else %}<p class="muted">No recorded use.</p>{% endif %}</section>{% endfor %}
+</div>
+{% else %}<div class="message"><p>No Apache access log is configured. Inventory and action statistics remain available; start <code>sdf-fits serve</code> with <code>--access-log</code> to add local page-use summaries.</p></div>{% endif %}
+
+<h2>Job health</h2>
+<div class="table-wrap"><table><thead><tr><th>Queue</th><th>Queued</th><th>Running</th><th>Completed</th><th>Failed</th></tr></thead><tbody>{% for label, values in report.jobs.items() %}<tr><td>{{ label|title }}</td><td>{{ values.get('queued', 0) }}</td><td>{{ values.get('running', 0) }}</td><td>{{ values.get('completed', 0) }}</td><td>{{ values.get('failed', 0) }}</td></tr>{% endfor %}</tbody></table></div>
+
+<h2>Recent activity</h2>
+{% if report.events %}<div class="table-wrap"><table class="activity-events"><thead><tr><th>When</th><th>Area</th><th>Action</th><th>User</th></tr></thead><tbody>{% for event in report.events %}<tr><td><time datetime="{{ event.created_at }}">{{ event.created_at|replace('T', ' ')|truncate(19, true, '') }}</time></td><td><span class="badge">{{ event.kind }}</span></td><td>{{ event.description }}</td><td>{{ event.actor }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">No recorded activity in this period.</p>{% endif %}
+{% endblock %}

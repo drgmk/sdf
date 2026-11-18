@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ projection.name }}</title>
+  <style>
+    * { box-sizing:border-box; }
+    body { margin:0; background:#f5f7fa; color:#172033;
+      font-family:ui-sans-serif,system-ui,-apple-system,sans-serif; }
+    main { width:min(1500px,100%); margin:auto; padding:18px; overflow:hidden; }
+    header { display:flex; justify-content:space-between; align-items:flex-start;
+      gap:12px; }
+    h1 { margin:0; } a { color:#285ea8; text-decoration:none; }
+    .muted { color:#526071; } .warning { color:#8a5200; }
+    table { width:100%; border-collapse:collapse; background:white;
+      border:1px solid #dfe5ec; margin-top:16px; font-size:14px; }
+    th,td { text-align:left; vertical-align:top; border-bottom:1px solid #e6ebf0;
+      padding:9px; }
+    th { color:#526071; } code { font-size:12px; }
+    .badge { border-radius:10px; background:#e9f1fb; padding:2px 7px;
+      font-size:11px; white-space:nowrap; }
+    .context { background:#edf0f3; color:#637083; }
+    details { margin:3px 0; } summary { cursor:pointer; }
+    .table-wrap { overflow:auto; background:white; border:1px solid #dfe5ec;
+      border-radius:8px; max-height:72vh; }
+    .sample-table-tools { display:flex; align-items:center; gap:9px;
+      margin:16px 0 8px; }
+    .sample-table-tools input { width:min(320px,55vw); padding:7px 9px;
+      border:1px solid #b8c3d1; border-radius:6px; }
+    .sample-properties { margin-top:0; border:0; font-size:14px;
+      white-space:nowrap; }
+    .sample-properties th { position:sticky; top:0; padding:0;
+      background:#f8fafc; }
+    .sample-properties th button { width:100%; padding:9px 10px; border:0;
+      background:transparent; color:inherit; text-align:left; cursor:pointer; }
+    .sample-properties td.number { text-align:right;
+      font-variant-numeric:tabular-nums; }
+    .context-note { color:#748090; font-size:12px; }
+    .stale-note { color:#8b2e34; }
+    footer { color:#526071; font-size:12px; margin-top:14px; }
+  </style>
+</head>
+<body><main>
+  <header><div><h1>{{ projection.name }}</h1><p class="muted">{{ projection.systems|length }} fitted systems · {{ projection.target_count }} physical contributors</p></div><nav>{% if has_plots %}<a href="hr.html">HR and disks</a>{% endif %}{% if has_flux_size %} · <a href="fnuvsr.html">Flux and size</a>{% endif %}{% if has_plots %} · {% endif %}<a href="{{ projection.name }}.xml">VOTable</a>{% if has_photometry %} · <a href="{{ projection.name }}_photometry.csv">Photometry</a>{% endif %}</nav></header>
+  {% if projection.unmatched %}<p class="warning">{{ projection.unmatched|length }} target{% if projection.unmatched|length != 1 %}s{% endif %} do not yet have an indexed default fit.</p>{% endif %}
+  {% include "sample_properties_table.html" %}
+  <footer>generated {{ creation_time }}</footer>
+</main></body></html>

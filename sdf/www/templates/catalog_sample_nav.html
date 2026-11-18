@@ -1,0 +1,6 @@
+<nav class="page-links" aria-label="Sample pages">
+  {% if sample_page == 'properties' %}<strong aria-current="page">Properties</strong>{% else %}<a href="/samples/{{ sample.name|urlencode }}/">Properties</a>{% endif %}
+  {% if sample_page == 'plots' %}<strong aria-current="page">H–R and disks</strong>{% else %}<a href="/samples/{{ sample.name|urlencode }}/plots">H–R and disks</a>{% endif %}
+  {% if sample_page == 'flux-size' %}<strong aria-current="page">Flux and size</strong>{% else %}<a href="/samples/{{ sample.name|urlencode }}/flux-size">Flux and size</a>{% endif %}
+  <span class="sample-download-links"><a href="/samples/{{ sample.name|urlencode }}/sample.xml">VOTable</a><a href="/samples/{{ sample.name|urlencode }}/photometry.csv">Photometry</a></span>
+</nav>

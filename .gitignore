@@ -1,3 +1,4 @@
+build/
 sandbox/
 sdf.xcodeproj/
 __pycache__
