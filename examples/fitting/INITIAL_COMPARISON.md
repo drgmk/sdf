@@ -1,7 +1,7 @@
 # Initial old/new fitting comparison
 
 This records the first science-regression run made while preparing
-`codex/joint-fitting` for merge. It is a smoke-test result, not a frozen set of
+the joint-fitting branch before its 2.0 merge. It is a smoke-test result, not a frozen set of
 golden posterior samples.
 
 - Date: 2026-11-18

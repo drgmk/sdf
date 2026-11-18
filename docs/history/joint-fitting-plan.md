@@ -29,7 +29,8 @@ from the smaller display selection that downstream users normally see.  Each
 candidate should record the `sdf` code state, model grids, fit configuration,
 and input state so that it can be understood and its analysis regenerated.
 
-Implementation is underway on `codex/joint-fitting`. The branch now has the
+Implementation was completed on `codex/joint-fitting` and released in SDF 2.0.
+The development branch added the
 dataset/candidate/problem boundaries, local MultiNest callbacks, joint-package
 discovery and projections, compact candidate artifacts, SIMBAD-keyed portable
 policy, deterministic candidate search, orchestration, hierarchy-aware

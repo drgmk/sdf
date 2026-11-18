@@ -18,7 +18,7 @@ REPOSITORY = HERE.parents[1]
 SCIENCE_REGRESSION = HERE / 'science_regression.py'
 
 
-def run_cases(inputs, *, model='phoenix_sol', legacy_revision='master'):
+def run_cases(inputs, *, model='phoenix_sol', legacy_revision='v1.0.0'):
     """Fit every input in temporary storage and return compact comparisons."""
 
     inputs = tuple(Path(value).expanduser().resolve() for value in inputs)
@@ -237,7 +237,7 @@ def main():
     )
     parser.add_argument('rawphot', nargs='*')
     parser.add_argument('--model', default='phoenix_sol')
-    parser.add_argument('--legacy-revision', default='master')
+    parser.add_argument('--legacy-revision', default='v1.0.0')
     parser.add_argument(
         '--export-root',
         help='resolve IDs from --case-list below this SDB export root',
