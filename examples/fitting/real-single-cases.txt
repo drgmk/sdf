@@ -1,0 +1,4 @@
+# Reviewed one-target systems spanning M, G, and A stars.
+sdbid-v3-114744.40+004816.4
+sdbid-v3-183853.40-210306.8
+sdbid-v3-111414.41+152546.5

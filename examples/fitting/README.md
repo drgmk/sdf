@@ -12,6 +12,8 @@ the committed catalogue values map exactly back to the generated model fluxes.
   and supplies resolved A/B plus composite AB measurements.
 - `equal-binary` duplicates the reference component and supplies resolved A/B
   plus composite AB measurements at twice the component flux.
+- `spectrum-star` adds a portable 0.8–2.5 μm CSV spectrum to the reference
+  photometry and exercises the fitted spectral-normalization parameter.
 
 The committed IPAC and YAML files are ready to fit. Regenerate them after an
 intentional model/filter change with:
@@ -60,6 +62,14 @@ fast test suite verifies exact model/likelihood invariants at those values;
 full MultiNest comparisons are deliberately an explicit science-regression
 step rather than part of every unit-test run.
 
+The spectrum package can be fitted directly with the package command:
+
+```bash
+cp -R examples/fitting/spectrum-star /tmp/sdf-spectrum-star
+sdf-fits fit /tmp/sdf-spectrum-star \
+  --stellar 'Synthetic Spectrum=phoenix_sol'
+```
+
 ## Compare the pre-branch and current results
 
 `science_regression.py` converts the old `Result` object and a current retained
@@ -98,3 +108,29 @@ python examples/fitting/science_regression.py candidate \
 python examples/fitting/science_regression.py compare \
   /tmp/current.json /tmp/faint-a.json --parameters-only
 ```
+
+## Disposable comparisons for real stars
+
+`real_single_regression.py` accepts one or more real rawphot files. It exports
+the pre-branch revision into temporary storage, runs old and current exact fits
+in isolated subprocesses, prints a compact normalized-difference table, and
+deletes all native MultiNest and rendered results on exit. Only the optional
+summary JSON is retained:
+
+```bash
+python examples/fitting/real_single_regression.py \
+  /path/to/first-rawphot.txt /path/to/second-rawphot.txt \
+  --output /tmp/real-single-summary.json
+```
+
+The checked-in case list spans Ross 128, HD 172051, and θ Leo. Repeat that
+specific comparison against an SDB export with:
+
+```bash
+python examples/fitting/real_single_regression.py \
+  --export-root /path/to/sdb/export \
+  --output /tmp/real-single-summary.json
+```
+
+Package markers and spectrum pointers are removed from the temporary copies;
+this check deliberately compares the photometry-only single-star likelihood.

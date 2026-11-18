@@ -1,0 +1,7 @@
+version: 1
+spectra:
+  - id: synthetic:spectrum
+    file: spectra/spectrum.csv
+    format: csv
+    contributors: [S]
+    sha256: 6eb6bbd4bb53d30b5a729939f6e35a2707eb8ce6cf19a0a109737fde431cfa49

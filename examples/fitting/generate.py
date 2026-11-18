@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import json
+from hashlib import sha256
 from pathlib import Path
 
 from astropy.table import Table
 import numpy as np
 import yaml
 
-from sdf.model import PhotModel
+from sdf.model import PhotModel, SpecModel
 
 
 ROOT = Path(__file__).resolve().parent
@@ -90,6 +91,23 @@ def write_truth(path, components):
     )
 
 
+def write_spectrum(path, parameters):
+    wavelength = np.geomspace(0.8, 2.5, 60)
+    model = SpecModel.read_model(MODEL_NAME).copy()
+    model.prepare_for_spectrum(wavelength)
+    flux = np.asarray(model.fnujy(parameters), dtype=float)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        ''.join(
+            '{:.17g},{:.17g},{:.17g}\n'.format(
+                wave, value, 0.02 * value
+            )
+            for wave, value in zip(wavelength, flux)
+        ),
+        encoding='utf-8',
+    )
+
+
 def generate_single():
     directory = ROOT / 'single-star'
     directory.mkdir(parents=True, exist_ok=True)
@@ -139,10 +157,45 @@ def generate_binary(name, prefix, norm_b):
     })
 
 
+def generate_spectrum():
+    directory = ROOT / 'spectrum-star'
+    directory.mkdir(parents=True, exist_ok=True)
+    parameters = [TEFF, LOGG, BRIGHT_NORM]
+    write_rawphot(
+        directory / 'spectrum-star-rawphot.txt',
+        identifier='S', main_id='Synthetic Spectrum',
+        flux=model_flux(parameters),
+    )
+    spectrum_path = directory / 'spectra' / 'spectrum.csv'
+    write_spectrum(spectrum_path, parameters)
+    digest = sha256(spectrum_path.read_bytes()).hexdigest()
+    (directory / 'spectra.yml').write_text(
+        'version: 1\n'
+        'spectra:\n'
+        '  - id: synthetic:spectrum\n'
+        '    file: spectra/spectrum.csv\n'
+        '    format: csv\n'
+        '    contributors: [S]\n'
+        '    sha256: {}\n'.format(digest),
+        encoding='utf-8',
+    )
+    write_policy(directory / 'sdf-fit.yml', ('Synthetic Spectrum',))
+    truth = {
+        'model': MODEL_NAME,
+        'filters': FILTERS,
+        'components': {'Synthetic Spectrum': parameters},
+        'spectrum_norms': [1.0],
+    }
+    (directory / 'truth.json').write_text(
+        json.dumps(truth, indent=2) + '\n', encoding='utf-8'
+    )
+
+
 def main():
     generate_single()
     generate_binary('faint-binary', 'Faint', FAINT_NORM)
     generate_binary('equal-binary', 'Equal', BRIGHT_NORM)
+    generate_spectrum()
 
 
 if __name__ == '__main__':

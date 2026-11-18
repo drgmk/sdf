@@ -30,11 +30,12 @@ def _truth(directory, problem):
     values = []
     for component in problem.candidate.components:
         values.extend(by_key[component.owner_key])
+    values.extend(payload.get('spectrum_norms', ()))
     return np.asarray(values, dtype=float)
 
 
 @pytest.mark.parametrize(
-    'name', ('single-star', 'faint-binary', 'equal-binary')
+    'name', ('single-star', 'faint-binary', 'equal-binary', 'spectrum-star')
 )
 def test_synthetic_example_is_exact_at_recorded_truth(name):
     directory = EXAMPLES / name
@@ -82,4 +83,20 @@ def test_equal_binary_has_identical_components_and_summed_composite():
         observations['AB'].fnujy,
         observations['A'].fnujy + observations['B'].fnujy,
         rtol=5e-15, atol=0.0,
+    )
+
+
+def test_spectrum_example_has_one_portable_segment_and_normalization():
+    problem = _problem(EXAMPLES / 'spectrum-star')
+    spectral = tuple(
+        observation for observation in problem.dataset.observations
+        if observation.kind == 'spectrum'
+    )
+
+    assert len(spectral) == 1
+    assert spectral[0].product_id == 'synthetic:spectrum'
+    assert spectral[0].segment_id == 'spectrum'
+    assert len(spectral[0].spectra[0].wavelength) == 60
+    assert problem.parameter_names[-1] == (
+        'observation:synthetic:spectrum:spectrum.norm'
     )
