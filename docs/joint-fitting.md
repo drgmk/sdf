@@ -42,9 +42,11 @@ The marker lets a directory contain several self-mapped rawphot files without
 requiring a non-trivial topology file. Any rawphot member resolves to the
 package and the package is fitted only once.
 
-An ordinary single rawphot file without a package marker remains supported by
-the legacy `Result` path. Package inputs use the joint-fitting core and compact
-candidate artifacts.
+`sdf-fit TABLE` stages an ordinary unpackaged IPAC/rawphot table into a
+self-contained single-target package and uses the joint-fitting core and
+compact candidate artifacts. The older `Result` class remains an API
+compatibility facade and a pre-merge comparison baseline; it is no longer the
+command-line path for a new one-file fit.
 
 ## Rawphot and topology
 
@@ -296,8 +298,9 @@ limits, multiple physical contributors, mixed stellar model families, and
 segmented spectra. It produces shared public/admin SED pages and hierarchy-
 aware sample products from compact retained candidates.
 
-Ordinary unpackaged rawphot files still use the established single-target
-`Result` workflow. Legacy MySQL result writing is intentionally unavailable
-for joint packages; the retained artifacts and rebuildable result index replace
-that single-target-shaped output. `sdf` does not currently write photometry or
-association decisions back to `sdb`.
+Ordinary unpackaged IPAC/rawphot files can be fitted with `sdf-fit`, which
+creates a standalone package and the same retained artifacts as a catalog fit.
+Legacy MySQL result writing is intentionally unavailable for current packages;
+the retained artifacts and rebuildable result index replace that single-target-
+shaped output. `sdf` does not currently write photometry or association
+decisions back to `sdb`.

@@ -38,3 +38,6 @@ points are:
 `sdf-fits serve` is the current catalog-wide website and fitting service.
 Run `sdf-fits --help` for its package-management commands and
 `sdf-fits serve --help` for service options.
+
+For a standalone IPAC photometry table, `sdf-fit TABLE` creates and fits a
+self-contained result package without starting the service.

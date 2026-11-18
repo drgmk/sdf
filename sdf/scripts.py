@@ -7,18 +7,14 @@ from pathlib import Path
 
 # from pympler import summary, muppy, tracker
 
-import filelock
-
-from sdf import fitting
 from sdf import plotting
 from sdf import tables
 from sdf import db
 from sdf import www
 from sdf import config as cfg
-from sdf.dataset import discover_fit_sources
+from sdf.dataset import FitDataset
 from sdf.coordinator import fit_package, reprioritize_package
 from sdf.fit_management import FitManager
-from sdf.joint_plotting import write_joint_results_page
 from sdf.result_index import ResultIndex, discover_packages
 from sdf.operator_jobs import run_next_job, run_worker
 from sdf.operator_state import OperatorState
@@ -28,125 +24,79 @@ from sdf.candidate_library import CandidateLibrary
 from sdf.sample_products import write_sample_products
 from sdf.sdb_import import SdbImportConfig
 from sdf.work_cleanup import cleanup_sampler_work
+from sdf.single_fit import prepare_single_fit_package
 
 
 def sdf_fit():
-    """Run fitting with sdf."""
+    """Fit one IPAC photometry table as a standalone package."""
 
-#    tr = tracker.SummaryTracker()
+    parser = argparse.ArgumentParser(
+        description=(
+            'Fit one IPAC photometry table and retain a self-contained SDF '
+            'result package. Automatic model selection is used unless an '
+            'explicit stellar model is supplied.'
+        ),
+        epilog=(
+            'Examples:\n'
+            '  sdf-fit target-rawphot.txt\n'
+            '  sdf-fit target.tbl --output target-fit\n'
+            '  sdf-fit target.tbl --stellar phoenix_sol\n'
+            '  sdf-fit target.tbl --stellar phoenix_sol '
+            '--disk modbb_disk_r\n'
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        'input', metavar='IPAC_TABLE',
+        help='one IPAC photometry table to fit',
+    )
+    parser.add_argument(
+        '--output', '-o', metavar='DIRECTORY',
+        help='result package (default: INPUT_NAME-sdf beside the input)',
+    )
+    parser.add_argument(
+        '--stellar', metavar='MODEL',
+        help='fit exactly this stellar model instead of automatic selection',
+    )
+    parser.add_argument(
+        '--disk', action='append', default=[], metavar='MODEL',
+        help='add this disk model to an explicit fit; repeat as needed',
+    )
+    parser.add_argument(
+        '--no-spectra', action='store_true',
+        help='exclude spectra referenced by the input table',
+    )
+    parser.add_argument(
+        '--force', action='store_true',
+        help='rerun sampling instead of reusing an identical current fit',
+    )
+    args = parser.parse_args()
+    if args.disk and args.stellar is None:
+        parser.error('--disk requires --stellar for an explicit fit')
 
-    # inputs
-    parser1 = argparse.ArgumentParser(description='Run sdf')
-    parser = parser1.add_mutually_exclusive_group(required=True)
-    parser.add_argument('--file', '-f', nargs='+', action='append',
-                        help='Fit SED to file or files')
-    parser.add_argument('--dir', '-d', nargs='+', action='append',
-                        help='Fit SED to *-rawphot.txt files in path(s)')
-    parser.add_argument('--samples', '-s', nargs='+',
-                        help='Restrict to target samples')
-
-    parser1.add_argument('--subset', nargs='+', default='*',
-                         help='Restrict to subset of targets (e.g. public)')
-
-    parser1.add_argument('--www', '-w', action='store_true',
-                         help='www material', default=False)
-    parser1.add_argument('--update-www', action='store_true',
-                         help='Force update of www')
-                         
-    parser1.add_argument('--dbwrite', '-b', action='store_true',
-                         help='Write results to db', default=False)
-    parser1.add_argument('--update-db', action='store_true',
-                         help='Force udpate of db')
-
-    parser1.add_argument('--no-spectra', action='store_true',
-                         help='Exclude spectra from fitting')
-
-    parser1.add_argument('--update-all', '-u', action='store_true',
-                         help='Force udpate of everything')
-
-    parser1.add_argument('--update-analysis', '-a', action='store_true',
-                         help='Force udpate of post-multinest analysis')
-
-    parser1.add_argument('--update-json', '-j', action='store_true',
-                         help='Force udpate of json file')
-
-    parser1.add_argument('--update-thumb', '-t', action='store_true',
-                         help='Force udpate of SED thumbnail image')
-
-    args = parser1.parse_args()
-    
-    # collect the files
-    if args.file is not None:
-        files = [path for group in args.file for path in group]
-
-    elif args.dir is not None:
-        files = []
-        for d in (path for group in args.dir for path in group):
-            d.rstrip('/')
-            files += glob.glob(os.path.abspath(d) + '/**/'
-                               + args.subset[0] + '/*-rawphot.txt',
-                               recursive=True)
-
-    elif args.samples is not None:
-        ids = []
-        for s in args.samples:
-            ids += db.sample_targets(s)
-        files = []
-        for id_ in ids:
-            files += glob.glob(cfg.file['sdb_root']+'masters/'
-                               + id_ + '/**/*-rawphot.txt')
-
-    # Joint-package member files collapse to one package-level fit. Ordinary
-    # rawphot files remain independent and keep the existing Result workflow.
-    sources = discover_fit_sources(files)
-    for source in sources:
-        source = os.fspath(source)
-        is_joint = os.path.isdir(source)
-        if is_joint:
-            lock_path = os.path.join(source, '.sdf_lock')
-        else:
-            lock_path = os.path.dirname(os.path.abspath(source)) \
-                + '/.sdf_lock-' + os.path.basename(source)
-        lock = filelock.FileLock(lock_path)
-        try:
-            with lock.acquire(timeout=0):
-                print(source)
-
-                if is_joint:
-                    if args.dbwrite or args.update_db:
-                        raise NotImplementedError(
-                            'joint-fit database output requires the result '
-                            'index and is not implemented yet'
-                        )
-                    fit_package(
-                        source,
-                        force=args.update_all,
-                        nospec=args.no_spectra,
-                    )
-                    write_joint_results_page(source)
-                    continue
-
-                # evidence-sorted list of results
-                results = fitting.fit_results(os.path.abspath(source),
-                                              update_mn=args.update_all,
-                                              update_an=args.update_analysis,
-                                              update_json=args.update_json,
-                                              update_thumb=args.update_thumb,
-                                              nospec=args.no_spectra)
-                if results is None:
-                    continue
-
-                if args.www or args.update_www:
-                    www.www_all(results, update=args.update_www)
-
-                # write best model to db
-                if args.dbwrite or args.update_db:
-                    db.write_all(results[0], update=args.update_db)
-
-        except filelock.Timeout:
-            pass
-
-#        tr.print_diff()
+    package = prepare_single_fit_package(args.input, output=args.output)
+    manager = FitManager(package.directory)
+    if args.stellar is None:
+        fit_package(
+            package.directory,
+            force=args.force,
+            nospec=args.no_spectra,
+        )
+    else:
+        dataset = FitDataset.from_path(
+            package.directory, nospec=args.no_spectra
+        )
+        target_key = dataset.targets[0].key
+        manager.fit_exact(
+            ((target_key, args.stellar),),
+            tuple((target_key, model) for model in args.disk),
+            force=args.force,
+            nospec=args.no_spectra,
+            dataset=dataset,
+        )
+    page = manager.render()
+    print('Fit package: {}'.format(package.directory))
+    print('SED page: {}'.format(page))
 
 
 def sdf_sample():

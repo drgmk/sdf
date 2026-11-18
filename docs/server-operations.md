@@ -250,12 +250,13 @@ Every physical contributor needs exactly one `--stellar` assignment. Repeat
 `--disk` for multiple disk components. An identical current candidate is
 reused unless `--force` is supplied.
 
-## Legacy commands
+## One-file and legacy commands
 
-`sdf-fit` remains the compatibility entry point. A package directory is routed
-through the joint-fitting core; an ordinary rawphot file still uses the legacy
-single-file `Result` workflow. New catalog-wide operation should use
-`sdf-fits serve`.
+`sdf-fit TABLE` is the focused one-file workflow. It stages one unpackaged IPAC
+photometry table into a self-contained output directory and uses the same
+retained-candidate fitting and presentation core as the service. It deliberately
+does not replace package fitting or catalog-wide operation; use `sdf-fits` for
+those.
 
 `sdf-sample --index ...` generates hierarchy-aware products from the current
 result index. The live service renders equivalent sample pages directly. The

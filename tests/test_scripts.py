@@ -88,49 +88,105 @@ def test_sdf_fits_subcommand_help_explains_effects(
         assert text in output
 
 
-def test_joint_fit_allows_www_and_writes_page(tmp_path, monkeypatch):
-    (tmp_path / 'joint-fit.yml').write_text(
-        'version: 1\nobservations: {}\n', encoding='utf-8'
-    )
-    rawphot = tmp_path / 'target-rawphot.txt'
+def test_sdf_fit_help_describes_one_file_workflow(monkeypatch, capsys):
+    monkeypatch.setattr(sys, 'argv', ['sdf-fit', '--help'])
+
+    with pytest.raises(SystemExit) as exit_info:
+        sdf.scripts.sdf_fit()
+
+    assert exit_info.value.code == 0
+    output = capsys.readouterr().out
+    assert 'one IPAC photometry table' in output
+    assert '--stellar MODEL' in output
+    assert '--output DIRECTORY' in output
+
+
+def test_sdf_fit_stages_input_runs_automatic_fit_and_renders(
+        tmp_path, monkeypatch, capsys):
+    rawphot = tmp_path / 'target.tbl'
     rawphot.write_text('test input\n', encoding='utf-8')
+    output = tmp_path / 'result'
     calls = []
 
     monkeypatch.setattr(
-        sys, 'argv', ['sdf-fit', '--file', str(rawphot), '--www']
+        sys, 'argv', [
+            'sdf-fit', str(rawphot), '--output', str(output), '--no-spectra'
+        ]
     )
     monkeypatch.setattr(
         sdf.scripts, 'fit_package',
         lambda source, **kwargs: calls.append(('fit', source, kwargs)),
     )
-    monkeypatch.setattr(
-        sdf.scripts, 'write_joint_results_page',
-        lambda source: calls.append(('page', source)),
-    )
+
+    class FakeManager:
+        def __init__(self, package):
+            calls.append(('manager', package))
+
+        def render(self):
+            calls.append(('render',))
+            return output / 'index.html'
+
+    monkeypatch.setattr(sdf.scripts, 'FitManager', FakeManager)
 
     sdf.scripts.sdf_fit()
 
     assert calls == [
-        ('fit', str(tmp_path), {'force': False, 'nospec': False}),
-        ('page', str(tmp_path)),
+        ('manager', output.resolve()),
+        ('fit', output.resolve(), {'force': False, 'nospec': True}),
+        ('render',),
     ]
+    assert (output / 'target-rawphot.txt').read_text() == 'test input\n'
+    assert 'SED page:' in capsys.readouterr().out
 
 
-@pytest.mark.parametrize('option', ('--dbwrite', '--update-db'))
-def test_joint_fit_rejects_legacy_database_output(
-        tmp_path, monkeypatch, option):
-    (tmp_path / 'joint-fit.yml').write_text(
-        'version: 1\nobservations: {}\n', encoding='utf-8'
-    )
+def test_sdf_fit_explicit_models_are_owned_by_the_only_target(
+        tmp_path, monkeypatch):
     rawphot = tmp_path / 'target-rawphot.txt'
     rawphot.write_text('test input\n', encoding='utf-8')
+    output = tmp_path / 'result'
+    calls = []
 
     monkeypatch.setattr(
-        sys, 'argv', ['sdf-fit', '--file', str(rawphot), option]
+        sys, 'argv', [
+            'sdf-fit', str(rawphot), '--output', str(output),
+            '--stellar', 'phoenix_sol', '--disk', 'modbb_disk_r',
+        ],
     )
 
-    with pytest.raises(NotImplementedError, match='result index'):
-        sdf.scripts.sdf_fit()
+    class Target:
+        key = 'simbad:Test'
+
+    class Dataset:
+        targets = (Target(),)
+
+    dataset = Dataset()
+
+    class FakeManager:
+        def __init__(self, package):
+            calls.append(('manager', package))
+
+        def fit_exact(self, stellar, disks, **kwargs):
+            calls.append(('fit', stellar, disks, kwargs))
+
+        def render(self):
+            return output / 'index.html'
+
+    monkeypatch.setattr(sdf.scripts, 'FitManager', FakeManager)
+    monkeypatch.setattr(
+        sdf.scripts.FitDataset, 'from_path',
+        lambda *args, **kwargs: dataset,
+    )
+
+    sdf.scripts.sdf_fit()
+
+    assert calls[0] == ('manager', output.resolve())
+    assert calls[1][:3] == (
+        'fit', (('simbad:Test', 'phoenix_sol'),),
+        (('simbad:Test', 'modbb_disk_r'),),
+    )
+    assert calls[1][3] == {
+        'force': False, 'nospec': False, 'dataset': dataset,
+    }
 
 
 def test_sdf_fits_can_render_operator_extension(monkeypatch, tmp_path):

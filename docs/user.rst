@@ -14,6 +14,13 @@ Current catalog and package tools
   and select retained candidates for one package. See :doc:`server-operations`
   and :doc:`joint-fitting`.
 
+``sdf-fit``
+  Fit one IPAC photometry table without running the catalog service. The input
+  is staged into a self-contained package and fitted through the same retained-
+  candidate core as server-managed systems. Use ``--stellar`` and repeatable
+  ``--disk`` options for an exact model combination, or omit them for automatic
+  model selection.
+
 ``sdf-index``
   Rebuild or verify the disposable SQLite projection of package-local results.
 
@@ -23,11 +30,6 @@ Current catalog and package tools
 
 Compatibility tools
 -------------------
-
-``sdf-fit``
-  Fit explicit input files or directories. Joint packages are routed through
-  the current package core; ordinary rawphot files retain the legacy
-  single-file ``Result`` workflow.
 
 ``sdf-sample``
   Generate sample products. The current hierarchy-aware mode uses
