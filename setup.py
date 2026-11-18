@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name='sdf',
-    version='0.1',
+    version='2.0.0',
     description='all your seds are belong to us',
     url='https://github.com/drgmk/sdf',
     author='Grant M. Kennedy',

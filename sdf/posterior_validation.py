@@ -76,4 +76,3 @@ def validate_posterior(problem, posterior):
     if (posterior.evidence_error is not None and
             posterior.evidence_error < 0):
         raise utils.SdfError('evidence error is negative')
-
