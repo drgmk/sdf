@@ -484,25 +484,25 @@ def test_proxy_auth_separates_public_sample_and_admin_access(tmp_path):
         assert 'No public fit' in read('/system/package/')
         public_page = read('/samples')
         assert 'test' in public_page
-        assert 'private' not in public_page
+        assert 'href="/samples/private/"' not in public_page
         assert 'Sign in to see private samples' in public_page
         assert 'HD 123' in read('/samples/test')
-        assert status('/samples/private') == 401
-        assert status('/admin') == 401
-        assert status('/admin/activity') == 401
+        assert status('/samples/private') == 303
+        assert status('/admin') == 303
+        assert status('/admin/activity') == 303
         assert post_status() == 401
 
         alice_page = read('/samples', 'alice')
         assert 'test' in alice_page
-        assert 'private' in alice_page
-        assert 'other' not in alice_page
+        assert 'href="/samples/private/"' in alice_page
+        assert 'href="/samples/other/"' not in alice_page
         assert 'HD 123' in read('/samples/test', 'alice')
         assert 'HD 123' in read('/samples/private', 'alice')
         assert status('/admin', 'alice') == 403
         assert status('/admin/activity', 'alice') == 403
         assert post_status('alice') == 403
 
-        assert 'private' not in read('/samples', 'bob')
+        assert 'href="/samples/private/"' not in read('/samples', 'bob')
         assert status('/samples/private', 'bob') == 403
 
         collaborator_calls = []
