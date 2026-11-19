@@ -1,48 +1,37 @@
 Configuration
 =============
 
-Most users do not need an SDF configuration file. The package contains a small
-model set and the command-line defaults used by both ``sdf-fit`` and
-``sdf-fits``. A full server installation normally configures only the external
-model library.
+The complete configuration is ``sdf/sdf.toml`` in the source tree and is
+installed with the package. It supplies the defaults used by
+``sdf-fit``, ``sdf-fits``, and the Python API. It includes the fitting and model
+settings used by current code as well as settings retained for specialist
+model-generation and historical database/sample utilities.
 
-Copy ``sdf.example.toml`` to ``sdf.toml`` in the working directory, or install
-it as ``~/.config/sdf/config.toml``. An explicit file can be selected with::
+Most installations should not copy or replace it. Put only machine-specific
+changes in ``~/.sdf.conf`` using INI syntax. A full server commonly needs just::
 
-   export SDF_CONFIG=/absolute/path/to/sdf.toml
+   [file]
+   model_root = /path/to/full/model/library/
 
-Relative paths are interpreted relative to the TOML file, rather than the
-process working directory. This makes one configuration usable from a shell,
-launchd, or another service manager.
+Other tables and setting names are the same as those in ``sdf.toml``. For
+example, a local MultiNest override could be::
 
-The supported tables are:
+   [fitting]
+   n_live = 300
+   verb = false
 
-``[models]``
-   ``root`` selects the model-library directory. Optional role patterns and
-   wavelength-grid settings support custom model libraries.
+Relative paths in ``sdf.toml`` are interpreted relative to that file; paths in
+``~/.sdf.conf`` are interpreted relative to the home directory. Unknown TOML
+tables and settings are rejected so spelling mistakes cannot silently change a
+fit.
 
-``[fitting]``
-   Process-wide numerical defaults: the evidence threshold, MultiNest live
-   points and update interval, retained posterior sample count, normalisation
-   ranges, and global filter policies. Per-system model choices belong in the
-   web UI or package-local ``sdf-fit.yml``.
+For an unusual deployment, ``SDF_CONFIG`` may select an explicit partial TOML
+or INI override instead of ``~/.sdf.conf``::
 
-``[paths]``
-   ``spectra`` supports historical rawphot files whose spectra are relative to
-   a shared directory. Modern SDB exports carry a package-local spectra
-   manifest and do not need it.
+   export SDF_CONFIG=/absolute/path/to/override.toml
 
-Unknown settings are rejected so spelling mistakes cannot silently change a
-fit. See ``sdf.example.toml`` for the complete supported surface.
-
-Legacy configuration
---------------------
-
-When ``SDF_CONFIG`` is unset, an existing ``~/.sdf.conf`` is still read before
-the TOML discovery locations. It exists for older database, calibration, and
-model-generation utilities; new installations should use TOML. The complete
-internal defaults remain in the package's ``sdf.conf`` but should not be
-edited.
+Per-system model choices do not belong in the process-wide configuration. They
+remain in the web UI or package-local ``sdf-fit.yml``.
 
 Module reference
 ----------------

@@ -1,0 +1,141 @@
+# Complete defaults for sdf.
+#
+# These settings are used by sdf-fit, sdf-fits, and the Python package. Most
+# installations only need a ~/.sdf.conf file overriding file.model_root (and
+# occasionally another machine-specific path). Relative paths in this file are
+# resolved from the directory containing it.
+
+[calc]
+# Number of CPUs used by older parallel utilities. The sdf-fits worker count
+# is a server setting and does not come from here.
+cpu = 8
+
+[file]
+# Historical rawphot files may name spectra relative to this directory.
+spectra = "/path/to/spectra/"
+
+# Model grids available to fitting. The repository includes a small set here;
+# a server will normally override this in ~/.sdf.conf.
+model_root = "data/models/"
+
+# Specialist paths used when rebuilding atmosphere grids.
+kurucz_models = "/path/to/kurucz/"
+phoenix_models = "/path/to/phoenix/"
+phoenix_cool_models = "/path/to/phoenix/cool/models/"
+
+# Paths used by historical sample/calibration utilities.
+sdb_root = "/path/to/sdb/"
+www_root = "/path/to/www/"
+
+[models]
+# Wavelength grid used for models and output plots.
+min_wave_micron = 0.05
+max_wave_micron = 1e4
+default_resolution = 200
+
+# Model roles are inferred from these substrings.
+star = ["phoenix", "kurucz", "koester", "star"]
+disk = ["disk", "amsil"]
+disk_r = ["_r"]
+
+[fitting]
+# Process-wide defaults. Per-system choices belong in the web UI or the
+# package-local sdf-fit.yml. Each model combination, when supplied here, is an
+# array of model names, for example models = [["phoenix"], ["phoenix", "disk"]].
+models = []
+extra_models = []
+
+exclude_filters = []
+upperlim_filters = ["GALFUV", "GALNUV"]
+
+# Force regeneration of saved MultiNest/analysis results older than these Unix
+# timestamps. Zero leaves existing results eligible for reuse.
+mn_oldest = 0
+an_oldest = 0
+
+ev_threshold = 5.0
+n_samples_max = 1000
+
+# Log solid-angle range, where zero is a Solar disk at 1 pc.
+model_om_lo = -10
+model_om_hi = 10
+
+# Multiplicative spectrum-normalisation range.
+spectra_norm_lo = 0.3
+spectra_norm_hi = 3
+
+# MultiNest work-name construction retained for existing result directories.
+model_join = "+"
+pmn_dir_suffix = "-mnest"
+pmn_model_suffix = "_"
+
+n_live = 200
+n_update = 50000
+verb = false
+
+# Historical result/sample database settings. Current sdf-fits catalog state
+# is configured by the server and does not use these MySQL defaults.
+[db]
+type = "mysql"
+db_sdb = "sdb"
+db_samples = "sdb_samples"
+db_results = "sdb_results"
+phot_table = "phot"
+model_table = "model"
+star_table = "star"
+disk_r_table = "disk_r"
+sdf_fit_config = "sdf_fit_config"
+
+[sqlite]
+path = "/path/to/sqlite/db/files/"
+
+[mysql]
+host = ""
+user = ""
+passwd = ""
+
+# Historical static sample/calibration website settings.
+[www]
+base_url = "https://sdb.drgmk.com"
+sdb_path = "/"
+tablemax = 5000
+votmax = 10000
+plotmax = 5000
+cal_samples = ["bright_cal_", "landolt_1992_", "landolt_1983_", "stis_ngsl_"]
+min_cal_wav = 0.017
+max_cal_wav = 26.0
+
+# Filter groups used by the filter diagnostic plot.
+[filter_plot]
+g1 = ["GALFUV", "GALNUV", "UJ"]
+g2 = ["US", "VS", "BS", "YS", "D51"]
+g3 = ["BJ", "VJ", "BL", "VL", "BT", "VT"]
+g4 = ["HP", "KP", "RC", "IC", "GAIA.G", "GAIA.BP", "GAIA.RP"]
+g5 = ["USDSS", "GSDSS", "RSDSS", "ISDSS", "ZSDSS"]
+g6 = ["2MH", "2MJ", "2MKS", "IDENIS", "JDENIS", "KSDENIS"]
+g7 = ["WISE3P4", "WISE4P6", "IRAC3P6", "IRAC4P5", "IRAC5P8"]
+g8 = [
+  "NIRCAM.F070W", "NIRCAM.F090W", "NIRCAM.F115W", "NIRCAM.F150W2",
+  "NIRCAM.F150W", "NIRCAM.F200W", "NIRCAM.F277W", "NIRCAM.F322W2",
+  "NIRCAM.F356W", "NIRCAM.F444W",
+]
+g9 = [
+  "NIRCAM.F140M", "NIRCAM.F162M", "NIRCAM.F182M", "NIRCAM.F210M",
+  "NIRCAM.F250M", "NIRCAM.F300M", "NIRCAM.F335M", "NIRCAM.F360M",
+  "NIRCAM.F410M", "NIRCAM.F430M", "NIRCAM.F460M", "NIRCAM.F480M",
+]
+g10 = [
+  "NIRCAM.F164N", "NIRCAM.F187N", "NIRCAM.F212N", "NIRCAM.F323N",
+  "NIRCAM.F405N", "NIRCAM.F466N", "NIRCAM.F470N",
+]
+g11 = ["NIRCAM.F182MC", "NIRCAM.F187NC", "NIRCAM.F200WC"]
+g12 = [
+  "MIRI.F560W", "MIRI.F770W", "MIRI.F1000W", "MIRI.F1280W",
+  "MIRI.F1130W", "MIRI.F1500W", "MIRI.F1800W", "MIRI.F2100W",
+  "MIRI.F2550W",
+]
+g13 = ["MIRI.F1065C", "MIRI.F1140C", "MIRI.F1550C", "MIRI.F2300C"]
+g14 = ["IRAC8", "NOMICN", "AKARI9", "WISE12", "IRAS12"]
+g15 = ["AKARI18", "WISE22", "MIPS24", "IRAS25"]
+g16 = ["PACS70", "PACS100", "MIPS70", "IRAS60", "IRAS100"]
+g17 = ["PACS160", "MIPS160", "SPIRE250", "SPIRE350", "SPIRE500"]

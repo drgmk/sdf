@@ -9,8 +9,8 @@ Basic structure is that there are SpecModels (spectra) and PhotModels
 
 To start from scratch, it may be beneficial to create a fresh folder
 in which models will go, since generation can take a long time. Do this
-by selecting a temporary ``[models].root`` in ``sdf.toml`` before importing
-``model_setup`` (and change it back once generation is complete).
+by selecting a temporary ``[file] model_root`` in ``~/.sdf.conf`` before
+importing ``model_setup`` (and change it back once generation is complete).
 
 Models with reddening can be created from those without, e.g. with
 phoenix_reddened_spectra.

@@ -1,11 +1,9 @@
 """Runtime defaults and optional local configuration.
 
-The bundled ``sdf.conf`` remains the complete internal default set. Normal
-installations only need an ``sdf.toml`` when they use an external model
-library or want to change fitting controls. The configuration can be selected
-with ``SDF_CONFIG``; otherwise ``~/.config/sdf/config.toml`` and
-``./sdf.toml`` are applied in that order. The old ``~/.sdf.conf`` is still
-read as a legacy fallback when ``SDF_CONFIG`` is not set.
+The bundled ``sdf.toml`` is the complete, authoritative default configuration
+for both command-line entry points and the Python package. Machine-specific
+changes belong in ``~/.sdf.conf``. An explicit TOML or INI override can be
+selected with ``SDF_CONFIG``.
 
 The processed values can be accessed by importing this module:
 
@@ -32,7 +30,7 @@ import tomllib
 import numpy as np
 
 _PACKAGE_ROOT = Path(__file__).resolve().parent
-_DEFAULT_CONFIG = _PACKAGE_ROOT / 'sdf.conf'
+_DEFAULT_CONFIG = _PACKAGE_ROOT / 'sdf.toml'
 
 
 def _directory(value, relative_to):
@@ -44,139 +42,81 @@ def _directory(value, relative_to):
     return str(path.resolve()) + os.sep
 
 
-def _string_list(value, name):
-    if not isinstance(value, list) or not all(
-            isinstance(item, str) for item in value):
-        raise ValueError('{} must be an array of strings'.format(name))
-    return ','.join(value)
+def _parser_value(section, key, value):
+    """Convert one TOML value to the historical ConfigParser interface."""
+
+    name = '{}.{}'.format(section, key)
+    if isinstance(value, list):
+        if section == 'fitting' and key in {'models', 'extra_models'}:
+            if not all(
+                    isinstance(group, list)
+                    and all(isinstance(item, str) for item in group)
+                    for group in value):
+                raise ValueError(
+                    '{} must be an array of arrays of strings'.format(name)
+                )
+            return repr(tuple(tuple(group) for group in value))
+        if not all(isinstance(item, str) for item in value):
+            raise ValueError('{} must be an array of strings'.format(name))
+        return ','.join(value)
+    if isinstance(value, (str, int, float, bool)):
+        return str(value)
+    raise ValueError('{} has an unsupported TOML value'.format(name))
 
 
-def _number_pair(value, name):
-    if (not isinstance(value, list) or len(value) != 2
-            or not all(isinstance(item, (int, float)) for item in value)):
-        raise ValueError('{} must be an array of two numbers'.format(name))
-    return value
+def _apply_toml(parser, path, *, defaults=False):
+    """Apply a complete default TOML file or a partial TOML override."""
 
-
-def _table(payload, name):
-    value = payload.get(name, {})
-    if not isinstance(value, dict):
-        raise ValueError('{} must be a TOML table'.format(name))
-    return value
-
-
-def _check_keys(table, allowed, name):
-    unknown = sorted(set(table) - set(allowed))
-    if unknown:
-        raise ValueError(
-            'unknown {} setting(s): {}'.format(name, ', '.join(unknown))
-        )
-
-
-def _apply_toml(parser, path):
-    """Apply the small supported TOML surface to legacy internal defaults."""
-
-    with Path(path).open('rb') as handle:
+    path = Path(path)
+    with path.open('rb') as handle:
         payload = tomllib.load(handle)
-    _check_keys(payload, {'models', 'fitting', 'paths'}, 'top-level')
+    if not all(isinstance(table, dict) for table in payload.values()):
+        raise ValueError('SDF TOML top-level entries must be tables')
 
-    models_table = _table(payload, 'models')
-    _check_keys(
-        models_table,
-        {
-            'root', 'stellar_patterns', 'disk_patterns',
-            'radial_disk_patterns', 'min_wavelength_micron',
-            'max_wavelength_micron', 'resolution',
-        },
-        'models',
-    )
-    if 'root' in models_table:
-        parser['file']['model_root'] = _directory(
-            models_table['root'], Path(path).parent
-        )
-    for source, target in (
-            ('stellar_patterns', 'star'),
-            ('disk_patterns', 'disk'),
-            ('radial_disk_patterns', 'disk_r')):
-        if source in models_table:
-            parser['models'][target] = _string_list(
-                models_table[source], 'models.{}'.format(source)
+    for section, table in payload.items():
+        if section not in parser:
+            if not defaults:
+                raise ValueError('unknown SDF configuration table: {}'.format(
+                    section
+                ))
+            parser.add_section(section)
+        unknown = sorted(set(table) - set(parser[section]))
+        if unknown and not defaults:
+            raise ValueError(
+                'unknown {} setting(s): {}'.format(
+                    section, ', '.join(unknown)
+                )
             )
-    for source, target in (
-            ('min_wavelength_micron', 'min_wave_micron'),
-            ('max_wavelength_micron', 'max_wave_micron'),
-            ('resolution', 'default_resolution')):
-        if source in models_table:
-            parser['models'][target] = str(models_table[source])
-
-    fitting_table = _table(payload, 'fitting')
-    _check_keys(
-        fitting_table,
-        {
-            'evidence_threshold', 'live_points', 'update_interval',
-            'posterior_samples', 'model_normalization',
-            'spectrum_normalization', 'excluded_filters',
-            'upper_limit_filters', 'verbose',
-        },
-        'fitting',
-    )
-    for source, target in (
-            ('evidence_threshold', 'ev_threshold'),
-            ('live_points', 'n_live'),
-            ('update_interval', 'n_update'),
-            ('posterior_samples', 'n_samples_max'),
-            ('verbose', 'verb')):
-        if source in fitting_table:
-            parser['fitting'][target] = str(fitting_table[source])
-    for source, low, high in (
-            ('model_normalization', 'model_om_lo', 'model_om_hi'),
-            ('spectrum_normalization', 'spectra_norm_lo', 'spectra_norm_hi')):
-        if source in fitting_table:
-            values = _number_pair(
-                fitting_table[source], 'fitting.{}'.format(source)
-            )
-            parser['fitting'][low] = str(values[0])
-            parser['fitting'][high] = str(values[1])
-    for source, target in (
-            ('excluded_filters', 'exclude_filters'),
-            ('upper_limit_filters', 'upperlim_filters')):
-        if source in fitting_table:
-            parser['fitting'][target] = _string_list(
-                fitting_table[source], 'fitting.{}'.format(source)
-            )
-
-    paths_table = _table(payload, 'paths')
-    _check_keys(paths_table, {'spectra'}, 'paths')
-    if 'spectra' in paths_table:
-        parser['file']['spectra'] = _directory(
-            paths_table['spectra'], Path(path).parent
-        )
+        for key, value in table.items():
+            parsed = _parser_value(section, key, value)
+            if section == 'file':
+                parsed = _directory(parsed, path.parent)
+            parser[section][key] = parsed
 
 
 def _read_ini_override(parser, path):
-    """Read an old INI override and make its model path location-independent."""
+    """Read a concise INI override and resolve any changed file paths."""
 
-    previous_root = parser['file']['model_root']
+    previous_paths = dict(parser['file'])
     parser.read(path)
-    if parser['file']['model_root'] != previous_root:
-        parser['file']['model_root'] = _directory(
-            parser['file']['model_root'], Path(path).parent
-        )
+    for key, value in parser['file'].items():
+        if value != previous_paths.get(key):
+            parser['file'][key] = _directory(value, Path(path).parent)
 
 
 def load_config(path=None, *, cwd=None, home=None):
     """Load defaults and return ``(ConfigParser, source_paths)``.
 
-    An explicit *path*, or ``SDF_CONFIG`` when *path* is omitted, replaces
-    normal user/project discovery. INI paths are accepted to ease migration;
-    new configuration should use TOML.
+    The complete bundled TOML file is always loaded first. With no explicit
+    *path* (or ``SDF_CONFIG``), ``~/.sdf.conf`` is then applied as the concise
+    per-user override. Explicit TOML and INI override files are also accepted.
+    *cwd* remains accepted for callers of the previous discovery API but is no
+    longer used.
     """
 
+    del cwd
     parser = configparser.ConfigParser()
-    parser.read(_DEFAULT_CONFIG)
-    parser['file']['model_root'] = _directory(
-        'data/models', _PACKAGE_ROOT
-    )
+    _apply_toml(parser, _DEFAULT_CONFIG, defaults=True)
     sources = [_DEFAULT_CONFIG]
     explicit = path if path is not None else os.environ.get('SDF_CONFIG')
     if explicit:
@@ -192,18 +132,11 @@ def load_config(path=None, *, cwd=None, home=None):
         sources.append(explicit)
         return parser, tuple(sources)
 
-    cwd = Path.cwd() if cwd is None else Path(cwd)
     home = Path.home() if home is None else Path(home)
-    legacy = home / '.sdf.conf'
-    if legacy.is_file():
-        _read_ini_override(parser, legacy)
-        sources.append(legacy)
-    for candidate in (
-            home / '.config' / 'sdf' / 'config.toml',
-            cwd / 'sdf.toml'):
-        if candidate.is_file():
-            _apply_toml(parser, candidate)
-            sources.append(candidate.resolve())
+    user_config = home / '.sdf.conf'
+    if user_config.is_file():
+        _read_ini_override(parser, user_config)
+        sources.append(user_config)
     return parser, tuple(sources)
 
 
@@ -312,7 +245,7 @@ www = {
 }
 
 # some numbers to be used in the plotting dict below
-# TODO: tidy and move to sdf.conf
+# TODO: move these plotting constants into sdf.toml.
 
 # colours for each model, first is total model
 model_colours = ['navy', 'firebrick', 'green', 'red', 'darkslategray']

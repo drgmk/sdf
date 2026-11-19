@@ -19,13 +19,18 @@ but development installations use normal `pip` packaging.
 
 ## Configure
 
-Configuration is optional when the bundled models are sufficient. For a full
-model library, copy `sdf.example.toml` to `sdf.toml` and set its
-`[models].root`. SDF also discovers `~/.config/sdf/config.toml`, or accepts an
-explicit path through `SDF_CONFIG`. Relative paths are resolved from the TOML
-file. See [the configuration guide](docs/config.rst) for the small set of
-process-wide fitting controls; per-system model choices remain with the fit
-package or web UI.
+All defaults used by both entry points are in
+[`sdf/sdf.toml`](sdf/sdf.toml). Most installations should leave that file
+alone and put only machine-specific changes in `~/.sdf.conf`, commonly:
+
+```ini
+[file]
+model_root = /path/to/full/model/library/
+```
+
+See [the configuration guide](docs/config.rst) for the complete settings and
+override rules. Per-system model choices remain with the fit package or web
+UI.
 
 To build the documentation, install the optional documentation dependencies:
 
