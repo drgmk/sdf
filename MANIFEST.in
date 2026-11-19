@@ -1,4 +1,5 @@
 include sdf/sdf.conf
+include sdf.example.toml
 graft sdf/data
 graft sdf/calibration
 graft sdf/www

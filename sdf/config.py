@@ -1,10 +1,15 @@
-"""File locations and other configuration.
-    
-This is mostly configured with a .conf file, but some post-processing is
-done here. The imformation contained herein can be accessed from 
-elsewhere by importing this module: 
+"""Runtime defaults and optional local configuration.
 
->>> import config as cfg
+The bundled ``sdf.conf`` remains the complete internal default set. Normal
+installations only need an ``sdf.toml`` when they use an external model
+library or want to change fitting controls. The configuration can be selected
+with ``SDF_CONFIG``; otherwise ``~/.config/sdf/config.toml`` and
+``./sdf.toml`` are applied in that order. The old ``~/.sdf.conf`` is still
+read as a legacy fallback when ``SDF_CONFIG`` is not set.
+
+The processed values can be accessed by importing this module:
+
+>>> from sdf import config as cfg
 >>> wave = cfg.models['default_wave']
 
 Plotting things that are harder (or more laborious) to configure so are
@@ -18,21 +23,191 @@ would look something like:
 >>> fig.circle('x', 'y', source=data, **cfg.pl['obs_ph'])
 """
 
-import os
 import ast
 import configparser
+import os
+from pathlib import Path
+import tomllib
 
 import numpy as np
 
-print(' Config')
-print('  found files: ')
+_PACKAGE_ROOT = Path(__file__).resolve().parent
+_DEFAULT_CONFIG = _PACKAGE_ROOT / 'sdf.conf'
 
-# info from the config files, defaults are in same dir as this file
-cfg = configparser.ConfigParser()
-print(cfg.read([
-          os.path.dirname(os.path.realpath(__file__))+'/sdf.conf',
-          os.path.expanduser('~')+'/.sdf.conf'
-         ]))
+
+def _directory(value, relative_to):
+    """Return one expanded absolute directory string with a trailing slash."""
+
+    path = Path(os.path.expandvars(str(value))).expanduser()
+    if not path.is_absolute():
+        path = Path(relative_to) / path
+    return str(path.resolve()) + os.sep
+
+
+def _string_list(value, name):
+    if not isinstance(value, list) or not all(
+            isinstance(item, str) for item in value):
+        raise ValueError('{} must be an array of strings'.format(name))
+    return ','.join(value)
+
+
+def _number_pair(value, name):
+    if (not isinstance(value, list) or len(value) != 2
+            or not all(isinstance(item, (int, float)) for item in value)):
+        raise ValueError('{} must be an array of two numbers'.format(name))
+    return value
+
+
+def _table(payload, name):
+    value = payload.get(name, {})
+    if not isinstance(value, dict):
+        raise ValueError('{} must be a TOML table'.format(name))
+    return value
+
+
+def _check_keys(table, allowed, name):
+    unknown = sorted(set(table) - set(allowed))
+    if unknown:
+        raise ValueError(
+            'unknown {} setting(s): {}'.format(name, ', '.join(unknown))
+        )
+
+
+def _apply_toml(parser, path):
+    """Apply the small supported TOML surface to legacy internal defaults."""
+
+    with Path(path).open('rb') as handle:
+        payload = tomllib.load(handle)
+    _check_keys(payload, {'models', 'fitting', 'paths'}, 'top-level')
+
+    models_table = _table(payload, 'models')
+    _check_keys(
+        models_table,
+        {
+            'root', 'stellar_patterns', 'disk_patterns',
+            'radial_disk_patterns', 'min_wavelength_micron',
+            'max_wavelength_micron', 'resolution',
+        },
+        'models',
+    )
+    if 'root' in models_table:
+        parser['file']['model_root'] = _directory(
+            models_table['root'], Path(path).parent
+        )
+    for source, target in (
+            ('stellar_patterns', 'star'),
+            ('disk_patterns', 'disk'),
+            ('radial_disk_patterns', 'disk_r')):
+        if source in models_table:
+            parser['models'][target] = _string_list(
+                models_table[source], 'models.{}'.format(source)
+            )
+    for source, target in (
+            ('min_wavelength_micron', 'min_wave_micron'),
+            ('max_wavelength_micron', 'max_wave_micron'),
+            ('resolution', 'default_resolution')):
+        if source in models_table:
+            parser['models'][target] = str(models_table[source])
+
+    fitting_table = _table(payload, 'fitting')
+    _check_keys(
+        fitting_table,
+        {
+            'evidence_threshold', 'live_points', 'update_interval',
+            'posterior_samples', 'model_normalization',
+            'spectrum_normalization', 'excluded_filters',
+            'upper_limit_filters', 'verbose',
+        },
+        'fitting',
+    )
+    for source, target in (
+            ('evidence_threshold', 'ev_threshold'),
+            ('live_points', 'n_live'),
+            ('update_interval', 'n_update'),
+            ('posterior_samples', 'n_samples_max'),
+            ('verbose', 'verb')):
+        if source in fitting_table:
+            parser['fitting'][target] = str(fitting_table[source])
+    for source, low, high in (
+            ('model_normalization', 'model_om_lo', 'model_om_hi'),
+            ('spectrum_normalization', 'spectra_norm_lo', 'spectra_norm_hi')):
+        if source in fitting_table:
+            values = _number_pair(
+                fitting_table[source], 'fitting.{}'.format(source)
+            )
+            parser['fitting'][low] = str(values[0])
+            parser['fitting'][high] = str(values[1])
+    for source, target in (
+            ('excluded_filters', 'exclude_filters'),
+            ('upper_limit_filters', 'upperlim_filters')):
+        if source in fitting_table:
+            parser['fitting'][target] = _string_list(
+                fitting_table[source], 'fitting.{}'.format(source)
+            )
+
+    paths_table = _table(payload, 'paths')
+    _check_keys(paths_table, {'spectra'}, 'paths')
+    if 'spectra' in paths_table:
+        parser['file']['spectra'] = _directory(
+            paths_table['spectra'], Path(path).parent
+        )
+
+
+def _read_ini_override(parser, path):
+    """Read an old INI override and make its model path location-independent."""
+
+    previous_root = parser['file']['model_root']
+    parser.read(path)
+    if parser['file']['model_root'] != previous_root:
+        parser['file']['model_root'] = _directory(
+            parser['file']['model_root'], Path(path).parent
+        )
+
+
+def load_config(path=None, *, cwd=None, home=None):
+    """Load defaults and return ``(ConfigParser, source_paths)``.
+
+    An explicit *path*, or ``SDF_CONFIG`` when *path* is omitted, replaces
+    normal user/project discovery. INI paths are accepted to ease migration;
+    new configuration should use TOML.
+    """
+
+    parser = configparser.ConfigParser()
+    parser.read(_DEFAULT_CONFIG)
+    parser['file']['model_root'] = _directory(
+        'data/models', _PACKAGE_ROOT
+    )
+    sources = [_DEFAULT_CONFIG]
+    explicit = path if path is not None else os.environ.get('SDF_CONFIG')
+    if explicit:
+        explicit = Path(explicit).expanduser().resolve()
+        if not explicit.is_file():
+            raise FileNotFoundError(
+                'SDF configuration not found: {}'.format(explicit)
+            )
+        if explicit.suffix.lower() == '.toml':
+            _apply_toml(parser, explicit)
+        else:
+            _read_ini_override(parser, explicit)
+        sources.append(explicit)
+        return parser, tuple(sources)
+
+    cwd = Path.cwd() if cwd is None else Path(cwd)
+    home = Path.home() if home is None else Path(home)
+    legacy = home / '.sdf.conf'
+    if legacy.is_file():
+        _read_ini_override(parser, legacy)
+        sources.append(legacy)
+    for candidate in (
+            home / '.config' / 'sdf' / 'config.toml',
+            cwd / 'sdf.toml'):
+        if candidate.is_file():
+            _apply_toml(parser, candidate)
+            sources.append(candidate.resolve())
+    return parser, tuple(sources)
+
+
+cfg, config_sources = load_config()
 
 # simple dictionaries with only strings
 file = cfg['file']
@@ -50,15 +225,16 @@ calc = {
 }
 
 # find all the model names and derive the locations
-if os.path.exists(cfg['file']['model_root']): 
-    model_names = [i for i in os.walk(cfg['file']['model_root'])][0][1]
-else: 
-    print('  no models in {}\n  may need to create ~/.sdf.conf'.format(cfg['file']['model_root']))
+model_root = Path(cfg['file']['model_root'])
+if model_root.is_dir():
+    model_names = sorted(path.name for path in model_root.iterdir()
+                         if path.is_dir())
+else:
     model_names = []
 
 model_loc = {}
-for name in model_names: 
-    model_loc[name] = file['model_root']+name+'/'
+for name in model_names:
+    model_loc[name] = _directory(name, model_root)
 
 # classify each model
 star_names = cfg['models']['star'].split(',')

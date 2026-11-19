@@ -1,0 +1,34 @@
+# Optional local configuration for sdf.
+#
+# Copy this file to sdf.toml in the working directory, or to
+# ~/.config/sdf/config.toml. SDF_CONFIG=/absolute/path/to/sdf.toml selects one
+# file explicitly. Relative paths are resolved from this file's directory.
+
+[models]
+# A full model library is normally stored outside the Git checkout. Omit this
+# setting to use the small model set bundled with the Python package.
+root = "../data/models"
+
+# Model roles are inferred from these substrings. The defaults cover the model
+# names distributed and used by sdf; uncomment only for custom model names.
+# stellar_patterns = ["phoenix", "kurucz", "koester", "star"]
+# disk_patterns = ["disk", "amsil"]
+# radial_disk_patterns = ["_r"]
+
+[fitting]
+# These are the active process-wide fitting defaults. Per-system model choices
+# belong in the web UI or package-local sdf-fit.yml, not in this file.
+evidence_threshold = 5.0
+live_points = 200
+update_interval = 50000
+posterior_samples = 1000
+model_normalization = [-10.0, 10.0]
+spectrum_normalization = [0.3, 3.0]
+excluded_filters = []
+upper_limit_filters = ["GALFUV", "GALNUV"]
+verbose = false
+
+# Only old rawphot files that name spectra relative to a common directory need
+# this table. Modern exported packages use a spectra manifest instead.
+# [paths]
+# spectra = "/path/to/spectra"

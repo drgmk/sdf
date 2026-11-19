@@ -17,6 +17,16 @@ python -m pip install .
 The historical `sdf.yml` environment remains in the repository as a reference,
 but development installations use normal `pip` packaging.
 
+## Configure
+
+Configuration is optional when the bundled models are sufficient. For a full
+model library, copy `sdf.example.toml` to `sdf.toml` and set its
+`[models].root`. SDF also discovers `~/.config/sdf/config.toml`, or accepts an
+explicit path through `SDF_CONFIG`. Relative paths are resolved from the TOML
+file. See [the configuration guide](docs/config.rst) for the small set of
+process-wide fitting controls; per-system model choices remain with the fit
+package or web UI.
+
 To build the documentation, install the optional documentation dependencies:
 
 ```shell
